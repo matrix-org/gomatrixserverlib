@@ -18,55 +18,60 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 }
 
 // SortJSON reencodes the JSON with the object keys sorted by lexicographically
-// by codepoint.
+// by codepoint. The input must be valid JSON.
 func SortJSON(input, output []byte) ([]byte, error) {
 	// Skip to the first character that isn't whitespace.
-	var i int
-	firstChar := input[i]
-	for firstChar <= ' ' {
-		firstChar = input[i]
-		i++
-	}
-	if firstChar == '[' {
-		return sortJSONArray(input, output)
-	}
-	if firstChar == '{' {
-		return sortJSONObject(input, output)
-	}
-	return append(output, input...), nil
-}
-
-func sortJSONArray(input, output []byte) ([]byte, error) {
-	var err error
-	var array []json.RawMessage
-	if err = json.Unmarshal(input, &array); err != nil {
+	var decoded interface{}
+	if err := json.Unmarshal(input, &decoded); err != nil {
 		return nil, err
 	}
+	return sortJSONValue(decoded, output)
+}
+
+func sortJSONValue(input interface{}, output []byte) ([]byte, error) {
+	switch value := input.(type) {
+	case []interface{}:
+		// If the JSON is an array then we need to sort the keys of its children.
+		return sortJSONArray(value, output)
+	case map[string]interface{}:
+		// If the JSON is an object then we need to sort its keys and the keys of its children.
+		return sortJSONObject(value, output)
+	default:
+		// Otherwise the JSON is a value and can be encoded without any further sorting.
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		return append(output, bytes...), nil
+	}
+}
+
+func sortJSONArray(input []interface{}, output []byte) ([]byte, error) {
+	var err error
 	sep := byte('[')
-	for _, value := range array {
+	for _, value := range input {
 		output = append(output, sep)
 		sep = ','
-		if output, err = SortJSON(value, output); err != nil {
+		if output, err = sortJSONValue(value, output); err != nil {
 			return nil, err
 		}
 	}
 	if sep == '[' {
+		// If sep is still '[' then the array was empty and we never wrote the
+		// initial '[', so we write it now along with the closing ']'.
 		output = append(output, '[', ']')
 	} else {
+		// Otherwise we end the array by writing a single ']'
 		output = append(output, ']')
 	}
 	return output, nil
 }
 
-func sortJSONObject(input, output []byte) ([]byte, error) {
+func sortJSONObject(input map[string]interface{}, output []byte) ([]byte, error) {
 	var err error
-	var object map[string]json.RawMessage
-	if err = json.Unmarshal(input, &object); err != nil {
-		return nil, err
-	}
-	keys := make([]string, len(object))
+	keys := make([]string, len(input))
 	var j int
-	for key := range object {
+	for key := range input {
 		keys[j] = key
 		j++
 	}
@@ -81,13 +86,16 @@ func sortJSONObject(input, output []byte) ([]byte, error) {
 		}
 		output = append(output, encoded...)
 		output = append(output, ':')
-		if output, err = SortJSON(object[key], output); err != nil {
+		if output, err = sortJSONValue(input[key], output); err != nil {
 			return nil, err
 		}
 	}
 	if sep == '{' {
+		// If sep is still '{' then the object was empty and we never wrote the
+		// initial '{', so we write it now along with the closing '}'.
 		output = append(output, '{', '}')
 	} else {
+		// Otherwise we end the object by writing a single '}'
 		output = append(output, '}')
 	}
 	return output, nil
@@ -101,6 +109,7 @@ func CompactJSON(input, output []byte) []byte {
 		c := input[i]
 		i++
 		if c <= ' ' {
+			// Skip over whitespace.
 			continue
 		}
 		output = append(output, c)
