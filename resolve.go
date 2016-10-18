@@ -49,10 +49,10 @@ func LookupServer(serverName string) (*DNSResult, error) {
 	var result DNSResult
 	result.Hosts = map[string]HostResult{}
 
-	var err error
 	hosts := map[string][]net.SRV{}
 	if strings.Index(serverName, ":") == -1 {
 		// If there isn't an explicit port set then try to look up the SRV record.
+		var err error
 		result.SRVCName, result.SRVRecords, err = net.LookupSRV("matrix", "tcp", serverName)
 		result.SRVError = dnsError(err)
 
@@ -68,7 +68,6 @@ func LookupServer(serverName string) (*DNSResult, error) {
 					Target: serverName,
 					Port:   8448,
 				}}
-				err = nil
 			}
 		} else {
 			// Group the SRV records by target host.
@@ -79,8 +78,7 @@ func LookupServer(serverName string) (*DNSResult, error) {
 	} else {
 		// There is a explicit port set in the server name.
 		// We don't need to look up any SRV records.
-		var host, portStr string
-		host, portStr, err = net.SplitHostPort(serverName)
+		host, portStr, err := net.SplitHostPort(serverName)
 		if err != nil {
 			return nil, err
 		}
