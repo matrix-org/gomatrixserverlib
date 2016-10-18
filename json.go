@@ -9,6 +9,7 @@ import (
 
 // CanonicalJSON re-encodes the JSON in a cannonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
+// https://matrix.org/docs/spec/server_server/unstable.html#canonical-json
 func CanonicalJSON(input []byte) ([]byte, error) {
 	sorted, err := SortJSON(input, make([]byte, 0, len(input)))
 	if err != nil {
