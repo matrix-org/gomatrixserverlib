@@ -21,8 +21,7 @@ func (b64 *Base64String) UnmarshalJSON(raw []byte) (err error) {
 	// We could add a fast path that used base64.RawStdEncoding.Decode
 	// directly on the raw JSON if the JSON didn't contain any escapes.
 	var str string
-	err = json.Unmarshal(raw, &str)
-	if err != nil {
+	if err = json.Unmarshal(raw, &str); err != nil {
 		return
 	}
 	*b64, err = base64.RawStdEncoding.DecodeString(str)
