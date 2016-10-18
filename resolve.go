@@ -19,7 +19,7 @@ type DNSResult struct {
 	SRVRecords []*net.SRV            // List of SRV record for the matrix server.
 	SRVError   *DNSError             // If there was an error getting the SRV records.
 	Hosts      map[string]HostResult // The results of looking up the SRV record targets.
-	Addrs      []string              // List of "<ip>:<port>" strings that the server is listening on.
+	Addrs      []string              // List of "<ip>:<port>" strings that the server is listening on. These strings can be passed to `net.Dial()`.
 }
 
 // A DNSError describes an error that occurred when trying to look up a matrix server in DNS.
