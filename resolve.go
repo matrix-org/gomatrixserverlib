@@ -8,40 +8,18 @@ import (
 
 // A HostResult is the result of looking up the IP addresses for a host.
 type HostResult struct {
-	CName string    // The canonical name for the host.
-	Addrs []string  // The IP addresses for the host.
-	Error *DNSError // If there was an error getting the IP addresses.
+	CName string   // The canonical name for the host.
+	Addrs []string // The IP addresses for the host.
+	Error error    // If there was an error getting the IP addresses.
 }
 
 // A DNSResult is the result of looking up a matrix server in DNS.
 type DNSResult struct {
 	SRVCName   string                // The canonical name for the SRV record in DNS
 	SRVRecords []*net.SRV            // List of SRV record for the matrix server.
-	SRVError   *DNSError             // If there was an error getting the SRV records.
+	SRVError   error                 // If there was an error getting the SRV records.
 	Hosts      map[string]HostResult // The results of looking up the SRV record targets.
 	Addrs      []string              // List of "<ip>:<port>" strings that the server is listening on. These strings can be passed to `net.Dial()`.
-}
-
-// A DNSError describes an error that occurred when trying to look up a matrix server in DNS.
-type DNSError struct {
-	Error     string // The string description of the error.
-	Temporary *bool  // Whether the error is temporary.
-	Timeout   *bool  // Whether the error was a timeout.
-}
-
-func dnsError(err error) (result *DNSError) {
-	if err == nil {
-		return
-	}
-	result = &DNSError{}
-	result.Error = err.Error()
-	if neterr, ok := err.(net.Error); ok {
-		temporary := neterr.Temporary()
-		timeout := neterr.Timeout()
-		result.Temporary = &temporary
-		result.Timeout = &timeout
-	}
-	return
 }
 
 // LookupServer looks up a matrix server in DNS.
@@ -54,7 +32,7 @@ func LookupServer(serverName string) (*DNSResult, error) {
 		// If there isn't an explicit port set then try to look up the SRV record.
 		var err error
 		result.SRVCName, result.SRVRecords, err = net.LookupSRV("matrix", "tcp", serverName)
-		result.SRVError = dnsError(err)
+		result.SRVError = err
 
 		if err != nil {
 			if dnserr, ok := err.(*net.DNSError); ok {
@@ -94,17 +72,13 @@ func LookupServer(serverName string) (*DNSResult, error) {
 	}
 	// Look up the IP addresses for each host.
 	for host, records := range hosts {
-		cname, err := net.LookupCNAME(host)
-		if err != nil {
-			result.Hosts[host] = HostResult{
-				Error: dnsError(err),
-			}
-		}
+		// Ignore any DNS errors when looking up the CNAME. We only are interested in it for debugging.
+		cname, _ := net.LookupCNAME(host)
 		addrs, err := net.LookupHost(host)
 		result.Hosts[host] = HostResult{
 			CName: cname,
 			Addrs: addrs,
-			Error: dnsError(err),
+			Error: err,
 		}
 		// For each SRV record, for each IP address add a "<ip>:<port>" entry to the list of addresses.
 		for _, record := range records {
