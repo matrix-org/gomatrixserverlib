@@ -32,7 +32,7 @@ type ServerKeys struct {
 
 // FetchKeysDirect fetches the matrix keys directly from the given address.
 // Optionally sets a SNI header if ``sni`` is not empty.
-// Returns the server keys and the state of the TLS connection used to retrive them.
+// Returns the server keys and the state of the TLS connection used to retrieve them.
 func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.ConnectionState, error) {
 	// Create a TLS connection.
 	tcpconn, err := net.Dial("tcp", addr)
@@ -75,19 +75,19 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 
 // KeyChecks are the checks that should be applied to ServerKey responses.
 type KeyChecks struct {
-	AllChecksOK               bool // Did all the checks pass?
-	MatchingServerName        bool // Does the server name match what was requested.
-	FutureValidUntilTS        bool // The valid until TS is in the future.
-	HasEd25519VerifyKey       bool // The key response has a E25519 key for the server.
-	ValidEd25519VerifyKey     bool // The verify keys are value.
-	MatchingEd25519Signature  bool // Every verify key claimed has a valid signature.
-	HasTLSFingerprint         bool // The response includes a TLS fingerprint.
-	ValidSHA256TLSFingerprint bool // Every TLS fingerprint includes a SHA-256 hash.
-	MatchingTLSFingerprint    bool // The TLS fingerprint for the connection matches one of the listed fingerprints.
+	AllChecksOK               bool  // Did all the checks pass?
+	MatchingServerName        bool  // Does the server name match what was requested.
+	FutureValidUntilTS        bool  // The valid until TS is in the future.
+	HasEd25519VerifyKey       bool  // The key response has a E25519 key for the server.
+	ValidEd25519VerifyKey     bool  // The verify keys are value.
+	MatchingEd25519Signature  bool  // Every verify key claimed has a valid signature.
+	HasTLSFingerprint         bool  // The response includes a TLS fingerprint.
+	ValidSHA256TLSFingerprint bool  // Every TLS fingerprint includes a SHA-256 hash.
+	MatchingTLSFingerprint    *bool // The TLS fingerprint for the connection matches one of the listed fingerprints.
 }
 
 // CheckKeys checks the keys returned from a server to make sure they are valid.
-// If the checks pass the also returns a map of key_id to Ed25519 public key and a list of SHA256 TLS fingerprints.
+// If the checks pass then also return a map of key_id to Ed25519 public key and a list of SHA256 TLS fingerprints.
 func CheckKeys(serverName string, timeNowMs uint64, keys ServerKeys, connState *tls.ConnectionState) (
 	checks KeyChecks, ed25519Keys map[string]Base64String, sha256Fingerprints []Base64String,
 ) {
@@ -98,22 +98,21 @@ func CheckKeys(serverName string, timeNowMs uint64, keys ServerKeys, connState *
 
 	checks.FutureValidUntilTS = timeNowMs < keys.ValidUntilTS
 
-	if connState == nil {
-		// No TLS connection state so skip the fingerprint checks.
-		checks.MatchingTLSFingerprint = true
-	} else {
-		// Check the peer certificates.
-		checks.MatchingTLSFingerprint = checkFingerprint(connState, sha256Fingerprints)
-	}
-
 	checks.AllChecksOK = (checks.MatchingServerName &&
 		checks.FutureValidUntilTS &&
 		checks.HasEd25519VerifyKey &&
 		checks.ValidEd25519VerifyKey &&
 		checks.MatchingEd25519Signature &&
 		checks.HasTLSFingerprint &&
-		checks.ValidSHA256TLSFingerprint &&
-		checks.MatchingTLSFingerprint)
+		checks.ValidSHA256TLSFingerprint)
+
+	// Only check the fingerprint if we have the TLS connection state.
+	if connState != nil {
+		// Check the peer certificates.
+		matches := checkFingerprint(connState, sha256Fingerprints)
+		checks.MatchingTLSFingerprint = &matches
+		checks.AllChecksOK = checks.AllChecksOK && matches
+	}
 
 	if !checks.AllChecksOK {
 		sha256Fingerprints = nil
