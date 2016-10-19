@@ -15,7 +15,7 @@ import (
 // ServerKeys are the ed25519 signing keys published by a matrix server.
 // Contains SHA256 fingerprints of the TLS X509 certificates used by the server.
 type ServerKeys struct {
-	Raw             []byte     `json:-`             // Copy of the raw JSON for signature checking.
+	Raw             []byte     `json:"-"`           // Copy of the raw JSON for signature checking.
 	ServerName      string     `json:"server_name"` // The name of the server.
 	TLSFingerprints []struct { // List of SHA256 fingerprints of X509 certificates.
 		SHA256 Base64String `json:"sha256"`
