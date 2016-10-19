@@ -59,10 +59,12 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 
 	// Read the 200 OK from the server.
 	response, err := http.ReadResponse(bufio.NewReader(tlsconn), request)
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	defer response.Body.Close()
 	var keys ServerKeys
 	if keys.Raw, err = ioutil.ReadAll(response.Body); err != nil {
 		return nil, nil, err
