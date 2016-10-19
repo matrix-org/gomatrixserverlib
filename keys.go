@@ -79,10 +79,10 @@ type KeyChecks struct {
 	MatchingServerName        bool  // Does the server name match what was requested.
 	FutureValidUntilTS        bool  // The valid until TS is in the future.
 	HasEd25519VerifyKey       bool  // The key response has a ED25519 key for the server.
-	ValidEd25519VerifyKey     bool  // The verify keys are valid ED25519 keys.
-	MatchingEd25519Signature  bool  // Every verify key claimed has a valid signature.
+	ValidEd25519VerifyKey     *bool // The verify keys are valid ED25519 keys.
+	MatchingEd25519Signature  *bool // Every verify key claimed has a valid signature.
 	HasTLSFingerprint         bool  // The response includes a TLS fingerprint.
-	ValidSHA256TLSFingerprint bool  // Every TLS fingerprint includes a SHA-256 hash.
+	ValidSHA256TLSFingerprint *bool // Every TLS fingerprint includes a SHA-256 hash.
 	MatchingTLSFingerprint    *bool // The TLS fingerprint for the connection matches one of the listed fingerprints.
 }
 
@@ -101,10 +101,10 @@ func CheckKeys(serverName string, timeNowMs uint64, keys ServerKeys, connState *
 	checks.AllChecksOK = (checks.MatchingServerName &&
 		checks.FutureValidUntilTS &&
 		checks.HasEd25519VerifyKey &&
-		checks.ValidEd25519VerifyKey &&
-		checks.MatchingEd25519Signature &&
+		*checks.ValidEd25519VerifyKey &&
+		*checks.MatchingEd25519Signature &&
 		checks.HasTLSFingerprint &&
-		checks.ValidSHA256TLSFingerprint)
+		*checks.ValidSHA256TLSFingerprint)
 
 	// Only check the fingerprint if we have the TLS connection state.
 	if connState != nil {
@@ -136,22 +136,24 @@ func checkFingerprint(connState *tls.ConnectionState, sha256Fingerprints []Base6
 }
 
 func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[string]Base64String {
-	checks.ValidEd25519VerifyKey = true
-	checks.MatchingEd25519Signature = true
+	validEd25519VerifyKey := true
+	matchingEd25519Signature := true
 	verifyKeys := map[string]Base64String{}
 	for keyID, keyData := range keys.VerifyKeys {
 		algorithm := strings.SplitN(keyID, ":", 2)[0]
 		publicKey := keyData.Key
 		if algorithm == "ed25519" {
 			if len(publicKey) != 32 {
-				checks.ValidEd25519VerifyKey = false
+				validEd25519VerifyKey = false
 				continue
 			}
 			if err := VerifyJSON(keys.ServerName, keyID, []byte(publicKey), keys.Raw); err != nil {
-				checks.MatchingEd25519Signature = false
+				matchingEd25519Signature = false
 				continue
 			}
 			checks.HasEd25519VerifyKey = true
+			checks.ValidEd25519VerifyKey = &validEd25519VerifyKey
+			checks.MatchingEd25519Signature = &matchingEd25519Signature
 			verifyKeys[keyID] = publicKey
 		}
 	}
@@ -160,13 +162,14 @@ func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[string]Base64String
 
 func checkTLSFingerprints(keys ServerKeys, checks *KeyChecks) []Base64String {
 	var fingerprints []Base64String
-	checks.ValidSHA256TLSFingerprint = true
+	validSHA256TLSFingerprint := true
 	for _, fingerprint := range keys.TLSFingerprints {
 		if len(fingerprint.SHA256) != sha256.Size {
-			checks.ValidSHA256TLSFingerprint = false
+			validSHA256TLSFingerprint = false
 			continue
 		}
 		checks.HasTLSFingerprint = true
+		checks.ValidSHA256TLSFingerprint = &validSHA256TLSFingerprint
 		fingerprints = append(fingerprints, fingerprint.SHA256)
 	}
 	return fingerprints
