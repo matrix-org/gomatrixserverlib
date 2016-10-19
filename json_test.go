@@ -9,8 +9,9 @@ func testSortJSON(t *testing.T, input, want string) {
 	if err != nil {
 		t.Error(err)
 	}
-	if string(got) != want {
-		t.Errorf("CompactJSON(%q): want %q got %q", input, want, got)
+	// Squash out the whitespace before comparing the JSON in case SortJSON had inserted whitespace.
+	if string(CompactJSON(got, nil)) != want {
+		t.Errorf("SortJSON(%q): want %q got %q", input, want, got)
 	}
 }
 
