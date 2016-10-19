@@ -41,8 +41,7 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 	}
 	defer tcpconn.Close()
 	tlsconn := tls.Client(tcpconn, &tls.Config{ServerName: sni})
-	err = tlsconn.Handshake()
-	if err != nil {
+	if err = tlsconn.Handshake(); err != nil {
 		return nil, nil, err
 	}
 	connectionState := tlsconn.ConnectionState()
@@ -63,6 +62,7 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 	if err != nil {
 		return nil, nil, err
 	}
+	defer response.Body.Close()
 	var keys ServerKeys
 	if keys.Raw, err = ioutil.ReadAll(response.Body); err != nil {
 		return nil, nil, err
