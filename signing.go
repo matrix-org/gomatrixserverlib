@@ -7,6 +7,7 @@ import (
 )
 
 // SignJSON signs a JSON object returning a copy signed with the given key.
+// https://matrix.org/docs/spec/server_server/unstable.html#signing-json
 func SignJSON(entityName, keyID string, privateKey ed25519.PrivateKey, message []byte) ([]byte, error) {
 	var object map[string]*json.RawMessage
 	var signatures map[string]map[string]Base64String
