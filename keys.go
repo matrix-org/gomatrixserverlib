@@ -78,8 +78,8 @@ type KeyChecks struct {
 	AllChecksOK               bool  // Did all the checks pass?
 	MatchingServerName        bool  // Does the server name match what was requested.
 	FutureValidUntilTS        bool  // The valid until TS is in the future.
-	HasEd25519VerifyKey       bool  // The key response has a E25519 key for the server.
-	ValidEd25519VerifyKey     bool  // The verify keys are value.
+	HasEd25519VerifyKey       bool  // The key response has a ED25519 key for the server.
+	ValidEd25519VerifyKey     bool  // The verify keys are valid ED25519 keys.
 	MatchingEd25519Signature  bool  // Every verify key claimed has a valid signature.
 	HasTLSFingerprint         bool  // The response includes a TLS fingerprint.
 	ValidSHA256TLSFingerprint bool  // Every TLS fingerprint includes a SHA-256 hash.
