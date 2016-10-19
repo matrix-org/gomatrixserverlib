@@ -2,6 +2,7 @@ package matrixfederation
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"golang.org/x/crypto/ed25519"
 	"testing"
@@ -28,6 +29,63 @@ func TestSignJSON(t *testing.T) {
 		t.Errorf("VerifyJSON(%q)", signed)
 		t.Fatal(err)
 	}
+}
+
+func IsJSONEqual(a, b []byte) bool {
+	canonicalA, err := CanonicalJSON(a)
+	if err != nil {
+		panic(err)
+	}
+	canonicalB, err := CanonicalJSON(b)
+	if err != nil {
+		panic(err)
+	}
+	return string(canonicalA) == string(canonicalB)
+}
+
+func TestSignJSONTestVectors(t *testing.T) {
+	// Check JSON signing using the test vectors from https://matrix.org/docs/spec/appendices.html
+	seed, err := base64.RawStdEncoding.DecodeString("YJDBA9Xnr2sVqXD9Vj7XVUnmFZcZrlw8Md7kMW+3XA1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	random := bytes.NewBuffer(seed)
+	entityName := "domain"
+	keyID := "ed25519:1"
+
+	_, privateKey, err := ed25519.GenerateKey(random)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testSign := func(input string, want string) {
+		signed, err := SignJSON(entityName, keyID, privateKey, []byte(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !IsJSONEqual([]byte(want), signed) {
+			t.Fatalf("VerifyJSON(%q): want %v got %v", input, want, string(signed))
+		}
+	}
+
+	testSign(`{}`, `{
+		"signatures":{
+			"domain":{
+				"ed25519:1":"K8280/U9SSy9IVtjBuVeLr+HpOB4BQFWbg+UZaADMtTdGYI7Geitb76LTrr5QV/7Xg4ahLwYGYZzuHGZKM5ZAQ"
+			}
+		}
+	}`)
+
+	testSign(`{"one":1,"two":"Two"}`, `{
+		"one": 1,
+		"signatures": {
+			"domain": {
+				"ed25519:1": "KqmLSbO39/Bzb0QIYE82zqLwsA+PDzYIpIRA2sRQ4sL53+sN6/fpNSoqE7BP7vBZhG6kYdD13EIMJpvhJI+6Bw"
+			}
+		},
+		"two": "Two"
+	}`)
 }
 
 type MyMessage struct {
