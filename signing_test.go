@@ -53,7 +53,14 @@ func TestVerifyJSON(t *testing.T) {
 			}
 		}
 	}`)
-
+	testVerifyNotOK("the signature is modified", `{
+		"a new key": "a new value",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "modifiedSSy9IVtjBuVeLr+HpOB4BQFWbg+UZaADMtTdGYI7Geitb76LTrr5QV/7Xg4ahLwYGYZzuHGZKM5ZAQ"
+			}
+		}
+	}`)
 	testVerifyNotOK("there are no signatures", `{}`)
 	testVerifyNotOK("there are no signatures", `{"signatures": {}}`)
 
