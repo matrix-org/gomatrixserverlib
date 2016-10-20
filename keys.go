@@ -40,7 +40,10 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 		return nil, nil, err
 	}
 	defer tcpconn.Close()
-	tlsconn := tls.Client(tcpconn, &tls.Config{ServerName: sni})
+	tlsconn := tls.Client(tcpconn, &tls.Config{
+		ServerName:         sni,
+		InsecureSkipVerify: true, // This must be specified even though the TLS library will ignore it.
+	})
 	if err = tlsconn.Handshake(); err != nil {
 		return nil, nil, err
 	}
@@ -179,7 +182,7 @@ func checkTLSFingerprints(keys ServerKeys, checks *KeyChecks) []Base64String {
 		checks.HasTLSFingerprint = true
 		checks.AllTLSFingerprintChecksOK = &allTLSFingerprintChecksOK
 		entry := TLSFingerprintChecks{
-			ValidSHA256: len(fingerprint.SHA256) != sha256.Size,
+			ValidSHA256: len(fingerprint.SHA256) == sha256.Size,
 		}
 		checks.TLSFingerprintChecks = append(checks.TLSFingerprintChecks, entry)
 		if entry.ValidSHA256 {
