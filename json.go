@@ -1,6 +1,7 @@
 package matrixfederation
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"sort"
@@ -23,7 +24,10 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 func SortJSON(input, output []byte) ([]byte, error) {
 	// Skip to the first character that isn't whitespace.
 	var decoded interface{}
-	if err := json.Unmarshal(input, &decoded); err != nil {
+
+	decoder := json.NewDecoder(bytes.NewReader(input))
+	decoder.UseNumber()
+	if err := decoder.Decode(&decoded); err != nil {
 		return nil, err
 	}
 	return sortJSONValue(decoded, output)
