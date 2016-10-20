@@ -20,6 +20,7 @@ func TestSortJSON(t *testing.T) {
 	testSortJSON(t, `{"B":{"4":4,"3":3},"A":{"1":1,"2":2}}`,
 		`{"A":{"1":1,"2":2},"B":{"3":3,"4":4}}`)
 	testSortJSON(t, `[true,false,null]`, `[true,false,null]`)
+	testSortJSON(t, `[9007199254740991]`, `[9007199254740991]`)
 }
 
 func testCompactJSON(t *testing.T, input, want string) {
