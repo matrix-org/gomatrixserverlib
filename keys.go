@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // ServerKeys are the ed25519 signing keys published by a matrix server.
@@ -23,7 +24,7 @@ type ServerKeys struct {
 	VerifyKeys map[string]struct { // The current signing keys in use on this server.
 		Key Base64String `json:"key"` // The public key.
 	} `json:"verify_keys"`
-	ValidUntilTS  uint64              `json:"valid_until_ts"` // When this result is valid until in milliseconds.
+	ValidUntilTS  int64               `json:"valid_until_ts"` // When this result is valid until in milliseconds.
 	OldVerifyKeys map[string]struct { // Old keys that are now only valid for checking historic events.
 		Key       Base64String `json:"key"`        // The public key.
 		ExpiredTS uint64       `json:"expired_ts"` // When this key stopped being valid for event signing.
@@ -105,11 +106,11 @@ type KeyChecks struct {
 
 // CheckKeys checks the keys returned from a server to make sure they are valid.
 // If the checks pass then also return a map of key_id to Ed25519 public key and a list of SHA256 TLS fingerprints.
-func CheckKeys(serverName string, timeNowMs uint64, keys ServerKeys, connState *tls.ConnectionState) (
+func CheckKeys(serverName string, now time.Time, keys ServerKeys, connState *tls.ConnectionState) (
 	checks KeyChecks, ed25519Keys map[string]Base64String, sha256Fingerprints []Base64String,
 ) {
 	checks.MatchingServerName = serverName == keys.ServerName
-	checks.FutureValidUntilTS = timeNowMs < keys.ValidUntilTS
+	checks.FutureValidUntilTS = now.UnixNano() < keys.ValidUntilTS*1000000
 	checks.AllChecksOK = checks.MatchingServerName && checks.FutureValidUntilTS
 
 	ed25519Keys = checkVerifyKeys(keys, &checks)
