@@ -79,9 +79,9 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 	return &keys, &connectionState, nil
 }
 
-// Ed25519Checks are the checks that are applied to ED25519 keys in ServerKey responses.
-type Ed25519Checks struct {
-	ValidEd25519      bool // The verify key is valid ED25519 keys.
+// ED25519Checks are the checks that are applied to ED25519 keys in ServerKey responses.
+type ED25519Checks struct {
+	ValidED25519      bool // The verify key is valid ED25519 keys.
 	MatchingSignature bool // The verify key has a valid signature.
 }
 
@@ -95,9 +95,9 @@ type KeyChecks struct {
 	AllChecksOK               bool                     // Did all the checks pass?
 	MatchingServerName        bool                     // Does the server name match what was requested.
 	FutureValidUntilTS        bool                     // The valid until TS is in the future.
-	HasEd25519Key             bool                     // The server has at least one ed25519 key.
-	AllEd25519ChecksOK        *bool                    // All the Ed25519 checks are ok. or null if there weren't any to check.
-	Ed25519Checks             map[string]Ed25519Checks // Checks for ED25519 keys.
+	HasED25519Key             bool                     // The server has at least one ed25519 key.
+	AllED25519ChecksOK        *bool                    // All the ED25519 checks are ok. or null if there weren't any to check.
+	ED25519Checks             map[string]ED25519Checks // Checks for ED25519 keys.
 	HasTLSFingerprint         bool                     // The server has at least one fingerprint.
 	AllTLSFingerprintChecksOK *bool                    // All the fingerpint checks are ok.
 	TLSFingerprintChecks      []TLSFingerprintChecks   // Checks for TLS fingerprints.
@@ -105,7 +105,7 @@ type KeyChecks struct {
 }
 
 // CheckKeys checks the keys returned from a server to make sure they are valid.
-// If the checks pass then also return a map of key_id to Ed25519 public key and a list of SHA256 TLS fingerprints.
+// If the checks pass then also return a map of key_id to ED25519 public key and a list of SHA256 TLS fingerprints.
 func CheckKeys(serverName string, now time.Time, keys ServerKeys, connState *tls.ConnectionState) (
 	checks KeyChecks, ed25519Keys map[string]Base64String, sha256Fingerprints []Base64String,
 ) {
@@ -146,32 +146,32 @@ func checkFingerprint(connState *tls.ConnectionState, sha256Fingerprints []Base6
 }
 
 func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[string]Base64String {
-	allEd25519ChecksOK := true
-	checks.Ed25519Checks = map[string]Ed25519Checks{}
+	allED25519ChecksOK := true
+	checks.ED25519Checks = map[string]ED25519Checks{}
 	verifyKeys := map[string]Base64String{}
 	for keyID, keyData := range keys.VerifyKeys {
 		algorithm := strings.SplitN(keyID, ":", 2)[0]
 		publicKey := keyData.Key
 		if algorithm == "ed25519" {
-			checks.HasEd25519Key = true
-			checks.AllEd25519ChecksOK = &allEd25519ChecksOK
-			entry := Ed25519Checks{
-				ValidEd25519: len(publicKey) == 32,
+			checks.HasED25519Key = true
+			checks.AllED25519ChecksOK = &allED25519ChecksOK
+			entry := ED25519Checks{
+				ValidED25519: len(publicKey) == 32,
 			}
-			if entry.ValidEd25519 {
+			if entry.ValidED25519 {
 				err := VerifyJSON(keys.ServerName, keyID, []byte(publicKey), keys.Raw)
 				entry.MatchingSignature = err == nil
 			}
-			checks.Ed25519Checks[keyID] = entry
+			checks.ED25519Checks[keyID] = entry
 			if entry.MatchingSignature {
 				verifyKeys[keyID] = publicKey
 			} else {
-				allEd25519ChecksOK = false
+				allED25519ChecksOK = false
 			}
 		}
 	}
 	if checks.AllChecksOK {
-		checks.AllChecksOK = checks.HasEd25519Key && allEd25519ChecksOK
+		checks.AllChecksOK = checks.HasED25519Key && allED25519ChecksOK
 	}
 	return verifyKeys
 }
