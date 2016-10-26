@@ -79,9 +79,9 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 	return &keys, &connectionState, nil
 }
 
-// Ed25519Checks are the checks that are applied to ED25519 keys in ServerKey responses.
+// Ed25519Checks are the checks that are applied to Ed25519 keys in ServerKey responses.
 type Ed25519Checks struct {
-	ValidEd25519      bool // The verify key is valid ED25519 keys.
+	ValidEd25519      bool // The verify key is valid Ed25519 keys.
 	MatchingSignature bool // The verify key has a valid signature.
 }
 
@@ -97,7 +97,7 @@ type KeyChecks struct {
 	FutureValidUntilTS        bool                     // The valid until TS is in the future.
 	HasEd25519Key             bool                     // The server has at least one ed25519 key.
 	AllEd25519ChecksOK        *bool                    // All the Ed25519 checks are ok. or null if there weren't any to check.
-	Ed25519Checks             map[string]Ed25519Checks // Checks for ED25519 keys.
+	Ed25519Checks             map[string]Ed25519Checks // Checks for Ed25519 keys.
 	HasTLSFingerprint         bool                     // The server has at least one fingerprint.
 	AllTLSFingerprintChecksOK *bool                    // All the fingerpint checks are ok.
 	TLSFingerprintChecks      []TLSFingerprintChecks   // Checks for TLS fingerprints.
