@@ -38,7 +38,9 @@ func NewClient() *Client {
 				}
 				// Wrap a raw connection ourselves since tls.Dial defaults the SNI
 				conn := tls.Client(rawconn, &tls.Config{
-					ServerName:         "",
+					ServerName: "",
+					// TODO: We should be checking that the TLS certificate we see here matches
+					//       one of the allowed SHA-256 fingerprints for the server.
 					InsecureSkipVerify: true,
 				})
 				if err := conn.Handshake(); err != nil {
@@ -72,7 +74,6 @@ func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	var resp *http.Response
-	err = fmt.Errorf("no address found for matrix host %v", host)
 	for _, addr := range dnsResult.Addrs {
 		u := makeHTTPSURL(r.URL, addr)
 		r.URL = &u
@@ -81,7 +82,7 @@ func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 			return resp, nil
 		}
 	}
-	return nil, err
+	return nil, fmt.Errorf("no address found for matrix host %v", host)
 }
 
 // LookupUserInfo gets information about a user from a given matrix homeserver
