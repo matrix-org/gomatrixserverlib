@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"golang.org/x/crypto/ed25519"
 	"testing"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 func TestVerifyJSON(t *testing.T) {
@@ -189,8 +190,8 @@ func TestSignJSONWithUnsigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := json.Unmarshal(signed, &message); err != nil {
-		t.Fatal(err)
+	if err2 := json.Unmarshal(signed, &message); err2 != nil {
+		t.Fatal(err2)
 	}
 	newUnsigned := json.RawMessage(`{"different":"data"}`)
 	message.Unsigned = &newUnsigned
