@@ -5,5 +5,5 @@ set -eu
 golint
 go fmt
 go tool vet --shadow .
-gocyclo -over 12 .
+gocyclo -over 30 .
 go test
