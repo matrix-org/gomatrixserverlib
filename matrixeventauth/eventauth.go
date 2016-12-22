@@ -110,10 +110,10 @@ func Allowed(event Event, authEvents AuthEvents) error {
 		return aliasAllowed(event, authEvents)
 	case "m.room.member":
 		return memberAllowed(event, authEvents)
-	case "m.room.thirdpartyinvite":
-		return thirdPartyInviteAllowed(event, authEvents)
 	case "m.room.power_levels":
 		return powerLevelsAllowed(event, authEvents)
+	case "m.room.redact":
+		return redactAllowed(event, authEvents)
 	default:
 		return eventAllowed(event, authEvents)
 	}
@@ -346,7 +346,7 @@ func (m *membershipAllower) membershipFailed() error {
 	)
 }
 
-func thirdPartyInviteAllowed(event Event, authEvents AuthEvents) error {
+func powerLevelAllowed(event Event, authEvents AuthEvents) error {
 	var create createContent
 	var member memberContent
 	var powerlevels powerLevelContent
@@ -362,20 +362,55 @@ func thirdPartyInviteAllowed(event Event, authEvents AuthEvents) error {
 	if err := create.idAllowed(event.Sender); err != nil {
 		return err
 	}
+
 	if member.Membership != join {
 		return errof("sender %q not in room", event.Sender)
 	}
 
 	senderLevel := powerLevels.userLevel(event.Sender)
-	if senderLevel < powerLevels.inviteLevel {
-		return errorf("sender %q is not allowed to invite", event.Sender)
+	eventLevel := powerLevels.eventLevel(event.Type, event.StateKey)
+	if senderLevel < eventLevel {
+		return errorf(
+			"sender %q is not allowed to invite. %d < %d",
+			event.Sender, senderLevel, eventLevel,
+		)
+	}
+
+	// Check more stuff.
+
+}
+
+func defaultEventAllowed(event Event, authEvents AuthEvents) error {
+	var create createContent
+	var member memberContent
+	var powerlevels powerLevelContent
+	if err := createContent.load(authEvents); err != nil {
+		return err
+	}
+	if err := member.load(authEvents, event.Sender); err != nil {
+		return err
+	}
+	if err := powerLevels.load(authEvents, create.Creator); err != nil {
+		return err
+	}
+	if err := create.idAllowed(event.Sender); err != nil {
+		return err
+	}
+
+	if member.Membership != join {
+		return errof("sender %q not in room", event.Sender)
+	}
+
+	senderLevel := powerLevels.userLevel(event.Sender)
+	eventLevel := powerLevels.eventLevel(event.Type, event.StateKey)
+	if senderLevel < eventLevel {
+		return errorf(
+			"sender %q is not allowed to invite. %d < %d",
+			event.Sender, senderLevel, eventLevel,
+		)
 	}
 
 	return nil
-}
-
-func powerLevelAllowed(event Event, authEvents AuthEvents) error {
-
 }
 
 // Remove duplicate items from a sorted list.
