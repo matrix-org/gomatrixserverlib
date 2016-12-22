@@ -131,10 +131,14 @@ func createAllowed(event Event, authEvents AuthEvents) error {
 	if senderDomain != roomIDDomain {
 		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
 	}
+	if len(event.PrevEvents) > 0 {
+		return errorf("create event must be the first event in the room")
+	}
 	return nil
 }
 
 func aliasAllowed(event Event, authEvents AuthEvents) error {
+	var create createContent
 	senderDomain, err := domainFromID(event.Sender)
 	if err != nil {
 		return err
@@ -156,19 +160,15 @@ func aliasAllowed(event Event, authEvents AuthEvents) error {
 }
 
 func memberAllowed(event Event, authEvents AuthEvents) error {
-	create, err := createEvent(authEvents)
-	if err != nil {
+	var create createContent
+	var newMember memberContent
+	if err := create.load(authEvents); err != nil {
 		return err
 	}
-	senderDomain, err := domainFromID(event.Sender)
-	if err != nil {
+	if err := create.idAllowed(event.Sender); err != nil {
 		return err
 	}
-	if err := create.domainAllowed(senderDomain); err != nil {
-		return err
-	}
-	newMembership, thirdPartyInvite, err := membershipContent(event)
-	if err != nil {
+	if err := newMember.parse(&event); err != nil {
 		return err
 	}
 	if event.StateKey == nil {
@@ -177,7 +177,7 @@ func memberAllowed(event Event, authEvents AuthEvents) error {
 	targetUserID := *event.StateKey
 
 	if len(event.PrevEvents) == 1 &&
-		newMembership == "join" &&
+		newMember.Membership == "join" &&
 		create.Creator == targetUserID &&
 		event.Sender == targetUserID {
 		// Special case the first join event in the room.
@@ -185,11 +185,11 @@ func memberAllowed(event Event, authEvents AuthEvents) error {
 		if len(event.PrevEvents[0]) != 2 {
 			return errorf("unparsable prev event")
 		}
-		var prevEvent string
-		if err := json.Unmarshal(PrevEvents[0][0], &prevEvent); err != nil {
+		var prevEventID string
+		if err := json.Unmarshal(PrevEvents[0][0], &prevEventID); err != nil {
 			return errorf("unparsable prev event")
 		}
-		if prevEvent == create.eventID {
+		if prevEventID == create.eventID {
 			// If this is the room creator joining the room directly after the
 			// the create event, then allow.
 			return nil
@@ -197,11 +197,7 @@ func memberAllowed(event Event, authEvents AuthEvents) error {
 		// Otherwise fall through to the usual authentication process.
 	}
 
-	targetDomain, err := domainFromID(targetUserID)
-	if err != nil {
-		return err
-	}
-	if err := create.domainAllowed(targetDomain); err != nil {
+	if err := create.idAllowed(targetUserID); err != nil {
 		return err
 	}
 
@@ -214,39 +210,42 @@ func memberAllowed(event Event, authEvents AuthEvents) error {
 	}
 
 	var m membershipAllower
-	if err = m.setup(newMembership, targetUserID, event.Sender, authEvents); err != nil {
+	if err = m.setup(&event, authEvents); err != nil {
 		return err
 	}
 	return m.membershipAllowed()
 }
 
 type membershipAllower struct {
-	targetID         string
-	senderID         string
-	senderMembership string
-	oldMembership    string
-	newMembership    string
-	joinRule         string
-	powerLevels      powerLevelEventContent
+	targetID     string
+	senderID     string
+	senderMember memberContent
+	oldMember    memberContent
+	newMember    memberContent
+	joinRule     joinRuleContent
+	create       createContent
+	powerLevels  powerLevelContent
 }
 
-func (m *membershipAllower) setup(newMembership, targetID, senderID, authEvents AuthEvents) error {
-	m.targetID = targetID
-	m.senderID = senderID
-	m.newMembership = newMembership
-	// Fetch the existing membership for the target
-	var err error
-	if m.oldMembership, err = membershipForUser(targetID, authEvents); err != nil {
+func (m *membershipAllower) setup(event *Event, authEvents AuthEvents) error {
+	m.targetID = *event.StateKey
+	m.senderID = event.Sender
+	if err := m.senderMembership.load(authEvents, m.senderID); err != nil {
 		return err
 	}
-	// Fetch the membership of the sender
-	if m.senderMembership, err = membershipForUser(senderID, authEvents); err != nil {
+	if err := m.oldMembership.load(authEvents, m.targetID); err != nil {
 		return err
 	}
-	if m.powerLevels, err = powerLevelEvent(authEvents); err != nil {
+	if err := m.newMembership.parse(event); err != nil {
 		return err
 	}
-	if m.joinRule, err = joinRuleForRoom(authEvents); err != nil {
+	if err := m.create.load(authEvents); err != nil {
+		return err
+	}
+	if err := m.powerLevels.load(authEvents, m.create.Creator); err != nil {
+		return err
+	}
+	if err := m.joinRule.load(authEvents); err != nil {
 		return err
 	}
 	return nil
@@ -259,68 +258,68 @@ func (m *membershipAllower) setup(newMembership, targetID, senderID, authEvents 
 // followed by power levels and join rules. For readability the common sender
 // and new state checks are factored into nested "if" statements.
 func (m *membershipAllower) membershipAllowed() error {
-	senderLevel := powerLevels.userLevel(m.SenderID)
-	targetLevel := powerLevels.userLevel(m.TargetID)
+	senderLevel := m.powerLevels.userLevel(m.SenderID)
+	targetLevel := m.powerLevels.userLevel(m.TargetID)
 
 	if m.targetID == m.SenderID {
-		if m.newMembership == "join" {
+		if m.newMember.Membership == "join" {
 			// A user that is not in the room is allowed to join if the room
 			// join rules are "public".
-			if m.oldMembership == "leave" && m.joinRule == "public" {
+			if m.oldMember.Membership == "leave" && m.joinRule.JoinRule == "public" {
 				return nil
 			}
 			// An invited user is allowed to join if the join rules are "public"
-			if m.oldMembership == "invite" && m.joinRule == "public" {
+			if m.oldMember.Membership == "invite" && m.joinRule.JoinRule == "public" {
 				return nil
 			}
 			// An invited user is allowed to join if the join rules are "invite"
-			if m.oldMembership == "invite" && m.joinRule == "invite" {
+			if m.oldMember.Membership == "invite" && m.joinRule.JoinRule == "invite" {
 				return nil
 			}
 			// A joined user is allowed to update their join.
-			if m.oldMembership == "join" {
+			if m.oldMember.Membership == "join" {
 				return nil
 			}
 		}
-		if m.newMembership == "leave" {
+		if m.newMember.Membership == "leave" {
 			// A joined user is allowed to leave the room.
-			if m.oldMembership == "join" {
+			if m.oldMember.Membership == "join" {
 				return nil
 			}
 			// An invited user is allowed to reject an invite.
-			if m.oldMembership == "invite" {
+			if m.oldMember.Membership == "invite" {
 				return nil
 			}
 		}
 	}
-	if m.targetID != m.SenderID && m.senderMembership == "join" {
-		if m.newMembership == "ban" {
+	if m.targetID != m.senderID && m.senderMember.Membership == "join" {
+		if m.newMember.Membership == "ban" {
 			// A user may ban another user if their level is high enough
-			if senderLevel >= powerLevels.banLevel &&
+			if senderLevel >= m.powerLevels.banLevel &&
 				senderLevel > targetLevel {
 				return nil
 			}
 		}
-		if m.newMembership == "leave" {
+		if m.newMember.Membership == "leave" {
 			// A user may unban another user if their level is high enough.
 			if m.oldMembership == "ban" && senderLevel >= powerLevels.banLevel {
 				return nil
 			}
 			// A user may kick another user if their level is high enough.
-			if m.oldMembership != "ban" &&
+			if m.oldMember.Membership != "ban" &&
 				senderLevel >= powerLevels.kickLevel &&
 				senderLevel > targetLevel {
 				return nil
 			}
 		}
-		if m.newMembership == "invite" {
+		if m.newMember.Membership == "invite" {
 			// A user may invite another user if the user has left the room.
 			// and their level is high enough.
-			if m.oldMembership == "leave" && senderLevel >= powerLevels.inviteLevel {
+			if m.oldMember.Membership == "leave" && senderLevel >= m.powerLevels.inviteLevel {
 				return nil
 			}
 			// A user may re-invite a user.
-			if m.oldMembership == "invite" && senderLevel >= powerLevels.inviteLevel {
+			if m.oldMember.Membership == "invite" && senderLevel >= m.powerLevels.inviteLevel {
 				return nil
 			}
 		}
@@ -329,131 +328,54 @@ func (m *membershipAllower) membershipAllowed() error {
 }
 
 // membershipFailed returns a error explaining why the membership change was disallowed.
-func (m membershipAllower) membershipFailed() error {
+func (m *membershipAllower) membershipFailed() error {
 	if m.senderID == m.targetID {
 		return errorf(
 			"%q is not allowed to change their membership from %q to %q",
-			m.targetID, m.oldMembership, m.newMembership,
+			m.targetID, m.oldMember.Membership, m.newMember.Membership,
 		)
 	}
 
-	if m.senderMembership != "join" {
+	if m.senderMember.Membership != "join" {
 		return errorf("sender %q is not in the room", m.senderID)
 	}
 
 	return errorf(
 		"%q is not allowed to change the membership of %q from %q to %q",
-		m.senderID, m.targetID, m.oldMembership, m.newMembership,
+		m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership,
 	)
 }
 
 func thirdPartyInviteAllowed(event Event, authEvents AuthEvents) error {
+	var create createContent
+	var member memberContent
+	var powerlevels powerLevelContent
+	if err := createContent.load(authEvents); err != nil {
+		return err
+	}
+	if err := member.load(authEvents, event.Sender); err != nil {
+		return err
+	}
+	if err := powerLevels.load(authEvents, create.Creator); err != nil {
+		return err
+	}
+	if err := create.idAllowed(event.Sender); err != nil {
+		return err
+	}
+	if member.Membership != join {
+		return errof("sender %q not in room", event.Sender)
+	}
 
+	senderLevel := powerLevels.userLevel(event.Sender)
+	if senderLevel < powerLevels.inviteLevel {
+		return errorf("sender %q is not allowed to invite", event.Sender)
+	}
+
+	return nil
 }
 
-type powerLevelEventContent struct {
-}
+func powerLevelAllowed(event Event, authEvents AuthEvents) error {
 
-func powerLevelEvent(authEvents AuthEvents) (content powerLevelEventContent, err error) {
-	panic(fmt.Errorf("Not implemented"))
-	return
-}
-
-func (p powerLevelEventContent) userLevel(userID string) int {
-	panic(fmt.Errorf("Not implemented"))
-	return 0
-}
-
-func (p powerLevelEventContent) namedLevel(name string, defaultLevel int) int {
-	panic(fmt.Errorf("Not implemented"))
-	return 0
-}
-
-func joinRuleForRoom(authEvents AuthEvents) (string, error) {
-	joinRulesEvent, err := authEvents.JoinRules()
-	if err != nil {
-		return "", err
-	}
-	if joinRulesEvent == nil {
-		// Default to "invite"
-		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L368
-		return "invite"
-	}
-	var content struct {
-		JoinRule string `json:"join_rule"`
-	}
-	if err := json.Unmarshal(joinRulesEvent.Content, &content); err != nil {
-		return errorf("unparsable join rules event content: %s", err.Error())
-	}
-	return content.JoinRule
-}
-
-func membershipForUser(authEvents AuthEvents, userID string) (string, error) {
-	memberEvent, err := authEvents.Member(userID)
-	if err != nil {
-		return "", err
-	}
-	if memberEvent == nil {
-		return "leave"
-	}
-	membership, _, err := memberContent(*memberEvent)
-	return membership, err
-}
-
-func memberContent(event Event) (membership string, thirdPartyInvite []byte, err error) {
-	var content struct {
-		Membership       string          `json:"membership"`
-		ThirdPartyInvite json.RawMessage `json:"third_party_invite"`
-	}
-	if err := json.Unmarshal(createEvent.Content, &content); err != nil {
-		return "", nil, errorf("unparsable membership event content: %s", err.Error())
-	}
-	if content.Membership == "" {
-		return "", nil, errorf("missing membership key")
-	}
-	return content.Membership, []byte(content.ThirdPartyInvite), nil
-}
-
-type createEventContent struct {
-	eventID      string `json:"-"`
-	senderDomain string `json:"-"`
-	Federate     *bool  `json:"m.federate"`
-	Creator      string `json:"creator"`
-}
-
-func createEvent(authEvents AuthEvents) (content createEventContent, err error) {
-	createEvent, err := authEvents.Create()
-	if err != nil {
-		return
-	}
-	if createEvent == nil {
-		err = errorf("missing create event")
-		return
-	}
-	if err := json.Unmarshal(createEvent.Content, &content); err != nil {
-		return errorf("unparsable create event content: %s", err.Error())
-	}
-	content.eventID = createEvent.EventID
-	content.senderDomain, err = domainFromID(createEvent.Sender)
-	return
-}
-
-func (c createEventContent) domainAllowed(domain string) error {
-	if domain == c.createDomain {
-		return nil
-	}
-	if content.Federate == nil || *content.Federate {
-		return nil
-	}
-	return errorf("room is unfederatable")
-}
-
-func domainFromID(id string) (string, error) {
-	parts := strings.SplitN(id, ":", 2)
-	if len(parts) != 2 {
-		return "", errorf("invalid ID: %q", id)
-	}
-	return parts[1], nil
 }
 
 // Remove duplicate items from a sorted list.
