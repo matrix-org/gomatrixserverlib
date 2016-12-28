@@ -181,7 +181,7 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 		newMember.Membership == "join" &&
 		create.Creator == targetUserID &&
 		event.Sender == targetUserID {
-		// Special case the first join event in the room.
+		// Special case the first join event in the room to allow the creator to join.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
 		if len(event.PrevEvents[0]) != 2 {
 			return errorf("unparsable prev event")
@@ -228,6 +228,7 @@ type membershipAllower struct {
 	powerLevels  powerLevelContent
 }
 
+// setup loads the information needed to check if a membership change is allowed.
 func (m *membershipAllower) setup(event *Event, authEvents AuthEvents) error {
 	m.targetID = *event.StateKey
 	m.senderID = event.Sender
@@ -253,13 +254,20 @@ func (m *membershipAllower) setup(event *Event, authEvents AuthEvents) error {
 }
 
 // membershipAllowed determines whether the membership change is allowed.
+// If the change is allowed it returns nil, if the change is not allowed
+// it returns an error.
 func (m *membershipAllower) membershipAllowed() error {
 	if m.targetID == m.SenderID {
+		// If the state_key and the sender are the same then this is an attempt
+		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
 	}
+	// Otherwise this is an attempt to modify the membership of somebody else.
 	return m.membershipAllowedOther()
 }
 
+// membershipAllowedSelf determines if the change made by the user to their own
+// membership is allowed.
 func (m *membershipAllower) membershipAllowedSelf() error {
 	if m.newMember.Membership == "join" {
 		// A user that is not in the room is allowed to join if the room
@@ -293,6 +301,8 @@ func (m *membershipAllower) membershipAllowedSelf() error {
 	return m.membershipFailed()
 }
 
+// membershipAllowedSelf determines if the user is allowed to change the membership
+// of another user.
 func (m *membershipAllower) membershipAllowedOther() error {
 	senderLevel := m.powerLevels.userLevel(m.SenderID)
 	targetLevel := m.powerLevels.userLevel(m.TargetID)
@@ -348,7 +358,7 @@ func (m *membershipAllower) membershipFailed() error {
 	}
 
 	return errorf(
-		"%q is not allowed to change the membership of %q from %q to %q",
+		"%q is not allowed to change the membership of %q frEventom %q to %q",
 		m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership,
 	)
 }

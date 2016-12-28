@@ -35,6 +35,7 @@ func (c *createContent) domainAllowed(domain string) error {
 		return nil
 	}
 	if content.Federate == nil || *content.Federate {
+		// The m.federate field defaults to true.
 		return nil
 	}
 	return errorf("room is unfederatable")
@@ -167,13 +168,13 @@ func (c *powerLevelContent) parse(event Event) error {
 		return errorf("unparsable power_levels event content: %s", err.Error())
 	}
 
-	content.InviteLevel.assignTo(&c.inviteLevel)
-	content.BanLevel.assignTo(&c.banLevel)
-	content.KickLevel.assignTo(&c.kickLevel)
-	content.RedactLevel.assignTo(&c.redactLevel)
-	content.UsersDefaultLevel.assignTo(&c.userDefaultLevel)
-	content.StateDefaultLevel.assignTo(&c.stateDefaultLevel)
-	content.EventDefaultLevel.assignTo(&c.eventDefaultLevel)
+	content.InviteLevel.assignIfExists(&c.inviteLevel)
+	content.BanLevel.assignIfExists(&c.banLevel)
+	content.KickLevel.assignIfExists(&c.kickLevel)
+	content.RedactLevel.assignIfExists(&c.redactLevel)
+	content.UsersDefaultLevel.assignIfExists(&c.userDefaultLevel)
+	content.StateDefaultLevel.assignIfExists(&c.stateDefaultLevel)
+	content.EventDefaultLevel.assignIfExists(&c.eventDefaultLevel)
 
 	for k, v := range content.UserLevels {
 		if c.userLevels == nil {
@@ -217,7 +218,7 @@ func (c *memberContent) parse(event *Event) {
 }
 
 type intValue struct {
-	exists int64
+	exists bool
 	value  int64
 }
 
@@ -249,7 +250,7 @@ func (v *intValue) UnmarshallJSON(data []byte) error {
 	return
 }
 
-func (v *intValue) assignTo(to *int64) {
+func (v *intValue) assignIfExists(to *int64) {
 	if v.exists {
 		*to = v.value
 	}
