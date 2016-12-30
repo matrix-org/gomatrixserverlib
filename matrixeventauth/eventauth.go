@@ -62,7 +62,9 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			result.Create = true
 			result.PowerLevels = true
 			result.JoinRules = true
-			members = append(members, event.Sender, event.StateKey)
+			if event.StateKey != nil {
+				members = append(members, event.Sender, *event.StateKey)
+			}
 			thirdpartyinvites = needsThirdpartyInvite(thirdpartyinvites, event)
 		default:
 			// All other events need the membership of the sender.
@@ -144,8 +146,7 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	if err != nil {
 		return err
 	}
-	create, err := createEvent(authEvents)
-	if err != nil {
+	if err := create.load(authEvents); err != nil {
 		return err
 	}
 	if err := create.domainAllowed(senderDomain); err != nil {
@@ -169,6 +170,9 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 	if err := create.idAllowed(event.Sender); err != nil {
 		return err
 	}
+	if create.roomID != event.RoomID {
+		return errorf("room ID must match that of the create event")
+	}
 	if err := newMember.parse(&event); err != nil {
 		return err
 	}
@@ -187,7 +191,7 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 			return errorf("unparsable prev event")
 		}
 		var prevEventID string
-		if err := json.Unmarshal(PrevEvents[0][0], &prevEventID); err != nil {
+		if err := json.Unmarshal(event.PrevEvents[0][0], &prevEventID); err != nil {
 			return errorf("unparsable prev event")
 		}
 		if prevEventID == create.eventID {
@@ -202,7 +206,7 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 		return err
 	}
 
-	if newMembership == "invite" && thirdPartyInvite != nil {
+	if newMember.Membership == "invite" && len(newMember.ThirdPartyInvite) > 0 {
 		// Special case third party invites
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
 		panic(fmt.Errorf("ThirdPartyInvite not implemented"))
@@ -211,7 +215,7 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 	}
 
 	var m membershipAllower
-	if err = m.setup(&event, authEvents); err != nil {
+	if err := m.setup(&event, authEvents); err != nil {
 		return err
 	}
 	return m.membershipAllowed()
@@ -232,13 +236,13 @@ type membershipAllower struct {
 func (m *membershipAllower) setup(event *Event, authEvents AuthEvents) error {
 	m.targetID = *event.StateKey
 	m.senderID = event.Sender
-	if err := m.senderMembership.load(authEvents, m.senderID); err != nil {
+	if err := m.senderMember.load(authEvents, m.senderID); err != nil {
 		return err
 	}
-	if err := m.oldMembership.load(authEvents, m.targetID); err != nil {
+	if err := m.oldMember.load(authEvents, m.targetID); err != nil {
 		return err
 	}
-	if err := m.newMembership.parse(event); err != nil {
+	if err := m.newMember.parse(event); err != nil {
 		return err
 	}
 	if err := m.create.load(authEvents); err != nil {
@@ -257,7 +261,7 @@ func (m *membershipAllower) setup(event *Event, authEvents AuthEvents) error {
 // If the change is allowed it returns nil, if the change is not allowed
 // it returns an error.
 func (m *membershipAllower) membershipAllowed() error {
-	if m.targetID == m.SenderID {
+	if m.targetID == m.senderID {
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
@@ -304,8 +308,8 @@ func (m *membershipAllower) membershipAllowedSelf() error {
 // membershipAllowedSelf determines if the user is allowed to change the membership
 // of another user.
 func (m *membershipAllower) membershipAllowedOther() error {
-	senderLevel := m.powerLevels.userLevel(m.SenderID)
-	targetLevel := m.powerLevels.userLevel(m.TargetID)
+	senderLevel := m.powerLevels.userLevel(m.senderID)
+	targetLevel := m.powerLevels.userLevel(m.targetID)
 
 	// You may only modify the membership of another user if you are in the room.
 	if m.senderMember.Membership == "join" {
@@ -318,12 +322,12 @@ func (m *membershipAllower) membershipAllowedOther() error {
 		}
 		if m.newMember.Membership == "leave" {
 			// A user may unban another user if their level is high enough.
-			if m.oldMembership == "ban" && senderLevel >= powerLevels.banLevel {
+			if m.oldMember.Membership == "ban" && senderLevel >= m.powerLevels.banLevel {
 				return nil
 			}
 			// A user may kick another user if their level is high enough.
 			if m.oldMember.Membership != "ban" &&
-				senderLevel >= powerLevels.kickLevel &&
+				senderLevel >= m.powerLevels.kickLevel &&
 				senderLevel > targetLevel {
 				return nil
 			}
@@ -363,20 +367,22 @@ func (m *membershipAllower) membershipFailed() error {
 	)
 }
 
-func powerLevelEventAllowed(event Event, authEvents AuthEvents) error {
+func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
 	var allower eventAllower
-	if err := allower.setup(authEvents); err != nil {
+	if err := allower.setup(authEvents, event.Sender); err != nil {
 		return err
 	}
-	if err := allower.commonChecks(); err != nil {
+	if err := allower.commonChecks(event); err != nil {
 		return err
 	}
 
-	oldPowerLevels := allower.powerlevels
+	oldPowerLevels := allower.powerLevels
 	var newPowerLevels powerLevelContent
-	if err := newPowerLevels.parse(&event); err != nil {
+	if err := newPowerLevels.parse(event); err != nil {
 		return err
 	}
+
+	senderLevel := oldPowerLevels.userLevel(event.Sender)
 
 	for userID := range newPowerLevels.userLevels {
 		if !isValidUserID(userID) {
@@ -399,13 +405,13 @@ func powerLevelEventAllowed(event Event, authEvents AuthEvents) error {
 	}
 
 	for eventType := range newPowerLevels.eventLevels {
-		levelChecks := append(levelChecks, levelPair{
+		levelChecks = append(levelChecks, levelPair{
 			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
 		})
 	}
 
 	for eventType := range oldPowerLevels.eventLevels {
-		levelChecks := append(levelChecks, levelPair{
+		levelChecks = append(levelChecks, levelPair{
 			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
 		})
 	}
@@ -426,18 +432,18 @@ func powerLevelEventAllowed(event Event, authEvents AuthEvents) error {
 	}
 
 	for userID := range newPowerLevels.userLevels {
-		userLevelChecks := append(levelChecks, levelPair{
+		userLevelChecks = append(userLevelChecks, levelPair{
 			oldPowerLevels.userLevel(userID), newPowerLevels.userLevel(userID),
 		})
 	}
 
-	for userID := range newPowerLevels.userLevels {
-		userLevelChecks := append(levelChecks, levelPair{
+	for userID := range oldPowerLevels.userLevels {
+		userLevelChecks = append(userLevelChecks, levelPair{
 			oldPowerLevels.userLevel(userID), newPowerLevels.userLevel(userID),
 		})
 	}
 
-	for _, level := range levelChecks {
+	for _, level := range userLevelChecks {
 		if level.old != level.new {
 			if senderLevel <= level.old || senderLevel < level.new {
 				return errorf(
@@ -461,7 +467,7 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 		return err
 	}
 
-	if err := allower.commonChecks(); err != nil {
+	if err := allower.commonChecks(event); err != nil {
 		return err
 	}
 
@@ -480,8 +486,8 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 		return nil
 	}
 
-	senderLevel = allower.powerlevels.userLevel(event.Sender)
-	redactLevel = allower.powerlevels.redactLevel
+	senderLevel := allower.powerLevels.userLevel(event.Sender)
+	redactLevel := allower.powerLevels.redactLevel
 
 	// Otherwise the sender must have enough power.
 	if senderLevel >= redactLevel {
@@ -500,13 +506,13 @@ func defaultEventAllowed(event Event, authEvents AuthEvents) error {
 		return err
 	}
 
-	return allower.commonChecks()
+	return allower.commonChecks(event)
 }
 
 type eventAllower struct {
 	create      createContent
 	member      memberContent
-	powerlevels powerLevelContent
+	powerLevels powerLevelContent
 }
 
 func (e *eventAllower) setup(authEvents AuthEvents, senderID string) error {
@@ -522,13 +528,13 @@ func (e *eventAllower) setup(authEvents AuthEvents, senderID string) error {
 	return nil
 }
 
-func (e *eventAllower) defaultAllowed(event Event, authEvents AuthEvents) error {
+func (e *eventAllower) commonChecks(event Event) error {
 	if err := e.create.idAllowed(event.Sender); err != nil {
 		return err
 	}
 
 	if e.member.Membership != "join" {
-		return errof("sender %q not in room", event.Sender)
+		return errorf("sender %q not in room", event.Sender)
 	}
 
 	senderLevel := e.powerLevels.userLevel(event.Sender)
@@ -540,7 +546,7 @@ func (e *eventAllower) defaultAllowed(event Event, authEvents AuthEvents) error 
 		)
 	}
 
-	if event.StateKey != nil && len(event.StateKey) > 0 && event.StateKey[0] == "@" {
+	if event.StateKey != nil && len(*event.StateKey) > 0 && (*event.StateKey)[0] == '@' {
 		if *event.StateKey != event.Sender {
 			return errorf(
 				"sender %q is not allowed to modify the state belonging to %q",

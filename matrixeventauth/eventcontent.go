@@ -1,13 +1,15 @@
 package matrixeventauth
 
 import (
-	"bytes"
 	"encoding/json"
+	"strconv"
+	"strings"
 )
 
 type createContent struct {
 	eventID      string `json:"-"`
 	senderDomain string `json:"-"`
+	roomID       string `json:"-"`
 	Federate     *bool  `json:"m.federate"`
 	Creator      string `json:"creator"`
 }
@@ -24,6 +26,7 @@ func (c *createContent) load(authEvents AuthEvents) error {
 		return errorf("unparsable create event content: %s", err.Error())
 	}
 	c.eventID = createEvent.EventID
+	c.roomID = createEvent.RoomID
 	if c.senderDomain, err = domainFromID(createEvent.Sender); err != nil {
 		return err
 	}
@@ -32,9 +35,10 @@ func (c *createContent) load(authEvents AuthEvents) error {
 
 func (c *createContent) domainAllowed(domain string) error {
 	if domain == c.senderDomain {
+		// If the domain matches the domain of the create event
 		return nil
 	}
-	if content.Federate == nil || *content.Federate {
+	if c.Federate == nil || *c.Federate {
 		// The m.federate field defaults to true.
 		return nil
 	}
@@ -82,6 +86,7 @@ type powerLevelContent struct {
 	banLevel          int64
 	inviteLevel       int64
 	kickLevel         int64
+	redactLevel       int64
 	userLevels        map[string]int64
 	userDefaultLevel  int64
 	eventLevels       map[string]int64
@@ -98,13 +103,13 @@ func (c *powerLevelContent) userLevel(userID string) int64 {
 }
 
 func (c *powerLevelContent) eventLevel(eventType string, eventStateKey *string) int64 {
-	if eventTupe == "m.room.third_party_invite" {
+	if eventType == "m.room.third_party_invite" {
 		// Special case third_party_invite events to have the same level as
 		// m.room.member invite events.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L182
 		return c.inviteLevel
 	}
-	level, ok := c.eventLevel(eventType)
+	level, ok := c.eventLevels[eventType]
 	if ok {
 		return level
 	}
@@ -119,13 +124,16 @@ func (c *powerLevelContent) load(authEvents AuthEvents, creatorUserID string) er
 	if err != nil {
 		return err
 	}
-	if powerLevelsEvent == nil {
-		c.defaults()
-		// If there is no power level event then the creator gets level 100
-		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
-		c.userLevels = map[string]int64{creatorUserID: 100}
+	if powerLevelsEvent != nil {
+		return c.parse(*powerLevelsEvent)
 	}
-	return c.parse(*powerLevelsEvent, creatorUserID)
+
+	// If there are no power leves then fall back to defaults.
+	c.defaults()
+	// If there is no power level event then the creator gets level 100
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
+	c.userLevels = map[string]int64{creatorUserID: 100}
+	return nil
 }
 
 func (c *powerLevelContent) defaults() {
@@ -164,7 +172,7 @@ func (c *powerLevelContent) parse(event Event) error {
 		StateDefaultLevel intValue            `json:"state_default"`
 		EventDefaultLevel intValue            `json:"event_default"`
 	}
-	if json.Unmarshal(event.Content, &content); err != nil {
+	if err := json.Unmarshal(event.Content, &content); err != nil {
 		return errorf("unparsable power_levels event content: %s", err.Error())
 	}
 
@@ -206,7 +214,7 @@ func (c *memberContent) load(authEvents AuthEvents, userID string) error {
 	return c.parse(memberEvent)
 }
 
-func (c *memberContent) parse(event *Event) {
+func (c *memberContent) parse(event *Event) error {
 	if event == nil {
 		c.Membership = "leave"
 		return nil
@@ -225,11 +233,12 @@ type intValue struct {
 func (v *intValue) UnmarshallJSON(data []byte) error {
 	var numberValue json.Number
 	var stringValue string
-	var int64Value string
+	var int64Value int64
+	var floatValue float64
 	var err error
 
 	if err = json.Unmarshal(data, &numberValue); err != nil {
-		if err != json.Unmarshal(data, &stringValue); err != nil {
+		if err = json.Unmarshal(data, &stringValue); err != nil {
 			return err
 		}
 		int64Value, err = strconv.ParseInt(stringValue, 10, 64)
@@ -238,8 +247,8 @@ func (v *intValue) UnmarshallJSON(data []byte) error {
 		}
 	}
 
-	if int64Value, err := numberValue.Int64(); err != nil {
-		if floatValue, err := numberValue.Float64(); err != nil {
+	if int64Value, err = numberValue.Int64(); err != nil {
+		if floatValue, err = numberValue.Float64(); err != nil {
 			return err
 		}
 		int64Value = int64(floatValue)
@@ -247,7 +256,7 @@ func (v *intValue) UnmarshallJSON(data []byte) error {
 
 	v.exists = true
 	v.value = int64Value
-	return
+	return nil
 }
 
 func (v *intValue) assignIfExists(to *int64) {
