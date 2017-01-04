@@ -372,6 +372,9 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
 	if err := allower.setup(authEvents, event.Sender); err != nil {
 		return err
 	}
+
+	// The common checks will catch if the user has a high enough powerlevel
+	// to set a m.room.power_levels state event.
 	if err := allower.commonChecks(event); err != nil {
 		return err
 	}
@@ -389,6 +392,20 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
 			return errorf("Not a valid user ID: %q", userID)
 		}
 	}
+
+	if oldEvent, err := authEvents.PowerLevels(); err != nil {
+		return err
+	} else if oldEvent == nil {
+		// If this is the first power level event then it can set the levels to
+		// any value it wants to.
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1074
+		return nil
+	}
+
+	return checkLevels(senderLevel, oldPowerLevels, newPowerLevels)
+}
+
+func checkLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLevelContent) error {
 
 	type levelPair struct {
 		old int64

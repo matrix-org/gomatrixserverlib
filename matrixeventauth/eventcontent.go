@@ -22,7 +22,7 @@ func (c *createContent) load(authEvents AuthEvents) error {
 	if createEvent == nil {
 		return errorf("missing create event")
 	}
-	if err := json.Unmarshal(createEvent.Content, c); err != nil {
+	if err = json.Unmarshal(createEvent.Content, c); err != nil {
 		return errorf("unparsable create event content: %s", err.Error())
 	}
 	c.eventID = createEvent.EventID
@@ -230,7 +230,7 @@ type intValue struct {
 	value  int64
 }
 
-func (v *intValue) UnmarshallJSON(data []byte) error {
+func (v *intValue) UnmarshalJSON(data []byte) error {
 	var numberValue json.Number
 	var stringValue string
 	var int64Value int64
