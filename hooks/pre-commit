@@ -2,8 +2,9 @@
 
 set -eu
 
-golint
+golint ./...
 go fmt
+go tool vet .
 go tool vet --shadow .
-gocyclo -over 12 .
-go test
+gocyclo -over 19 .
+go test .
