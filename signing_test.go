@@ -34,7 +34,7 @@ func TestVerifyJSON(t *testing.T) {
 	testVerifyNotOK := func(reason, input string) {
 		err := VerifyJSON(entityName, keyID, publicKey, []byte(input))
 		if err == nil {
-			t.Fatal("Expected VerifyJSON to fail for input %v because %v", input, reason)
+			t.Fatalf("Expected VerifyJSON to fail for input %v because %v", input, reason)
 		}
 	}
 

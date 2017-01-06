@@ -2,8 +2,8 @@
 
 set -eu
 
-golint
+golint ./...
 go fmt
-go tool vet --shadow .
+go tool vet --all --shadow .
 gocyclo -over 12 .
-go test
+go test -timeout 5s
