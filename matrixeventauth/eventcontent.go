@@ -7,9 +7,9 @@ import (
 )
 
 type createContent struct {
-	eventID      string `json:"-"`
-	senderDomain string `json:"-"`
-	roomID       string `json:"-"`
+	eventID      string
+	senderDomain string
+	roomID       string
 	Federate     *bool  `json:"m.federate"`
 	Creator      string `json:"creator"`
 }

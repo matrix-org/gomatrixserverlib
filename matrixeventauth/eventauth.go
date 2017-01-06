@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-//
+// A Event has the fields necessary to authenticate a matrix event.
+// It can be unmarshalled from the event JSON.
 type Event struct {
 	RoomID     string              `json:"room_id"`
 	EventID    string              `json:"event_id"`
@@ -33,6 +34,7 @@ type StateNeeded struct {
 	ThirdPartyInvite []string
 }
 
+// StateNeededForAuth returns the state needed to auth the events
 func StateNeededForAuth(events []Event) (result StateNeeded) {
 	var members []string
 	var thirdpartyinvites []string
@@ -85,14 +87,22 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	return
 }
 
+// AuthEvents are the state events needed to authenticate an event.
 type AuthEvents interface {
+	// Create returns the m.room.create event for the room.
 	Create() (*Event, error)
+	// JoinRules returns the m.room.join_rules event for the room.
 	JoinRules() (*Event, error)
+	// PowerLevels returns the m.room.power_levels event for the room.
 	PowerLevels() (*Event, error)
+	// Member returns the m.room.member event for the given user_id state_key.
 	Member(stateKey string) (*Event, error)
+	// ThirdPartyInvite returns the m.room.third_party_invite event for the
+	// given state_key.
 	ThirdPartyInvite(stateKey string) (*Event, error)
 }
 
+// A NotAllowed error is returned if an event does not pass the auth checks.
 type NotAllowed struct {
 	Message string
 }
@@ -105,6 +115,9 @@ func errorf(message string, args ...interface{}) error {
 	return &NotAllowed{Message: fmt.Sprintf(message, args...)}
 }
 
+// Allowed checks whether an event is allowed by the auth events.
+// It returns an error of the event is not allowed or if there was an error
+// loading the auth events.
 func Allowed(event Event, authEvents AuthEvents) error {
 	switch event.Type {
 	case "m.room.create":
