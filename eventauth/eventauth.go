@@ -120,6 +120,9 @@ type memberContent struct {
 // O(n).
 func unique(data sort.Interface) int {
 	length := data.Len()
+	if length == 0 {
+		return 0
+	}
 	j := 0
 	for i := 1; i < length; i++ {
 		if data.Less(i-1, i) {
