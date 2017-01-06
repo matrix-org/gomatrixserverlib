@@ -1,4 +1,4 @@
-package matrixfederation
+package gomatrixprotocol
 
 import (
 	"net"
