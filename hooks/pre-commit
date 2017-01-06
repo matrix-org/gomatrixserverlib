@@ -7,4 +7,4 @@ go fmt
 go tool vet .
 go tool vet --shadow .
 gocyclo -over 19 .
-go test .
+go test -timeout 5s -test.v
