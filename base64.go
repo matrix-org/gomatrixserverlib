@@ -1,4 +1,4 @@
-package matrixfederation
+package gomatrixserverlib
 
 import (
 	"encoding/base64"
