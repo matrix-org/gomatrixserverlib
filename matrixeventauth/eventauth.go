@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-// A Event has the fields necessary to authenticate a matrix event.
+// An Event has the fields necessary to authenticate a matrix event.
 // It can be unmarshalled from the event JSON.
 type Event struct {
 	RoomID     string              `json:"room_id"`
