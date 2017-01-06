@@ -34,6 +34,7 @@ type StateNeeded struct {
 }
 
 // StateNeededForAuth returns the event types and state_keys needed to authenticate an event.
+// This takes a list of events to facilitate bulk processsing when doing auth checks as part of state conflict resolution.
 func StateNeededForAuth(events []Event) (result StateNeeded) {
 	var members []string
 	var thirdpartyinvites []string
@@ -115,7 +116,7 @@ type memberContent struct {
 
 // Remove duplicate items from a sorted list.
 // Takes the same interface as sort.Sort
-// Returns the length of the date without duplicates
+// Returns the length of the data without duplicates
 // Uses the last occurance of a duplicate.
 // O(n).
 func unique(data sort.Interface) int {
