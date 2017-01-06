@@ -1,4 +1,4 @@
-package matrixeventauth
+package eventauth
 
 import (
 	"encoding/json"
@@ -168,7 +168,7 @@ type NotAllowed struct {
 }
 
 func (a *NotAllowed) Error() string {
-	return "matrixeventauth: " + a.Message
+	return "eventauth: " + a.Message
 }
 
 func errorf(message string, args ...interface{}) error {
