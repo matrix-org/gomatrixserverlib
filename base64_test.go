@@ -1,4 +1,4 @@
-package gomatrixprotocol
+package gomatrixserverlib
 
 import (
 	"encoding/json"
