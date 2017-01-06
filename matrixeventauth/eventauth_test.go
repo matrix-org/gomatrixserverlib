@@ -116,7 +116,7 @@ func TestEmptyRoom(t *testing.T) {
 			"event_id": "$e2:a",
 			"content": {"creator": "@u1:b"},
 			"unsigned": {
-				"reason": "Sent by a different server than the one which made the room_id"
+				"not_allowed": "Sent by a different server than the one which made the room_id"
 			}
 		}, {
 			"type": "m.room.member",
@@ -126,7 +126,7 @@ func TestEmptyRoom(t *testing.T) {
 			"state_key": "@u1:a",
 			"content": {"membership": "join"},
 			"unsigned": {
-				"reason": "All non-create events must reference a create event."
+				"not_allowed": "All non-create events must reference a create event."
 			}
 		}]
 	}`)
@@ -161,7 +161,7 @@ func TestFirstJoin(t *testing.T) {
 			"content": {"membership": "join"},
 			"prev_events": [["$e2:a", {}]],
 			"unsigned": {
-				"reason": "The prev_event is not the create event."
+				"not_allowed": "The prev_event is not the create event."
 			}
 		}, {
 			"type": "m.room.member",
@@ -172,7 +172,7 @@ func TestFirstJoin(t *testing.T) {
 			"content": {"membership": "invite"},
 			"prev_events": [["$e1:a", {}]],
 			"unsigned": {
-				"reason": "The membership key is not join"
+				"not_allowed": "The membership key is not join"
 			}
 		}, {
 			"type": "m.room.member",
@@ -183,7 +183,7 @@ func TestFirstJoin(t *testing.T) {
 			"content": {"membership": "join"},
 			"prev_events": [["$e1:a", {}]],
 			"unsigned": {
-				"reason": "The room_id doesn't match the create event"
+				"not_allowed": "The room_id doesn't match the create event"
 			}
 		}, {
 			"type": "m.room.member",
@@ -194,7 +194,7 @@ func TestFirstJoin(t *testing.T) {
 			"content": {"membership": "join"},
 			"prev_events": [["$e1:a", {}]],
 			"unsigned": {
-				"reason": "The sender doesn't match the room creator"
+				"not_allowed": "The sender doesn't match the room creator"
 			}
 		}, {
 			"type": "m.room.member",
@@ -205,7 +205,7 @@ func TestFirstJoin(t *testing.T) {
 			"content": {"membership": "join"},
 			"prev_events": [["$e1:a", {}]],
 			"unsigned": {
-				"reason": "The sender doesn't match the state_key"
+				"not_allowed": "The sender doesn't match the state_key"
 			}
 		}]
 	}`)
@@ -213,7 +213,7 @@ func TestFirstJoin(t *testing.T) {
 
 func TestFirstPowerLevels(t *testing.T) {
 	testEventAuth(t, `{
-		"auth_events": {
+		 "auth_events": {
 			"create": {
 				"type": "m.room.create",
 				"sender": "@u1:a",
@@ -228,8 +228,15 @@ func TestFirstPowerLevels(t *testing.T) {
 					"room_id": "!r1:a",
 					"state_key": "@u1:a",
 					"event_id": "$e2:a",
-					"content": {"membership": "join"},
-					"prev_events": [["$e1:a", {}]]
+					"content": {"membership": "join"}
+				},
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e3:a",
+					"content": {"membership": "join"}
 				}
 			}
 		},
@@ -272,10 +279,130 @@ func TestFirstPowerLevels(t *testing.T) {
 				}
 			}
 		}],
-		"not_allowed": []
+		"not_allowed": [{
+			"type": "m.room.power_levels",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "",
+			"event_id": "$e4:a",
+			"content": {
+				"users": {
+					"@u1:a": 1000
+				}
+			},
+			"unsigned": {
+				"not_allowed": "Only the creator can send the first power level event"
+			}
+		}]
 	}`)
 }
 
 func TestPowerLevels(t *testing.T) {
-
+	testEventAuth(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				}
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"state_key": "",
+				"event_id": "$e3:a",
+				"content": {
+					"ban": 50,
+					"events": {
+						"m.room.avatar": 50,
+						"m.room.canonical_alias": 50,
+						"m.room.history_visibility": 100,
+						"m.room.name": 50,
+						"m.room.power_levels": 100
+					},
+					"events_default": 0,
+					"invite": 0,
+					"kick": 50,
+					"redact": 50,
+					"state_default": 50,
+					"users": {
+						"@u1:a": 100,
+						"@u2:a": 100,
+						"@u3:a": 50
+					},
+					"users_default": 0
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.power_levels",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "",
+			"event_id": "$e4:a",
+			"content": {
+				"ban": 50,
+				"events": {
+					"m.room.avatar": 50,
+					"m.room.canonical_alias": 50,
+					"m.room.history_visibility": 100,
+					"m.room.name": 50,
+					"m.room.power_levels": 100
+				},
+				"events_default": 0,
+				"invite": 0,
+				"kick": 50,
+				"redact": 50,
+				"state_default": 50,
+				"users": {
+					"@u1:a": 100,
+					"@u2:a": 100,
+					"@u3:a": 50
+				},
+				"users_default": 0
+			}
+		}, {
+			"type": "m.room.power_levels",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "",
+			"event_id": "$e5:a",
+			"content": {
+				"ban": 50,
+				"events": {
+					"m.room.power_levels": 100
+				},
+				"events_default": 0,
+				"redact": 50,
+				"kick": 50,
+				"invite": 0,
+				"state_default": 50,
+				"users": {
+					"@u1:a": 100,
+					"@u2:a": 100
+				},
+				"users_default": 0
+			}
+		}]
+	}`)
 }
