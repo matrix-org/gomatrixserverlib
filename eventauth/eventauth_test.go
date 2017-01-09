@@ -116,3 +116,132 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 		ThirdPartyInvite: []string{"my_token"},
 	})
 }
+
+type testAuthEvents struct {
+	CreateJSON           json.RawMessage            `json:"create"`
+	JoinRulesJSON        json.RawMessage            `json:"join_rules"`
+	PowerLevelsJSON      json.RawMessage            `json:"power_levels"`
+	MemberJSON           map[string]json.RawMessage `json:"member"`
+	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
+}
+
+func (tae *testAuthEvents) Create() (*Event, error) {
+	if len(tae.CreateJSON) == 0 {
+		return nil, nil
+	}
+	var event Event
+	if err := json.Unmarshal(tae.CreateJSON, &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (tae *testAuthEvents) JoinRules() (*Event, error) {
+	if len(tae.JoinRulesJSON) == 0 {
+		return nil, nil
+	}
+	var event Event
+	if err := json.Unmarshal(tae.JoinRulesJSON, &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (tae *testAuthEvents) PowerLevels() (*Event, error) {
+	if len(tae.PowerLevelsJSON) == 0 {
+		return nil, nil
+	}
+	var event Event
+	if err := json.Unmarshal(tae.PowerLevelsJSON, &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
+	if len(tae.MemberJSON[stateKey]) == 0 {
+		return nil, nil
+	}
+	var event Event
+	if err := json.Unmarshal(tae.MemberJSON[stateKey], &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
+	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
+		return nil, nil
+	}
+	var event Event
+	if err := json.Unmarshal(tae.ThirdPartyInviteJSON[stateKey], &event); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+type testCase struct {
+	AuthEvents testAuthEvents    `json:"auth_events"`
+	Allowed    []json.RawMessage `json:"allowed"`
+	NotAllowed []json.RawMessage `json:"not_allowed"`
+}
+
+func testCaseJSON(t *testing.T, testCaseData string) {
+	var tc testCase
+	if err := json.Unmarshal([]byte(testCaseData), &tc); err != nil {
+		t.Fatal(err)
+	}
+	for _, data := range tc.Allowed {
+		var event Event
+		if err := json.Unmarshal(data, &event); err != nil {
+			t.Fatal(err)
+		}
+		if err := Allowed(event, &tc.AuthEvents); err != nil {
+			t.Fatalf("Expected %q to be allowed but it was not: %q", string(data), err)
+		}
+	}
+	for _, data := range tc.NotAllowed {
+		var event Event
+		if err := json.Unmarshal(data, &event); err != nil {
+			t.Fatal(err)
+		}
+		if err := Allowed(event, &tc.AuthEvents); err == nil {
+			t.Fatalf("Expected %q to not be allowed but it was: %q", string(data), err)
+		}
+	}
+}
+
+func TestAllowedEmptyRoom(t *testing.T) {
+	// Test that only m.room.create events can be sent without auth events.
+	// TODO: Test the events that aren't m.room.create
+	testCaseJSON(t, `{
+		"auth_events": {},
+		"allowed": [{
+			"type": "m.room.create",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e1:a",
+			"content": {"creator": "@u1:a"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.create",
+			"sender": "@u1:b",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"content": {"creator": "@u1:b"},
+			"unsigned": {
+				"not_allowed": "Sent by a different server than the one which made the room_id"
+			}
+		}, {
+			"type": "m.room.create",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1", {}]],
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Was not the first event in the room"
+			}
+		}]
+	}`)
+}
