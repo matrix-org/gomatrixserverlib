@@ -186,7 +186,7 @@ type testCase struct {
 	NotAllowed []json.RawMessage `json:"not_allowed"`
 }
 
-func testEventAuth(t *testing.T, testCaseData string) {
+func testCaseJSON(t *testing.T, testCaseData string) {
 	var tc testCase
 	if err := json.Unmarshal([]byte(testCaseData), &tc); err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func testEventAuth(t *testing.T, testCaseData string) {
 func TestAllowedEmptyRoom(t *testing.T) {
 	// Test that only m.room.create events can be sent without auth events.
 	// TODO: Test the events that aren't m.room.create
-	testEventAuth(t, `{
+	testCaseJSON(t, `{
 		"auth_events": {},
 		"allowed": [{
 			"type": "m.room.create",

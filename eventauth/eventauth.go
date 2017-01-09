@@ -186,7 +186,7 @@ func errorf(message string, args ...interface{}) error {
 func Allowed(event Event, authEvents AuthEvents) error {
 	switch event.Type {
 	case "m.room.create":
-		return createEventAllowed(event, authEvents)
+		return createEventAllowed(event)
 	case "m.room.alias":
 		return aliasEventAllowed(event, authEvents)
 	case "m.room.member":
@@ -202,7 +202,7 @@ func Allowed(event Event, authEvents AuthEvents) error {
 
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
-func createEventAllowed(event Event, authEvents AuthEvents) error {
+func createEventAllowed(event Event) error {
 	roomIDDomain, err := domainFromID(event.RoomID)
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ func createEventAllowed(event Event, authEvents AuthEvents) error {
 		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
 	}
 	if len(event.PrevEvents) > 0 {
-		return errorf("create event must be the first event in the room")
+		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents))
 	}
 	return nil
 }
