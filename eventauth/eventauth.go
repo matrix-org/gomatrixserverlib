@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // An Event has the fields necessary to authenticate a matrix event.
@@ -180,7 +181,7 @@ func errorf(message string, args ...interface{}) error {
 }
 
 // Allowed checks whether an event is allowed by the auth events.
-// It returns an error of the event is not allowed or if there was an error
+// It returns an error if the event is not allowed or if there was an error
 // loading the auth events.
 func Allowed(event Event, authEvents AuthEvents) error {
 	switch event.Type {
@@ -199,8 +200,39 @@ func Allowed(event Event, authEvents AuthEvents) error {
 	}
 }
 
+// createEventAllowed checks whether the m.room.create event is allowed.
+// It returns an error if the event is not allowed.
 func createEventAllowed(event Event, authEvents AuthEvents) error {
-	panic("Not implemented")
+	roomIDDomain, err := domainFromID(event.RoomID)
+	if err != nil {
+		return err
+	}
+	senderDomain, err := domainFromID(event.Sender)
+	if err != nil {
+		return err
+	}
+	if senderDomain != roomIDDomain {
+		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
+	}
+	if len(event.PrevEvents) > 0 {
+		return errorf("create event must be the first event in the room")
+	}
+	return nil
+}
+
+// domainFromID returns everything after the first ":" character to extract
+// the domain part of a matrix ID.
+func domainFromID(id string) (string, error) {
+	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
+	// Split on the first ":" character since the domain can contain ":"
+	// characters.
+	parts := strings.SplitN(id, ":", 2)
+	if len(parts) != 2 {
+		// The ID must have a ":" character.
+		return "", errorf("invalid ID: %q", id)
+	}
+	// Return everything after the first ":" character.
+	return parts[1], nil
 }
 
 func memberEventAllowed(event Event, authEvents AuthEvents) error {
