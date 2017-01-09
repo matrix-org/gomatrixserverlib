@@ -245,32 +245,26 @@ type levelJSONValue struct {
 }
 
 func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
-	var numberValue json.Number
 	var stringValue string
 	var int64Value int64
 	var floatValue float64
 	var err error
 
-	// First try to unmarshal as a json.Number
-	if err = json.Unmarshal(data, &numberValue); err != nil {
-		// If unmarshalling as a json.Number fails try as a string.
+	// First try to unmarshal as an int64.
+	if err = json.Unmarshal(data, &int64Value); err != nil {
+		// If unmarshalling as an int64 fails try as a string.
 		if err = json.Unmarshal(data, &stringValue); err != nil {
-			return err
-		}
-		// If we managed to get a string, try parsing the string as an int.
-		int64Value, err = strconv.ParseInt(stringValue, 10, 64)
-		if err != nil {
-			return err
-		}
-	} else {
-		// We managed to get a json.Number, try interpreting it as a int64.
-		if int64Value, err = numberValue.Int64(); err != nil {
-			// If interpreting it as an int64 fails then try interpreting it
-			// as a float and casting it to an int64.
-			if floatValue, err = numberValue.Float64(); err != nil {
+			// If unmarshalling as a string fails try as a float.
+			if err = json.Unmarshal(data, &floatValue); err != nil {
 				return err
 			}
 			int64Value = int64(floatValue)
+		} else {
+			// If we managed to get a string, try parsing the string as an int.
+			int64Value, err = strconv.ParseInt(stringValue, 10, 64)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	v.exists = true

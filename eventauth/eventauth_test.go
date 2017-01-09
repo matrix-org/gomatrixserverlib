@@ -218,6 +218,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 		"auth_events": {},
 		"allowed": [{
 			"type": "m.room.create",
+			"state_key": "",
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
 			"event_id": "$e1:a",
@@ -225,6 +226,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 		}],
 		"not_allowed": [{
 			"type": "m.room.create",
+			"state_key": "",
 			"sender": "@u1:b",
 			"room_id": "!r1:a",
 			"event_id": "$e2:a",
@@ -234,6 +236,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			}
 		}, {
 			"type": "m.room.create",
+			"state_key": "",
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
 			"event_id": "$e3:a",
@@ -250,6 +253,26 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			"content": {"body": "Test"},
 			"unsigned": {
 				"not_allowed": "No create event"
+			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "",
+			"sender": "not_a_user_id",
+			"room_id": "!r1:a",
+			"event_id": "$e5:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Sender is not a valid user ID"
+			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "not_a_room_id",
+			"event_id": "$e6:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Room is not a valid room ID"
 			}
 		}]
 	}`)
@@ -296,6 +319,50 @@ func TestAllowedWithNoPowerLevels(t *testing.T) {
 	}`)
 }
 
+func TestAllowedNoFederation(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {
+					"creator": "@u1:a",
+					"m.federate": false
+				}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e3:a",
+			"content": {"body": "Test"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.message",
+			"sender": "@u2:b",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"body": "Test"},
+			"unsigned": {
+				"not_allowed": "Sender is from a different server."
+			}
+		}]
+	}`)
+}
+
 func TestAllowedWithPowerLevels(t *testing.T) {
 	testEventAllowed(t, `{
 		"auth_events": {
@@ -323,11 +390,11 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 					"event_id": "$e3:a",
 					"content": {"membership": "join"}
 				},
-				"@u3:a": {
+				"@u3:b": {
 					"type": "m.room.member",
-					"sender": "@u3:a",
+					"sender": "@u3:b",
 					"room_id": "!r1:a",
-					"state_key": "@u3:a",
+					"state_key": "@u3:b",
 					"event_id": "$e4:a",
 					"content": {"membership": "join"}
 				}
@@ -365,7 +432,7 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 			"content": {"body": "Test from @u2:a"}
 		}, {
 			"type": "m.room.message",
-			"sender": "@u3:a",
+			"sender": "@u3:b",
 			"room_id": "!r1:a",
 			"event_id": "$e8:a",
 			"content": {"body": "Test from @u3:a"}
@@ -401,7 +468,7 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 		"not_allowed": [{
 			"type": "m.room.name",
 			"state_key": "",
-			"sender": "@u3:a",
+			"sender": "@u3:b",
 			"room_id": "!r1:a",
 			"event_id": "$e13:a",
 			"content": {"name": "Name set by @u3:a"},
