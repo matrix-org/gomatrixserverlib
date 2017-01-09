@@ -186,15 +186,15 @@ type testCase struct {
 	NotAllowed []json.RawMessage `json:"not_allowed"`
 }
 
-func testCaseJSON(t *testing.T, testCaseData string) {
+func testEventAllowed(t *testing.T, testCaseJSON string) {
 	var tc testCase
-	if err := json.Unmarshal([]byte(testCaseData), &tc); err != nil {
-		t.Fatal(err)
+	if err := json.Unmarshal([]byte(testCaseJSON), &tc); err != nil {
+		panic(err)
 	}
 	for _, data := range tc.Allowed {
 		var event Event
 		if err := json.Unmarshal(data, &event); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if err := Allowed(event, &tc.AuthEvents); err != nil {
 			t.Fatalf("Expected %q to be allowed but it was not: %q", string(data), err)
@@ -203,7 +203,7 @@ func testCaseJSON(t *testing.T, testCaseData string) {
 	for _, data := range tc.NotAllowed {
 		var event Event
 		if err := json.Unmarshal(data, &event); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if err := Allowed(event, &tc.AuthEvents); err == nil {
 			t.Fatalf("Expected %q to not be allowed but it was: %q", string(data), err)
@@ -214,7 +214,7 @@ func testCaseJSON(t *testing.T, testCaseData string) {
 func TestAllowedEmptyRoom(t *testing.T) {
 	// Test that only m.room.create events can be sent without auth events.
 	// TODO: Test the events that aren't m.room.create
-	testCaseJSON(t, `{
+	testEventAllowed(t, `{
 		"auth_events": {},
 		"allowed": [{
 			"type": "m.room.create",
@@ -236,11 +236,61 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			"type": "m.room.create",
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
-			"event_id": "$e2:a",
+			"event_id": "$e3:a",
 			"prev_events": [["$e1", {}]],
 			"content": {"creator": "@u1:a"},
 			"unsigned": {
 				"not_allowed": "Was not the first event in the room"
+			}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"body": "Test"},
+			"unsigned": {
+				"not_allowed": "No create event"
+			}
+		}]
+	}`)
+}
+
+func TestAllowedNoPowerLevels(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e3:a",
+			"content": {"body": "Test"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.message",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"body": "Test"},
+			"unsigned": {
+				"not_allowed": "Sender is not in room"
 			}
 		}]
 	}`)

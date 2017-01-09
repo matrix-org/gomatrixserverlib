@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 )
 
 // An Event has the fields necessary to authenticate a matrix event.
@@ -65,7 +64,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			//  * And optionally may require a m.third_party_invite event
 			//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
 			var content memberContent
-			if err := json.Unmarshal(event.Content, &content); err != nil {
+			if err := content.parse(event); err != nil {
 				// If we hit an error decoding the content we ignore it here.
 				// The event will be rejected when the actual checks encounter the same error.
 				continue
@@ -107,12 +106,6 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	sort.Strings(thirdpartyinvites)
 	result.ThirdPartyInvite = thirdpartyinvites[:unique(sort.StringSlice(thirdpartyinvites))]
 	return
-}
-
-// memberContent is the JSON content of a m.room.member event.
-type memberContent struct {
-	Membership       string          `json:"membership"`
-	ThirdPartyInvite json.RawMessage `json:"third_party_invite"`
 }
 
 // Remove duplicate items from a sorted list.
@@ -220,21 +213,6 @@ func createEventAllowed(event Event) error {
 	return nil
 }
 
-// domainFromID returns everything after the first ":" character to extract
-// the domain part of a matrix ID.
-func domainFromID(id string) (string, error) {
-	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
-	// Split on the first ":" character since the domain can contain ":"
-	// characters.
-	parts := strings.SplitN(id, ":", 2)
-	if len(parts) != 2 {
-		// The ID must have a ":" character.
-		return "", errorf("invalid ID: %q", id)
-	}
-	// Return everything after the first ":" character.
-	return parts[1], nil
-}
-
 func memberEventAllowed(event Event, authEvents AuthEvents) error {
 	panic("Not implemented")
 }
@@ -251,6 +229,71 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 	panic("Not implemented")
 }
 
+// defaultEventAllowed checks whether the event is allowed by the default
+// checks for events.
 func defaultEventAllowed(event Event, authEvents AuthEvents) error {
-	panic("Not implemented")
+	var allower eventAllower
+	if err := allower.setup(authEvents, event.Sender); err != nil {
+		return err
+	}
+
+	return allower.commonChecks(event)
+}
+
+// An eventAllower has the information needed to authorise all events types
+// other than m.room.create, m.room.member and m.room.alias which are special.
+type eventAllower struct {
+	create      createContent
+	member      memberContent
+	powerLevels powerLevelContent
+}
+
+// setup loads the necesary information from the auth events.
+func (e *eventAllower) setup(authEvents AuthEvents, senderID string) error {
+	if err := e.create.load(authEvents); err != nil {
+		return err
+	}
+	if err := e.member.load(authEvents, senderID); err != nil {
+		return err
+	}
+	if err := e.powerLevels.load(authEvents, e.create.Creator); err != nil {
+		return err
+	}
+	return nil
+}
+
+// commonChecks does the checks that are applied to all events types other than
+// m.room.create, m.room.member, or m.room.alias.
+func (e *eventAllower) commonChecks(event Event) error {
+	if event.RoomID != e.create.roomID {
+		return errorf("create event has different roomID: %q != %q", event.RoomID, e.create.roomID)
+	}
+
+	if err := e.create.idAllowed(event.Sender); err != nil {
+		return err
+	}
+
+	if e.member.Membership != "join" {
+		return errorf("sender %q not in room", event.Sender)
+	}
+
+	senderLevel := e.powerLevels.userLevel(event.Sender)
+	eventLevel := e.powerLevels.eventLevel(event.Type, event.StateKey)
+	if senderLevel < eventLevel {
+		return errorf(
+			"sender %q is not allowed to send event. %d < %d",
+			event.Sender, senderLevel, eventLevel,
+		)
+	}
+
+	if event.StateKey != nil && len(*event.StateKey) > 0 && (*event.StateKey)[0] == '@' {
+		if *event.StateKey != event.Sender {
+			return errorf(
+				"sender %q is not allowed to modify the state belonging to %q",
+				event.Sender, *event.StateKey,
+			)
+		}
+	}
+
+	return nil
 }
