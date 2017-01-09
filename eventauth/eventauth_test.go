@@ -255,7 +255,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 	}`)
 }
 
-func TestAllowedNoPowerLevels(t *testing.T) {
+func TestAllowedWithNoPowerLevels(t *testing.T) {
 	testEventAllowed(t, `{
 		"auth_events": {
 			"create": {
@@ -291,6 +291,159 @@ func TestAllowedNoPowerLevels(t *testing.T) {
 			"content": {"body": "Test"},
 			"unsigned": {
 				"not_allowed": "Sender is not in room"
+			}
+		}]
+	}`)
+}
+
+func TestAllowedWithPowerLevels(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e3:a",
+					"content": {"membership": "join"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e4:a",
+					"content": {"membership": "join"}
+				}
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e5:a",
+				"content": {
+					"users": {
+						"@u1:a": 100,
+						"@u2:a": 50
+					},
+					"users_default": 0,
+					"events": {
+						"m.room.join_rules": 100
+					},
+					"state_default": 50,
+					"events_default": 0
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e6:a",
+			"content": {"body": "Test from @u1:a"}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"body": "Test from @u2:a"}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"event_id": "$e8:a",
+			"content": {"body": "Test from @u3:a"}
+		},{
+			"type": "m.room.name",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e9:a",
+			"content": {"name": "Name set by @u1:a"}
+		}, {
+			"type": "m.room.name",
+			"state_key": "",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e10:a",
+			"content": {"name": "Name set by @u2:a"}
+		}, {
+			"type": "m.room.join_rules",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e11:a",
+			"content": {"join_rule": "public"}
+		}, {
+			"type": "my.custom.state",
+			"state_key": "@u2:a",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "@e12:a",
+			"content": {}
+		}],
+		"not_allowed": [{
+			"type": "m.room.name",
+			"state_key": "",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"event_id": "$e13:a",
+			"content": {"name": "Name set by @u3:a"},
+			"unsigned": {
+				"not_allowed": "User @u3:a's level is too low to send a state event"
+			}
+		}, {
+			"type": "m.room.join_rules",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e14:a",
+			"content": {"name": "Name set by @u3:a"},
+			"unsigned": {
+				"not_allowed": "User @u2:a's level is too low to send m.room.join_rules"
+			}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"event_id": "$e15:a",
+			"content": {"Body": "Test from @u4:a"},
+			"unsigned": {
+				"not_allowed": "User @u4:a is not in the room"
+			}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r2:a",
+			"event_id": "$e16:a",
+			"content": {"body": "Test from @u4:a"},
+			"unsigned": {
+				"not_allowed": "Sent from a different room to the create event"
+			}
+		}, {
+			"type": "my.custom.state",
+			"state_key": "@u2:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "@e17:a",
+			"content": {},
+			"unsigned": {
+				"not_allowed": "State key starts with '@' and is for a different user"
 			}
 		}]
 	}`)
