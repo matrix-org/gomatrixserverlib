@@ -231,6 +231,8 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 
 // defaultEventAllowed checks whether the event is allowed by the default
 // checks for events.
+// It returns an error if the event is not allowed or if there was a
+// problem loading the auth events needed.
 func defaultEventAllowed(event Event, authEvents AuthEvents) error {
 	var allower eventAllower
 	if err := allower.setup(authEvents, event.Sender); err != nil {

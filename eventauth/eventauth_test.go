@@ -435,7 +435,7 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 			"sender": "@u3:b",
 			"room_id": "!r1:a",
 			"event_id": "$e8:a",
-			"content": {"body": "Test from @u3:a"}
+			"content": {"body": "Test from @u3:b"}
 		},{
 			"type": "m.room.name",
 			"state_key": "",
@@ -471,16 +471,16 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 			"sender": "@u3:b",
 			"room_id": "!r1:a",
 			"event_id": "$e13:a",
-			"content": {"name": "Name set by @u3:a"},
+			"content": {"name": "Name set by @u3:b"},
 			"unsigned": {
-				"not_allowed": "User @u3:a's level is too low to send a state event"
+				"not_allowed": "User @u3:b's level is too low to send a state event"
 			}
 		}, {
 			"type": "m.room.join_rules",
 			"sender": "@u2:a",
 			"room_id": "!r1:a",
 			"event_id": "$e14:a",
-			"content": {"name": "Name set by @u3:a"},
+			"content": {"name": "Name set by @u3:b"},
 			"unsigned": {
 				"not_allowed": "User @u2:a's level is too low to send m.room.join_rules"
 			}
