@@ -174,8 +174,8 @@ func errorf(message string, args ...interface{}) error {
 }
 
 // Allowed checks whether an event is allowed by the auth events.
-// It returns an error if the event is not allowed or if there was an error
-// loading the auth events.
+// It returns a NotAllowed error if the event is not allowed.
+// If there was an error loading the auth events then it returns that error.
 func Allowed(event Event, authEvents AuthEvents) error {
 	switch event.Type {
 	case "m.room.create":
@@ -234,8 +234,8 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 // It returns an error if the event is not allowed or if there was a
 // problem loading the auth events needed.
 func defaultEventAllowed(event Event, authEvents AuthEvents) error {
-	var allower eventAllower
-	if err := allower.setup(authEvents, event.Sender); err != nil {
+	allower, err := newEventAllower(authEvents, event.Sender)
+	if err != nil {
 		return err
 	}
 
@@ -250,18 +250,18 @@ type eventAllower struct {
 	powerLevels powerLevelContent
 }
 
-// setup loads the necesary information from the auth events.
-func (e *eventAllower) setup(authEvents AuthEvents, senderID string) error {
-	if err := e.create.load(authEvents); err != nil {
-		return err
+// newEventAllower loads an eventAllower from the auth events.
+func newEventAllower(authEvents AuthEvents, senderID string) (e eventAllower, err error) {
+	if err = e.create.load(authEvents); err != nil {
+		return
 	}
-	if err := e.member.load(authEvents, senderID); err != nil {
-		return err
+	if err = e.member.load(authEvents, senderID); err != nil {
+		return
 	}
-	if err := e.powerLevels.load(authEvents, e.create.Creator); err != nil {
-		return err
+	if err = e.powerLevels.load(authEvents, e.create.Creator); err != nil {
+		return
 	}
-	return nil
+	return
 }
 
 // commonChecks does the checks that are applied to all events types other than
