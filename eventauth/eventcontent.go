@@ -19,23 +19,26 @@ type createContent struct {
 	Creator string `json:"creator"`
 }
 
-// load the create event content from the create event in the auth events.
-func (c *createContent) load(authEvents AuthEvents) error {
-	createEvent, err := authEvents.Create()
-	if err != nil {
-		return err
+// newCreateContentFromAuthEvents loads the create event content from the create event in the
+// auth events.
+func newCreateContentFromAuthEvents(authEvents AuthEvents) (c createContent, err error) {
+	var createEvent *Event
+	if createEvent, err = authEvents.Create(); err != nil {
+		return
 	}
 	if createEvent == nil {
-		return errorf("missing create event")
+		err = errorf("missing create event")
+		return
 	}
-	if err = json.Unmarshal(createEvent.Content, c); err != nil {
-		return errorf("unparsable create event content: %s", err.Error())
+	if err = json.Unmarshal(createEvent.Content, &c); err != nil {
+		err = errorf("unparsable create event content: %s", err.Error())
+		return
 	}
 	c.roomID = createEvent.RoomID
 	if c.senderDomain, err = domainFromID(createEvent.Sender); err != nil {
-		return err
+		return
 	}
-	return nil
+	return
 }
 
 // domainAllowed checks whether the domain is allowed in the room by the
@@ -87,30 +90,32 @@ type memberContent struct {
 	ThirdPartyInvite json.RawMessage `json:"third_party_invite"`
 }
 
-// Load the member content from the member event for the user ID.
+// newMemberContentFromAuthEvents load the member content from the member
+// event for the user ID in the auth events.
 // Returns an error if there was an error loading the member event or
 // parsing the event content.
-func (c *memberContent) load(authEvents AuthEvents, userID string) error {
-	memberEvent, err := authEvents.Member(userID)
-	if err != nil {
-		return err
+func newMemberContentFromAuthEvents(authEvents AuthEvents, userID string) (c memberContent, err error) {
+	var memberEvent *Event
+	if memberEvent, err = authEvents.Member(userID); err != nil {
+		return
 	}
 	if memberEvent == nil {
 		// If there isn't a member event then the membership for the user
 		// defaults to leave.
 		c.Membership = "leave"
-		return nil
+		return
 	}
-	return c.parse(*memberEvent)
+	return newMemberContentFromEvent(*memberEvent)
 }
 
-// Parse the member content of an event.
+// newMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
-func (c *memberContent) parse(event Event) error {
-	if err := json.Unmarshal(event.Content, c); err != nil {
-		return errorf("unparsable member event content: %s", err.Error())
+func newMemberContentFromEvent(event Event) (c memberContent, err error) {
+	if err = json.Unmarshal(event.Content, &c); err != nil {
+		err = errorf("unparsable member event content: %s", err.Error())
+		return
 	}
-	return nil
+	return
 }
 
 // powerLevelContent is the JSON content of a m.room.power_levels event needed
@@ -156,22 +161,24 @@ func (c *powerLevelContent) eventLevel(eventType string, eventStateKey *string) 
 	return c.eventDefaultLevel
 }
 
-// load the power level content from the power level event in the auth events.
-func (c *powerLevelContent) load(authEvents AuthEvents, creatorUserID string) error {
+// newPowerLevelContentFromAuthEvents loads the power level content from the
+// power level event in the auth events or returns the default values if there
+// is no power level event.
+func newPowerLevelContentFromAuthEvents(authEvents AuthEvents, creatorUserID string) (c powerLevelContent, err error) {
 	powerLevelsEvent, err := authEvents.PowerLevels()
 	if err != nil {
-		return err
+		return
 	}
 	if powerLevelsEvent != nil {
-		return c.parse(*powerLevelsEvent)
+		return newPowerLevelContentFromEvent(*powerLevelsEvent)
 	}
 
-	// If there are no power leves then fall back to defaults.
+	// If there are no power levels then fall back to defaults.
 	c.defaults()
 	// If there is no power level event then the creator gets level 100
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
 	c.userLevels = map[string]int64{creatorUserID: 100}
-	return nil
+	return
 }
 
 // defaults sets the power levels to their default values.
@@ -197,8 +204,8 @@ func (c *powerLevelContent) defaults() {
 
 }
 
-// parse the power level content from an event.
-func (c *powerLevelContent) parse(event Event) error {
+// newPowerLevelContentFromEvent loads the power level content from an event.
+func newPowerLevelContentFromEvent(event Event) (c powerLevelContent, err error) {
 	// Set the levels to their default values.
 	c.defaults()
 
@@ -215,8 +222,9 @@ func (c *powerLevelContent) parse(event Event) error {
 		StateDefaultLevel levelJSONValue            `json:"state_default"`
 		EventDefaultLevel levelJSONValue            `json:"event_default"`
 	}
-	if err := json.Unmarshal(event.Content, &content); err != nil {
-		return errorf("unparsable power_levels event content: %s", err.Error())
+	if err = json.Unmarshal(event.Content, &content); err != nil {
+		err = errorf("unparsable power_levels event content: %s", err.Error())
+		return
 	}
 
 	// Update the levels with the values that are present in the event content.
@@ -242,7 +250,7 @@ func (c *powerLevelContent) parse(event Event) error {
 		c.eventLevels[k] = v.value
 	}
 
-	return nil
+	return
 }
 
 // A levelJSONValue is used for unmarshalling power levels from JSON.

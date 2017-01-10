@@ -63,8 +63,8 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L370
 			//  * And optionally may require a m.third_party_invite event
 			//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
-			var content memberContent
-			if err := content.parse(event); err != nil {
+			content, err := newMemberContentFromEvent(event)
+			if err != nil {
 				// If we hit an error decoding the content we ignore it here.
 				// The event will be rejected when the actual checks encounter the same error.
 				continue
@@ -245,20 +245,24 @@ func defaultEventAllowed(event Event, authEvents AuthEvents) error {
 // An eventAllower has the information needed to authorise all events types
 // other than m.room.create, m.room.member and m.room.alias which are special.
 type eventAllower struct {
-	create      createContent
-	member      memberContent
+	// The content of the m.room.create.
+	create createContent
+	// The content of the m.room.member event for the sender.
+	member memberContent
+	// The content of the m.room.power_levels event for the room.
 	powerLevels powerLevelContent
 }
 
-// newEventAllower loads an eventAllower from the auth events.
+// newEventAllower loads the infromation needed to authorise an event sent
+// by a given user ID from the auth events.
 func newEventAllower(authEvents AuthEvents, senderID string) (e eventAllower, err error) {
-	if err = e.create.load(authEvents); err != nil {
+	if e.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
 		return
 	}
-	if err = e.member.load(authEvents, senderID); err != nil {
+	if e.member, err = newMemberContentFromAuthEvents(authEvents, senderID); err != nil {
 		return
 	}
-	if err = e.powerLevels.load(authEvents, e.create.Creator); err != nil {
+	if e.powerLevels, err = newPowerLevelContentFromAuthEvents(authEvents, e.create.Creator); err != nil {
 		return
 	}
 	return
