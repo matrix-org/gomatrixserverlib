@@ -113,6 +113,8 @@ func (c *memberContent) parse(event Event) error {
 
 // powerLevelContent is the JSON content of a m.room.power_levels event needed
 // for auth checks.
+// We can't unmarshal the content directly from JSON because we need to set
+// defaults and convert string values to int values.
 type powerLevelContent struct {
 	banLevel          int64
 	inviteLevel       int64
