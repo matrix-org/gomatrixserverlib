@@ -96,6 +96,8 @@ func (c *memberContent) load(authEvents AuthEvents, userID string) error {
 		return err
 	}
 	if memberEvent == nil {
+		// If there isn't a member event then the membership for the user
+		// defaults to leave.
 		c.Membership = "leave"
 		return nil
 	}
