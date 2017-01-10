@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// creaateContent is the JSON content of a m.room.create event along with
+// createContent is the JSON content of a m.room.create event along with
 // the top level keys needed for auth.
 type createContent struct {
-	// We need the domain of the create event when checking federatebility.
+	// We need the domain of the create event when checking federatability.
 	senderDomain string
 	// We need the roomID to check that events are in the same room as the create event.
 	roomID string
@@ -55,8 +55,9 @@ func (c *createContent) domainAllowed(domain string) error {
 	return errorf("room is unfederatable")
 }
 
-// idAllowed checks whether the domain of the ID is allowed in the room.
-func (c *createContent) idAllowed(id string) error {
+// userIDAllowed checks whether the domain part of the user ID is allowed in
+// the room by the "m.federate" flag.
+func (c *createContent) userIDAllowed(id string) error {
 	domain, err := domainFromID(id)
 	if err != nil {
 		return err
@@ -79,7 +80,8 @@ func domainFromID(id string) (string, error) {
 	return parts[1], nil
 }
 
-// memberContent is the JSON content of a m.room.member event.
+// memberContent is the JSON content of a m.room.member event needed for
+// for auth checks.
 type memberContent struct {
 	Membership       string          `json:"membership"`
 	ThirdPartyInvite json.RawMessage `json:"third_party_invite"`
@@ -109,7 +111,8 @@ func (c *memberContent) parse(event Event) error {
 	return nil
 }
 
-// powerLevelContent is the JSON content of a m.room.power_levels event.
+// powerLevelContent is the JSON content of a m.room.power_levels event needed
+// for auth checks.
 type powerLevelContent struct {
 	banLevel          int64
 	inviteLevel       int64

@@ -271,7 +271,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 		return errorf("create event has different roomID: %q != %q", event.RoomID, e.create.roomID)
 	}
 
-	if err := e.create.idAllowed(event.Sender); err != nil {
+	if err := e.create.userIDAllowed(event.Sender); err != nil {
 		return err
 	}
 
