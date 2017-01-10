@@ -534,3 +534,119 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 		}]
 	}`)
 }
+
+func TestRedactAllowed(t *testing.T) {
+	// Test if redacts are allowed correctly in a room with a power level event.
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e3:a",
+					"content": {"membership": "join"}
+				},
+				"@u1:b": {
+					"type": "m.room.member",
+					"sender": "@u1:b",
+					"room_id": "!r1:a",
+					"state_key": "@u1:b",
+					"event_id": "$e4:a",
+					"content": {"membership": "join"}
+				}
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e5:a",
+				"content": {
+					"users": {
+						"@u1:a": 100
+					},
+					"redact": 100
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.redaction",
+			"sender": "@u1:b",
+			"room_id": "!r1:a",
+			"redacts": "$event_sent_by_b:b",
+			"event_id": "$e6:b",
+			"content": {"reason": ""}
+		}, {
+			"type": "m.room.redaction",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"redacts": "$event_sent_by_a:a",
+			"event_id": "$e7:a",
+			"content": {"reason": ""}
+		}, {
+			"type": "m.room.redaction",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"redacts": "$event_sent_by_b:b",
+			"event_id": "$e8:a",
+			"content": {"reason": ""}
+		}],
+		"not_allowed": [{
+			"type": "m.room.redaction",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"redacts": "$event_sent_by_b:b",
+			"event_id": "$e9:a",
+			"content": {"reason": ""},
+			"unsigned": {
+				"not_allowed": "User power level is too low and event is from different server"
+			}
+		}, {
+			"type": "m.room.redaction",
+			"sender": "@u1:c",
+			"room_id": "!r1:a",
+			"redacts": "$event_sent_by_c:c",
+			"event_id": "$e10:a",
+			"content": {"reason": ""},
+			"unsigned": {
+				"not_allowed": "User is not in the room"
+			}
+		}, {
+			"type": "m.room.redaction",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"redacts": "not_a_valid_event_id",
+			"event_id": "$e11:a",
+			"content": {"reason": ""},
+			"unsigned": {
+				"not_allowed": "Invalid redacts event ID"
+			}
+		}, {
+			"type": "m.room.redaction",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e11:a",
+			"content": {"reason": ""},
+			"unsigned": {
+				"not_allowed": "Missing redacts event ID"
+			}
+		}]
+	}`)
+}

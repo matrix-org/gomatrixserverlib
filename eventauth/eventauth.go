@@ -186,7 +186,7 @@ func Allowed(event Event, authEvents AuthEvents) error {
 		return memberEventAllowed(event, authEvents)
 	case "m.room.power_levels":
 		return powerLevelsEventAllowed(event, authEvents)
-	case "m.room.redact":
+	case "m.room.redaction":
 		return redactEventAllowed(event, authEvents)
 	default:
 		return defaultEventAllowed(event, authEvents)
@@ -231,8 +231,53 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
 	panic("Not implemented")
 }
 
+// redactEventAllowed checks whether the m.room.redaction event is allowed.
+// It returns an error if the event is not allowed or if there was a problem
+// loading the auth events needed.
 func redactEventAllowed(event Event, authEvents AuthEvents) error {
-	panic("Not implemented")
+	allower, err := newEventAllower(authEvents, event.Sender)
+	if err != nil {
+		return err
+	}
+
+	// redact events must pass the default checks,
+	if err = allower.commonChecks(event); err != nil {
+		return err
+	}
+
+	senderDomain, err := domainFromID(event.Sender)
+	if err != nil {
+		return err
+	}
+
+	redactDomain, err := domainFromID(event.Redacts)
+	if err != nil {
+		return err
+	}
+
+	// Servers are always allowed to redact their own messages.
+	// This is so that users can redact their own messages, but since
+	// we don't know which user ID sent the message being redacted
+	// the only check we can do is to compare the domains of the
+	// sender and the redacted event.
+	// We leave it up to the sending server to implement the additional checks
+	// to ensure that only events that should be redacted are redacted.
+	if senderDomain == redactDomain {
+		return nil
+	}
+
+	// Otherwise the sender must have enough power.
+	// This allows room admins and ops to redact messages sent by other servers.
+	senderLevel := allower.powerLevels.userLevel(event.Sender)
+	redactLevel := allower.powerLevels.redactLevel
+	if senderLevel >= redactLevel {
+		return nil
+	}
+
+	return errorf(
+		"%q is not allowed to redact message from %q. %d < %d",
+		event.Sender, redactDomain, senderLevel, redactLevel,
+	)
 }
 
 // defaultEventAllowed checks whether the event is allowed by the default
