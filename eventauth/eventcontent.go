@@ -42,11 +42,14 @@ func (c *createContent) load(authEvents AuthEvents) error {
 // "m.federate" flag.
 func (c *createContent) domainAllowed(domain string) error {
 	if domain == c.senderDomain {
-		// If the domain matches the domain of the create event
+		// If the domain matches the domain of the create event then the event
+		// is always allowed regardless of the value of the "m.federate" flag.
 		return nil
 	}
 	if c.Federate == nil || *c.Federate {
 		// The m.federate field defaults to true.
+		// If the domains are different then event is only allowed if the
+		// "m.federate" flag is absent or true.
 		return nil
 	}
 	return errorf("room is unfederatable")
