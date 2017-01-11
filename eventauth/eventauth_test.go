@@ -186,15 +186,15 @@ type testCase struct {
 	NotAllowed []json.RawMessage `json:"not_allowed"`
 }
 
-func testCaseJSON(t *testing.T, testCaseData string) {
+func testEventAllowed(t *testing.T, testCaseJSON string) {
 	var tc testCase
-	if err := json.Unmarshal([]byte(testCaseData), &tc); err != nil {
-		t.Fatal(err)
+	if err := json.Unmarshal([]byte(testCaseJSON), &tc); err != nil {
+		panic(err)
 	}
 	for _, data := range tc.Allowed {
 		var event Event
 		if err := json.Unmarshal(data, &event); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if err := Allowed(event, &tc.AuthEvents); err != nil {
 			t.Fatalf("Expected %q to be allowed but it was not: %q", string(data), err)
@@ -203,7 +203,7 @@ func testCaseJSON(t *testing.T, testCaseData string) {
 	for _, data := range tc.NotAllowed {
 		var event Event
 		if err := json.Unmarshal(data, &event); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if err := Allowed(event, &tc.AuthEvents); err == nil {
 			t.Fatalf("Expected %q to not be allowed but it was: %q", string(data), err)
@@ -214,10 +214,11 @@ func testCaseJSON(t *testing.T, testCaseData string) {
 func TestAllowedEmptyRoom(t *testing.T) {
 	// Test that only m.room.create events can be sent without auth events.
 	// TODO: Test the events that aren't m.room.create
-	testCaseJSON(t, `{
+	testEventAllowed(t, `{
 		"auth_events": {},
 		"allowed": [{
 			"type": "m.room.create",
+			"state_key": "",
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
 			"event_id": "$e1:a",
@@ -225,6 +226,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 		}],
 		"not_allowed": [{
 			"type": "m.room.create",
+			"state_key": "",
 			"sender": "@u1:b",
 			"room_id": "!r1:a",
 			"event_id": "$e2:a",
@@ -234,13 +236,300 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			}
 		}, {
 			"type": "m.room.create",
+			"state_key": "",
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
-			"event_id": "$e2:a",
+			"event_id": "$e3:a",
 			"prev_events": [["$e1", {}]],
 			"content": {"creator": "@u1:a"},
 			"unsigned": {
 				"not_allowed": "Was not the first event in the room"
+			}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"body": "Test"},
+			"unsigned": {
+				"not_allowed": "No create event"
+			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "",
+			"sender": "not_a_user_id",
+			"room_id": "!r1:a",
+			"event_id": "$e5:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Sender is not a valid user ID"
+			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "not_a_room_id",
+			"event_id": "$e6:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Room is not a valid room ID"
+			}
+		}, {
+			"type": "m.room.create",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Missing state_key"
+			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "not_empty",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "The state_key is not empty"
+			}
+		}]
+	}`)
+}
+
+func TestAllowedWithNoPowerLevels(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e3:a",
+			"content": {"body": "Test"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.message",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"body": "Test"},
+			"unsigned": {
+				"not_allowed": "Sender is not in room"
+			}
+		}]
+	}`)
+}
+
+func TestAllowedNoFederation(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {
+					"creator": "@u1:a",
+					"m.federate": false
+				}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e3:a",
+			"content": {"body": "Test"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:b",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"body": "Test"},
+			"unsigned": {
+				"not_allowed": "Sender is from a different server."
+			}
+		}]
+	}`)
+}
+
+func TestAllowedWithPowerLevels(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e3:a",
+					"content": {"membership": "join"}
+				},
+				"@u3:b": {
+					"type": "m.room.member",
+					"sender": "@u3:b",
+					"room_id": "!r1:a",
+					"state_key": "@u3:b",
+					"event_id": "$e4:a",
+					"content": {"membership": "join"}
+				}
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e5:a",
+				"content": {
+					"users": {
+						"@u1:a": 100,
+						"@u2:a": 50
+					},
+					"users_default": 0,
+					"events": {
+						"m.room.join_rules": 100
+					},
+					"state_default": 50,
+					"events_default": 0
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e6:a",
+			"content": {"body": "Test from @u1:a"}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"body": "Test from @u2:a"}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u3:b",
+			"room_id": "!r1:a",
+			"event_id": "$e8:a",
+			"content": {"body": "Test from @u3:b"}
+		},{
+			"type": "m.room.name",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e9:a",
+			"content": {"name": "Name set by @u1:a"}
+		}, {
+			"type": "m.room.name",
+			"state_key": "",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e10:a",
+			"content": {"name": "Name set by @u2:a"}
+		}, {
+			"type": "m.room.join_rules",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e11:a",
+			"content": {"join_rule": "public"}
+		}, {
+			"type": "my.custom.state",
+			"state_key": "@u2:a",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "@e12:a",
+			"content": {}
+		}],
+		"not_allowed": [{
+			"type": "m.room.name",
+			"state_key": "",
+			"sender": "@u3:b",
+			"room_id": "!r1:a",
+			"event_id": "$e13:a",
+			"content": {"name": "Name set by @u3:b"},
+			"unsigned": {
+				"not_allowed": "User @u3:b's level is too low to send a state event"
+			}
+		}, {
+			"type": "m.room.join_rules",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e14:a",
+			"content": {"name": "Name set by @u3:b"},
+			"unsigned": {
+				"not_allowed": "User @u2:a's level is too low to send m.room.join_rules"
+			}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"event_id": "$e15:a",
+			"content": {"Body": "Test from @u4:a"},
+			"unsigned": {
+				"not_allowed": "User @u4:a is not in the room"
+			}
+		}, {
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r2:a",
+			"event_id": "$e16:a",
+			"content": {"body": "Test from @u4:a"},
+			"unsigned": {
+				"not_allowed": "Sent from a different room to the create event"
+			}
+		}, {
+			"type": "my.custom.state",
+			"state_key": "@u2:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "@e17:a",
+			"content": {},
+			"unsigned": {
+				"not_allowed": "State key starts with '@' and is for a different user"
 			}
 		}]
 	}`)
