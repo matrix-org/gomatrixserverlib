@@ -156,7 +156,7 @@ type AuthEvents interface {
 	// Member returns the m.room.member event for the given user_id state_key.
 	Member(stateKey string) (*Event, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
-	// given state_key.
+	// given state_key.powerLevelContent
 	ThirdPartyInvite(stateKey string) (*Event, error)
 }
 
@@ -300,6 +300,8 @@ func (e *eventAllower) commonChecks(event Event) error {
 		)
 	}
 
+	// Check that all state_keys that begin with '@' are only updated by users
+	// with that ID.
 	if event.StateKey != nil && len(*event.StateKey) > 0 && (*event.StateKey)[0] == '@' {
 		if *event.StateKey != event.Sender {
 			return errorf(
@@ -308,6 +310,10 @@ func (e *eventAllower) commonChecks(event Event) error {
 			)
 		}
 	}
+
+	// TODO: Implement other restrictions on state_keys required by the specification.
+	// However as synapse doesn't implement those checks at the moment we'll hold off
+	// so that checks between the two codebases don't diverge too much.
 
 	return nil
 }
