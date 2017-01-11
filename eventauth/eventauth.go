@@ -156,7 +156,7 @@ type AuthEvents interface {
 	// Member returns the m.room.member event for the given user_id state_key.
 	Member(stateKey string) (*Event, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
-	// given state_key.powerLevelContent
+	// given state_key
 	ThirdPartyInvite(stateKey string) (*Event, error)
 }
 
