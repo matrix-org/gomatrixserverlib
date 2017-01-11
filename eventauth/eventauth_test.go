@@ -352,7 +352,7 @@ func TestAllowedNoFederation(t *testing.T) {
 		}],
 		"not_allowed": [{
 			"type": "m.room.message",
-			"sender": "@u2:b",
+			"sender": "@u1:b",
 			"room_id": "!r1:a",
 			"event_id": "$e4:a",
 			"content": {"body": "Test"},

@@ -84,8 +84,7 @@ func domainFromID(id string) (string, error) {
 	return parts[1], nil
 }
 
-// memberContent is the JSON content of a m.room.member event needed for
-// for auth checks.
+// memberContent is the JSON content of a m.room.member event needed for auth checks.
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member for descriptions of the fields.
 type memberContent struct {
 	// We use the membership key in order to check if the user is in the room.
@@ -122,8 +121,7 @@ func newMemberContentFromEvent(event Event) (c memberContent, err error) {
 	return
 }
 
-// powerLevelContent is the JSON content of a m.room.power_levels event needed
-// for auth checks.
+// powerLevelContent is the JSON content of a m.room.power_levels event needed for auth checks.
 // We can't unmarshal the content directly from JSON because we need to set
 // defaults and convert string values to int values.
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-power-levels for descriptions of the fields.
