@@ -274,6 +274,25 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			"unsigned": {
 				"not_allowed": "Room is not a valid room ID"
 			}
+		}, {
+			"type": "m.room.create",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "Missing state_key"
+			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "not_empty",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"creator": "@u1:a"},
+			"unsigned": {
+				"not_allowed": "The state_key is not empty"
+			}
 		}]
 	}`)
 }

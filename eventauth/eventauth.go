@@ -196,6 +196,12 @@ func Allowed(event Event, authEvents AuthEvents) error {
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
 func createEventAllowed(event Event) error {
+	if event.StateKey == nil {
+		return errorf("create event missing state key")
+	}
+	if *event.StateKey != "" {
+		return errorf("create event state key is not empty: %q", event.StateKey)
+	}
 	roomIDDomain, err := domainFromID(event.RoomID)
 	if err != nil {
 		return err
