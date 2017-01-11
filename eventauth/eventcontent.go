@@ -8,6 +8,7 @@ import (
 
 // createContent is the JSON content of a m.room.create event along with
 // the top level keys needed for auth.
+// See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create for descriptions of the fields.
 type createContent struct {
 	// We need the domain of the create event when checking federatability.
 	senderDomain string
@@ -85,8 +86,11 @@ func domainFromID(id string) (string, error) {
 
 // memberContent is the JSON content of a m.room.member event needed for
 // for auth checks.
+// See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member for descriptions of the fields.
 type memberContent struct {
-	Membership       string          `json:"membership"`
+	// We use the membership key in order to check if the user is in the room.
+	Membership string `json:"membership"`
+	// We use the third_party_invite key to special case thirdparty invites.
 	ThirdPartyInvite json.RawMessage `json:"third_party_invite"`
 }
 
@@ -122,6 +126,7 @@ func newMemberContentFromEvent(event Event) (c memberContent, err error) {
 // for auth checks.
 // We can't unmarshal the content directly from JSON because we need to set
 // defaults and convert string values to int values.
+// See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-power-levels for descriptions of the fields.
 type powerLevelContent struct {
 	banLevel          int64
 	inviteLevel       int64

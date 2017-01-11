@@ -279,6 +279,8 @@ func (e *eventAllower) commonChecks(event Event) error {
 		return err
 	}
 
+	// Check that the sender is in the room.
+	// Every event other than m.room.create, m.room.member and m.room.alias require this.
 	if e.member.Membership != "join" {
 		return errorf("sender %q not in room", event.Sender)
 	}
