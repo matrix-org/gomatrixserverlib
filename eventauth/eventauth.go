@@ -188,7 +188,7 @@ func Allowed(event Event, authEvents AuthEvents) error {
 	switch event.Type {
 	case "m.room.create":
 		return createEventAllowed(event)
-	case "m.room.alias":
+	case "m.room.aliases":
 		return aliasEventAllowed(event, authEvents)
 	case "m.room.member":
 		return memberEventAllowed(event, authEvents)
@@ -237,7 +237,7 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 	return allower.membershipAllowed(event)
 }
 
-// aliasEventAllowed checks whether the m.room.alias event is allowed.
+// aliasEventAllowed checks whether the m.room.aliases event is allowed.
 // Alias events have different authentication rules to ordinary events.
 func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	// The alias events have different auth rules to ordinary events.
