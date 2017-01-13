@@ -237,8 +237,43 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 	return allower.membershipAllowed(event)
 }
 
+// aliasEventAllowed checks whether the m.room.alias event is allowed.
+// Alias events have different authentication rules to ordinary events.
 func aliasEventAllowed(event Event, authEvents AuthEvents) error {
-	panic("Not implemented")
+	// The alias events have different auth rules to ordinary events.
+	// In particular we allow any server to send a m.room.alias event without checking if the sender is in the room.
+	// This allows server admins to update the m.room.alias event for their server when they change the aliases on their server.
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
+
+	create, err := newCreateContentFromAuthEvents(authEvents)
+
+	senderDomain, err := domainFromID(event.Sender)
+	if err != nil {
+		return err
+	}
+
+	if event.RoomID != create.roomID {
+		return errorf("create event has different roomID: %q != %q", event.RoomID, create.roomID)
+	}
+
+	// Check that server is allowed in the room by the m.room.federate flag.
+	if err := create.domainAllowed(senderDomain); err != nil {
+		return err
+	}
+
+	// Check that event is a state event.
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L147
+	if event.StateKey == nil {
+		return errorf("alias must be a state event")
+	}
+
+	// Check that the state key matches the server sending this event.
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
+	if senderDomain != *event.StateKey {
+		return errorf("alias state_key does not match sender domain, %q != %q", senderDomain, *event.StateKey)
+	}
+
+	return nil
 }
 
 // powerLevelsEventAllowed checks whether the m.room.power_levels event is allowed.
