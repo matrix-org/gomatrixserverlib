@@ -6,6 +6,14 @@ import (
 	"sort"
 )
 
+const (
+	join   = "join"
+	ban    = "ban"
+	leave  = "leave"
+	invite = "invite"
+	public = "public"
+)
+
 // An Event has the fields necessary to authenticate a matrix event.
 // It can be unmarshalled from the event JSON.
 type Event struct {
@@ -74,7 +82,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			if event.StateKey != nil {
 				members = append(members, event.Sender, *event.StateKey)
 			}
-			if content.Membership == "join" {
+			if content.Membership == join {
 				result.JoinRules = true
 			}
 			if content.ThirdPartyInvite != nil {
@@ -219,8 +227,14 @@ func createEventAllowed(event Event) error {
 	return nil
 }
 
+// memberEventAllowed checks whether the m.room.member event is allowed.
+// Membership events have different authentication rules to ordinary events.
 func memberEventAllowed(event Event, authEvents AuthEvents) error {
-	panic("Not implemented")
+	allower, err := newMembershipAllower(authEvents, event)
+	if err != nil {
+		return err
+	}
+	return allower.membershipAllowed(event)
 }
 
 func aliasEventAllowed(event Event, authEvents AuthEvents) error {
@@ -332,7 +346,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 
 	// Check that the sender is in the room.
 	// Every event other than m.room.create, m.room.member and m.room.alias require this.
-	if e.member.Membership != "join" {
+	if e.member.Membership != join {
 		return errorf("sender %q not in room", event.Sender)
 	}
 
@@ -361,4 +375,208 @@ func (e *eventAllower) commonChecks(event Event) error {
 	// so that checks between the two codebases don't diverge too much.
 
 	return nil
+}
+
+// A membershipAllower has the information needed to authenticate a m.room.member event
+type membershipAllower struct {
+	// The user ID of the user whose membership is changing.
+	targetID string
+	// The user ID of the user who sent the membership event.
+	senderID string
+	// The membership of the user who sent the membership event.
+	senderMember memberContent
+	// The previous membership of the user whose membership is changing.
+	oldMember memberContent
+	// The new membership of the user if this event is accepted.
+	newMember memberContent
+	// The m.room.create content for the room.
+	create createContent
+	// The m.room.power_levels content for the room.
+	powerLevels powerLevelContent
+	// The m.room.join_rules content for the room.
+	joinRule joinRuleContent
+}
+
+// newMembershipAllower loads the information needed to authenticate the m.room.member event
+// from the auth events.
+func newMembershipAllower(authEvents AuthEvents, event Event) (m membershipAllower, err error) {
+	if event.StateKey == nil {
+		err = errorf("m.room.member must be a state event")
+		return
+	}
+	// TODO: Check that the IDs are valid user IDs.
+	m.targetID = *event.StateKey
+	m.senderID = event.Sender
+	if m.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
+		return
+	}
+	if m.newMember, err = newMemberContentFromEvent(event); err != nil {
+		return
+	}
+	if m.oldMember, err = newMemberContentFromAuthEvents(authEvents, m.targetID); err != nil {
+		return
+	}
+	if m.senderMember, err = newMemberContentFromAuthEvents(authEvents, m.senderID); err != nil {
+		return
+	}
+	if m.powerLevels, err = newPowerLevelContentFromAuthEvents(authEvents, m.create.Creator); err != nil {
+		return
+	}
+	// We only need to check the join rules if the proposed membership is "join".
+	if m.newMember.Membership == "join" {
+		if m.joinRule, err = newJoinRuleContentFromAuthEvents(authEvents); err != nil {
+			return
+		}
+	}
+	return
+}
+
+// membershipAllowed checks whether the membership event is allowed
+func (m *membershipAllower) membershipAllowed(event Event) error {
+	if m.create.roomID != event.RoomID {
+		return errorf("create event has different roomID: %q != %q", event.RoomID, m.create.roomID)
+	}
+	if err := m.create.userIDAllowed(m.senderID); err != nil {
+		return err
+	}
+	if err := m.create.userIDAllowed(m.targetID); err != nil {
+		return err
+	}
+	// Special case the first join event in the room to allow the creator to join.
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
+	if m.targetID == m.create.Creator &&
+		m.newMember.Membership == join &&
+		m.senderID == m.targetID &&
+		len(event.PrevEvents) == 1 {
+		// We unmarshal the prev_events here because this is the only place that
+		// this package or synapse refers to the prev_events in the auth_checks.
+		// prev_events is a list of 2 element lists of event IDs and hashes.
+		if len(event.PrevEvents[0]) != 2 {
+			return errorf("unparsable prev event")
+		}
+		// Unmarshal the event ID string.
+		var prevEventID string
+		if err := json.Unmarshal(event.PrevEvents[0][0], &prevEventID); err != nil {
+			return errorf("unparsable prev event")
+		}
+		if prevEventID == m.create.eventID {
+			// If this is the room creator joining the room directly after the
+			// the create event, then allow.
+			return nil
+		}
+		// Otherwise fall back to the normal checks.
+	}
+
+	if m.newMember.Membership == invite && len(m.newMember.ThirdPartyInvite) != 0 {
+		// Special case third party invites
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
+		panic(fmt.Errorf("ThirdPartyInvite not implemented"))
+	}
+
+	if m.targetID == m.senderID {
+		// If the state_key and the sender are the same then this is an attempt
+		// by a user to update their own membership.
+		return m.membershipAllowedSelf()
+	}
+	// Otherwise this is an attempt to modify the membership of somebody else.
+	return m.membershipAllowedOther()
+}
+
+// membershipAllowedSelf determines if the change made by the user to their own membership is allowed.
+func (m *membershipAllower) membershipAllowedSelf() error {
+	if m.newMember.Membership == join {
+		// A user that is not in the room is allowed to join if the room
+		// join rules are "public".
+		if m.oldMember.Membership == leave && m.joinRule.JoinRule == public {
+			return nil
+		}
+		// An invited user is allowed to join if the join rules are "public"
+		if m.oldMember.Membership == invite && m.joinRule.JoinRule == public {
+			return nil
+		}
+		// An invited user is allowed to join if the join rules are "invite"
+		if m.oldMember.Membership == invite && m.joinRule.JoinRule == invite {
+			return nil
+		}
+		// A joined user is allowed to update their join.
+		if m.oldMember.Membership == join {
+			return nil
+		}
+	}
+	if m.newMember.Membership == leave {
+		// A joined user is allowed to leave the room.
+		if m.oldMember.Membership == join {
+			return nil
+		}
+		// An invited user is allowed to reject an invite.
+		if m.oldMember.Membership == invite {
+			return nil
+		}
+	}
+	return m.membershipFailed()
+}
+
+// membershipAllowedOther determines if the user is allowed to change the membership of another user.
+func (m *membershipAllower) membershipAllowedOther() error {
+	senderLevel := m.powerLevels.userLevel(m.senderID)
+	targetLevel := m.powerLevels.userLevel(m.targetID)
+
+	// You may only modify the membership of another user if you are in the room.
+	if m.senderMember.Membership != join {
+		return errorf("sender %q is not in the room", m.senderID)
+	}
+
+	if m.newMember.Membership == ban {
+		// A user may ban another user if their level is high enough
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
+		if senderLevel >= m.powerLevels.banLevel &&
+			senderLevel > targetLevel {
+			return nil
+		}
+	}
+	if m.newMember.Membership == leave {
+		// A user may unban another user if their level is high enough.
+		// This is doesn't require the same power_level checks as banning.
+		// You can unban someone with higher power_level than you.
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
+		if m.oldMember.Membership == ban && senderLevel >= m.powerLevels.banLevel {
+			return nil
+		}
+		// A user may kick another user if their level is high enough.
+		// TODO: You can kick a user that was already kicked, or has left the room, or was
+		// never in the room in the first place. Do we want to allow these redudant kicks?
+		if m.oldMember.Membership != ban &&
+			senderLevel >= m.powerLevels.kickLevel &&
+			senderLevel > targetLevel {
+			return nil
+		}
+	}
+	if m.newMember.Membership == invite {
+		// A user may invite another user if the user has left the room.
+		// and their level is high enough.
+		if m.oldMember.Membership == leave && senderLevel >= m.powerLevels.inviteLevel {
+			return nil
+		}
+		// A user may re-invite a user.
+		if m.oldMember.Membership == invite && senderLevel >= m.powerLevels.inviteLevel {
+			return nil
+		}
+	}
+
+	return m.membershipFailed()
+}
+
+// membershipFailed returns a error explaining why the membership change was disallowed.
+func (m *membershipAllower) membershipFailed() error {
+	if m.senderID == m.targetID {
+		return errorf(
+			"%q is not allowed to change their membership from %q to %q",
+			m.targetID, m.oldMember.Membership, m.newMember.Membership,
+		)
+	}
+
+	return errorf(
+		"%q is not allowed to change the membership of %q from %q to %q",
+		m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership,
+	)
 }

@@ -255,6 +255,16 @@ func TestAllowedEmptyRoom(t *testing.T) {
 				"not_allowed": "No create event"
 			}
 		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "No create event"
+			}
+		}, {
 			"type": "m.room.create",
 			"state_key": "",
 			"sender": "not_a_user_id",
@@ -297,11 +307,132 @@ func TestAllowedEmptyRoom(t *testing.T) {
 	}`)
 }
 
+func TestAllowedFirstJoin(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.message",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e3:a",
+			"content": {"body": "test"},
+			"unsigned": {
+				"not_allowed": "Sender is not in the room"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u2:a",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Only the creator can join the room"
+			}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Missing state_key"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"prev_events": [["$e2:a", {}]],
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "The prev_event is not the create event"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "There are no prev_events"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"prev_events": [["$e1:a", {}], ["$e2:a", {}]],
+			"unsigned": {
+				"not_allowed": "There are too many prev_events"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"prev_events": [[0, {}]],
+			"unsigned": {
+				"not_allowed": "The prev_events event ID is not a string"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"prev_events": [["$e1:a", {}]],
+			"unsigned": {
+				"not_allowed": "The sender doesn't match the joining user"
+			}
+		}, {
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "invite"},
+			"prev_events": [["$e1:a", {}]],
+			"unsigned": {
+				"not_allowed": "The membership is not 'join'"
+			}
+		}]
+	}`)
+}
+
 func TestAllowedWithNoPowerLevels(t *testing.T) {
 	testEventAllowed(t, `{
 		"auth_events": {
 			"create": {
 				"type": "m.room.create",
+				"state_key": "",
 				"sender": "@u1:a",
 				"room_id": "!r1:a",
 				"event_id": "$e1:a",

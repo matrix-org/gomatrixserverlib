@@ -14,6 +14,8 @@ type createContent struct {
 	senderDomain string
 	// We need the roomID to check that events are in the same room as the create event.
 	roomID string
+	// We need the eventID to check the first join event in the room.
+	eventID string
 	// The "m.federate" flag tells us whether the room can be federated to other servers.
 	Federate *bool `json:"m.federate"`
 	// The creator of the room tells us what the default power levels are.
@@ -36,6 +38,7 @@ func newCreateContentFromAuthEvents(authEvents AuthEvents) (c createContent, err
 		return
 	}
 	c.roomID = createEvent.RoomID
+	c.eventID = createEvent.EventID
 	if c.senderDomain, err = domainFromID(createEvent.Sender); err != nil {
 		return
 	}
@@ -93,10 +96,8 @@ type memberContent struct {
 	ThirdPartyInvite json.RawMessage `json:"third_party_invite"`
 }
 
-// newMemberContentFromAuthEvents load the member content from the member
-// event for the user ID in the auth events.
-// Returns an error if there was an error loading the member event or
-// parsing the event content.
+// newMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
+// Returns an error if there was an error loading the member event or parsing the event content.
 func newMemberContentFromAuthEvents(authEvents AuthEvents, userID string) (c memberContent, err error) {
 	var memberEvent *Event
 	if memberEvent, err = authEvents.Member(userID); err != nil {
@@ -105,7 +106,7 @@ func newMemberContentFromAuthEvents(authEvents AuthEvents, userID string) (c mem
 	if memberEvent == nil {
 		// If there isn't a member event then the membership for the user
 		// defaults to leave.
-		c.Membership = "leave"
+		c.Membership = leave
 		return
 	}
 	return newMemberContentFromEvent(*memberEvent)
@@ -116,6 +117,33 @@ func newMemberContentFromAuthEvents(authEvents AuthEvents, userID string) (c mem
 func newMemberContentFromEvent(event Event) (c memberContent, err error) {
 	if err = json.Unmarshal(event.Content, &c); err != nil {
 		err = errorf("unparsable member event content: %s", err.Error())
+		return
+	}
+	return
+}
+
+// joinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.
+// See  https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules for descriptions of the fields.
+type joinRuleContent struct {
+	// We use the join_rule key to check whether join m.room.member events are allowed.
+	JoinRule string `json:"join_rule"`
+}
+
+// newJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
+// Returns an error if there was an error loading the join rule event or pasing the content.
+func newJoinRuleContentFromAuthEvents(authEvents AuthEvents) (c joinRuleContent, err error) {
+	var joinRulesEvent *Event
+	if joinRulesEvent, err = authEvents.JoinRules(); err != nil {
+		return
+	}
+	if joinRulesEvent == nil {
+		// Default to "invite"
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L368
+		c.JoinRule = invite
+		return
+	}
+	if err = json.Unmarshal(joinRulesEvent.Content, &c); err != nil {
+		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
 	return
