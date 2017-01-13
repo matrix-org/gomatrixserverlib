@@ -528,6 +528,7 @@ func (m *membershipAllower) membershipAllowedOther() error {
 
 	if m.newMember.Membership == ban {
 		// A user may ban another user if their level is high enough
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
 		if senderLevel >= m.powerLevels.banLevel &&
 			senderLevel > targetLevel {
 			return nil
@@ -535,10 +536,15 @@ func (m *membershipAllower) membershipAllowedOther() error {
 	}
 	if m.newMember.Membership == leave {
 		// A user may unban another user if their level is high enough.
+		// This is doesn't require the same power_level checks as banning.
+		// You can unban someone with higher power_level than you.
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
 		if m.oldMember.Membership == ban && senderLevel >= m.powerLevels.banLevel {
 			return nil
 		}
 		// A user may kick another user if their level is high enough.
+		// TODO: You can kick a user that was already kicked, or has left the room, or was
+		// never in the room in the first place. Do we want to allow these redudant kicks?
 		if m.oldMember.Membership != ban &&
 			senderLevel >= m.powerLevels.kickLevel &&
 			senderLevel > targetLevel {
