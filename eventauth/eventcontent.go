@@ -130,7 +130,7 @@ type joinRuleContent struct {
 }
 
 // newJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
-// Returns an error if there was an error loading the join rule event or pasing the content.
+// Returns an error if there was an error loading the join rule event or parsing the content.
 func newJoinRuleContentFromAuthEvents(authEvents AuthEvents) (c joinRuleContent, err error) {
 	var joinRulesEvent *Event
 	if joinRulesEvent, err = authEvents.JoinRules(); err != nil {
@@ -326,4 +326,10 @@ func (v *levelJSONValue) assignIfExists(to *int64) {
 	if v.exists {
 		*to = v.value
 	}
+}
+
+// Check if the user ID is a valid user ID.
+func isValidUserID(userID string) bool {
+	// TODO: Do we want to add anymore checks beyond checking the sigil and that it has a domain part?
+	return userID[0] == '@' && strings.IndexByte(userID, ':') != -1
 }

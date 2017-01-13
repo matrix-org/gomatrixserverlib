@@ -42,7 +42,7 @@ type StateNeeded struct {
 }
 
 // StateNeededForAuth returns the event types and state_keys needed to authenticate an event.
-// This takes a list of events to facilitate bulk processsing when doing auth checks as part of state conflict resolution.
+// This takes a list of events to facilitate bulk processing when doing auth checks as part of state conflict resolution.
 func StateNeededForAuth(events []Event) (result StateNeeded) {
 	var members []string
 	var thirdpartyinvites []string
@@ -119,7 +119,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 // Remove duplicate items from a sorted list.
 // Takes the same interface as sort.Sort
 // Returns the length of the data without duplicates
-// Uses the last occurance of a duplicate.
+// Uses the last occurrence of a duplicate.
 // O(n).
 func unique(data sort.Interface) int {
 	length := data.Len()
@@ -241,8 +241,173 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	panic("Not implemented")
 }
 
+// powerLevelsEventAllowed checks whether the m.room.power_level event is allowed.
+// It returns an error if the event is not allowed or if there was a problem
+// loading the auth events needed.
 func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
-	panic("Not implemented")
+	allower, err := newEventAllower(authEvents, event.Sender)
+	if err != nil {
+		return err
+	}
+
+	// power level events must pass the default checks.
+	// These checks will catch if the user has a high enough level to set a m.room.power_levels state event.
+	if err = allower.commonChecks(event); err != nil {
+		return err
+	}
+
+	// Parse the power levels.
+	newPowerLevels, err := newPowerLevelContentFromEvent(event)
+	if err != nil {
+		return err
+	}
+
+	// Check that the user levels are all valid user IDs
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1063
+	for userID := range newPowerLevels.userLevels {
+		if !isValidUserID(userID) {
+			return errorf("Not a valid user ID: %q", userID)
+		}
+	}
+
+	// Grab the old power level event so that we can check if the event existed.
+	var oldEvent *Event
+	if oldEvent, err = authEvents.PowerLevels(); err != nil {
+		return err
+	} else if oldEvent == nil {
+		// If this is the first power level event then it can set the levels to
+		// any value it wants to.
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1074
+		return nil
+	}
+
+	// Grab the old levels so that we can compare new the levels against them.
+	oldPowerLevels := allower.powerLevels
+	senderLevel := oldPowerLevels.userLevel(event.Sender)
+
+	// Check that the changes in event levels are allowed.
+	if err = checkEventLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
+		return err
+	}
+
+	// Check that the changes in user levels are allowed.
+	return checkUserLevels(senderLevel, event.Sender, oldPowerLevels, newPowerLevels)
+}
+
+// checkEventLevels checks that the changes in event levels are allowed.
+func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLevelContent) error {
+	type levelPair struct {
+		old int64
+		new int64
+	}
+	// Build a list of event levels to check.
+	// This differs slightly in behaviour from the code in synapse because it will use the
+	// default value if a level is not present in one of the old or new events.
+
+	// First add all the named levels.
+	levelChecks := []levelPair{
+		{oldPowerLevels.banLevel, newPowerLevels.banLevel},
+		{oldPowerLevels.inviteLevel, newPowerLevels.inviteLevel},
+		{oldPowerLevels.kickLevel, newPowerLevels.kickLevel},
+		{oldPowerLevels.redactLevel, newPowerLevels.redactLevel},
+		{oldPowerLevels.stateDefaultLevel, newPowerLevels.stateDefaultLevel},
+		{oldPowerLevels.eventDefaultLevel, newPowerLevels.eventDefaultLevel},
+	}
+
+	// Then add checks for each event key in the new levels.
+	for eventType := range newPowerLevels.eventLevels {
+		levelChecks = append(levelChecks, levelPair{
+			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
+		})
+	}
+
+	// Then add checks for each event key in the old levels.
+	// Some of these will be duplicates of the ones added using the keys from
+	// the new levels. But it doesn't hurt to run the checks twice for the same level.
+	for eventType := range oldPowerLevels.eventLevels {
+		levelChecks = append(levelChecks, levelPair{
+			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
+		})
+	}
+
+	// Check each of the levels in the list.
+	for _, level := range levelChecks {
+		if level.old != level.new {
+			// Users are allowed to change the level for an event if:
+			//   * the old level was less than or equal to their own
+			//   * the new level was less than or equal to their own
+			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
+			if senderLevel < level.old || senderLevel < level.new {
+				return errorf(
+					"sender with level %d is not allowed to change level from %d to %d",
+					senderLevel, level.old, level.new,
+				)
+			}
+		}
+	}
+
+	return nil
+}
+
+// checkUserLevels checks that the changes in user levels are allowed.
+func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowerLevels powerLevelContent) error {
+	type levelPair struct {
+		old    int64
+		new    int64
+		userID string
+	}
+
+	// Build a list of user levels to check.
+	// This differs slightly in behaviour from the code in synapse because it will use the
+	// default value if a level is not present in one of the old or new events.
+
+	// First add the user default level.
+	userLevelChecks := []levelPair{
+		{oldPowerLevels.userDefaultLevel, newPowerLevels.userDefaultLevel, ""},
+	}
+
+	// Then add checks for each user key in the new levels.
+	for userID := range newPowerLevels.userLevels {
+		userLevelChecks = append(userLevelChecks, levelPair{
+			oldPowerLevels.userLevel(userID), newPowerLevels.userLevel(userID), userID,
+		})
+	}
+
+	// Then add checks for each user key in the old levels.
+	// Some of these will be duplicates of the ones added using the keys from
+	// the new levels. But it doesn't hurt to run the checks twice for the same level.
+	for userID := range oldPowerLevels.userLevels {
+		userLevelChecks = append(userLevelChecks, levelPair{
+			oldPowerLevels.userLevel(userID), newPowerLevels.userLevel(userID), userID,
+		})
+	}
+
+	// Check each of the levels in the list.
+	for _, level := range userLevelChecks {
+		if level.old != level.new {
+			// Users are allowed to change the level of other users if:
+			//   * the old level was less than their own
+			//   * the new level was less than or equal to their own
+			// They are allowed to change their own level if:
+			//   * the new level was less than or equal to their own
+			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1126-L1127
+			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
+			if senderLevel < level.new {
+				return errorf(
+					"sender with level %d is not allowed change user level from %d to %d",
+					senderLevel, level.old, level.new,
+				)
+			}
+			if level.userID != senderID && senderLevel <= level.old {
+				return errorf(
+					"sender with level %d is not allowed to change user level from %d to %d",
+					senderLevel, level.old, level.new,
+				)
+			}
+		}
+	}
+
+	return nil
 }
 
 // redactEventAllowed checks whether the m.room.redaction event is allowed.
@@ -318,7 +483,7 @@ type eventAllower struct {
 	powerLevels powerLevelContent
 }
 
-// newEventAllower loads the infromation needed to authorise an event sent
+// newEventAllower loads the information needed to authorise an event sent
 // by a given user ID from the auth events.
 func newEventAllower(authEvents AuthEvents, senderID string) (e eventAllower, err error) {
 	if e.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
@@ -544,7 +709,7 @@ func (m *membershipAllower) membershipAllowedOther() error {
 		}
 		// A user may kick another user if their level is high enough.
 		// TODO: You can kick a user that was already kicked, or has left the room, or was
-		// never in the room in the first place. Do we want to allow these redudant kicks?
+		// never in the room in the first place. Do we want to allow these redundant kicks?
 		if m.oldMember.Membership != ban &&
 			senderLevel >= m.powerLevels.kickLevel &&
 			senderLevel > targetLevel {
