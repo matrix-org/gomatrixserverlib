@@ -256,6 +256,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			}
 		}, {
 			"type": "m.room.member",
+			"state_key": "@u1:a",
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
 			"event_id": "$e4:a",
