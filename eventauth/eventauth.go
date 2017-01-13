@@ -404,6 +404,7 @@ func newMembershipAllower(authEvents AuthEvents, event Event) (m membershipAllow
 		err = errorf("m.room.member must be a state event")
 		return
 	}
+	// TODO: Check that the IDs are valid user IDs.
 	m.targetID = *event.StateKey
 	m.senderID = event.Sender
 	if m.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
