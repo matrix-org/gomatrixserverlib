@@ -447,7 +447,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error {
 		m.newMember.Membership == join &&
 		m.senderID == m.targetID &&
 		len(event.PrevEvents) == 1 {
-		// We unmarshall the prev_events here because this is the only place that
+		// We unmarshal the prev_events here because this is the only place that
 		// this package or synapse refers to the prev_events in the auth_checks.
 		// prev_events is a list of 2 element lists of event IDs and hashes.
 		if len(event.PrevEvents[0]) != 2 {
