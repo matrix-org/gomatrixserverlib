@@ -363,7 +363,7 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 		if senderLevel < level.old {
 			return errorf(
 				"sender with level %d is not allowed to change level from %d to %d"+
-					" because the previous level is above the level of the sender",
+					" because the current level is above the level of the sender",
 				senderLevel, level.old, level.new,
 			)
 		}
