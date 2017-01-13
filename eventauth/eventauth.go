@@ -318,6 +318,10 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	// We use the default values for non-state events when applying the checks.
 	// TODO: the per event levels do not distinguish between state and non-state events.
 	// However the default values do make that distinction. We may want to change this.
+	// For example if there is an entry for "my.custom.type" events it sets the level
+	// for sending the event with and without a "state_key". But if there is no entry
+	// for "my.custom.type it will use the state default when sent with a "state_key"
+	// and will use the event default when sent without.
 	for eventType := range newPowerLevels.eventLevels {
 		levelChecks = append(levelChecks, levelPair{
 			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
