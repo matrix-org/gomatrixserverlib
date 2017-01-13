@@ -332,17 +332,33 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 
 	// Check each of the levels in the list.
 	for _, level := range levelChecks {
-		if level.old != level.new {
-			// Users are allowed to change the level for an event if:
-			//   * the old level was less than or equal to their own
-			//   * the new level was less than or equal to their own
-			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
-			if senderLevel < level.old || senderLevel < level.new {
-				return errorf(
-					"sender with level %d is not allowed to change level from %d to %d",
-					senderLevel, level.old, level.new,
-				)
-			}
+		// Check if the level is being changed.
+		if level.old == level.new {
+			// Levels are always allowed to stay the same.
+			continue
+		}
+
+		// Users are allowed to change the level for an event if:
+		//   * the old level was less than or equal to their own
+		//   * the new level was less than or equal to their own
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
+
+		// Check if the user is trying to set any of the levels to above their own.
+		if senderLevel < level.new {
+			return errorf(
+				"sender with level %d is not allowed to change level from %d to %d"+
+					" because the new level is above the level of the sender",
+				senderLevel, level.old, level.new,
+			)
+		}
+
+		// Check if the user is trying to set a level that was above their own.
+		if senderLevel < level.old {
+			return errorf(
+				"sender with level %d is not allowed to change level from %d to %d"+
+					" because the previous level is above the level of the sender",
+				senderLevel, level.old, level.new,
+			)
 		}
 	}
 
@@ -384,26 +400,43 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 
 	// Check each of the levels in the list.
 	for _, level := range userLevelChecks {
-		if level.old != level.new {
-			// Users are allowed to change the level of other users if:
-			//   * the old level was less than their own
-			//   * the new level was less than or equal to their own
-			// They are allowed to change their own level if:
-			//   * the new level was less than or equal to their own
-			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1126-L1127
-			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
-			if senderLevel < level.new {
-				return errorf(
-					"sender with level %d is not allowed change user level from %d to %d",
-					senderLevel, level.old, level.new,
-				)
-			}
-			if level.userID != senderID && senderLevel <= level.old {
-				return errorf(
-					"sender with level %d is not allowed to change user level from %d to %d",
-					senderLevel, level.old, level.new,
-				)
-			}
+		// Check if the level is being changed.
+		if level.old == level.new {
+			// Levels are always allowed to stay the same.
+			continue
+		}
+
+		// Users are allowed to change the level of other users if:
+		//   * the old level was less than their own
+		//   * the new level was less than or equal to their own
+		// They are allowed to change their own level if:
+		//   * the new level was less than or equal to their own
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1126-L1127
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
+
+		// Check if the user is trying to set any of the levels to above their own.
+		if senderLevel < level.new {
+			return errorf(
+				"sender with level %d is not allowed change user level from %d to %d"+
+					" because the new level is above the level of the sender",
+				senderLevel, level.old, level.new,
+			)
+		}
+
+		// Check if the user is changing their own user level.
+		if level.userID == senderID {
+			// Users are always allowed to reduce their own user level.
+			// We know that the user is reducing their level because of the previous checks.
+			continue
+		}
+
+		// Check if the user is changing the level that was above or the same as their own.
+		if senderLevel <= level.old {
+			return errorf(
+				"sender with level %d is not allowed to change user level from %d to %d"+
+					" because the old level is equal to or above the level of the sender",
+				senderLevel, level.old, level.new,
+			)
 		}
 	}
 
