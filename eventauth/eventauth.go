@@ -241,7 +241,7 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	panic("Not implemented")
 }
 
-// powerLevelsEventAllowed checks whether the m.room.power_level event is allowed.
+// powerLevelsEventAllowed checks whether the m.room.power_levels event is allowed.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
 func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
@@ -315,6 +315,9 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	}
 
 	// Then add checks for each event key in the new levels.
+	// We use the default values for non-state events when applying the checks.
+	// TODO: the per event levels do not distinguish between state and non-state events.
+	// However the default values do make that distinction. We may want to change this.
 	for eventType := range newPowerLevels.eventLevels {
 		levelChecks = append(levelChecks, levelPair{
 			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
