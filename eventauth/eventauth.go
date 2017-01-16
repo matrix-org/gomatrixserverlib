@@ -241,8 +241,8 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 // Alias events have different authentication rules to ordinary events.
 func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	// The alias events have different auth rules to ordinary events.
-	// In particular we allow any server to send a m.room.alias event without checking if the sender is in the room.
-	// This allows server admins to update the m.room.alias event for their server when they change the aliases on their server.
+	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
+	// This allows server admins to update the m.room.aliasies event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
 
 	create, err := newCreateContentFromAuthEvents(authEvents)
@@ -548,7 +548,7 @@ func defaultEventAllowed(event Event, authEvents AuthEvents) error {
 }
 
 // An eventAllower has the information needed to authorise all events types
-// other than m.room.create, m.room.member and m.room.alias which are special.
+// other than m.room.create, m.room.member and m.room.aliases which are special.
 type eventAllower struct {
 	// The content of the m.room.create.
 	create createContent
@@ -585,7 +585,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 	}
 
 	// Check that the sender is in the room.
-	// Every event other than m.room.create, m.room.member and m.room.alias require this.
+	// Every event other than m.room.create, m.room.member and m.room.aliases require this.
 	if e.member.Membership != join {
 		return errorf("sender %q not in room", event.Sender)
 	}
