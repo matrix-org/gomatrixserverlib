@@ -242,7 +242,7 @@ func memberEventAllowed(event Event, authEvents AuthEvents) error {
 func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	// The alias events have different auth rules to ordinary events.
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
-	// This allows server admins to update the m.room.aliasies event for their server when they change the aliases on their server.
+	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
 
 	create, err := newCreateContentFromAuthEvents(authEvents)
