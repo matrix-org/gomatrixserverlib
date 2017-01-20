@@ -4,8 +4,23 @@ import (
 	"encoding/json"
 )
 
-// rawJSON is a reimplementation of json.RawMessage that supports being used as
-// a value type
+// rawJSON is a reimplementation of json.RawMessage that supports being used as a value type
+//
+// For example:
+//
+//  jsonBytes, _ := json.Marshal(struct{
+//		RawMessage json.RawMessage
+//		RawJSON rawJSON
+//	}{
+//		json.RawMessage(`"Hello"`),
+//		rawJSON(`"World"`),
+//	})
+//
+// Results in:
+//
+//  {"RawMessage":"IkhlbGxvIg==","RawJSON":"World"}
+//
+// See https://play.golang.org/p/FzhKIJP8-I for a full example.
 type rawJSON []byte
 
 // MarshalJSON implements the json.Marshaller interface using a value receiver.
@@ -14,7 +29,7 @@ func (r rawJSON) MarshalJSON() ([]byte, error) {
 	return []byte(r), nil
 }
 
-// UnmarshalJSON impelements the json.Unmarshaller interface using a pointer receiver.
+// UnmarshalJSON implements the json.Unmarshaller interface using a pointer receiver.
 func (r *rawJSON) UnmarshalJSON(data []byte) error {
 	*r = rawJSON(data)
 	return nil
@@ -58,7 +73,7 @@ func RedactEvent(eventJSON []byte) ([]byte, error) {
 	}
 
 	// aliasesContent keeps the fields needed in a m.room.aliases event.
-	// Alias events probably don't need to keep the aliases key, but we need to match synapse here.
+	// TODO: Alias events probably don't need to keep the aliases key, but we need to match synapse here.
 	type aliasesContent struct {
 		Aliases rawJSON `json:"aliases,omitempty"`
 	}
@@ -70,7 +85,7 @@ func RedactEvent(eventJSON []byte) ([]byte, error) {
 	}
 
 	// allContent keeps the union of all the content fields needed across all the event types.
-	//All the content JSON keys we are keeping are distinct across the different event types.
+	// All the content JSON keys we are keeping are distinct across the different event types.
 	type allContent struct {
 		createContent
 		joinRulesContent
@@ -82,6 +97,7 @@ func RedactEvent(eventJSON []byte) ([]byte, error) {
 
 	// eventFields keeps the top level keys needed by all event types.
 	// (In an ideal world they would include the "redacts" key for m.room.redaction events, see matrix-org/synapse#1831)
+	// See https://github.com/matrix-org/synapse/blob/v0.18.7/synapse/events/utils.py#L42-L56 for the list of fields
 	type eventFields struct {
 		EventID        rawJSON    `json:"event_id,omitempty"`
 		Sender         rawJSON    `json:"sender,omitempty"`
@@ -105,7 +121,6 @@ func RedactEvent(eventJSON []byte) ([]byte, error) {
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}
-	// Create a new, empty content object
 	var newContent allContent
 	// Copy the content fields that we should keep for the event type.
 	// By default we copy nothing leaving the content object empty.

@@ -91,7 +91,7 @@ func CheckEventContentHash(eventJSON []byte) error {
 }
 
 // ReferenceSha256HashOfEvent returns the SHA-256 hash of the redacted event content.
-// This is used when refering to this event from other events.
+// This is used when referring to this event from other events.
 func ReferenceSha256HashOfEvent(eventJSON []byte) ([]byte, error) {
 	redactedJSON, err := RedactEvent(eventJSON)
 	if err != nil {
