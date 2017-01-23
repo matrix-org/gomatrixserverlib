@@ -23,14 +23,14 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyOK := func(input string) {
-		err := VerifyEventSignature(entityName, keyID, publicKey, []byte(input))
+		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	testVerifyNotOK := func(reason, input string) {
-		err := VerifyEventSignature(entityName, keyID, publicKey, []byte(input))
+		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input))
 		if err == nil {
 			t.Fatalf("Expected VerifyJSON to fail for input %v because %v", input, reason)
 		}
@@ -166,11 +166,11 @@ func TestSignEventTestVectors(t *testing.T) {
 	}
 
 	testSign := func(input string, want string) {
-		hashed, err := AddContentHashesToEvent([]byte(input))
+		hashed, err := addContentHashesToEvent([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
-		signed, err := SignEvent(entityName, keyID, privateKey, hashed)
+		signed, err := signEvent(entityName, keyID, privateKey, hashed)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -184,7 +184,6 @@ func TestSignEventTestVectors(t *testing.T) {
 		"event_id": "$0:domain",
 		"origin": "domain",
 		"origin_server_ts": 1000000,
-		"signatures": {},
 		"type": "X",
 		"unsigned": {
 			"age_ts": 1000000
@@ -217,7 +216,6 @@ func TestSignEventTestVectors(t *testing.T) {
 		"type": "m.room.message",
 		"room_id": "!r:domain",
 		"sender": "@u:domain",
-		"signatures": {},
 		"unsigned": {
 			"age_ts": 1000000
 		}
