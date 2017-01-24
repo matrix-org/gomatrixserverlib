@@ -54,6 +54,19 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 type Event struct {
 	redacted  bool
 	eventJSON []byte
+	fields    eventFields
+}
+
+type eventFields struct {
+	RoomID     string           `json:"room_id"`
+	EventID    string           `json:"event_id"`
+	Sender     string           `json:"sender"`
+	Type       string           `json:"type"`
+	StateKey   *string          `json:"state_key"`
+	Content    rawJSON          `json:"content"`
+	PrevEvents []EventReference `json:"prev_events"`
+	AuthEvents []EventReference `json:"auth_events"`
+	Redacts    string           `json:"redacts"`
 }
 
 var emptyEventReferenceList = []EventReference{}
@@ -106,6 +119,7 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID strin
 	}
 
 	result.eventJSON = eventJSON
+	err = json.Unmarshal(eventJSON, &result.fields)
 	return
 }
 
@@ -145,14 +159,18 @@ func NewEventFromUntrustedJSON(eventJSON []byte) (result Event, err error) {
 	}
 
 	result.eventJSON = eventJSON
+	err = json.Unmarshal(eventJSON, &result.fields)
 	return
 }
 
 // NewEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func NewEventFromTrustedJSON(eventJSON []byte, redacted bool) Event {
-	return Event{redacted, eventJSON}
+func NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result Event, err error) {
+	result.redacted = redacted
+	result.eventJSON = eventJSON
+	err = json.Unmarshal(eventJSON, &result.fields)
+	return
 }
 
 // Redacted returns whether the event is redacted.
@@ -229,4 +247,90 @@ func (e Event) KeyIDs(signingName string) []string {
 // Verify checks a ed25519 signature
 func (e Event) Verify(signingName, keyID string, publicKey ed25519.PublicKey) error {
 	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON)
+}
+
+// IsState returns true if the event is a state event.
+func (e Event) IsState() bool {
+	return e.fields.StateKey != nil
+}
+
+// StateKey returns the "state_key" of the event, or the empty string if it's
+func (e Event) StateKey() string {
+	if e.fields.StateKey == nil {
+		return ""
+	}
+	return *e.fields.StateKey
+}
+
+// EventID returns the event ID of the event.
+func (e Event) EventID() string {
+	return e.fields.EventID
+}
+
+// Sender returns the user ID of the sender of the event.
+func (e Event) Sender() string {
+	return e.fields.Sender
+}
+
+// Type returns the type of the event.
+func (e Event) Type() string {
+	return e.fields.Type
+}
+
+// Content returns the content JSON of the event.
+func (e Event) Content() []byte {
+	return []byte(e.fields.Content)
+}
+
+// PrevEvents returns references to the direct ancestors of the event.
+func (e Event) PrevEvents() []EventReference {
+	return e.fields.PrevEvents
+}
+
+// AuthEvents returns references to the events needed to auth the event.
+func (e Event) AuthEvents() []EventReference {
+	return e.fields.AuthEvents
+}
+
+// Redacts returns the event ID of the event this event redacts.
+func (e Event) Redacts() string {
+	return e.fields.Redacts
+}
+
+// RoomID returns the room ID of the room the event is in.
+func (e Event) RoomID() string {
+	return e.fields.RoomID
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (er *EventReference) UnmarshalJSON(data []byte) error {
+	var tuple []rawJSON
+	if err := json.Unmarshal(data, &tuple); err != nil {
+		return err
+	}
+	if len(tuple) != 2 {
+		return fmt.Errorf("gomatrixserverlib: invalid event reference")
+	}
+	if err := json.Unmarshal(tuple[0], &er.EventID); err != nil {
+		return err
+	}
+	var hashes struct {
+		SHA256 Base64String `json:"sha256"`
+	}
+	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
+		return err
+	}
+	er.EventSHA256 = hashes.SHA256
+	return nil
+}
+
+// MarshalJSON implements json.Marshaller
+func (er EventReference) MarshalJSON() ([]byte, error) {
+	hashes := struct {
+		SHA256 Base64String `json:"sha256"`
+	}{er.EventSHA256}
+
+	tuple := []interface{}{er.EventID, hashes}
+
+	return json.Marshal(&tuple)
 }

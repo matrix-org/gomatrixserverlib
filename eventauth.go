@@ -1,4 +1,4 @@
-package eventauth
+package gomatrixserverlib
 
 import (
 	"encoding/json"
@@ -13,19 +13,6 @@ const (
 	invite = "invite"
 	public = "public"
 )
-
-// An Event has the fields necessary to authenticate a matrix event.
-// It can be unmarshalled from the event JSON.
-type Event struct {
-	RoomID     string              `json:"room_id"`
-	EventID    string              `json:"event_id"`
-	Sender     string              `json:"sender"`
-	Type       string              `json:"type"`
-	StateKey   *string             `json:"state_key"`
-	Content    json.RawMessage     `json:"content"`
-	PrevEvents [][]json.RawMessage `json:"prev_events"`
-	Redacts    string              `json:"redacts"`
-}
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
 type StateNeeded struct {
@@ -48,7 +35,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	var thirdpartyinvites []string
 
 	for _, event := range events {
-		switch event.Type {
+		switch event.Type() {
 		case "m.room.create":
 			// The create event doesn't require any state to authenticate.
 			// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L123
@@ -79,8 +66,8 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			}
 			result.Create = true
 			result.PowerLevels = true
-			if event.StateKey != nil {
-				members = append(members, event.Sender, *event.StateKey)
+			if event.IsState() {
+				members = append(members, event.Sender(), event.StateKey())
 			}
 			if content.Membership == join {
 				result.JoinRules = true
@@ -104,7 +91,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L196
 			result.Create = true
 			result.PowerLevels = true
-			members = append(members, event.Sender)
+			members = append(members, event.Sender())
 		}
 	}
 
@@ -185,7 +172,7 @@ func errorf(message string, args ...interface{}) error {
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event Event, authEvents AuthEvents) error {
-	switch event.Type {
+	switch event.Type() {
 	case "m.room.create":
 		return createEventAllowed(event)
 	case "m.room.aliases":
@@ -204,25 +191,25 @@ func Allowed(event Event, authEvents AuthEvents) error {
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
 func createEventAllowed(event Event) error {
-	if event.StateKey == nil {
+	if !event.IsState() {
 		return errorf("create event missing state key")
 	}
-	if *event.StateKey != "" {
-		return errorf("create event state key is not empty: %q", event.StateKey)
+	if event.StateKey() != "" {
+		return errorf("create event state key is not empty: %q", event.StateKey())
 	}
-	roomIDDomain, err := domainFromID(event.RoomID)
+	roomIDDomain, err := domainFromID(event.RoomID())
 	if err != nil {
 		return err
 	}
-	senderDomain, err := domainFromID(event.Sender)
+	senderDomain, err := domainFromID(event.Sender())
 	if err != nil {
 		return err
 	}
 	if senderDomain != roomIDDomain {
 		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
 	}
-	if len(event.PrevEvents) > 0 {
-		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents))
+	if len(event.PrevEvents()) > 0 {
+		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
 	}
 	return nil
 }
@@ -247,13 +234,13 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 
 	create, err := newCreateContentFromAuthEvents(authEvents)
 
-	senderDomain, err := domainFromID(event.Sender)
+	senderDomain, err := domainFromID(event.Sender())
 	if err != nil {
 		return err
 	}
 
-	if event.RoomID != create.roomID {
-		return errorf("create event has different roomID: %q != %q", event.RoomID, create.roomID)
+	if event.RoomID() != create.roomID {
+		return errorf("create event has different roomID: %q != %q", event.RoomID(), create.roomID)
 	}
 
 	// Check that server is allowed in the room by the m.room.federate flag.
@@ -263,14 +250,14 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 
 	// Check that event is a state event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L147
-	if event.StateKey == nil {
+	if !event.IsState() {
 		return errorf("alias must be a state event")
 	}
 
 	// Check that the state key matches the server sending this event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
-	if senderDomain != *event.StateKey {
-		return errorf("alias state_key does not match sender domain, %q != %q", senderDomain, *event.StateKey)
+	if senderDomain != event.StateKey() {
+		return errorf("alias state_key does not match sender domain, %q != %q", senderDomain, event.StateKey())
 	}
 
 	return nil
@@ -280,7 +267,7 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
 func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
-	allower, err := newEventAllower(authEvents, event.Sender)
+	allower, err := newEventAllower(authEvents, event.Sender())
 	if err != nil {
 		return err
 	}
@@ -318,7 +305,7 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
 
 	// Grab the old levels so that we can compare new the levels against them.
 	oldPowerLevels := allower.powerLevels
-	senderLevel := oldPowerLevels.userLevel(event.Sender)
+	senderLevel := oldPowerLevels.userLevel(event.Sender())
 
 	// Check that the changes in event levels are allowed.
 	if err = checkEventLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
@@ -326,7 +313,7 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEvents) error {
 	}
 
 	// Check that the changes in user levels are allowed.
-	return checkUserLevels(senderLevel, event.Sender, oldPowerLevels, newPowerLevels)
+	return checkUserLevels(senderLevel, event.Sender(), oldPowerLevels, newPowerLevels)
 }
 
 // checkEventLevels checks that the changes in event levels are allowed.
@@ -359,7 +346,7 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	// and will use the event default when sent without.
 	for eventType := range newPowerLevels.eventLevels {
 		levelChecks = append(levelChecks, levelPair{
-			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
+			oldPowerLevels.eventLevel(eventType, false), newPowerLevels.eventLevel(eventType, false),
 		})
 	}
 
@@ -368,7 +355,7 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	// the new levels. But it doesn't hurt to run the checks twice for the same level.
 	for eventType := range oldPowerLevels.eventLevels {
 		levelChecks = append(levelChecks, levelPair{
-			oldPowerLevels.eventLevel(eventType, nil), newPowerLevels.eventLevel(eventType, nil),
+			oldPowerLevels.eventLevel(eventType, false), newPowerLevels.eventLevel(eventType, false),
 		})
 	}
 
@@ -489,7 +476,7 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
 func redactEventAllowed(event Event, authEvents AuthEvents) error {
-	allower, err := newEventAllower(authEvents, event.Sender)
+	allower, err := newEventAllower(authEvents, event.Sender())
 	if err != nil {
 		return err
 	}
@@ -499,12 +486,12 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 		return err
 	}
 
-	senderDomain, err := domainFromID(event.Sender)
+	senderDomain, err := domainFromID(event.Sender())
 	if err != nil {
 		return err
 	}
 
-	redactDomain, err := domainFromID(event.Redacts)
+	redactDomain, err := domainFromID(event.Redacts())
 	if err != nil {
 		return err
 	}
@@ -522,7 +509,7 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 
 	// Otherwise the sender must have enough power.
 	// This allows room admins and ops to redact messages sent by other servers.
-	senderLevel := allower.powerLevels.userLevel(event.Sender)
+	senderLevel := allower.powerLevels.userLevel(event.Sender())
 	redactLevel := allower.powerLevels.redactLevel
 	if senderLevel >= redactLevel {
 		return nil
@@ -530,7 +517,7 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 
 	return errorf(
 		"%q is not allowed to redact message from %q. %d < %d",
-		event.Sender, redactDomain, senderLevel, redactLevel,
+		event.Sender(), redactDomain, senderLevel, redactLevel,
 	)
 }
 
@@ -539,7 +526,7 @@ func redactEventAllowed(event Event, authEvents AuthEvents) error {
 // It returns an error if the event is not allowed or if there was a
 // problem loading the auth events needed.
 func defaultEventAllowed(event Event, authEvents AuthEvents) error {
-	allower, err := newEventAllower(authEvents, event.Sender)
+	allower, err := newEventAllower(authEvents, event.Sender())
 	if err != nil {
 		return err
 	}
@@ -576,37 +563,43 @@ func newEventAllower(authEvents AuthEvents, senderID string) (e eventAllower, er
 // commonChecks does the checks that are applied to all events types other than
 // m.room.create, m.room.member, or m.room.alias.
 func (e *eventAllower) commonChecks(event Event) error {
-	if event.RoomID != e.create.roomID {
-		return errorf("create event has different roomID: %q != %q", event.RoomID, e.create.roomID)
+	if event.RoomID() != e.create.roomID {
+		return errorf("create event has different roomID: %q != %q", event.RoomID(), e.create.roomID)
 	}
 
-	if err := e.create.userIDAllowed(event.Sender); err != nil {
+	sender := event.Sender()
+	isState := event.IsState()
+
+	if err := e.create.userIDAllowed(sender); err != nil {
 		return err
 	}
 
 	// Check that the sender is in the room.
 	// Every event other than m.room.create, m.room.member and m.room.aliases require this.
 	if e.member.Membership != join {
-		return errorf("sender %q not in room", event.Sender)
+		return errorf("sender %q not in room", sender)
 	}
 
-	senderLevel := e.powerLevels.userLevel(event.Sender)
-	eventLevel := e.powerLevels.eventLevel(event.Type, event.StateKey)
+	senderLevel := e.powerLevels.userLevel(sender)
+	eventLevel := e.powerLevels.eventLevel(event.Type(), isState)
 	if senderLevel < eventLevel {
 		return errorf(
 			"sender %q is not allowed to send event. %d < %d",
-			event.Sender, senderLevel, eventLevel,
+			event.Sender(), senderLevel, eventLevel,
 		)
 	}
 
 	// Check that all state_keys that begin with '@' are only updated by users
 	// with that ID.
-	if event.StateKey != nil && len(*event.StateKey) > 0 && (*event.StateKey)[0] == '@' {
-		if *event.StateKey != event.Sender {
-			return errorf(
-				"sender %q is not allowed to modify the state belonging to %q",
-				event.Sender, *event.StateKey,
-			)
+	if isState {
+		stateKey := event.StateKey()
+		if len(stateKey) > 0 && stateKey[0] == '@' {
+			if stateKey != sender {
+				return errorf(
+					"sender %q is not allowed to modify the state belonging to %q",
+					sender, stateKey,
+				)
+			}
 		}
 	}
 
@@ -640,13 +633,13 @@ type membershipAllower struct {
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
 // from the auth events.
 func newMembershipAllower(authEvents AuthEvents, event Event) (m membershipAllower, err error) {
-	if event.StateKey == nil {
+	if !event.IsState() {
 		err = errorf("m.room.member must be a state event")
 		return
 	}
 	// TODO: Check that the IDs are valid user IDs.
-	m.targetID = *event.StateKey
-	m.senderID = event.Sender
+	m.targetID = event.StateKey()
+	m.senderID = event.Sender()
 	if m.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
 		return
 	}
@@ -673,8 +666,8 @@ func newMembershipAllower(authEvents AuthEvents, event Event) (m membershipAllow
 
 // membershipAllowed checks whether the membership event is allowed
 func (m *membershipAllower) membershipAllowed(event Event) error {
-	if m.create.roomID != event.RoomID {
-		return errorf("create event has different roomID: %q != %q", event.RoomID, m.create.roomID)
+	if m.create.roomID != event.RoomID() {
+		return errorf("create event has different roomID: %q != %q", event.RoomID(), m.create.roomID)
 	}
 	if err := m.create.userIDAllowed(m.senderID); err != nil {
 		return err
@@ -687,18 +680,11 @@ func (m *membershipAllower) membershipAllowed(event Event) error {
 	if m.targetID == m.create.Creator &&
 		m.newMember.Membership == join &&
 		m.senderID == m.targetID &&
-		len(event.PrevEvents) == 1 {
-		// We unmarshal the prev_events here because this is the only place that
-		// this package or synapse refers to the prev_events in the auth_checks.
-		// prev_events is a list of 2 element lists of event IDs and hashes.
-		if len(event.PrevEvents[0]) != 2 {
-			return errorf("unparsable prev event")
-		}
-		// Unmarshal the event ID string.
-		var prevEventID string
-		if err := json.Unmarshal(event.PrevEvents[0][0], &prevEventID); err != nil {
-			return errorf("unparsable prev event")
-		}
+		len(event.PrevEvents()) == 1 {
+
+		// Grab the event ID of the previous event.
+		prevEventID := event.PrevEvents()[0].EventID
+
 		if prevEventID == m.create.eventID {
 			// If this is the room creator joining the room directly after the
 			// the create event, then allow.

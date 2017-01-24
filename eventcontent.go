@@ -1,4 +1,4 @@
-package eventauth
+package gomatrixserverlib
 
 import (
 	"encoding/json"
@@ -33,13 +33,13 @@ func newCreateContentFromAuthEvents(authEvents AuthEvents) (c createContent, err
 		err = errorf("missing create event")
 		return
 	}
-	if err = json.Unmarshal(createEvent.Content, &c); err != nil {
+	if err = json.Unmarshal(createEvent.Content(), &c); err != nil {
 		err = errorf("unparsable create event content: %s", err.Error())
 		return
 	}
-	c.roomID = createEvent.RoomID
-	c.eventID = createEvent.EventID
-	if c.senderDomain, err = domainFromID(createEvent.Sender); err != nil {
+	c.roomID = createEvent.RoomID()
+	c.eventID = createEvent.EventID()
+	if c.senderDomain, err = domainFromID(createEvent.Sender()); err != nil {
 		return
 	}
 	return
@@ -115,7 +115,7 @@ func newMemberContentFromAuthEvents(authEvents AuthEvents, userID string) (c mem
 // newMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
 func newMemberContentFromEvent(event Event) (c memberContent, err error) {
-	if err = json.Unmarshal(event.Content, &c); err != nil {
+	if err = json.Unmarshal(event.Content(), &c); err != nil {
 		err = errorf("unparsable member event content: %s", err.Error())
 		return
 	}
@@ -142,7 +142,7 @@ func newJoinRuleContentFromAuthEvents(authEvents AuthEvents) (c joinRuleContent,
 		c.JoinRule = invite
 		return
 	}
-	if err = json.Unmarshal(joinRulesEvent.Content, &c); err != nil {
+	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
 		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
@@ -175,7 +175,7 @@ func (c *powerLevelContent) userLevel(userID string) int64 {
 }
 
 // eventLevel returns the power level needed to send an event in the room.
-func (c *powerLevelContent) eventLevel(eventType string, eventStateKey *string) int64 {
+func (c *powerLevelContent) eventLevel(eventType string, isState bool) int64 {
 	if eventType == "m.room.third_party_invite" {
 		// Special case third_party_invite events to have the same level as
 		// m.room.member invite events.
@@ -186,7 +186,7 @@ func (c *powerLevelContent) eventLevel(eventType string, eventStateKey *string) 
 	if ok {
 		return level
 	}
-	if eventStateKey != nil {
+	if isState {
 		return c.stateDefaultLevel
 	}
 	return c.eventDefaultLevel
@@ -253,7 +253,7 @@ func newPowerLevelContentFromEvent(event Event) (c powerLevelContent, err error)
 		StateDefaultLevel levelJSONValue            `json:"state_default"`
 		EventDefaultLevel levelJSONValue            `json:"event_default"`
 	}
-	if err = json.Unmarshal(event.Content, &content); err != nil {
+	if err = json.Unmarshal(event.Content(), &content); err != nil {
 		err = errorf("unparsable power_levels event content: %s", err.Error())
 		return
 	}

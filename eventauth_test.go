@@ -1,4 +1,4 @@
-package eventauth
+package gomatrixserverlib
 
 import (
 	"encoding/json"
@@ -34,8 +34,27 @@ func stateNeededEquals(a, b StateNeeded) bool {
 	return true
 }
 
-func testStateNeededForAuth(t *testing.T, eventdata string, want StateNeeded) {
+type testEventList []Event
+
+func (tel *testEventList) UnmarshalJSON(data []byte) error {
+	var eventJSONs []rawJSON
 	var events []Event
+	if err := json.Unmarshal([]byte(data), &eventJSONs); err != nil {
+		return err
+	}
+	for _, eventJSON := range eventJSONs {
+		event, err := NewEventFromTrustedJSON([]byte(eventJSON), false)
+		if err != nil {
+			return err
+		}
+		events = append(events, event)
+	}
+	*tel = testEventList(events)
+	return nil
+}
+
+func testStateNeededForAuth(t *testing.T, eventdata string, want StateNeeded) {
+	var events testEventList
 	if err := json.Unmarshal([]byte(eventdata), &events); err != nil {
 		panic(err)
 	}
@@ -130,7 +149,8 @@ func (tae *testAuthEvents) Create() (*Event, error) {
 		return nil, nil
 	}
 	var event Event
-	if err := json.Unmarshal(tae.CreateJSON, &event); err != nil {
+	event, err := NewEventFromTrustedJSON(tae.CreateJSON, false)
+	if err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -140,8 +160,8 @@ func (tae *testAuthEvents) JoinRules() (*Event, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
-	var event Event
-	if err := json.Unmarshal(tae.JoinRulesJSON, &event); err != nil {
+	event, err := NewEventFromTrustedJSON(tae.JoinRulesJSON, false)
+	if err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -151,8 +171,8 @@ func (tae *testAuthEvents) PowerLevels() (*Event, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
-	var event Event
-	if err := json.Unmarshal(tae.PowerLevelsJSON, &event); err != nil {
+	event, err := NewEventFromTrustedJSON(tae.PowerLevelsJSON, false)
+	if err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -162,8 +182,8 @@ func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
 	if len(tae.MemberJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	var event Event
-	if err := json.Unmarshal(tae.MemberJSON[stateKey], &event); err != nil {
+	event, err := NewEventFromTrustedJSON(tae.MemberJSON[stateKey], false)
+	if err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -173,8 +193,8 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	var event Event
-	if err := json.Unmarshal(tae.ThirdPartyInviteJSON[stateKey], &event); err != nil {
+	event, err := NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false)
+	if err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -192,17 +212,17 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {
-		var event Event
-		if err := json.Unmarshal(data, &event); err != nil {
+		event, err := NewEventFromTrustedJSON(data, false)
+		if err != nil {
 			panic(err)
 		}
-		if err := Allowed(event, &tc.AuthEvents); err != nil {
+		if err = Allowed(event, &tc.AuthEvents); err != nil {
 			t.Fatalf("Expected %q to be allowed but it was not: %q", string(data), err)
 		}
 	}
 	for _, data := range tc.NotAllowed {
-		var event Event
-		if err := json.Unmarshal(data, &event); err != nil {
+		event, err := NewEventFromTrustedJSON(data, false)
+		if err != nil {
 			panic(err)
 		}
 		if err := Allowed(event, &tc.AuthEvents); err == nil {
@@ -389,17 +409,6 @@ func TestAllowedFirstJoin(t *testing.T) {
 			"prev_events": [["$e1:a", {}], ["$e2:a", {}]],
 			"unsigned": {
 				"not_allowed": "There are too many prev_events"
-			}
-		}, {
-			"type": "m.room.member",
-			"state_key": "@u1:a",
-			"sender": "@u1:a",
-			"room_id": "!r1:a",
-			"event_id": "$e4:a",
-			"content": {"membership": "join"},
-			"prev_events": [[0, {}]],
-			"unsigned": {
-				"not_allowed": "The prev_events event ID is not a string"
 			}
 		}, {
 			"type": "m.room.member",
