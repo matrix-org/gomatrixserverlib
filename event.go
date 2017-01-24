@@ -9,7 +9,9 @@ import (
 
 // An EventReference is a reference to a matrix event.
 type EventReference struct {
-	EventID     string
+	// The event ID of the event.
+	EventID string
+	// The sha256 of the redacted event.
 	EventSHA256 Base64String
 }
 
@@ -20,14 +22,14 @@ type EventBuilder struct {
 	// The room ID of the room this event is in.
 	RoomID string `json:"room_id"`
 	// The type of the event.
-	EventType string `json:"type"`
+	Type string `json:"type"`
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
-	EventStateKey *string `json:"state_key,omitempty"`
+	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceeded this event in the room history.
 	PrevEvents []EventReference `json:"prev_events"`
 	// The events needed to authenticate this event.
 	AuthEvents []EventReference `json:"auth_events"`
-	// The event being redacted if this event is a "m.room.redaction".
+	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts  string `json:"redacts,omitempty"`
 	content  []byte
 	unsigned []byte
@@ -47,7 +49,7 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 
 // An Event is a matrix event.
 // The event should always contain valid JSON.
-// If the event content hash is invalied then the event is redacted.
+// If the event content hash is invalid then the event is redacted.
 // Redacted events contain only the fields covered by the event signature.
 type Event struct {
 	redacted  bool
@@ -58,9 +60,10 @@ var emptyEventReferenceList = []EventReference{}
 
 // Build a new Event.
 // This is used when a local event is created on this server.
-func (eb *EventBuilder) Build(now time.Time, origin, keyID string, privateKey ed25519.PrivateKey) (result Event, err error) {
+func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID string, privateKey ed25519.PrivateKey) (result Event, err error) {
 	var event struct {
 		EventBuilder
+		EventID        string  `json:"event_id"`
 		RawContent     rawJSON `json:"content"`
 		RawUnsigned    rawJSON `json:"unsigned"`
 		OriginServerTS int64   `json:"origin_server_ts"`
@@ -181,7 +184,7 @@ func (e Event) EventReference() EventReference {
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		// This can be reached if NewEventFromTrustedJSON is given JSON from an untrusted source.
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
 	return reference
 }
@@ -191,11 +194,11 @@ func (e Event) Sign(signingName, keyID string, privateKey ed25519.PrivateKey) Ev
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
 	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
 	return Event{
 		redacted:  e.redacted,

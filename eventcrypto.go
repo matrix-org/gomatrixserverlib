@@ -149,7 +149,7 @@ func signEvent(signingName, keyID string, privateKey ed25519.PrivateKey, eventJS
 		return nil, err
 	}
 
-	// Unmarshall the event JSON so that we can replace the signatures key.
+	// Unmarshal the event JSON so that we can replace the signatures key.
 	var event map[string]rawJSON
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
