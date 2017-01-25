@@ -249,11 +249,6 @@ func (e Event) Verify(signingName, keyID string, publicKey ed25519.PublicKey) er
 	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON)
 }
 
-// IsState returns true if the event is a state event.
-func (e Event) IsState() bool {
-	return e.fields.StateKey != nil
-}
-
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
 func (e Event) StateKey() *string {
 	return e.fields.StateKey

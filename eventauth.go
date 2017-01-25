@@ -337,9 +337,13 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	// for sending the event with and without a "state_key". But if there is no entry
 	// for "my.custom.type it will use the state default when sent with a "state_key"
 	// and will use the event default when sent without.
+	const (
+		isStateEvent = false
+	)
 	for eventType := range newPowerLevels.eventLevels {
 		levelChecks = append(levelChecks, levelPair{
-			oldPowerLevels.eventLevel(eventType, false), newPowerLevels.eventLevel(eventType, false),
+			oldPowerLevels.eventLevel(eventType, isStateEvent),
+			newPowerLevels.eventLevel(eventType, isStateEvent),
 		})
 	}
 
@@ -348,7 +352,8 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	// the new levels. But it doesn't hurt to run the checks twice for the same level.
 	for eventType := range oldPowerLevels.eventLevels {
 		levelChecks = append(levelChecks, levelPair{
-			oldPowerLevels.eventLevel(eventType, false), newPowerLevels.eventLevel(eventType, false),
+			oldPowerLevels.eventLevel(eventType, isStateEvent),
+			newPowerLevels.eventLevel(eventType, isStateEvent),
 		})
 	}
 
@@ -561,7 +566,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 	}
 
 	sender := event.Sender()
-	isState := event.IsState()
+	stateKey := event.StateKey()
 
 	if err := e.create.userIDAllowed(sender); err != nil {
 		return err
@@ -574,7 +579,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 	}
 
 	senderLevel := e.powerLevels.userLevel(sender)
-	eventLevel := e.powerLevels.eventLevel(event.Type(), isState)
+	eventLevel := e.powerLevels.eventLevel(event.Type(), stateKey != nil)
 	if senderLevel < eventLevel {
 		return errorf(
 			"sender %q is not allowed to send event. %d < %d",
@@ -584,7 +589,6 @@ func (e *eventAllower) commonChecks(event Event) error {
 
 	// Check that all state_keys that begin with '@' are only updated by users
 	// with that ID.
-	stateKey := event.StateKey()
 	if stateKey != nil && len(*stateKey) > 0 && (*stateKey)[0] == '@' {
 		if *stateKey != sender {
 			return errorf(
