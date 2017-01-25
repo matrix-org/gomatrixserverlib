@@ -66,8 +66,9 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 			}
 			result.Create = true
 			result.PowerLevels = true
-			if event.IsState() {
-				members = append(members, event.Sender(), event.StateKey())
+			stateKey := event.StateKey()
+			if stateKey != nil {
+				members = append(members, event.Sender(), *stateKey)
 			}
 			if content.Membership == join {
 				result.JoinRules = true
@@ -191,11 +192,8 @@ func Allowed(event Event, authEvents AuthEvents) error {
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
 func createEventAllowed(event Event) error {
-	if !event.IsState() {
-		return errorf("create event missing state key")
-	}
-	if event.StateKey() != "" {
-		return errorf("create event state key is not empty: %q", event.StateKey())
+	if !event.StateKeyEquals("") {
+		return errorf("create event state key is not empty: %v", event.StateKey())
 	}
 	roomIDDomain, err := domainFromID(event.RoomID())
 	if err != nil {
@@ -249,14 +247,9 @@ func aliasEventAllowed(event Event, authEvents AuthEvents) error {
 	}
 
 	// Check that event is a state event.
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L147
-	if !event.IsState() {
-		return errorf("alias must be a state event")
-	}
-
 	// Check that the state key matches the server sending this event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
-	if senderDomain != event.StateKey() {
+	if !event.StateKeyEquals(senderDomain) {
 		return errorf("alias state_key does not match sender domain, %q != %q", senderDomain, event.StateKey())
 	}
 
@@ -591,15 +584,13 @@ func (e *eventAllower) commonChecks(event Event) error {
 
 	// Check that all state_keys that begin with '@' are only updated by users
 	// with that ID.
-	if isState {
-		stateKey := event.StateKey()
-		if len(stateKey) > 0 && stateKey[0] == '@' {
-			if stateKey != sender {
-				return errorf(
-					"sender %q is not allowed to modify the state belonging to %q",
-					sender, stateKey,
-				)
-			}
+	stateKey := event.StateKey()
+	if stateKey != nil && len(*stateKey) > 0 && (*stateKey)[0] == '@' {
+		if *stateKey != sender {
+			return errorf(
+				"sender %q is not allowed to modify the state belonging to %q",
+				sender, *stateKey,
+			)
 		}
 	}
 
@@ -633,12 +624,13 @@ type membershipAllower struct {
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
 // from the auth events.
 func newMembershipAllower(authEvents AuthEvents, event Event) (m membershipAllower, err error) {
-	if !event.IsState() {
+	stateKey := event.StateKey()
+	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
 		return
 	}
 	// TODO: Check that the IDs are valid user IDs.
-	m.targetID = event.StateKey()
+	m.targetID = *stateKey
 	m.senderID = event.Sender()
 	if m.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
 		return

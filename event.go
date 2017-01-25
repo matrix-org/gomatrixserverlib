@@ -254,12 +254,17 @@ func (e Event) IsState() bool {
 	return e.fields.StateKey != nil
 }
 
-// StateKey returns the "state_key" of the event, or the empty string if it's
-func (e Event) StateKey() string {
+// StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
+func (e Event) StateKey() *string {
+	return e.fields.StateKey
+}
+
+// StateKeyEquals returns true if the event is a state event and the "state_key" matches.
+func (e Event) StateKeyEquals(stateKey string) bool {
 	if e.fields.StateKey == nil {
-		return ""
+		return false
 	}
-	return *e.fields.StateKey
+	return *e.fields.StateKey == stateKey
 }
 
 // EventID returns the event ID of the event.
