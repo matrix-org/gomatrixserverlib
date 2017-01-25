@@ -309,16 +309,16 @@ func (er *EventReference) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if len(tuple) != 2 {
-		return fmt.Errorf("gomatrixserverlib: invalid event reference")
+		return fmt.Errorf("gomatrixserverlib: invalid event reference, invalid length: %d != 2", len(tuple))
 	}
 	if err := json.Unmarshal(tuple[0], &er.EventID); err != nil {
-		return err
+		return fmt.Errorf("gomatrixserverlib: invalid event reference, first element is invalid: %q %v", string(tuple[0]), err)
 	}
 	var hashes struct {
 		SHA256 Base64String `json:"sha256"`
 	}
 	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
-		return err
+		return fmt.Errorf("gomatrixserverlib: invalid event reference, second element is invalid: %q %v", string(tuple[1]), err)
 	}
 	er.EventSHA256 = hashes.SHA256
 	return nil
