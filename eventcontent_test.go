@@ -1,4 +1,4 @@
-package eventauth
+package gomatrixserverlib
 
 import (
 	"encoding/json"
