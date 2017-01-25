@@ -60,6 +60,9 @@ var emptyEventReferenceList = []EventReference{}
 
 // Build a new Event.
 // This is used when a local event is created on this server.
+// Call this after filling out the necessary fields.
+// This can be called mutliple times on the same builder.
+// A different event ID must be supplied each time this is called.
 func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID string, privateKey ed25519.PrivateKey) (result Event, err error) {
 	var event struct {
 		EventBuilder
@@ -80,6 +83,7 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID strin
 	event.RawUnsigned = rawJSON(event.unsigned)
 	event.OriginServerTS = now.UnixNano() / 1000000
 	event.Origin = origin
+	event.EventID = eventID
 
 	// TODO: Check size limits.
 
