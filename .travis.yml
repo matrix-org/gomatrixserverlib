@@ -1,0 +1,8 @@
+language: go
+go:
+ - 1.7
+install:
+ - go get github.com/golang/lint/golint
+ - go get github.com/fzipp/gocyclo
+ - go get golang.org/x/crypto/ed25519
+script: ./hooks/pre-commit
