@@ -205,7 +205,8 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 
 	// Pick the "oldest" event, that is the one with the lowest depth, as the first candidate.
 	// If none of the newer events pass auth checks against this event then we pick the "oldest" event.
-	// (SPEC: This ensures that we always pick on of the available state events for this type and state key.)
+	// (SPEC: This ensures that we always pick a state event for this type and state key.
+	//  Note that if all the events fail auth checks we will still pick the "oldest" event.)
 	result := block[0].event
 	// Temporarily add the candidate event to the auth events.
 	r.addAuthEvent(result)
@@ -243,7 +244,8 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 		}
 	}
 	// If all the auth checks for newer events fail then we pick the oldest event.
-	// (SPEC: This ensures that we always pick one of the available state events for this type and state key.)
+	// (SPEC: This ensures that we always pick a state event for this type and state key.
+	//  Note that if all the events fail auth checks we will still pick the "oldest" event.)
 	return block[0].event
 }
 
