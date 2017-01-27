@@ -44,7 +44,7 @@ type stateResolver struct {
 	// Lists of lists of events to resolve grouped by event type and state key:
 	//   * creates, powerLevels, joinRules have empty state keys.
 	//   * members and thirdPartyInvites are grouped by state key.
-	//   * the others are grouped by type and state key.
+	//   * the others are grouped by the pair of type and state key.
 	creates           []Event
 	powerLevels       []Event
 	joinRules         []Event
