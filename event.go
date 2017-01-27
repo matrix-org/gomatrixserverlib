@@ -46,7 +46,8 @@ type EventBuilder struct {
 	AuthEvents []EventReference `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
-	// The depth of the event.
+	// The depth of the event, This should be one greater than the maximum depth of the previous events.
+	// The create event has a depth of 1.
 	Depth    int64 `json:"depth"`
 	content  []byte
 	unsigned []byte
