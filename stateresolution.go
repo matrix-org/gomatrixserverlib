@@ -192,7 +192,7 @@ func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]Event) {
 		}
 	}
 	// Only add the events to the auth events once all of the events with that type have been resolved.
-	// (This is done to avoid the result of state resolution depending on the iteration order)
+	// (SPEC: This is done to avoid the result of state resolution depending on the iteration order)
 	for i := start; i < len(r.result); i++ {
 		r.addAuthEvent(&r.result[i])
 	}
@@ -258,7 +258,8 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 	return block[0].event
 }
 
-// A conflictedEvent is used to sort the events in a block by depth and sha1 of event ID.
+// A conflictedEvent is used to sort the events in a block by ascending depth and sha1 of event ID.
+// (SPEC: We use the SHA1 of the event ID as an arbitrary tie breaker between events with the same depth)
 type conflictedEvent struct {
 	depth       int64
 	eventIDSHA1 [sha1.Size]byte
