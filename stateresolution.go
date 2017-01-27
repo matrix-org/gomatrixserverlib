@@ -41,12 +41,17 @@ func ResolveStateConflicts(conflicted []Event, authEvents []Event) []Event {
 //
 // It implements the AuthEvents interface and can be used for running auth checks.
 type stateResolver struct {
-	creates                   []Event
-	powerLevels               []Event
-	joinRules                 []Event
-	thirdPartyInvites         [][]Event
-	members                   [][]Event
-	others                    [][]Event
+	// Lists of lists of events to resolve grouped by event type and state key:
+	//   * creates, powerLevels, joinRules have empty state keys.
+	//   * members and thirdPartyInvites are grouped by state key.
+	//   * the others are grouped by type and state key.
+	creates           []Event
+	powerLevels       []Event
+	joinRules         []Event
+	thirdPartyInvites [][]Event
+	members           [][]Event
+	others            [][]Event
+	// The resolved auth events grouped by type and state key.
 	resolvedCreate            *Event
 	resolvedPowerLevels       *Event
 	resolvedJoinRules         *Event
