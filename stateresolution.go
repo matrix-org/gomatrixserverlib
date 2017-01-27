@@ -80,43 +80,45 @@ func (r *stateResolver) addConflicted(events []Event) {
 		stateKey  string
 	}
 	offsets := map[conflictKey]int{}
-	// Split up the conflicted events into blocks with the same state key.
+	// Split up the conflicted events into blocks with the same type and state key.
+	// Separate the auth events into sepecially named lists because they have
+	// special rules for state resolution.
 	for _, event := range events {
 		key := conflictKey{event.Type(), *event.StateKey()}
 		// Work out which block to add the event to.
-		var block *[]Event
 		// By default we add the event to a block in the others list.
 		blockList := &r.others
 		switch key.eventType {
 		case "m.room.create":
 			if key.stateKey == "" {
-				block = &r.creates
+				r.creates = append(r.creates, event)
+				continue
 			}
 		case "m.room.power_levels":
 			if key.stateKey == "" {
-				block = &r.powerLevels
+				r.powerLevels = append(r.powerLevels, event)
+				continue
 			}
 		case "m.room.join_rules":
 			if key.stateKey == "" {
-				block = &r.joinRules
+				r.joinRules = append(r.joinRules, event)
+				continue
 			}
 		case "m.room.member":
 			blockList = &r.members
 		case "m.room.third_party_invite":
 			blockList = &r.thirdPartyInvites
 		}
-		if block == nil {
-			// We need to find an entry for the state key in a block list.
-			offset, ok := offsets[key]
-			if !ok {
-				// This is the first time we've seen that state key so we add a
-				// new block to the block list.
-				offset = len(*blockList)
-				*blockList = append(*blockList, nil)
-			}
-			// Get the address of the block in the block list.
-			block = &(*blockList)[offset]
+		// We need to find an entry for the state key in a block list.
+		offset, ok := offsets[key]
+		if !ok {
+			// This is the first time we've seen that state key so we add a
+			// new block to the block list.
+			offset = len(*blockList)
+			*blockList = append(*blockList, nil)
 		}
+		// Get the address of the block in the block list.
+		block := &(*blockList)[offset]
 		// Add the event to the block.
 		*block = append(*block, event)
 	}
