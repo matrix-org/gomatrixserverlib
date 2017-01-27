@@ -3,6 +3,7 @@ package gomatrixserverlib
 import (
 	"bytes"
 	"crypto/sha1"
+	"fmt"
 	"sort"
 )
 
@@ -51,7 +52,9 @@ type stateResolver struct {
 	resolvedJoinRules         *Event
 	resolvedThirdPartyInvites map[string]*Event
 	resolvedMembers           map[string]*Event
-	result                    []Event
+	// The list of resolved events.
+	// This will contain one entry for each conflicted event type and state key.
+	result []Event
 }
 
 func (r *stateResolver) Create() (*Event, error) {
@@ -81,7 +84,7 @@ func (r *stateResolver) addConflicted(events []Event) {
 	}
 	offsets := map[conflictKey]int{}
 	// Split up the conflicted events into blocks with the same type and state key.
-	// Separate the auth events into sepecially named lists because they have
+	// Separate the auth events into specifically named lists because they have
 	// special rules for state resolution.
 	for _, event := range events {
 		key := conflictKey{event.Type(), *event.StateKey()}
@@ -128,15 +131,23 @@ func (r *stateResolver) addConflicted(events []Event) {
 func (r *stateResolver) addAuthEvent(event *Event) {
 	switch event.Type() {
 	case "m.room.create":
-		r.resolvedCreate = event
+		if event.StateKeyEquals("") {
+			r.resolvedCreate = event
+		}
 	case "m.room.power_levels":
-		r.resolvedPowerLevels = event
+		if event.StateKeyEquals("") {
+			r.resolvedPowerLevels = event
+		}
 	case "m.room.join_rules":
-		r.resolvedJoinRules = event
+		if event.StateKeyEquals("") {
+			r.resolvedJoinRules = event
+		}
 	case "m.room.member":
 		r.resolvedMembers[*event.StateKey()] = event
 	case "m.room.third_party_invite":
 		r.resolvedThirdPartyInvites[*event.StateKey()] = event
+	default:
+		panic(fmt.Errorf("Unexpected auth event with type %q", event.Type()))
 	}
 }
 
@@ -144,21 +155,30 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 	switch eventType {
 	case "m.room.create":
-		r.resolvedCreate = nil
+		if stateKey == "" {
+			r.resolvedCreate = nil
+		}
 	case "m.room.power_levels":
-		r.resolvedPowerLevels = nil
+		if stateKey == "" {
+			r.resolvedPowerLevels = nil
+		}
 	case "m.room.join_rules":
-		r.resolvedJoinRules = nil
+		if stateKey == "" {
+			r.resolvedJoinRules = nil
+		}
 	case "m.room.member":
 		r.resolvedMembers[stateKey] = nil
 	case "m.room.third_party_invite":
 		r.resolvedThirdPartyInvites[stateKey] = nil
+	default:
+		panic(fmt.Errorf("Unexpected auth event with type %q", eventType))
 	}
 }
 
 // resolveAndAddAuthBlocks resolves each block of conflicting auth state events in a list of blocks
 // where all the blocks have the same event type.
 // Once every block has been resolved the resulting events are added to the events used for auth checks.
+// This is called once per auth event type and state key pair.
 func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]Event) {
 	start := len(r.result)
 	for _, block := range blocks {
