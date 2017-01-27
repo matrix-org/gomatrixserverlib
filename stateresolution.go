@@ -250,7 +250,7 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 	return block[0].event
 }
 
-// sortConflictedEventsByDepthAndSHA1 sorts by ascending depth and sha1 of event ID.
+// sortConflictedEventsByDepthAndSHA1 sorts by ascending depth and descending sha1 of event ID.
 func sortConflictedEventsByDepthAndSHA1(events []Event) []conflictedEvent {
 	block := make([]conflictedEvent, len(events))
 	for i := range events {
@@ -265,7 +265,7 @@ func sortConflictedEventsByDepthAndSHA1(events []Event) []conflictedEvent {
 	return block
 }
 
-// A conflictedEvent is used to sort the events in a block by ascending depth and sha1 of event ID.
+// A conflictedEvent is used to sort the events in a block by ascending depth and descending sha1 of event ID.
 // (SPEC: We use the SHA1 of the event ID as an arbitrary tie breaker between events with the same depth)
 type conflictedEvent struct {
 	depth       int64
