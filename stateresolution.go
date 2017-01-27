@@ -231,6 +231,7 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 	}
 	// Discard the event from the auth events.
 	// We'll add it back later when all events of the same type have been resolved.
+	// (SPEC: This is done to avoid the result of state resolution depending on the iteration order)
 	r.removeAuthEvent(result.Type(), *result.StateKey())
 	return result
 }
