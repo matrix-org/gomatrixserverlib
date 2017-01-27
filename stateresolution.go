@@ -186,6 +186,8 @@ func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]Event) {
 			r.result = append(r.result, *event)
 		}
 	}
+	// Only add the events to the auth events once all of the events with that type have been resolved.
+	// (This is done to avoid the result of state resolution depending on the iteration order)
 	for i := start; i < len(r.result); i++ {
 		r.addAuthEvent(&r.result[i])
 	}
