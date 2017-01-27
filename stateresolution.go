@@ -201,16 +201,7 @@ func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]Event) {
 // resolveAuthBlock resolves a block of auth events with the same state key to a single event.
 func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 	// Sort the events by depth and sha1 of event ID
-	block := make([]conflictedEvent, len(events))
-	for i := range events {
-		event := &events[i]
-		block[i] = conflictedEvent{
-			depth:       event.Depth(),
-			eventIDSHA1: sha1.Sum([]byte(event.EventID())),
-			event:       event,
-		}
-	}
-	sort.Sort(conflictedEventSorter(block))
+	block := sortConflictedEventsByDepthAndSHA1(events)
 
 	// Pick the "oldest" event, that is the one with the lowest depth, as the first candidate.
 	// If none of the newer events pass auth checks against this event then we pick the "oldest" event.
@@ -239,17 +230,7 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 // resolveNormalBlock resolves a block of normal state events with the same state key to a single event.
 func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 	// Sort the events by depth and sha1 of event ID
-	block := make([]conflictedEvent, len(events))
-	for i := range events {
-		event := &events[i]
-		block[i] = conflictedEvent{
-			depth:       event.Depth(),
-			eventIDSHA1: sha1.Sum([]byte(event.EventID())),
-			event:       event,
-		}
-	}
-	sort.Sort(conflictedEventSorter(block))
-
+	block := sortConflictedEventsByDepthAndSHA1(events)
 	// Start at the "newest" event, that is the one with the highest depth, and go
 	// backward through the list until we find one that passes authentication checks.
 	for i := len(block) - 1; i > 0; i-- {
@@ -261,6 +242,21 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 	// If all the auth checks for newer events fail then we pick the oldest event.
 	// (SPEC: This ensures that we always pick one of the available state events for this type and state key.)
 	return block[0].event
+}
+
+// sortConflictedEventsByDepthAndSHA1 sorts by ascending depth and sha1 of event ID.
+func sortConflictedEventsByDepthAndSHA1(events []Event) []conflictedEvent {
+	block := make([]conflictedEvent, len(events))
+	for i := range events {
+		event := &events[i]
+		block[i] = conflictedEvent{
+			depth:       event.Depth(),
+			eventIDSHA1: sha1.Sum([]byte(event.EventID())),
+			event:       event,
+		}
+	}
+	sort.Sort(conflictedEventSorter(block))
+	return block
 }
 
 // A conflictedEvent is used to sort the events in a block by ascending depth and sha1 of event ID.
