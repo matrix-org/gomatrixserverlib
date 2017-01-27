@@ -212,8 +212,10 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 	for i := 1; i < len(block); i++ {
 		event := block[i].event
 		// Check if the next event passes authentication checks against the current candidate.
+		// (SPEC: This ensures that "ban" events cannot be replaced by "join" events through a conflict)
 		if Allowed(*event, r) == nil {
 			// If the event passes authentication checks pick it as the current candidate.
+			// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 			result = event
 			r.addAuthEvent(result)
 		} else {
@@ -233,6 +235,7 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 	block := sortConflictedEventsByDepthAndSHA1(events)
 	// Start at the "newest" event, that is the one with the highest depth, and go
 	// backward through the list until we find one that passes authentication checks.
+	// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 	for i := len(block) - 1; i > 0; i-- {
 		event := block[i].event
 		if Allowed(*event, r) == nil {
