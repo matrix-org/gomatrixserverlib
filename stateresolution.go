@@ -220,6 +220,7 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 			result = event
 			r.addAuthEvent(result)
 		} else {
+			// If the authentication check fails then we stop iterating the list and return the current candidate.
 			break
 		}
 	}
@@ -281,7 +282,7 @@ func (s conflictedEventSorter) Len() int {
 
 func (s conflictedEventSorter) Less(i, j int) bool {
 	if s[i].depth == s[j].depth {
-		return 0 < bytes.Compare(s[i].eventIDSHA1[:], s[j].eventIDSHA1[:])
+		return bytes.Compare(s[i].eventIDSHA1[:], s[j].eventIDSHA1[:]) > 0
 	}
 	return s[i].depth < s[j].depth
 }
