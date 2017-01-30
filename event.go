@@ -45,7 +45,10 @@ type EventBuilder struct {
 	// The events needed to authenticate this event.
 	AuthEvents []EventReference `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
-	Redacts  string `json:"redacts,omitempty"`
+	Redacts string `json:"redacts,omitempty"`
+	// The depth of the event, This should be one greater than the maximum depth of the previous events.
+	// The create event has a depth of 1.
+	Depth    int64 `json:"depth"`
 	content  []byte
 	unsigned []byte
 }
@@ -82,6 +85,7 @@ type eventFields struct {
 	PrevEvents []EventReference `json:"prev_events"`
 	AuthEvents []EventReference `json:"auth_events"`
 	Redacts    string           `json:"redacts"`
+	Depth      int64            `json:"depth"`
 }
 
 var emptyEventReferenceList = []EventReference{}
@@ -315,6 +319,11 @@ func (e Event) Redacts() string {
 // RoomID returns the room ID of the room the event is in.
 func (e Event) RoomID() string {
 	return e.fields.RoomID
+}
+
+// Depth returns the depth of the event.
+func (e Event) Depth() int64 {
+	return e.fields.Depth
 }
 
 // UnmarshalJSON implements json.Unmarshaller
