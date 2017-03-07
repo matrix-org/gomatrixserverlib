@@ -18,7 +18,7 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"github.com/matrix-org/util"
 )
 
 const (
@@ -112,32 +112,9 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	}
 
 	// Deduplicate the state keys.
-	sort.Strings(members)
-	result.Member = members[:unique(sort.StringSlice(members))]
-	sort.Strings(thirdpartyinvites)
-	result.ThirdPartyInvite = thirdpartyinvites[:unique(sort.StringSlice(thirdpartyinvites))]
+	result.Member = util.UniqueStrings(members)
+	result.ThirdPartyInvite = util.UniqueStrings(thirdpartyinvites)
 	return
-}
-
-// Remove duplicate items from a sorted list.
-// Takes the same interface as sort.Sort
-// Returns the length of the data without duplicates
-// Uses the last occurrence of a duplicate.
-// O(n).
-func unique(data sort.Interface) int {
-	length := data.Len()
-	if length == 0 {
-		return 0
-	}
-	j := 0
-	for i := 1; i < length; i++ {
-		if data.Less(i-1, i) {
-			data.Swap(i-1, j)
-			j++
-		}
-	}
-	data.Swap(length-1, j)
-	return j + 1
 }
 
 // thirdPartyInviteToken extracts the token from the third_party_invite.
