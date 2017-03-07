@@ -5,4 +5,5 @@ install:
  - go get github.com/golang/lint/golint
  - go get github.com/fzipp/gocyclo
  - go get golang.org/x/crypto/ed25519
+ - go get github.com/matrix-org/util
 script: ./hooks/pre-commit
