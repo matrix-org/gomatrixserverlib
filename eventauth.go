@@ -162,16 +162,16 @@ func thirdPartyInviteToken(thirdPartyInviteData rawJSON) (string, error) {
 
 // AuthEvents are the state events needed to authenticate an event.
 type AuthEvents interface {
-	// Create returns the m.room.create event for the room.
+	// Create returns the m.room.create event for the room or nil if there isn't a m.room.create event.
 	Create() (*Event, error)
-	// JoinRules returns the m.room.join_rules event for the room.
+	// JoinRules returns the m.room.join_rules event for the room or nil if there isn't a m.room.join_rules event.
 	JoinRules() (*Event, error)
-	// PowerLevels returns the m.room.power_levels event for the room.
+	// PowerLevels returns the m.room.power_levels event for the room or nil if there isn't a m.room.power_levels event.
 	PowerLevels() (*Event, error)
-	// Member returns the m.room.member event for the given user_id state_key.
+	// Member returns the m.room.member event for the given user_id state_key or nil if there isn't a m.room.member event.
 	Member(stateKey string) (*Event, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
-	// given state_key
+	// given state_key or nil if there isn't a m.room.third_party_invite event
 	ThirdPartyInvite(stateKey string) (*Event, error)
 }
 
