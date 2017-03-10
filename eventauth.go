@@ -180,14 +180,14 @@ type stateKeyTuple struct {
 	StateKey string
 }
 
-// AuthEventProviderMap is an implementation of AuthEventProvider backed by a map.
-type AuthEventProviderMap struct {
+// AuthEvents is an implementation of AuthEventProvider backed by a map.
+type AuthEvents struct {
 	events map[stateKeyTuple]*Event
 }
 
 // AddEvent adds an event to the provider. If an event already existed for the (type, state_key) then
 // the event is replaced with the new event. Only returns an error if the event is not a state event.
-func (a *AuthEventProviderMap) AddEvent(event *Event) error {
+func (a *AuthEvents) AddEvent(event *Event) error {
 	if event.StateKey() == nil {
 		return fmt.Errorf("AddEvent: event %s does not have a state key", event.Type())
 	}
@@ -196,34 +196,34 @@ func (a *AuthEventProviderMap) AddEvent(event *Event) error {
 }
 
 // Create implements AuthEventProvider
-func (a *AuthEventProviderMap) Create() (*Event, error) {
+func (a *AuthEvents) Create() (*Event, error) {
 	return a.events[stateKeyTuple{"m.room.create", ""}], nil
 }
 
 // JoinRules implements AuthEventProvider
-func (a *AuthEventProviderMap) JoinRules() (*Event, error) {
+func (a *AuthEvents) JoinRules() (*Event, error) {
 	return a.events[stateKeyTuple{"m.room.join_rules", ""}], nil
 }
 
 // PowerLevels implements AuthEventProvider
-func (a *AuthEventProviderMap) PowerLevels() (*Event, error) {
+func (a *AuthEvents) PowerLevels() (*Event, error) {
 	return a.events[stateKeyTuple{"m.room.power_levels", ""}], nil
 }
 
 // Member implements AuthEventProvider
-func (a *AuthEventProviderMap) Member(stateKey string) (*Event, error) {
+func (a *AuthEvents) Member(stateKey string) (*Event, error) {
 	return a.events[stateKeyTuple{"m.room.member", stateKey}], nil
 }
 
 // ThirdPartyInvite implements AuthEventProvider
-func (a *AuthEventProviderMap) ThirdPartyInvite(stateKey string) (*Event, error) {
+func (a *AuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	return a.events[stateKeyTuple{"m.room.third_party_invite", stateKey}], nil
 }
 
-// NewAuthEventProviderMap returns an AuthEventProvider backed by the given events. New events can be added by
+// NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
 // calling AddEvent().
-func NewAuthEventProviderMap(events []*Event) AuthEventProviderMap {
-	a := AuthEventProviderMap{make(map[stateKeyTuple]*Event)}
+func NewAuthEvents(events []*Event) AuthEvents {
+	a := AuthEvents{make(map[stateKeyTuple]*Event)}
 	for _, e := range events {
 		a.AddEvent(e)
 	}

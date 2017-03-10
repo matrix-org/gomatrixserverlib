@@ -845,7 +845,7 @@ func TestRedactAllowed(t *testing.T) {
 	}`)
 }
 
-func TestAuthEventProviderMap(t *testing.T) {
+func TestAuthEvents(t *testing.T) {
 	power, err := NewEventFromTrustedJSON(rawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
@@ -860,12 +860,12 @@ func TestAuthEventProviderMap(t *testing.T) {
 		}
 	}`), false)
 	if err != nil {
-		t.Fatalf("TestAuthEventProviderMap: failed to create power_levels event: %s", err)
+		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
-	a := NewAuthEventProviderMap([]*Event{&power})
+	a := NewAuthEvents([]*Event{&power})
 	var e *Event
 	if e, err = a.PowerLevels(); err != nil || e != &power {
-		t.Errorf("TestAuthEventProviderMap: failed to get same power_levels event")
+		t.Errorf("TestAuthEvents: failed to get same power_levels event")
 	}
 	create, err := NewEventFromTrustedJSON(rawJSON(`{
 		"type": "m.room.create",
@@ -878,12 +878,12 @@ func TestAuthEventProviderMap(t *testing.T) {
 		}
 	}`), false)
 	if err != nil {
-		t.Fatalf("TestAuthEventProviderMap: failed to create create event: %s", err)
+		t.Fatalf("TestAuthEvents: failed to create create event: %s", err)
 	}
 	if err = a.AddEvent(&create); err != nil {
-		t.Errorf("TestAuthEventProviderMap: Failed to AddEvent: %s", err)
+		t.Errorf("TestAuthEvents: Failed to AddEvent: %s", err)
 	}
 	if e, err = a.Create(); err != nil || e != &create {
-		t.Errorf("TestAuthEventProviderMap: failed to get same create event")
+		t.Errorf("TestAuthEvents: failed to get same create event")
 	}
 }
