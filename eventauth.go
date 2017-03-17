@@ -44,6 +44,69 @@ type StateNeeded struct {
 	ThirdPartyInvite []string
 }
 
+// Tuples returns the needed state key tuples for performing auth on an event.
+func (s StateNeeded) Tuples() (res []StateKeyTuple) {
+	if s.Create {
+		res = append(res, StateKeyTuple{"m.room.create", ""})
+	}
+	if s.JoinRules {
+		res = append(res, StateKeyTuple{"m.room.join_rules", ""})
+	}
+	if s.PowerLevels {
+		res = append(res, StateKeyTuple{"m.room.power_levels", ""})
+	}
+	for _, userID := range s.Member {
+		res = append(res, StateKeyTuple{"m.room.member", userID})
+	}
+	for _, token := range s.ThirdPartyInvite {
+		res = append(res, StateKeyTuple{"m.room.third_party_invite", token})
+	}
+	return
+}
+
+// AuthEventReferences returns the auth_events references for the StateNeeded. Returns an error if the
+// provider returns an error. If an event is missing from the provider but is required in StateNeeded, it
+// is skipped under the assumption that the event will fail authentication checks.
+func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) {
+	var e *Event
+	if s.Create {
+		if e, err = provider.Create(); err != nil {
+			return
+		} else if e != nil {
+			refs = append(refs, e.EventReference())
+		}
+	}
+	if s.JoinRules {
+		if e, err = provider.JoinRules(); err != nil {
+			return
+		} else if e != nil {
+			refs = append(refs, e.EventReference())
+		}
+	}
+	if s.PowerLevels {
+		if e, err = provider.PowerLevels(); err != nil {
+			return
+		} else if e != nil {
+			refs = append(refs, e.EventReference())
+		}
+	}
+	for _, userID := range s.Member {
+		if e, err = provider.Member(userID); err != nil {
+			return
+		} else if e != nil {
+			refs = append(refs, e.EventReference())
+		}
+	}
+	for _, token := range s.ThirdPartyInvite {
+		if e, err = provider.ThirdPartyInvite(token); err != nil {
+			return
+		} else if e != nil {
+			refs = append(refs, e.EventReference())
+		}
+	}
+	return
+}
+
 // StateNeededForEventBuilder returns the event types and state_keys needed to authenticate the
 // event being built. These events should be put under 'auth_events' for the event being built.
 // Returns an error if the state needed could not be calculated with the given builder, e.g
@@ -83,39 +146,6 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	// Deduplicate the state keys.
 	result.Member = util.UniqueStrings(result.Member)
 	result.ThirdPartyInvite = util.UniqueStrings(result.ThirdPartyInvite)
-	return
-}
-
-// TuplesFromStateNeeded returns the needed state key tuples for performing auth on an event.
-func TuplesFromStateNeeded(needed StateNeeded) (res []StateKeyTuple) {
-	if needed.Create {
-		res = append(res, StateKeyTuple{"m.room.create", ""})
-	}
-	if needed.JoinRules {
-		res = append(res, StateKeyTuple{"m.room.join_rules", ""})
-	}
-	if needed.PowerLevels {
-		res = append(res, StateKeyTuple{"m.room.power_levels", ""})
-	}
-	for _, userID := range needed.Member {
-		res = append(res, StateKeyTuple{"m.room.member", userID})
-	}
-	for _, token := range needed.ThirdPartyInvite {
-		res = append(res, StateKeyTuple{"m.room.third_party_invite", token})
-	}
-	return
-}
-
-// AuthEventReferencesFromStateNeeded returns a list of event references which can be used under the 'auth_events' key
-// of a matrix event. 'authEvents' should contain all the current state events which may be used for auth, as this
-// function may require their event reference.
-func AuthEventReferencesFromStateNeeded(authEvents map[StateKeyTuple]*Event, needed StateNeeded) (refs []EventReference) {
-	tuples := TuplesFromStateNeeded(needed)
-	for _, t := range tuples {
-		if e := authEvents[t]; e != nil {
-			refs = append(refs, e.EventReference())
-		}
-	}
 	return
 }
 
