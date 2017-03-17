@@ -66,7 +66,7 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 
 // AuthEventReferences returns the auth_events references for the StateNeeded. Returns an error if the
 // provider returns an error. If an event is missing from the provider but is required in StateNeeded, it
-// is skipped under the assumption that the event will fail authentication checks.
+// is skipped over: no error is returned.
 func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) {
 	var e *Event
 	if s.Create {
