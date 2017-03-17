@@ -112,8 +112,7 @@ func TuplesFromStateNeeded(needed StateNeeded) (res []StateKeyTuple) {
 func AuthEventReferencesFromStateNeeded(authEvents map[StateKeyTuple]*Event, needed StateNeeded) (refs []EventReference) {
 	tuples := TuplesFromStateNeeded(needed)
 	for _, t := range tuples {
-		e, ok := authEvents[t]
-		if ok && e != nil {
+		if e := authEvents[t]; e != nil {
 			refs = append(refs, e.EventReference())
 		}
 	}
