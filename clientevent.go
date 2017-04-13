@@ -15,6 +15,17 @@
 
 package gomatrixserverlib
 
+// EventFormat specifies the format of a client event
+type EventFormat int
+
+const (
+	// FormatAll will include all client event keys
+	FormatAll EventFormat = iota
+	// FormatSync will include only the event keys required by the /sync API. Notably, this
+	// means the 'room_id' will be missing from the events.
+	FormatSync
+)
+
 // ClientEvent is an event which is fit for consumption by clients, in accordance with the specification.
 type ClientEvent struct {
 	Content        rawJSON `json:"content"`
@@ -28,19 +39,17 @@ type ClientEvent struct {
 	Unsigned rawJSON `json:"unsigned,omitempty"`
 }
 
-// ToClientEvents converts server events to client events. If omitRoomIDs is true, the room_id will not be
-// set on the resulting events.
-func ToClientEvents(serverEvs []Event, omitRoomIDs bool) []ClientEvent {
+// ToClientEvents converts server events to client events.
+func ToClientEvents(serverEvs []Event, format EventFormat) []ClientEvent {
 	evs := make([]ClientEvent, len(serverEvs))
 	for i, se := range serverEvs {
-		evs[i] = ToClientEvent(se, omitRoomIDs)
+		evs[i] = ToClientEvent(se, format)
 	}
 	return evs
 }
 
-// ToClientEvent converts a single server event to a client event. If omitRoomID is true, the room_id will
-// not be populated.
-func ToClientEvent(se Event, omitRoomID bool) ClientEvent {
+// ToClientEvent converts a single server event to a client event.
+func ToClientEvent(se Event, format EventFormat) ClientEvent {
 	ce := ClientEvent{
 		Content:        rawJSON(se.Content()),
 		Sender:         se.Sender(),
@@ -50,7 +59,7 @@ func ToClientEvent(se Event, omitRoomID bool) ClientEvent {
 		OriginServerTS: se.OriginServerTS(),
 		EventID:        se.EventID(),
 	}
-	if !omitRoomID {
+	if format == FormatAll {
 		ce.RoomID = se.RoomID()
 	}
 	return ce

@@ -41,7 +41,7 @@ func TestToClientEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create Event: %s", err)
 	}
-	ce := ToClientEvent(ev, false)
+	ce := ToClientEvent(ev, FormatAll)
 	if ce.EventID != ev.EventID() {
 		t.Errorf("ClientEvent.EventID: wanted %s, got %s", ev.EventID(), ce.EventID)
 	}
@@ -76,7 +76,7 @@ func TestToClientEvent(t *testing.T) {
 	}
 }
 
-func TestToClientEventOmitRoomID(t *testing.T) {
+func TestToClientFormatSync(t *testing.T) {
 	ev, err := NewEventFromTrustedJSON([]byte(`{
 		"type": "m.room.name",
 		"state_key": "",
@@ -96,7 +96,7 @@ func TestToClientEventOmitRoomID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create Event: %s", err)
 	}
-	ce := ToClientEvent(ev, true)
+	ce := ToClientEvent(ev, FormatSync)
 	if ce.RoomID != "" {
 		t.Errorf("ClientEvent.RoomID: wanted '', got %s", ce.RoomID)
 	}
