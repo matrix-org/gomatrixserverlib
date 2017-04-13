@@ -17,13 +17,14 @@ package gomatrixserverlib
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 )
 
 func TestToClientEvent(t *testing.T) {
 	ev, err := NewEventFromTrustedJSON([]byte(`{
 		"type": "m.room.name",
-		"state_key:": "",
+		"state_key": "",
 		"event_id": "$test:localhost",
 		"room_id": "!test:localhost",
 		"sender": "@test:localhost",
@@ -40,15 +41,15 @@ func TestToClientEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create Event: %s", err)
 	}
-	ce := ToClientEvent(ev)
+	ce := ToClientEvent(ev, false)
 	if ce.EventID != ev.EventID() {
 		t.Errorf("ClientEvent.EventID: wanted %s, got %s", ev.EventID(), ce.EventID)
 	}
 	if ce.OriginServerTS != ev.OriginServerTS() {
 		t.Errorf("ClientEvent.OriginServerTS: wanted %d, got %d", ev.OriginServerTS(), ce.OriginServerTS)
 	}
-	if ce.StateKey != ev.StateKey() {
-		t.Errorf("ClientEvent.StateKey: wanted %v, got %v", ev.StateKey(), ce.StateKey)
+	if ce.StateKey == nil || *ce.StateKey != "" {
+		t.Errorf("ClientEvent.StateKey: wanted '', got %v", ce.StateKey)
 	}
 	if ce.Type != ev.Type() {
 		t.Errorf("ClientEvent.Type: wanted %s, got %s", ev.Type(), ce.Type)
@@ -61,5 +62,42 @@ func TestToClientEvent(t *testing.T) {
 	}
 	if ce.Sender != ev.Sender() {
 		t.Errorf("ClientEvent.Sender: wanted %s, got %s", ev.Sender(), ce.Sender)
+	}
+	j, err := json.Marshal(ce)
+	if err != nil {
+		t.Fatalf("failed to Marshal ClientEvent: %s", err)
+	}
+	// Marshal sorts keys in structs by the order they are defined in the struct, which is alphabetical
+	out := `{"content":{"name":"Hello World"},"event_id":"$test:localhost","origin_server_ts":123456,` +
+		`"room_id":"!test:localhost","sender":"@test:localhost","state_key":"","type":"m.room.name",` +
+		`"unsigned":{"prev_content":{"name":"Goodbye World"}}}`
+	if !bytes.Equal([]byte(out), j) {
+		t.Errorf("ClientEvent marshalled to wrong bytes: wanted %s, got %s", out, string(j))
+	}
+}
+
+func TestToClientEventOmitRoomID(t *testing.T) {
+	ev, err := NewEventFromTrustedJSON([]byte(`{
+		"type": "m.room.name",
+		"state_key": "",
+		"event_id": "$test:localhost",
+		"room_id": "!test:localhost",
+		"sender": "@test:localhost",
+		"content": {
+			"name": "Hello World"
+		},
+		"origin_server_ts": 123456,
+		"unsigned": {
+			"prev_content": {
+				"name": "Goodbye World"
+			}
+		}
+	}`), false)
+	if err != nil {
+		t.Fatalf("failed to create Event: %s", err)
+	}
+	ce := ToClientEvent(ev, true)
+	if ce.RoomID != "" {
+		t.Errorf("ClientEvent.RoomID: wanted '', got %s", ce.RoomID)
 	}
 }

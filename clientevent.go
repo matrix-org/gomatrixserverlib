@@ -15,39 +15,43 @@
 
 package gomatrixserverlib
 
-import (
-	"encoding/json"
-)
-
 // ClientEvent is an event which is fit for consumption by clients, in accordance with the specification.
 type ClientEvent struct {
-	Content        json.RawMessage `json:"content"`
-	Sender         string          `json:"sender"`
-	Type           string          `json:"type"`
-	StateKey       *string         `json:"state_key,omitempty"`
-	Unsigned       json.RawMessage `json:"unsigned,omitempty"`
-	OriginServerTS int64           `json:"origin_server_ts"`
-	EventID        string          `json:"event_id"`
+	Content        rawJSON `json:"content"`
+	EventID        string  `json:"event_id"`
+	OriginServerTS int64   `json:"origin_server_ts"`
+	// RoomID is omitted on /sync responses
+	RoomID   string  `json:"room_id,omitempty"`
+	Sender   string  `json:"sender"`
+	StateKey *string `json:"state_key,omitempty"`
+	Type     string  `json:"type"`
+	Unsigned rawJSON `json:"unsigned,omitempty"`
 }
 
-// ToClientEvents converts server events to client events
-func ToClientEvents(serverEvs []Event) []ClientEvent {
+// ToClientEvents converts server events to client events. If omitRoomIDs is true, the room_id will not be
+// set on the resulting events.
+func ToClientEvents(serverEvs []Event, omitRoomIDs bool) []ClientEvent {
 	evs := make([]ClientEvent, len(serverEvs))
 	for i, se := range serverEvs {
-		evs[i] = ToClientEvent(se)
+		evs[i] = ToClientEvent(se, omitRoomIDs)
 	}
 	return evs
 }
 
-// ToClientEvent converts a single server event to a client event
-func ToClientEvent(se Event) ClientEvent {
-	return ClientEvent{
-		Content:        json.RawMessage(se.Content()),
+// ToClientEvent converts a single server event to a client event. If omitRoomID is true, the room_id will
+// not be populated.
+func ToClientEvent(se Event, omitRoomID bool) ClientEvent {
+	ce := ClientEvent{
+		Content:        rawJSON(se.Content()),
 		Sender:         se.Sender(),
 		Type:           se.Type(),
 		StateKey:       se.StateKey(),
-		Unsigned:       json.RawMessage(se.Unsigned()),
+		Unsigned:       rawJSON(se.Unsigned()),
 		OriginServerTS: se.OriginServerTS(),
 		EventID:        se.EventID(),
 	}
+	if !omitRoomID {
+		ce.RoomID = se.RoomID()
+	}
+	return ce
 }
