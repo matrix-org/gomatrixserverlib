@@ -75,6 +75,21 @@ func SignJSON(signingName, keyID string, privateKey ed25519.PrivateKey, message 
 	return json.Marshal(object)
 }
 
+// ListKeyIDs lists the key IDs a given entity has signed a message with.
+func ListKeyIDs(signingName string, message []byte) ([]string, error) {
+	var object struct {
+		Signatures map[string]map[string]json.RawMessage `json:"signatures"`
+	}
+	if err := json.Unmarshal(message, &object); err != nil {
+		return nil, err
+	}
+	var result []string
+	for keyID := range object.Signatures[signingName] {
+		result = append(result, keyID)
+	}
+	return result, nil
+}
+
 // VerifyJSON checks that the entity has signed the message using a particular key.
 func VerifyJSON(signingName, keyID string, publicKey ed25519.PublicKey, message []byte) error {
 	var object map[string]*json.RawMessage

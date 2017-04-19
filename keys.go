@@ -39,11 +39,22 @@ type ServerKeys struct {
 	VerifyKeys map[string]struct { // The current signing keys in use on this server.
 		Key Base64String `json:"key"` // The public key.
 	} `json:"verify_keys"`
-	ValidUntilTS  int64               `json:"valid_until_ts"` // When this result is valid until in milliseconds.
+	ValidUntilTS  uint64              `json:"valid_until_ts"` // When this result is valid until in milliseconds.
 	OldVerifyKeys map[string]struct { // Old keys that are now only valid for checking historic events.
 		Key       Base64String `json:"key"`        // The public key.
 		ExpiredTS uint64       `json:"expired_ts"` // When this key stopped being valid for event signing.
 	} `json:"old_verify_keys"`
+}
+
+// PublicKey returns a public key with the given ID valid at the given TS or nil if no such key exists.
+func (keys ServerKeys) PublicKey(keyID string, atTS uint64) []byte {
+	if currentKey, ok := keys.VerifyKeys[keyID]; ok && (atTS <= keys.ValidUntilTS) {
+		return currentKey.Key
+	}
+	if oldKey, ok := keys.OldVerifyKeys[keyID]; ok && (atTS <= oldKey.ExpiredTS) {
+		return oldKey.Key
+	}
+	return nil
 }
 
 // FetchKeysDirect fetches the matrix keys directly from the given address.
@@ -125,7 +136,7 @@ func CheckKeys(serverName string, now time.Time, keys ServerKeys, connState *tls
 	checks KeyChecks, ed25519Keys map[string]Base64String, sha256Fingerprints []Base64String,
 ) {
 	checks.MatchingServerName = serverName == keys.ServerName
-	checks.FutureValidUntilTS = now.UnixNano() < keys.ValidUntilTS*1000000
+	checks.FutureValidUntilTS = uint64(now.UnixNano()) < keys.ValidUntilTS*1000000
 	checks.AllChecksOK = checks.MatchingServerName && checks.FutureValidUntilTS
 
 	ed25519Keys = checkVerifyKeys(keys, &checks)
