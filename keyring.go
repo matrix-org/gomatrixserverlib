@@ -231,3 +231,57 @@ func (p *PerspectiveKeyFetcher) FetchKeys(requests map[PublicKeyRequest]Timestam
 
 	return results, nil
 }
+
+// A DirectKeyFetcher fetches keys directly from a server.
+// This may be suitable for local deployments that are firewalled from the public internet where DNS can be trusted.
+type DirectKeyFetcher struct {
+	// The federation client to use to fetch keys with.
+	Client Client
+}
+
+// FetchKeys implements KeyFetcher
+func (d *DirectKeyFetcher) FetchKeys(requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]ServerKeys, error) {
+	byServer := map[string]map[PublicKeyRequest]Timestamp{}
+	for req, ts := range requests {
+		server := byServer[req.ServerName]
+		if server == nil {
+			server = map[PublicKeyRequest]Timestamp{}
+			byServer[req.ServerName] = server
+		}
+		server[req] = ts
+	}
+
+	results := map[PublicKeyRequest]ServerKeys{}
+	for server, reqs := range byServer {
+		// TODO: make these requests in parallel
+		serverResults, err := d.fetchKeysForServer(server, reqs)
+		if err != nil {
+			// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+			return nil, err
+		}
+		for req, keys := range serverResults {
+			results[req] = keys
+		}
+	}
+	return results, nil
+}
+
+func (d *DirectKeyFetcher) fetchKeysForServer(
+	serverName string, requests map[PublicKeyRequest]Timestamp,
+) (map[PublicKeyRequest]ServerKeys, error) {
+	results, err := d.Client.ServerKeys(serverName, requests)
+	if err != nil {
+		return nil, err
+	}
+
+	for req, keys := range results {
+		// Check that the keys are valid for the server.
+		checks, _, _ := CheckKeys(req.ServerName, time.Unix(0, 0), keys, nil)
+		if !checks.AllChecksOK {
+			// This is bad because it means that the perspective server was trying to feed us an invalid response.
+			return nil, fmt.Errorf("gomatrixserverlib: key response from perspective server failed checks")
+		}
+	}
+
+	return results, nil
+}
