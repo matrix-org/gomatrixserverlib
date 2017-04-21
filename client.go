@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -140,4 +141,63 @@ func (fc *Client) LookupUserInfo(matrixServer, token string) (u UserInfo, err er
 	}
 
 	return
+}
+
+// ServerKeys lookups up the keys for a matrix server from a matrix server.
+// Returns the keys or a error if there was a problem talking to
+func (fc *Client) ServerKeys(
+	matrixServer string, keyRequests map[PublicKeyRequest]Timestamp,
+) (map[PublicKeyRequest]ServerKeys, error) {
+	url := url.URL{
+		Scheme: "matrix",
+		Host:   matrixServer,
+		Path:   "/_matrix/key/v2/query",
+	}
+	type keyreq struct {
+		MinimumValidUntilTS Timestamp `json:"minimum_valid_until_ts"`
+	}
+	request := map[string]map[string]keyreq{}
+
+	for k, ts := range keyRequests {
+		server := request[k.ServerName]
+		if server == nil {
+			server = map[string]keyreq{}
+			request[k.ServerName] = server
+		}
+		server[k.KeyID] = keyreq{ts}
+	}
+
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := fc.client.Post(url.String(), "application/json", bytes.NewBuffer(requestBytes))
+	if response != nil {
+		defer response.Body.Close()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != 200 {
+		var errorOutput []byte
+		if errorOutput, err = ioutil.ReadAll(response.Body); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("HTTP %d : %s", response.StatusCode, errorOutput)
+	}
+
+	var body map[string]map[string]ServerKeys
+	if err = json.NewDecoder(response.Body).Decode(&body); err != nil {
+		return nil, err
+	}
+
+	result := map[PublicKeyRequest]ServerKeys{}
+	for server, keys := range body {
+		for keyID, keyData := range keys {
+			result[PublicKeyRequest{server, keyID}] = keyData
+		}
+	}
+	return result, nil
 }

@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ed25519"
 	"strings"
+	"time"
 )
+
+// A Timestamp is a millisecond posix timestamp.
+type Timestamp uint64
 
 // A PublicKeyRequest is a request for a public key with a particular key ID.
 type PublicKeyRequest struct {
@@ -17,7 +21,7 @@ type PublicKeyRequest struct {
 // A KeyFetcher is a way of fetching public keys in bulk.
 type KeyFetcher interface {
 	// Lookup a batch of public keys.
-	FetchKeys(requests []PublicKeyRequest) (map[PublicKeyRequest]ServerKeys, error)
+	FetchKeys(requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]ServerKeys, error)
 }
 
 // A KeyDatabase is a store for caching public keys.
@@ -40,7 +44,7 @@ type VerifyJSONRequest struct {
 	// The name of the matrix server to check for a signature for.
 	ServerName string
 	// The millisecond posix timestamp the message needs to be valid at.
-	AtTS uint64
+	AtTS Timestamp
 	// The JSON bytes.
 	Message []byte
 }
@@ -125,19 +129,19 @@ func (k *KeyRing) isAlgorithmSupported(keyID string) bool {
 	return strings.HasPrefix(keyID, "ed25519:")
 }
 
-func (k *KeyRing) publicKeyRequests(results []VerifyJSONResult, keyIDs [][]string) []PublicKeyRequest {
-	keyRequestSet := map[PublicKeyRequest]struct{}{}
+func (k *KeyRing) publicKeyRequests(results []VerifyJSONResult, keyIDs [][]string) map[PublicKeyRequest]Timestamp {
+	keyRequests := map[PublicKeyRequest]Timestamp{}
 	for i := range results {
 		if results[i].Result == nil {
 			continue
 		}
 		for _, keyID := range keyIDs[i] {
-			keyRequestSet[PublicKeyRequest{results[i].ServerName, keyID}] = struct{}{}
+			k := PublicKeyRequest{results[i].ServerName, keyID}
+			maxTS := keyRequests[k]
+			if maxTS <= results[i].AtTS {
+				keyRequests[k] = results[i].AtTS
+			}
 		}
-	}
-	var keyRequests []PublicKeyRequest
-	for keyRequest := range keyRequestSet {
-		keyRequests = append(keyRequests, keyRequest)
 	}
 	return keyRequests
 }
@@ -172,4 +176,58 @@ func (k *KeyRing) checkUsingKeys(results []VerifyJSONResult, keyIDs [][]string, 
 			break
 		}
 	}
+}
+
+// A PerspectiveKeyFetcher fetches server keys from a single perspective server.
+type PerspectiveKeyFetcher struct {
+	// The name of the perspective server to fetch keys from.
+	ServerName string
+	// The ed25519 public keys the perspective server must sign responses with.
+	ServerKeys map[string]ed25519.PublicKey
+	// The federation client to use to fetch keys with.
+	Client Client
+}
+
+// FetchKeys implements KeyFetcher
+func (p *PerspectiveKeyFetcher) FetchKeys(requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]ServerKeys, error) {
+	results, err := p.Client.ServerKeys(p.ServerName, requests)
+	if err != nil {
+		return nil, err
+	}
+
+	for req, keys := range results {
+		var valid bool
+		keyIDs, err := ListKeyIDs(p.ServerName, keys.Raw)
+		if err != nil {
+			// The response from the perspective server was corrupted.
+			return nil, err
+		}
+		for _, keyID := range keyIDs {
+			perspectiveKey, ok := p.ServerKeys[keyID]
+			if !ok {
+				// We don't have a key for that keyID, skip to the next keyID.
+				continue
+			}
+			if err := VerifyJSON(p.ServerName, keyID, perspectiveKey, keys.Raw); err != nil {
+				// An invalid signature is very bad since it means we have a
+				// problem talking to the perspective server.
+				return nil, err
+			}
+			valid = true
+			break
+		}
+		if !valid {
+			// This means we don't have a known signature from the perspective server.
+			return nil, fmt.Errorf("gomatrixserverlib: not signed with a known key for the perspective server")
+		}
+
+		// Check that the keys are valid for the server.
+		checks, _, _ := CheckKeys(req.ServerName, time.Unix(0, 0), keys, nil)
+		if !checks.AllChecksOK {
+			// This is bad because it means that the perspective server was trying to feed us an invalid response.
+			return nil, fmt.Errorf("gomatrixserverlib: key response from perspective server failed checks")
+		}
+	}
+
+	return results, nil
 }
