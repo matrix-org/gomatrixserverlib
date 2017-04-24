@@ -201,6 +201,8 @@ func (fc *Client) ServerKeys(
 
 	result := map[PublicKeyRequest]ServerKeys{}
 	for _, keys := range body.ServerKeys {
+		// TODO: What happens if the same key ID appears in multiple responses?
+		// We should probably take the response with the highest valid_until_ts.
 		for keyID := range keys.VerifyKeys {
 			result[PublicKeyRequest{keys.ServerName, keyID}] = keys
 		}
