@@ -153,16 +153,20 @@ func (fc *Client) ServerKeys(
 		Host:   matrixServer,
 		Path:   "/_matrix/key/v2/query",
 	}
+
+	// The request format is:
+	// { "server_keys": { "<server_name>": { "<key_id>": { "minimum_valid_until_ts": <ts> }}}
 	type keyreq struct {
 		MinimumValidUntilTS Timestamp `json:"minimum_valid_until_ts"`
 	}
-	request := map[string]map[string]keyreq{}
-
+	request := struct {
+		ServerKeys map[string]map[string]keyreq `json:"server_keys"`
+	}{map[string]map[string]keyreq{}}
 	for k, ts := range keyRequests {
-		server := request[k.ServerName]
+		server := request.ServerKeys[k.ServerName]
 		if server == nil {
 			server = map[string]keyreq{}
-			request[k.ServerName] = server
+			request.ServerKeys[k.ServerName] = server
 		}
 		server[k.KeyID] = keyreq{ts}
 	}
@@ -188,15 +192,20 @@ func (fc *Client) ServerKeys(
 		return nil, fmt.Errorf("HTTP %d : %s", response.StatusCode, errorOutput)
 	}
 
-	var body map[string]map[string]ServerKeys
+	var body struct {
+		ServerKeys []ServerKeys `json:"server_keys"`
+	}
 	if err = json.NewDecoder(response.Body).Decode(&body); err != nil {
 		return nil, err
 	}
 
 	result := map[PublicKeyRequest]ServerKeys{}
-	for server, keys := range body {
-		for keyID, keyData := range keys {
-			result[PublicKeyRequest{server, keyID}] = keyData
+	for _, keys := range body.ServerKeys {
+		for keyID := range keys.VerifyKeys {
+			result[PublicKeyRequest{keys.ServerName, keyID}] = keys
+		}
+		for keyID := range keys.OldVerifyKeys {
+			result[PublicKeyRequest{keys.ServerName, keyID}] = keys
 		}
 	}
 	return result, nil

@@ -51,8 +51,6 @@ type VerifyJSONRequest struct {
 
 // A VerifyJSONResult is the result of checking the signature of a JSON message.
 type VerifyJSONResult struct {
-	// Embedded copy of the request this result is for.
-	VerifyJSONRequest
 	// Whether the message passed the signature checks.
 	// This will be nil if the message passed the checks.
 	// This will have an error if the message did not pass the checks.
@@ -60,7 +58,7 @@ type VerifyJSONResult struct {
 }
 
 // VerifyJSONs performs bulk JSON signature verification for a list of VerifyJSONRequests.
-// Returns a list of VerifyJSONResults with the same length as the request list.
+// Returns a list of VerifyJSONResults with the same length and order as the request list.
 // The caller should check the Result field for each entry to see if it was valid.
 // Returns an error if there was a problem talking to the database or one of the other methods
 // of fetching the public keys.
@@ -69,7 +67,6 @@ func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult,
 	keyIDs := make([][]string, len(requests))
 
 	for i := range requests {
-		results[i].VerifyJSONRequest = requests[i]
 		ids, err := ListKeyIDs(requests[i].ServerName, requests[i].Message)
 		if err != nil {
 			results[i].Result = fmt.Errorf("gomatrixserverlib: error extracting key IDs")
@@ -81,17 +78,21 @@ func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult,
 			}
 		}
 		if len(keyIDs[i]) == 0 {
-			results[i].Result = fmt.Errorf("gomatrixserverlib: not signed by %q with a supported algorithm", results[i].ServerName)
+			results[i].Result = fmt.Errorf(
+				"gomatrixserverlib: not signed by %q with a supported algorithm", requests[i].ServerName,
+			)
 			continue
 		}
 		// Set a place holder error in the result field.
 		// This will be unset if one of the signature checks passes.
 		// This will be overwritten if one of the signature checks fails.
 		// Therefore this will only remain in place if the keys couldn't be downloaded.
-		results[i].Result = fmt.Errorf("gomatrixserverlib: could not download key for %q", results[i].ServerName)
+		results[i].Result = fmt.Errorf(
+			"gomatrixserverlib: could not download key for %q", requests[i].ServerName,
+		)
 	}
 
-	keyRequests := k.publicKeyRequests(results, keyIDs)
+	keyRequests := k.publicKeyRequests(requests, results, keyIDs)
 	if len(keyRequests) == 0 {
 		// There aren't any keys to fetch so we can stop here.
 		// This will happen if all the objects are missing supported signatures.
@@ -101,10 +102,10 @@ func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult,
 	if err != nil {
 		return nil, err
 	}
-	k.checkUsingKeys(results, keyIDs, keysFromDatabase)
+	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
 
 	for i := range k.KeyFetchers {
-		keyRequests := k.publicKeyRequests(results, keyIDs)
+		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
 		if len(keyRequests) == 0 {
 			// There aren't any keys to fetch so we can stop here.
 			// This means that we've checked every JSON object we can check.
@@ -114,7 +115,7 @@ func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult,
 		if err != nil {
 			return nil, err
 		}
-		k.checkUsingKeys(results, keyIDs, keysFetched)
+		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 		// Add the keys to the database so that we won't need to fetch them again.
 		if err := k.KeyDatabase.StoreKeys(keysFetched); err != nil {
@@ -129,44 +130,59 @@ func (k *KeyRing) isAlgorithmSupported(keyID string) bool {
 	return strings.HasPrefix(keyID, "ed25519:")
 }
 
-func (k *KeyRing) publicKeyRequests(results []VerifyJSONResult, keyIDs [][]string) map[PublicKeyRequest]Timestamp {
+func (k *KeyRing) publicKeyRequests(requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]string) map[PublicKeyRequest]Timestamp {
 	keyRequests := map[PublicKeyRequest]Timestamp{}
-	for i := range results {
+	for i := range requests {
 		if results[i].Result == nil {
+			// We've already verified this message, we don't need to refetch the keys for it.
 			continue
 		}
 		for _, keyID := range keyIDs[i] {
-			k := PublicKeyRequest{results[i].ServerName, keyID}
+			k := PublicKeyRequest{requests[i].ServerName, keyID}
+			// Grab the maximum neeeded TS for this server and key ID.
+			// This will default to 0 if the server and keyID weren't in the map.
 			maxTS := keyRequests[k]
-			if maxTS <= results[i].AtTS {
-				keyRequests[k] = results[i].AtTS
+			if maxTS <= requests[i].AtTS {
+				// We clobber on equality since that means that if the server and keyID
+				// weren't already in the map and since AtTS is unsigned and since the
+				// default value for maxTS is 0 we will always insert an entry for the
+				// server and keyID.
+				keyRequests[k] = requests[i].AtTS
 			}
 		}
 	}
 	return keyRequests
 }
 
-func (k *KeyRing) checkUsingKeys(results []VerifyJSONResult, keyIDs [][]string, keys map[PublicKeyRequest]ServerKeys) {
-	for i := range results {
+func (k *KeyRing) checkUsingKeys(
+	requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]string,
+	keys map[PublicKeyRequest]ServerKeys,
+) {
+	for i := range requests {
 		if results[i].Result == nil {
 			// We've already checked this message and it passed the signature checks.
 			// So we can skip to the next message.
 			continue
 		}
 		for _, keyID := range keyIDs[i] {
-			serverKeys, ok := keys[PublicKeyRequest{results[i].ServerName, keyID}]
+			serverKeys, ok := keys[PublicKeyRequest{requests[i].ServerName, keyID}]
 			if !ok {
 				// No key for this key ID so we continue onto the next key ID.
 				continue
 			}
-			publicKey := serverKeys.PublicKey(keyID, results[i].AtTS)
+			publicKey := serverKeys.PublicKey(keyID, requests[i].AtTS)
 			if publicKey == nil {
 				// The key wasn't valid at the timestamp we needed it to be valid at.
 				// So skip onto the next key.
-				results[i].Result = fmt.Errorf("gomatrixserverlib: key with ID %q for %q not valid at %d", keyID, results[i].ServerName, results[i].AtTS)
+				results[i].Result = fmt.Errorf(
+					"gomatrixserverlib: key with ID %q for %q not valid at %d",
+					keyID, requests[i].ServerName, requests[i].AtTS,
+				)
 				continue
 			}
-			if err := VerifyJSON(results[i].ServerName, keyID, ed25519.PublicKey(publicKey), results[i].Message); err != nil {
+			if err := VerifyJSON(
+				requests[i].ServerName, keyID, ed25519.PublicKey(publicKey), requests[i].Message,
+			); err != nil {
 				// The signature wasn't valid, record the error and try the next key ID.
 				results[i].Result = err
 				continue
