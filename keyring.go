@@ -31,7 +31,7 @@ type KeyFetcher interface {
 // A KeyDatabase is a store for caching public keys.
 type KeyDatabase interface {
 	KeyFetcher
-	// Add a block public keys to the database.
+	// Add a block of public keys to the database.
 	StoreKeys(map[PublicKeyRequest]ServerKeys) error
 }
 
@@ -201,34 +201,34 @@ func (k *KeyRing) checkUsingKeys(
 // A PerspectiveKeyFetcher fetches server keys from a single perspective server.
 type PerspectiveKeyFetcher struct {
 	// The name of the perspective server to fetch keys from.
-	ServerName string
+	PerspectiveServerName string
 	// The ed25519 public keys the perspective server must sign responses with.
-	ServerKeys map[string]ed25519.PublicKey
+	PerspectiveServerKeys map[string]ed25519.PublicKey
 	// The federation client to use to fetch keys with.
 	Client Client
 }
 
 // FetchKeys implements KeyFetcher
 func (p *PerspectiveKeyFetcher) FetchKeys(requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]ServerKeys, error) {
-	results, err := p.Client.LookupServerKeys(p.ServerName, requests)
+	results, err := p.Client.LookupServerKeys(p.PerspectiveServerName, requests)
 	if err != nil {
 		return nil, err
 	}
 
 	for req, keys := range results {
 		var valid bool
-		keyIDs, err := ListKeyIDs(p.ServerName, keys.Raw)
+		keyIDs, err := ListKeyIDs(p.PerspectiveServerName, keys.Raw)
 		if err != nil {
 			// The response from the perspective server was corrupted.
 			return nil, err
 		}
 		for _, keyID := range keyIDs {
-			perspectiveKey, ok := p.ServerKeys[keyID]
+			perspectiveKey, ok := p.PerspectiveServerKeys[keyID]
 			if !ok {
 				// We don't have a key for that keyID, skip to the next keyID.
 				continue
 			}
-			if err := VerifyJSON(p.ServerName, keyID, perspectiveKey, keys.Raw); err != nil {
+			if err := VerifyJSON(p.PerspectiveServerName, keyID, perspectiveKey, keys.Raw); err != nil {
 				// An invalid signature is very bad since it means we have a
 				// problem talking to the perspective server.
 				return nil, err
