@@ -143,9 +143,9 @@ func (fc *Client) LookupUserInfo(matrixServer, token string) (u UserInfo, err er
 	return
 }
 
-// ServerKeys lookups up the keys for a matrix server from a matrix server.
-// Returns the keys or a error if there was a problem talking to
-func (fc *Client) ServerKeys(
+// LookupServerKeys lookups up the keys for a matrix server from a matrix server.
+// Returns the keys or an error if there was a problem talking to the server.
+func (fc *Client) LookupServerKeys(
 	matrixServer string, keyRequests map[PublicKeyRequest]Timestamp,
 ) (map[PublicKeyRequest]ServerKeys, error) {
 	url := url.URL{
@@ -160,13 +160,13 @@ func (fc *Client) ServerKeys(
 		MinimumValidUntilTS Timestamp `json:"minimum_valid_until_ts"`
 	}
 	request := struct {
-		ServerKeys map[string]map[string]keyreq `json:"server_keys"`
+		ServerKeyMap map[string]map[string]keyreq `json:"server_keys"`
 	}{map[string]map[string]keyreq{}}
 	for k, ts := range keyRequests {
-		server := request.ServerKeys[k.ServerName]
+		server := request.ServerKeyMap[k.ServerName]
 		if server == nil {
 			server = map[string]keyreq{}
-			request.ServerKeys[k.ServerName] = server
+			request.ServerKeyMap[k.ServerName] = server
 		}
 		server[k.KeyID] = keyreq{ts}
 	}
@@ -193,14 +193,14 @@ func (fc *Client) ServerKeys(
 	}
 
 	var body struct {
-		ServerKeys []ServerKeys `json:"server_keys"`
+		ServerKeyList []ServerKeys `json:"server_keys"`
 	}
 	if err = json.NewDecoder(response.Body).Decode(&body); err != nil {
 		return nil, err
 	}
 
 	result := map[PublicKeyRequest]ServerKeys{}
-	for _, keys := range body.ServerKeys {
+	for _, keys := range body.ServerKeyList {
 		keys.FromServer = matrixServer
 		// TODO: What happens if the same key ID appears in multiple responses?
 		// We should probably take the response with the highest valid_until_ts.

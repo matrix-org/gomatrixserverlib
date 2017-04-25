@@ -206,7 +206,7 @@ type PerspectiveKeyFetcher struct {
 
 // FetchKeys implements KeyFetcher
 func (p *PerspectiveKeyFetcher) FetchKeys(requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]ServerKeys, error) {
-	results, err := p.Client.ServerKeys(p.ServerName, requests)
+	results, err := p.Client.LookupServerKeys(p.ServerName, requests)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func (d *DirectKeyFetcher) FetchKeys(requests map[PublicKeyRequest]Timestamp) (m
 func (d *DirectKeyFetcher) fetchKeysForServer(
 	serverName string, requests map[PublicKeyRequest]Timestamp,
 ) (map[PublicKeyRequest]ServerKeys, error) {
-	results, err := d.Client.ServerKeys(serverName, requests)
+	results, err := d.Client.LookupServerKeys(serverName, requests)
 	if err != nil {
 		return nil, err
 	}
@@ -294,8 +294,7 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 		// Check that the keys are valid for the server.
 		checks, _, _ := CheckKeys(req.ServerName, time.Unix(0, 0), keys, nil)
 		if !checks.AllChecksOK {
-			// This is bad because it means that the perspective server was trying to feed us an invalid response.
-			return nil, fmt.Errorf("gomatrixserverlib: key response from perspective server failed checks")
+			return nil, fmt.Errorf("gomatrixserverlib: key response direct from %q failed checks", serverName)
 		}
 	}
 
