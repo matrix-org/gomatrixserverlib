@@ -144,6 +144,11 @@ func (fc *Client) LookupUserInfo(matrixServer, token string) (u UserInfo, err er
 }
 
 // LookupServerKeys lookups up the keys for a matrix server from a matrix server.
+// Takes a map from (server name, key ID) pairs to timestamps.
+// The timestamps tell the server when the keys need to be valid until.
+// Perspective servers can use that timestamp to determine whether they can
+// return a cached copy of the keys or whether they will need to retrieve a fresh
+// copy of the keys.
 // Returns the keys or an error if there was a problem talking to the server.
 func (fc *Client) LookupServerKeys(
 	matrixServer string, keyRequests map[PublicKeyRequest]Timestamp,
