@@ -115,6 +115,8 @@ func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult,
 			// This means that we've checked every JSON object we can check.
 			return results, nil
 		}
+		// TODO: Coalesce in-flight requests for the same keys.
+		// Otherwise we risk spamming the servers we query the keys from.
 		keysFetched, err := k.KeyFetchers[i].FetchKeys(keyRequests)
 		if err != nil {
 			return nil, err
