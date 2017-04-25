@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
@@ -31,7 +30,16 @@ import (
 // ServerKeys are the ed25519 signing keys published by a matrix server.
 // Contains SHA256 fingerprints of the TLS X509 certificates used by the server.
 type ServerKeys struct {
-	Raw             []byte     `json:"-"`           // Copy of the raw JSON for signature checking.
+	// Copy of the raw JSON for signature checking.
+	Raw []byte
+	// The server the raw JSON was downloaded from.
+	FromServer string
+	// The decoded JSON fields.
+	ServerKeyFields
+}
+
+// ServerKeyFields are the parsed JSON contents of the ed25519 signing keys published by a matrix server.
+type ServerKeyFields struct {
 	ServerName      string     `json:"server_name"` // The name of the server.
 	TLSFingerprints []struct { // List of SHA256 fingerprints of X509 certificates.
 		SHA256 Base64String `json:"sha256"`
@@ -44,6 +52,17 @@ type ServerKeys struct {
 		Key       Base64String `json:"key"`        // The public key.
 		ExpiredTS Timestamp    `json:"expired_ts"` // When this key stopped being valid for event signing.
 	} `json:"old_verify_keys"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (keys *ServerKeys) UnmarshalJSON(data []byte) error {
+	keys.Raw = data
+	return json.Unmarshal(data, &keys.ServerKeyFields)
+}
+
+// MarshalJSON implements json.Marshaler
+func (keys ServerKeys) MarshalJSON() ([]byte, error) {
+	return keys.Raw, nil
 }
 
 // PublicKey returns a public key with the given ID valid at the given TS or nil if no such key exists.
@@ -96,10 +115,7 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 		return nil, nil, err
 	}
 	var keys ServerKeys
-	if keys.Raw, err = ioutil.ReadAll(response.Body); err != nil {
-		return nil, nil, err
-	}
-	if err = json.Unmarshal(keys.Raw, &keys); err != nil {
+	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
 		return nil, nil, err
 	}
 	return &keys, &connectionState, nil
