@@ -18,6 +18,13 @@ type PublicKeyRequest struct {
 // A KeyFetcher is a way of fetching public keys in bulk.
 type KeyFetcher interface {
 	// Lookup a batch of public keys.
+	// Takes a map from (server name, key ID) pairs to timestamp.
+	// The timestamp is when the keys need to be vaild up to.
+	// Returns a map from (server name, key ID) pairs to server key objects for
+	// that server name containing that key ID
+	// The result may have fewer (server name, key ID) pairs than were in the request.
+	// The result may have more (server name, key ID) pairs than were in the request.
+	// Returns an error if there was a problem fetching the keys.
 	FetchKeys(requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]ServerKeys, error)
 }
 
