@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// A Timestamp is a millisecond posix timestamp.
-type Timestamp uint64
-
 // A PublicKeyRequest is a request for a public key with a particular key ID.
 type PublicKeyRequest struct {
 	// The server to fetch a key for.
