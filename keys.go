@@ -115,6 +115,7 @@ func FetchKeysDirect(serverName, addr, sni string) (*ServerKeys, *tls.Connection
 		return nil, nil, err
 	}
 	var keys ServerKeys
+	keys.FromServer = serverName
 	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
 		return nil, nil, err
 	}
