@@ -15,6 +15,7 @@ import (
 
 // A MatrixRequest is a request to send to remote server or a request received
 // from a remote server.
+// Matrix requests are signed by building a JSON object and signing it
 type MatrixRequest struct {
 	fields struct {
 		Content     rawJSON                      `json:"content,omitempty"`
@@ -95,7 +96,7 @@ func (r *MatrixRequest) Sign(serverName, keyID string, privateKey ed25519.Privat
 // HTTPRequest constructs an net/http.Request for this matrix request.
 // The request can be passed to net/http.Client.Do().
 func (r *MatrixRequest) HTTPRequest() (*http.Request, error) {
-	urlStr := fmt.Sprintf("matrix://%s/%s", r.fields.Destination, r.fields.RequestURI)
+	urlStr := fmt.Sprintf("matrix://%s%s", r.fields.Destination, r.fields.RequestURI)
 
 	var content io.Reader
 	if r.fields.Content != nil {
@@ -138,6 +139,7 @@ func VerifyHTTPRequest(
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing HTTP headers")
 		return nil, util.MessageResponse(400, "Bad Request")
 	}
+	request.fields.Destination = destination
 
 	toVerify, err := json.Marshal(request.fields)
 	if err != nil {
@@ -191,9 +193,8 @@ func readHTTPRequest(req *http.Request) (*MatrixRequest, error) {
 		result.fields.Content = rawJSON(content)
 	}
 
-	authorizations := req.Header["Authorization"]
-	for _, authorization := range authorizations {
-		parts := strings.SplitN(authorization, ",", 2)
+	for _, authorization := range req.Header["Authorization"] {
+		parts := strings.SplitN(authorization, " ", 2)
 		if parts[0] != "X-Matrix" {
 			continue
 		}
