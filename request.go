@@ -17,23 +17,25 @@ import (
 // from a remote server.
 // Matrix requests are signed by building a JSON object and signing it
 type MatrixRequest struct {
+	// fields implement the JSON format needed for signing
+	// specified in https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 	fields struct {
 		Content     rawJSON                      `json:"content,omitempty"`
 		Destination string                       `json:"destination"`
 		Method      string                       `json:"method"`
 		Origin      string                       `json:"origin"`
-		Signatures  map[string]map[string]string `json:"signatures,omitempty"`
 		RequestURI  string                       `json:"uri"`
+		Signatures  map[string]map[string]string `json:"signatures,omitempty"`
 	}
 }
 
 // NewMatrixRequest creates a matrix request. Takes an HTTP method, a
 // destination homeserver and a request path which can have a query string.
-func NewMatrixRequest(method, destination, requestURL string) MatrixRequest {
+func NewMatrixRequest(method, destination, requestURI string) MatrixRequest {
 	var r MatrixRequest
 	r.fields.Destination = destination
 	r.fields.Method = method
-	r.fields.RequestURI = requestURL
+	r.fields.RequestURI = requestURI
 	return r
 }
 
@@ -75,13 +77,16 @@ func (r *MatrixRequest) RequestURI() string {
 }
 
 // Sign the matrix request with an ed25519 key.
-// Updates the request with the signature inplace.
+// Uses the algorithm specified https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
+// Updates the request with the signature in place.
 // Returns an error if there was a problem signing the request.
 func (r *MatrixRequest) Sign(serverName, keyID string, privateKey ed25519.PrivateKey) error {
 	if r.fields.Origin != "" && r.fields.Origin != serverName {
 		return fmt.Errorf("gomatrixserverlib: the request is already signed by a different server")
 	}
 	r.fields.Origin = serverName
+	// The request fields are already in the form required by the specification
+	// So we can just serialise the request fields using the default marshaller
 	data, err := json.Marshal(r.fields)
 	if err != nil {
 		return err
@@ -90,6 +95,9 @@ func (r *MatrixRequest) Sign(serverName, keyID string, privateKey ed25519.Privat
 	if err != nil {
 		return err
 	}
+	// Now we can deserialise the signed request back into the request structure
+	// to set the Signatures field, (This will clobber the other fields but they
+	// will all round-trip through an encode/decode.)
 	return json.Unmarshal(signedData, &r.fields)
 }
 
@@ -126,7 +134,7 @@ func (r *MatrixRequest) HTTPRequest() (*http.Request, error) {
 // The JSON content can be accessed using MatrixRequest.Content()
 // Returns an 400 error if there was a problem parsing the request.
 // It authenticates the request using an ed25519 signature using the KeyRing.
-// The origin server can be accesed using MatrixRequest.Origin()
+// The origin server can be accessed using MatrixRequest.Origin()
 // Returns a 401 error if there was a problem authenticating the request.
 // HTTP handlers using this should be careful that they only use the parts of
 // the request that have been authenticated: the method, the request path,
@@ -141,6 +149,8 @@ func VerifyHTTPRequest(
 	}
 	request.fields.Destination = destination
 
+	// The request fields are already in the form required by the specification
+	// So we can just serialise the request fields using the default marshaller
 	toVerify, err := json.Marshal(request.fields)
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing JSON")
