@@ -43,7 +43,7 @@ const examplePutContent = `{"edus":[{"content":{"device_id":"YHRUBZNPFS",` +
 	`"pdus":[]}`
 
 func TestSignGetRequest(t *testing.T) {
-	request := NewMatrixRequest(
+	request := NewFederationRequest(
 		"GET", "localhost:44033",
 		"/_matrix/federation/v1/query/directory?room_alias=%23test%3Alocalhost%3A44033",
 	)
@@ -100,7 +100,7 @@ func TestVerifyGetRequest(t *testing.T) {
 }
 
 func TestSignPutRequest(t *testing.T) {
-	request := NewMatrixRequest(
+	request := NewFederationRequest(
 		"PUT", "localhost:44033", "/_matrix/federation/v1/send/1493385816575/",
 	)
 	if err := request.SetContent(rawJSON([]byte(examplePutContent))); err != nil {

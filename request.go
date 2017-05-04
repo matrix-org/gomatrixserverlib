@@ -13,10 +13,10 @@ import (
 	"time"
 )
 
-// A MatrixRequest is a request to send to remote server or a request received
-// from a remote server.
-// Matrix requests are signed by building a JSON object and signing it
-type MatrixRequest struct {
+// A FederationRequest is a request to send to a remote server or a request
+// received from a remote server.
+// Federation requests are signed by building a JSON object and signing it
+type FederationRequest struct {
 	// fields implement the JSON format needed for signing
 	// specified in https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 	fields struct {
@@ -29,19 +29,22 @@ type MatrixRequest struct {
 	}
 }
 
-// NewMatrixRequest creates a matrix request. Takes an HTTP method, a
+// NewFederationRequest creates a matrix request. Takes an HTTP method, a
 // destination homeserver and a request path which can have a query string.
-func NewMatrixRequest(method, destination, requestURI string) MatrixRequest {
-	var r MatrixRequest
+// The destination is the name of a matrix homeserver.
+// The request path must begin with a slash.
+// Eg. NewFederationRequest("GET", "matrix.org", "/_matrix/federation/v1/send/123")
+func NewFederationRequest(method, destination, requestURI string) FederationRequest {
+	var r FederationRequest
 	r.fields.Destination = destination
-	r.fields.Method = method
+	r.fields.Method = strings.ToUpper(method)
 	r.fields.RequestURI = requestURI
 	return r
 }
 
 // SetContent sets the JSON content for the request.
 // Returns an error if there already is JSON content present on the request.
-func (r *MatrixRequest) SetContent(content interface{}) error {
+func (r *FederationRequest) SetContent(content interface{}) error {
 	if r.fields.Content != nil {
 		return fmt.Errorf("gomatrixserverlib: content already set on the request")
 	}
@@ -57,22 +60,22 @@ func (r *MatrixRequest) SetContent(content interface{}) error {
 }
 
 // Method returns the JSON method for the request.
-func (r *MatrixRequest) Method() string {
+func (r *FederationRequest) Method() string {
 	return r.fields.Method
 }
 
 // Content returns the JSON content for the request.
-func (r *MatrixRequest) Content() []byte {
+func (r *FederationRequest) Content() []byte {
 	return []byte(r.fields.Content)
 }
 
 // Origin returns the server that the request originated on.
-func (r *MatrixRequest) Origin() string {
+func (r *FederationRequest) Origin() string {
 	return r.fields.Origin
 }
 
 // RequestURI returns the path and query sections of the HTTP request URL.
-func (r *MatrixRequest) RequestURI() string {
+func (r *FederationRequest) RequestURI() string {
 	return r.fields.RequestURI
 }
 
@@ -80,7 +83,7 @@ func (r *MatrixRequest) RequestURI() string {
 // Uses the algorithm specified https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 // Updates the request with the signature in place.
 // Returns an error if there was a problem signing the request.
-func (r *MatrixRequest) Sign(serverName, keyID string, privateKey ed25519.PrivateKey) error {
+func (r *FederationRequest) Sign(serverName, keyID string, privateKey ed25519.PrivateKey) error {
 	if r.fields.Origin != "" && r.fields.Origin != serverName {
 		return fmt.Errorf("gomatrixserverlib: the request is already signed by a different server")
 	}
@@ -103,7 +106,7 @@ func (r *MatrixRequest) Sign(serverName, keyID string, privateKey ed25519.Privat
 
 // HTTPRequest constructs an net/http.Request for this matrix request.
 // The request can be passed to net/http.Client.Do().
-func (r *MatrixRequest) HTTPRequest() (*http.Request, error) {
+func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 	urlStr := fmt.Sprintf("matrix://%s%s", r.fields.Destination, r.fields.RequestURI)
 
 	var content io.Reader
@@ -114,6 +117,14 @@ func (r *MatrixRequest) HTTPRequest() (*http.Request, error) {
 	httpReq, err := http.NewRequest(r.fields.Method, urlStr, content)
 	if err != nil {
 		return nil, err
+	}
+
+	// Sanity check that the request fields will round-trip properly.
+	if httpReq.URL.RequestURI() != r.fields.RequestURI {
+		return nil, fmt.Errorf(
+			"gomatrixserverlib: Request URI didn't encode properly. Wanted %q. Got %q",
+			r.fields.RequestURI, httpReq.URL.RequestURI(),
+		)
 	}
 
 	if r.fields.Content != nil {
@@ -131,17 +142,17 @@ func (r *MatrixRequest) HTTPRequest() (*http.Request, error) {
 
 // VerifyHTTPRequest extracts and verifies the contents of a net/http.Request.
 // It consumes the body of the request.
-// The JSON content can be accessed using MatrixRequest.Content()
+// The JSON content can be accessed using FederationRequest.Content()
 // Returns an 400 error if there was a problem parsing the request.
 // It authenticates the request using an ed25519 signature using the KeyRing.
-// The origin server can be accessed using MatrixRequest.Origin()
+// The origin server can be accessed using FederationRequest.Origin()
 // Returns a 401 error if there was a problem authenticating the request.
 // HTTP handlers using this should be careful that they only use the parts of
 // the request that have been authenticated: the method, the request path,
 // the query parameters, and the JSON content.
 func VerifyHTTPRequest(
 	req *http.Request, now time.Time, destination string, keys KeyRing,
-) (*MatrixRequest, util.JSONResponse) {
+) (*FederationRequest, util.JSONResponse) {
 	request, err := readHTTPRequest(req)
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing HTTP headers")
@@ -183,8 +194,8 @@ func VerifyHTTPRequest(
 }
 
 // Returns an error if there was a problem reading the content of the request
-func readHTTPRequest(req *http.Request) (*MatrixRequest, error) {
-	var result MatrixRequest
+func readHTTPRequest(req *http.Request) (*FederationRequest, error) {
+	var result FederationRequest
 
 	result.fields.Method = req.Method
 	result.fields.RequestURI = req.URL.RequestURI()
@@ -204,11 +215,11 @@ func readHTTPRequest(req *http.Request) (*MatrixRequest, error) {
 	}
 
 	for _, authorization := range req.Header["Authorization"] {
-		parts := strings.SplitN(authorization, " ", 2)
-		if parts[0] != "X-Matrix" {
+		scheme, origin, key, sig := parseAuthorization(authorization)
+		if scheme != "X-Matrix" {
+			// Ignore unknown types of Authorization.
 			continue
 		}
-		origin, key, sig := parseAuthorizationXMatrix(parts)
 		if origin == "" || key == "" || sig == "" {
 			return nil, fmt.Errorf("gomatrixserverlib: invalid X-Matrix authorization header")
 		}
@@ -226,11 +237,16 @@ func readHTTPRequest(req *http.Request) (*MatrixRequest, error) {
 	return &result, nil
 }
 
-func parseAuthorizationXMatrix(headerParts []string) (origin, key, sig string) {
-	if len(headerParts) != 2 {
+func parseAuthorization(header string) (scheme, origin, key, sig string) {
+	parts := strings.SplitN(header, " ", 2)
+	scheme = parts[0]
+	if scheme != "X-Matrix" {
 		return
 	}
-	for _, data := range strings.Split(headerParts[1], ",") {
+	if len(parts) != 2 {
+		return
+	}
+	for _, data := range strings.Split(parts[1], ",") {
 		pair := strings.SplitN(data, "=", 2)
 		if len(pair) != 2 {
 			continue
