@@ -132,12 +132,51 @@ func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 	}
 
 	for keyID, sig := range r.fields.Signatures[r.fields.Origin] {
+		// Check that we can safely include the origin and key ID in the header.
+		// We don't need to check the signature since we already know that it is
+		// base64.
+		if !isSafeInHTTPQuotedString(r.fields.Origin) {
+			return nil, fmt.Errorf("gomatrixserverlib: Request Origin isn't safe to include in an HTTP header")
+		}
+		if !isSafeInHTTPQuotedString(keyID) {
+			return nil, fmt.Errorf("gomatrixserverlib: Request key ID isn't safe to include in an HTTP header")
+		}
 		httpReq.Header.Add("Authorization", fmt.Sprintf(
 			"X-Matrix origin=\"%s\",key=\"%s\",sig=\"%s\"", r.fields.Origin, keyID, sig,
 		))
 	}
 
 	return httpReq, nil
+}
+
+// isSafeInHTTPQuotedString checks whether the string is safe to include
+// in an HTTP quoted-string without escaping.
+// According to https://tools.ietf.org/html/rfc7230#section-3.2.6 the safe
+// charcters are:
+//
+//    qdtext         = HTAB / SP / %x21 / %x23-5B / %x5D-7E / %x80-FF
+//
+func isSafeInHTTPQuotedString(text string) bool {
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case c == '\t':
+			continue
+		case c == ' ':
+			continue
+		case c == 0x21:
+			continue
+		case 0x23 <= c && c <= 0x5B:
+			continue
+		case 0x5D <= c && c <= 0x7E:
+			continue
+		case 0x80 <= c && c <= 0xFF:
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // VerifyHTTPRequest extracts and verifies the contents of a net/http.Request.
