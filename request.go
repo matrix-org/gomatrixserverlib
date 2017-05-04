@@ -149,7 +149,8 @@ func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 // Returns a 401 error if there was a problem authenticating the request.
 // HTTP handlers using this should be careful that they only use the parts of
 // the request that have been authenticated: the method, the request path,
-// the query parameters, and the JSON content.
+// the query parameters, and the JSON content. In particular the version of
+// HTTP and the headers aren't protected by the signature.
 func VerifyHTTPRequest(
 	req *http.Request, now time.Time, destination string, keys KeyRing,
 ) (*FederationRequest, util.JSONResponse) {
