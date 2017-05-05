@@ -56,7 +56,10 @@ type OldVerifyKey struct {
 	ExpiredTS Timestamp `json:"expired_ts"`
 }
 
-// A KeyID is the ID of a ed2219 key used by a server.
+// A KeyID is the ID of a ed25519 key used by a server.
+// The key IDs have a format of "ed25519:[0-9A-Za-z]+"
+// If we switch to using a different signing algorithm then we will change the
+// prefix used.
 type KeyID string
 
 // ServerKeyFields are the parsed JSON contents of the ed25519 signing keys published by a matrix server.
