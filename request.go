@@ -216,7 +216,7 @@ func VerifyHTTPRequest(
 
 	results, err := keys.VerifyJSONs([]VerifyJSONRequest{{
 		ServerName: request.Origin(),
-		AtTS:       Timestamp(now.UnixNano() / 1000000),
+		AtTS:       AsTimestamp(now),
 		Message:    toVerify,
 	}})
 	if err != nil {

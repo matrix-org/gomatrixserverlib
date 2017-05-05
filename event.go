@@ -112,11 +112,11 @@ var emptyEventReferenceList = []EventReference{}
 func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID string, privateKey ed25519.PrivateKey) (result Event, err error) {
 	var event struct {
 		EventBuilder
-		EventID        string  `json:"event_id"`
-		RawContent     rawJSON `json:"content"`
-		RawUnsigned    rawJSON `json:"unsigned,omitempty"`
-		OriginServerTS int64   `json:"origin_server_ts"`
-		Origin         string  `json:"origin"`
+		EventID        string    `json:"event_id"`
+		RawContent     rawJSON   `json:"content"`
+		RawUnsigned    rawJSON   `json:"unsigned,omitempty"`
+		OriginServerTS Timestamp `json:"origin_server_ts"`
+		Origin         string    `json:"origin"`
 	}
 	event.EventBuilder = *eb
 	if event.PrevEvents == nil {
@@ -127,7 +127,7 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID strin
 	}
 	event.RawContent = rawJSON(event.content)
 	event.RawUnsigned = rawJSON(event.unsigned)
-	event.OriginServerTS = now.UnixNano() / 1000000
+	event.OriginServerTS = AsTimestamp(now)
 	event.Origin = origin
 	event.EventID = eventID
 

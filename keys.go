@@ -173,7 +173,7 @@ func CheckKeys(serverName string, now time.Time, keys ServerKeys, connState *tls
 	checks KeyChecks, ed25519Keys map[string]Base64String, sha256Fingerprints []Base64String,
 ) {
 	checks.MatchingServerName = serverName == keys.ServerName
-	checks.FutureValidUntilTS = Timestamp(now.UnixNano()) < keys.ValidUntilTS*1000000
+	checks.FutureValidUntilTS = keys.ValidUntilTS.Time().After(now)
 	checks.AllChecksOK = checks.MatchingServerName && checks.FutureValidUntilTS
 
 	ed25519Keys = checkVerifyKeys(keys, &checks)
