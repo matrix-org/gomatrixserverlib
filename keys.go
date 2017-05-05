@@ -38,20 +38,35 @@ type ServerKeys struct {
 	ServerKeyFields
 }
 
+// A TLSFingerprint is a SHA256 hash of an X509 certificate.
+type TLSFingerprint struct {
+	SHA256 Base64String `json:"sha256"`
+}
+
+// A VerifyKey is a ed25519 public key for a server.
+type VerifyKey struct {
+	Key Base64String `json:"key"` // The public key.
+}
+
+// An OldVerifyKey is an old ed25519 public key that is no longer valid.
+type OldVerifyKey struct {
+	VerifyKey
+	ExpiredTS Timestamp `json:"expired_ts"` // When this key stopped being valid for event signing.
+}
+
 // ServerKeyFields are the parsed JSON contents of the ed25519 signing keys published by a matrix server.
 type ServerKeyFields struct {
-	ServerName      string     `json:"server_name"` // The name of the server.
-	TLSFingerprints []struct { // List of SHA256 fingerprints of X509 certificates.
-		SHA256 Base64String `json:"sha256"`
-	} `json:"tls_fingerprints"`
-	VerifyKeys map[string]struct { // The current signing keys in use on this server.
-		Key Base64String `json:"key"` // The public key.
-	} `json:"verify_keys"`
-	ValidUntilTS  Timestamp           `json:"valid_until_ts"` // When this result is valid until in milliseconds.
-	OldVerifyKeys map[string]struct { // Old keys that are now only valid for checking historic events.
-		Key       Base64String `json:"key"`        // The public key.
-		ExpiredTS Timestamp    `json:"expired_ts"` // When this key stopped being valid for event signing.
-	} `json:"old_verify_keys"`
+	// The name of the server
+	ServerName string `json:"server_name"`
+	// List of SHA256 fingerprints of X509 certificates used by this server.
+	TLSFingerprints []TLSFingerprint `json:"tls_fingerprints"`
+	// The current signing keys in use on this server.
+	// These are valid while this response is valid.
+	VerifyKeys map[string]VerifyKey `json:"verify_keys"`
+	// When this result is valid until in milliseconds.
+	ValidUntilTS Timestamp `json:"valid_until_ts"`
+	// Old keys that are now only valid for checking historic events.
+	OldVerifyKeys map[string]OldVerifyKey `json:"old_verify_keys"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler
