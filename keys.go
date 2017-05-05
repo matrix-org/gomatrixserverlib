@@ -45,13 +45,15 @@ type TLSFingerprint struct {
 
 // A VerifyKey is a ed25519 public key for a server.
 type VerifyKey struct {
-	Key Base64String `json:"key"` // The public key.
+	// The public key.
+	Key Base64String `json:"key"`
 }
 
 // An OldVerifyKey is an old ed25519 public key that is no longer valid.
 type OldVerifyKey struct {
 	VerifyKey
-	ExpiredTS Timestamp `json:"expired_ts"` // When this key stopped being valid for event signing.
+	// When this key stopped being valid for event signing in milliseconds.
+	ExpiredTS Timestamp `json:"expired_ts"`
 }
 
 // ServerKeyFields are the parsed JSON contents of the ed25519 signing keys published by a matrix server.
@@ -61,11 +63,13 @@ type ServerKeyFields struct {
 	// List of SHA256 fingerprints of X509 certificates used by this server.
 	TLSFingerprints []TLSFingerprint `json:"tls_fingerprints"`
 	// The current signing keys in use on this server.
+	// The keys of the map are the IDs of the keys.
 	// These are valid while this response is valid.
 	VerifyKeys map[string]VerifyKey `json:"verify_keys"`
 	// When this result is valid until in milliseconds.
 	ValidUntilTS Timestamp `json:"valid_until_ts"`
 	// Old keys that are now only valid for checking historic events.
+	// The keys of the map are the IDs of the keys.
 	OldVerifyKeys map[string]OldVerifyKey `json:"old_verify_keys"`
 }
 
