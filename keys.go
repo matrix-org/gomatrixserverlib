@@ -28,7 +28,7 @@ import (
 )
 
 // A ServerName is the name a matrix homeserver is identified by.
-// It is a DNS name optionally followed by a port.
+// It is a DNS name without a trailing dot optionally followed by a port.
 // So it has the format: "[0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*(:[0-9]+)?"
 type ServerName string
 
