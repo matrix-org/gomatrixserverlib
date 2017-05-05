@@ -109,7 +109,7 @@ var emptyEventReferenceList = []EventReference{}
 // Call this after filling out the necessary fields.
 // This can be called mutliple times on the same builder.
 // A different event ID must be supplied each time this is called.
-func (eb *EventBuilder) Build(eventID string, now time.Time, origin, keyID string, privateKey ed25519.PrivateKey) (result Event, err error) {
+func (eb *EventBuilder) Build(eventID string, now time.Time, origin string, keyID KeyID, privateKey ed25519.PrivateKey) (result Event, err error) {
 	var event struct {
 		EventBuilder
 		EventID        string  `json:"event_id"`
@@ -245,7 +245,7 @@ func (e Event) EventReference() EventReference {
 }
 
 // Sign returns a copy of the event with an additional signature.
-func (e Event) Sign(signingName, keyID string, privateKey ed25519.PrivateKey) Event {
+func (e Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -262,23 +262,17 @@ func (e Event) Sign(signingName, keyID string, privateKey ed25519.PrivateKey) Ev
 }
 
 // KeyIDs returns a list of key IDs that the named entity has signed the event with.
-func (e Event) KeyIDs(signingName string) []string {
-	var event struct {
-		Signatures map[string]map[string]rawJSON `json:"signatures"`
-	}
-	if err := json.Unmarshal(e.eventJSON, &event); err != nil {
+func (e Event) KeyIDs(signingName string) []KeyID {
+	keyIDs, err := ListKeyIDs(signingName, e.eventJSON)
+	if err != nil {
 		// This should unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
-	}
-	var keyIDs []string
-	for keyID := range event.Signatures[signingName] {
-		keyIDs = append(keyIDs, keyID)
 	}
 	return keyIDs
 }
 
 // Verify checks a ed25519 signature
-func (e Event) Verify(signingName, keyID string, publicKey ed25519.PublicKey) error {
+func (e Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
 	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON)
 }
 

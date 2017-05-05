@@ -167,12 +167,12 @@ func (fc *Client) LookupServerKeys(
 		MinimumValidUntilTS Timestamp `json:"minimum_valid_until_ts"`
 	}
 	request := struct {
-		ServerKeyMap map[string]map[string]keyreq `json:"server_keys"`
-	}{map[string]map[string]keyreq{}}
+		ServerKeyMap map[string]map[KeyID]keyreq `json:"server_keys"`
+	}{map[string]map[KeyID]keyreq{}}
 	for k, ts := range keyRequests {
 		server := request.ServerKeyMap[k.ServerName]
 		if server == nil {
-			server = map[string]keyreq{}
+			server = map[KeyID]keyreq{}
 			request.ServerKeyMap[k.ServerName] = server
 		}
 		server[k.KeyID] = keyreq{ts}

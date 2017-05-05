@@ -12,7 +12,7 @@ type PublicKeyRequest struct {
 	// The server to fetch a key for.
 	ServerName string
 	// The ID of the key to fetch.
-	KeyID string
+	KeyID KeyID
 }
 
 // A KeyFetcher is a way of fetching public keys in bulk.
@@ -68,7 +68,7 @@ type VerifyJSONResult struct {
 // of fetching the public keys.
 func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult, error) {
 	results := make([]VerifyJSONResult, len(requests))
-	keyIDs := make([][]string, len(requests))
+	keyIDs := make([][]KeyID, len(requests))
 
 	for i := range requests {
 		ids, err := ListKeyIDs(requests[i].ServerName, requests[i].Message)
@@ -132,11 +132,11 @@ func (k *KeyRing) VerifyJSONs(requests []VerifyJSONRequest) ([]VerifyJSONResult,
 	return results, nil
 }
 
-func (k *KeyRing) isAlgorithmSupported(keyID string) bool {
-	return strings.HasPrefix(keyID, "ed25519:")
+func (k *KeyRing) isAlgorithmSupported(keyID KeyID) bool {
+	return strings.HasPrefix(string(keyID), "ed25519:")
 }
 
-func (k *KeyRing) publicKeyRequests(requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]string) map[PublicKeyRequest]Timestamp {
+func (k *KeyRing) publicKeyRequests(requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]KeyID) map[PublicKeyRequest]Timestamp {
 	keyRequests := map[PublicKeyRequest]Timestamp{}
 	for i := range requests {
 		if results[i].Result == nil {
@@ -161,7 +161,7 @@ func (k *KeyRing) publicKeyRequests(requests []VerifyJSONRequest, results []Veri
 }
 
 func (k *KeyRing) checkUsingKeys(
-	requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]string,
+	requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]KeyID,
 	keys map[PublicKeyRequest]ServerKeys,
 ) {
 	for i := range requests {
@@ -205,7 +205,7 @@ type PerspectiveKeyFetcher struct {
 	// The name of the perspective server to fetch keys from.
 	PerspectiveServerName string
 	// The ed25519 public keys the perspective server must sign responses with.
-	PerspectiveServerKeys map[string]ed25519.PublicKey
+	PerspectiveServerKeys map[KeyID]ed25519.PublicKey
 	// The federation client to use to fetch keys with.
 	Client Client
 }

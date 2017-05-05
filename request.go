@@ -83,7 +83,7 @@ func (r *FederationRequest) RequestURI() string {
 // Uses the algorithm specified https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 // Updates the request with the signature in place.
 // Returns an error if there was a problem signing the request.
-func (r *FederationRequest) Sign(serverName, keyID string, privateKey ed25519.PrivateKey) error {
+func (r *FederationRequest) Sign(serverName string, keyID KeyID, privateKey ed25519.PrivateKey) error {
 	if r.fields.Origin != "" && r.fields.Origin != serverName {
 		return fmt.Errorf("gomatrixserverlib: the request is already signed by a different server")
 	}
