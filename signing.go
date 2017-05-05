@@ -21,6 +21,12 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// A KeyID is the ID of a ed25519 key used to sign JSON.
+// The key IDs have a format of "ed25519:[0-9A-Za-z]+"
+// If we switch to using a different signing algorithm then we will change the
+// prefix used.
+type KeyID string
+
 // SignJSON signs a JSON object returning a copy signed with the given key.
 // https://matrix.org/docs/spec/server_server/unstable.html#signing-json
 func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, message []byte) ([]byte, error) {
