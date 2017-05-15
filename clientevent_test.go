@@ -101,3 +101,38 @@ func TestToClientFormatSync(t *testing.T) {
 		t.Errorf("ClientEvent.RoomID: wanted '', got %s", ce.RoomID)
 	}
 }
+
+func TestToClientFormatSyncInvite(t *testing.T) {
+	ev, err := NewEventFromTrustedJSON([]byte(`{
+		"type": "m.room.name",
+		"state_key": "",
+		"event_id": "$test:localhost",
+		"room_id": "!test:localhost",
+		"sender": "@test:localhost",
+		"content": {
+			"name": "Hello World"
+		},
+		"origin_server_ts": 123456,
+		"unsigned": {
+			"prev_content": {
+				"name": "Goodbye World"
+			}
+		}
+	}`), false)
+	if err != nil {
+		t.Fatalf("TestToClientFormatSyncInvite failed to create Event: %s", err)
+	}
+	ce := ToClientEvent(ev, FormatSyncInvite)
+	if ce.RoomID != "" {
+		t.Errorf("TestToClientFormatSyncInvite ClientEvent.RoomID: wanted '', got %s", ce.RoomID)
+	}
+	if ce.OriginServerTS != 0 {
+		t.Errorf("TestToClientFormatSyncInvite ClientEvent.OriginServerTS: wanted 0, got %d", ce.OriginServerTS)
+	}
+	if ce.EventID != "" {
+		t.Errorf("TestToClientFormatSyncInvite ClientEvent.EventID: wanted '', got %s", ce.EventID)
+	}
+	if ce.Unsigned != nil {
+		t.Errorf("TestToClientFormatSyncInvite ClientEvent.Unsigned: wanted <nil>, got %+v", ce.Unsigned)
+	}
+}

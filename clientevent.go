@@ -24,13 +24,18 @@ const (
 	// FormatSync will include only the event keys required by the /sync API. Notably, this
 	// means the 'room_id' will be missing from the events.
 	FormatSync
+	// FormatSyncInvite will include only the event keys required by 'invite_state' in the /sync API.
+	// Notably, this means the origin_server_ts, event_id and room_id will be missing from events.
+	// Only state events can have this format applied.
+	FormatSyncInvite
 )
 
 // ClientEvent is an event which is fit for consumption by clients, in accordance with the specification.
 type ClientEvent struct {
-	Content        rawJSON `json:"content"`
-	EventID        string  `json:"event_id"`
-	OriginServerTS int64   `json:"origin_server_ts"`
+	Content rawJSON `json:"content"`
+	// EventID and OriginServerTS are omitted on 'invite_state'.
+	EventID        string `json:"event_id,omitempty"`
+	OriginServerTS int64  `json:"origin_server_ts,omitempty"`
 	// RoomID is omitted on /sync responses
 	RoomID   string  `json:"room_id,omitempty"`
 	Sender   string  `json:"sender"`
@@ -50,17 +55,36 @@ func ToClientEvents(serverEvs []Event, format EventFormat) []ClientEvent {
 
 // ToClientEvent converts a single server event to a client event.
 func ToClientEvent(se Event, format EventFormat) ClientEvent {
-	ce := ClientEvent{
-		Content:        rawJSON(se.Content()),
-		Sender:         se.Sender(),
-		Type:           se.Type(),
-		StateKey:       se.StateKey(),
-		Unsigned:       rawJSON(se.Unsigned()),
-		OriginServerTS: se.OriginServerTS(),
-		EventID:        se.EventID(),
+	switch format {
+	case FormatSyncInvite:
+		return ClientEvent{
+			Content:  rawJSON(se.Content()),
+			Sender:   se.Sender(),
+			Type:     se.Type(),
+			StateKey: se.StateKey(),
+		}
+	case FormatSync:
+		return ClientEvent{
+			Content:        rawJSON(se.Content()),
+			Sender:         se.Sender(),
+			Type:           se.Type(),
+			StateKey:       se.StateKey(),
+			Unsigned:       rawJSON(se.Unsigned()),
+			OriginServerTS: se.OriginServerTS(),
+			EventID:        se.EventID(),
+		}
+	case FormatAll:
+		return ClientEvent{
+			Content:        rawJSON(se.Content()),
+			Sender:         se.Sender(),
+			Type:           se.Type(),
+			StateKey:       se.StateKey(),
+			Unsigned:       rawJSON(se.Unsigned()),
+			OriginServerTS: se.OriginServerTS(),
+			EventID:        se.EventID(),
+			RoomID:         se.RoomID(),
+		}
 	}
-	if format == FormatAll {
-		ce.RoomID = se.RoomID()
-	}
-	return ce
+	// This is a programmer error so panicking makes sense
+	panic("invalid ToClientEvent format")
 }
