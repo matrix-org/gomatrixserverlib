@@ -1,9 +1,5 @@
 package gomatrixserverlib
 
-import (
-	"encoding/json"
-)
-
 // A Transaction is used to push data from one matrix server to another matrix
 // server.
 type Transaction struct {
