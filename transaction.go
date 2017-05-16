@@ -13,22 +13,28 @@ type Transaction struct {
 	Origin ServerName `json:"origin"`
 	// The server that should receive the transaction.
 	Destination ServerName `json:"destination"`
-	// The millisecond posix timestamp on the origin server when the transction
-	// was created.
+	// The millisecond posix timestamp on the origin server when the
+	// transaction was created.
 	OriginServerTS Timestamp `json:"origin_server_ts"`
-	// The IDs of the most recent transactions sent by the server.
-	// Mutliple transactions can be sent in parallel so there may be
-	// more than one previous transaction.
+	// The IDs of the most recent transactions sent by the origin server to
+	// the destination server. Multiple transactions can be sent by the origin
+	// server to the destination server in parallel so there may be more than
+	// one previous transaction.
 	PreviousIDs []TransactionID `json:"previous_ids"`
-	// The room events pushed by this transaction.
+	// The room events pushed from the origin server to the destination server
+	// by this transaction. The events should either be events that originate
+	// on the origin server or be join m.room.member events.
 	PDUs []Event `json:"pdus"`
-	// The ephemeral events pushed by this transaction.
+	// The ephemeral events pushed from the origin server to the destinaton
+	// server by this transaction.
 	EDUs []EDU `json:"edus"`
 }
 
 // A TransactionID identifies a transaction sent by a matrix server to another
 // matrix server. The ID must be unique amoungst the transactions sent from the
 // origin server to the destination, but doesn't have to be globally unique.
+// The ID must be safe to insert into a URL path segment. The ID should have a
+// format matching '^[0-9A-Za-z\-_]*$'
 type TransactionID string
 
 // An EDU is used to transmit ephemeral data such as presence and typing from
