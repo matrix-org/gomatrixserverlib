@@ -80,10 +80,10 @@ func (ac *FederationClient) doRequest(r FederationRequest, resBody interface{}) 
 }
 
 // SendTransaction sends a transaction
-func (ac *FederationClient) SendTransaction(t Transaction) (res SendResponse, err error) {
+func (ac *FederationClient) SendTransaction(t Transaction) (res RespSend, err error) {
 	path := "/_matrix/federation/v1/send/" + string(t.TransactionID) + "/"
 	req := NewFederationRequest("PUT", t.Destination, path)
-	if err = req.SetContent(SendRequest(t)); err != nil {
+	if err = req.SetContent(t); err != nil {
 		return
 	}
 	err = ac.doRequest(req, &res)
@@ -92,7 +92,7 @@ func (ac *FederationClient) SendTransaction(t Transaction) (res SendResponse, er
 
 // MakeJoin makes a join m.room.member event for a room on a remote matrix server.
 // This is used to join a room the local server isn't a member of.
-func (ac *FederationClient) MakeJoin(s ServerName, roomID, userID string) (res MakeJoinResponse, err error) {
+func (ac *FederationClient) MakeJoin(s ServerName, roomID, userID string) (res RespMakeJoin, err error) {
 	path := "/_matrix/federation/v1/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID)
@@ -103,7 +103,7 @@ func (ac *FederationClient) MakeJoin(s ServerName, roomID, userID string) (res M
 
 // SendJoin sends a join m.room.member event via a remote matrix server.
 // This is used to join a room the local server isn't a member of.
-func (ac *FederationClient) SendJoin(s ServerName, event Event) (res SendJoinResponse, err error) {
+func (ac *FederationClient) SendJoin(s ServerName, event Event) (res RespSendJoin, err error) {
 	path := "/_matrix/federation/v1/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
@@ -117,7 +117,7 @@ func (ac *FederationClient) SendJoin(s ServerName, event Event) (res SendJoinRes
 
 // LookupState retrieves the room state for a room at an event from a
 // remote matrix server as full matrix events.
-func (ac *FederationClient) LookupState(s ServerName, roomID, eventID string) (res StateResponse, err error) {
+func (ac *FederationClient) LookupState(s ServerName, roomID, eventID string) (res RespState, err error) {
 	path := "/_matrix/federation/v1/state/" +
 		url.PathEscape(roomID) +
 		"/?event_id=" +
@@ -129,7 +129,7 @@ func (ac *FederationClient) LookupState(s ServerName, roomID, eventID string) (r
 
 // LookupStateIDs retrieves the room state for a room at an event from a
 // remote matrix server as lists of matrix event IDs.
-func (ac *FederationClient) LookupStateIDs(s ServerName, roomID, eventID string) (res StateIDsResponse, err error) {
+func (ac *FederationClient) LookupStateIDs(s ServerName, roomID, eventID string) (res RespStateIDs, err error) {
 	path := "/_matrix/federation/v1/state_ids/" +
 		url.PathEscape(roomID) +
 		"/?event_id=" +

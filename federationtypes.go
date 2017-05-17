@@ -5,11 +5,8 @@ import (
 	"fmt"
 )
 
-// A SendRequest is the content of a request to PUT /_matrix/federation/v1/send/{txnID}/
-type SendRequest Transaction
-
-// A SendResponse is the content of a response to PUT /_matrix/federation/v1/send/{txnID}/
-type SendResponse struct {
+// A RespSend is the content of a response to PUT /_matrix/federation/v1/send/{txnID}/
+type RespSend struct {
 	// Map of string room event ID to the result of processing that event.
 	PDUs map[string]PDUResult `json:"pdus"`
 }
@@ -21,35 +18,32 @@ type PDUResult struct {
 	Error string `json:"error,omitempty"`
 }
 
-// A StateIDsResponse is the content of a response to GET /_matrix/federation/v1/state_ids/{roomID}/{eventID}
-type StateIDsResponse struct {
+// A RespStateIDs is the content of a response to GET /_matrix/federation/v1/state_ids/{roomID}/{eventID}
+type RespStateIDs struct {
 	// A list of state event IDs for the state of the room before the requested event.
 	StateEventIDs []string `json:"pdu_ids"`
 	// A list of event IDs needed to authenticate the state events.
 	AuthEventIDs []string `json:"auth_chain_ids"`
 }
 
-// A StateResponse is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
-type StateResponse struct {
+// A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
+type RespState struct {
 	// A list of events giving the state of the room before the request event.
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
 }
 
-// A MakeJoinResponse is the content of a response to GET /_matrix/federation/v1/make_join/{roomID}/{userID}
-type MakeJoinResponse struct {
+// A RespMakeJoin is the content of a response to GET /_matrix/federation/v1/make_join/{roomID}/{userID}
+type RespMakeJoin struct {
 	JoinEvent Event `json:"event"`
 }
 
-// A SendJoinRequest is the content of a request to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
-type SendJoinRequest Event
-
-// A SendJoinResponse is the content of a response to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
-type SendJoinResponse StateResponse
+// A RespSendJoin is the content of a response to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
+type RespSendJoin RespState
 
 // MarshalJSON implements json.Marshaller
-func (r SendJoinResponse) MarshalJSON() ([]byte, error) {
+func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	// SendJoinResponses contain the same data as a StateResponse but are
 	// formatted slightly differently on the wire:
 	//  1) The "pdus" field is renamed to "state".
@@ -68,13 +62,13 @@ func (r SendJoinResponse) MarshalJSON() ([]byte, error) {
 	// (This protocol oddity is the result of a typo in the synapse matrix
 	//  server, and is preserved to maintain compatibility.)
 
-	return json.Marshal([]interface{}{200, sendJoinResponseFields{
+	return json.Marshal([]interface{}{200, respSendJoinFields{
 		r.StateEvents, r.AuthEvents,
 	}})
 }
 
 // UnmarshalJSON implements json.Unmarshaller
-func (r *SendJoinResponse) UnmarshalJSON(data []byte) error {
+func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 	var tuple []rawJSON
 	if err := json.Unmarshal(data, &tuple); err != nil {
 		return err
@@ -82,7 +76,7 @@ func (r *SendJoinResponse) UnmarshalJSON(data []byte) error {
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid send join response, invalid length: %d != 2", len(tuple))
 	}
-	var fields sendJoinResponseFields
+	var fields respSendJoinFields
 	if err := json.Unmarshal(tuple[1], &fields); err != nil {
 		return err
 	}
@@ -91,7 +85,7 @@ func (r *SendJoinResponse) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type sendJoinResponseFields struct {
+type respSendJoinFields struct {
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
 }
