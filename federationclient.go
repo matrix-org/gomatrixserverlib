@@ -92,6 +92,13 @@ func (ac *FederationClient) SendTransaction(t Transaction) (res RespSend, err er
 
 // MakeJoin makes a join m.room.member event for a room on a remote matrix server.
 // This is used to join a room the local server isn't a member of.
+// We need to query a remote server because if we aren't in the room we don't
+// know what to use for the "prev_events" in the join event.
+// The remote server should return us a m.room.member event for our local user
+// with the "prev_events" filled out.
+// If this successfully returns an acceptable event we will sign it with our
+// server's key and pass it to SendJoin.
+// See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) MakeJoin(s ServerName, roomID, userID string) (res RespMakeJoin, err error) {
 	path := "/_matrix/federation/v1/make_join/" +
 		url.PathEscape(roomID) + "/" +
@@ -101,8 +108,10 @@ func (ac *FederationClient) MakeJoin(s ServerName, roomID, userID string) (res R
 	return
 }
 
-// SendJoin sends a join m.room.member event via a remote matrix server.
+// SendJoin sends a join m.room.member event obtained using MakeJoin via a
+// remote matrix server.
 // This is used to join a room the local server isn't a member of.
+// See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) SendJoin(s ServerName, event Event) (res RespSendJoin, err error) {
 	path := "/_matrix/federation/v1/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
