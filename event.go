@@ -43,6 +43,8 @@ type EventReference struct {
 }
 
 // An EventBuilder is used to build a new event.
+// These can be exchanged between matrix servers in the federation APIs when
+// joining or leaving a room.
 type EventBuilder struct {
 	// The user ID of the user sending the event.
 	Sender string `json:"sender"`
