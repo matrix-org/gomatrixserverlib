@@ -9,20 +9,20 @@ import (
 	"net/url"
 )
 
-// An AuthedClient is a matrix federation client that adds
+// An FederationClient is a matrix federation client that adds
 // "Authorization: X-Matrix" headers to requests that need ed25519 signatures
-type AuthedClient struct {
+type FederationClient struct {
 	Client
 	serverName       ServerName
 	serverKeyID      KeyID
 	serverPrivateKey ed25519.PrivateKey
 }
 
-// NewAuthedClient makes a new AuthedClient
-func NewAuthedClient(
+// NewFederationClient makes a new FederationClient
+func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-) *AuthedClient {
-	return &AuthedClient{
+) *FederationClient {
+	return &FederationClient{
 		Client:           Client{client: http.Client{Transport: newFederationTripper()}},
 		serverName:       serverName,
 		serverKeyID:      keyID,
@@ -30,7 +30,7 @@ func NewAuthedClient(
 	}
 }
 
-func (ac *AuthedClient) doRequest(r FederationRequest, resBody interface{}) error {
+func (ac *FederationClient) doRequest(r FederationRequest, resBody interface{}) error {
 	if err := r.Sign(ac.serverName, ac.serverKeyID, ac.serverPrivateKey); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (ac *AuthedClient) doRequest(r FederationRequest, resBody interface{}) erro
 }
 
 // SendTransaction sends a transaction
-func (ac *AuthedClient) SendTransaction(t Transaction) (res SendResponse, err error) {
+func (ac *FederationClient) SendTransaction(t Transaction) (res SendResponse, err error) {
 	path := "/_matrix/federation/v1/send/" + string(t.TransactionID) + "/"
 	req := NewFederationRequest("PUT", t.Destination, path)
 	if err = req.SetContent(SendRequest(t)); err != nil {
@@ -92,7 +92,7 @@ func (ac *AuthedClient) SendTransaction(t Transaction) (res SendResponse, err er
 
 // MakeJoin makes a join m.room.member event for a room on a remote matrix server.
 // This is used to join a room the local server isn't a member of.
-func (ac *AuthedClient) MakeJoin(s ServerName, roomID, userID string) (res MakeJoinResponse, err error) {
+func (ac *FederationClient) MakeJoin(s ServerName, roomID, userID string) (res MakeJoinResponse, err error) {
 	path := "/_matrix/federation/v1/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID)
@@ -103,7 +103,7 @@ func (ac *AuthedClient) MakeJoin(s ServerName, roomID, userID string) (res MakeJ
 
 // SendJoin sends a join m.room.member event via a remote matrix server.
 // This is used to join a room the local server isn't a member of.
-func (ac *AuthedClient) SendJoin(s ServerName, event Event) (res SendJoinResponse, err error) {
+func (ac *FederationClient) SendJoin(s ServerName, event Event) (res SendJoinResponse, err error) {
 	path := "/_matrix/federation/v1/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
@@ -117,7 +117,7 @@ func (ac *AuthedClient) SendJoin(s ServerName, event Event) (res SendJoinRespons
 
 // LookupState retrieves the room state for a room at an event from a
 // remote matrix server as full matrix events.
-func (ac *AuthedClient) LookupState(s ServerName, roomID, eventID string) (res StateResponse, err error) {
+func (ac *FederationClient) LookupState(s ServerName, roomID, eventID string) (res StateResponse, err error) {
 	path := "/_matrix/federation/v1/state/" +
 		url.PathEscape(roomID) +
 		"/?event_id=" +
@@ -129,7 +129,7 @@ func (ac *AuthedClient) LookupState(s ServerName, roomID, eventID string) (res S
 
 // LookupStateIDs retrieves the room state for a room at an event from a
 // remote matrix server as lists of matrix event IDs.
-func (ac *AuthedClient) LookupStateIDs(s ServerName, roomID, eventID string) (res StateIDsResponse, err error) {
+func (ac *FederationClient) LookupStateIDs(s ServerName, roomID, eventID string) (res StateIDsResponse, err error) {
 	path := "/_matrix/federation/v1/state_ids/" +
 		url.PathEscape(roomID) +
 		"/?event_id=" +
