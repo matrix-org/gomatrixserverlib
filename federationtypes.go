@@ -92,3 +92,14 @@ type respSendJoinFields struct {
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
 }
+
+// A RespDirectory is the content of a response to GET  /_matrix/federation/v1/query/directory
+// This is returned when looking up a room alias from a remote server.
+type RespDirectory struct {
+	// The matrix room ID the room alias corresponds to.
+	RoomID string `json:"room_id"`
+	// A list of matrix servers that the directory server thinks could be used
+	// to join the room. The joining server may need to try multiple servers
+	// before it finds one that it can join the room using.
+	Servers []ServerName `json:"servers"`
+}

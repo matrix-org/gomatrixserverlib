@@ -147,3 +147,14 @@ func (ac *FederationClient) LookupStateIDs(s ServerName, roomID, eventID string)
 	err = ac.doRequest(req, &res)
 	return
 }
+
+// LookupRoomAlias looks up a room alias hosted on the remote server.
+// The domain part of the roomAlias must match the name of the server it is
+// being looked up on.
+func (ac *FederationClient) LookupRoomAlias(s ServerName, roomAlias string) (res RespDirectory, err error) {
+	path := "/_matrix/federation/v1/query/directory?room_alias=" +
+		url.QueryEscape(roomAlias)
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(req, &res)
+	return
+}
