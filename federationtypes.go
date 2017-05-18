@@ -101,6 +101,6 @@ type RespDirectory struct {
 	RoomID string `json:"room_id"`
 	// A list of matrix servers that the directory server thinks could be used
 	// to join the room. The joining server may need to try multiple servers
-	// before it finds one that it can join the room using.
+	// before it finds one that it can use to join the room.
 	Servers []ServerName `json:"servers"`
 }
