@@ -327,6 +327,7 @@ const (
 // Returns an error if the IDs have the wrong format or too long.
 // Returns an error if the total length of the event JSON is too long.
 // Returns an error if the event ID doesn't match the origin of the event.
+// https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
 func (e Event) CheckFields() error {
 	if len(e.eventJSON) > maxEventLength {
 		return fmt.Errorf(
