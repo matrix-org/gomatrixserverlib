@@ -365,6 +365,13 @@ func (e Event) CheckFields() error {
 		return err
 	}
 
+	// Synapse requires that the event ID domain has a valid signature.
+	// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L66-L68
+	// Synapse requires that the event origin has a valid signature.
+	// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/federation/federation_base.py#L133-L136
+	// Since both domains must be valid domains, and there is no good reason for them
+	// to be different we might as well ensure that they are the same since it
+	// makes the signature checks simpler.
 	if e.fields.Origin != ServerName(eventDomain) {
 		return fmt.Errorf(
 			"gomatrixserverlib: event ID domain doesn't match origin: %q != %q",
@@ -378,7 +385,7 @@ func (e Event) CheckFields() error {
 		// However "m.room.member" events created from third-party invites
 		// are allowed to have a different sender because they have the same
 		// sender as the "m.room.third_party_invite" event they derived from.
-		// https://github.com/matrix-org/synapse/blob/master/synapse/event_auth.py#L58-L64
+		// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L58-L64
 		if e.fields.Type != "m.room.member" {
 			return fmt.Errorf(
 				"gomatrixserverlib: sender domain doesn't match origin: %q != %q",
