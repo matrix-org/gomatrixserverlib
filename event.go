@@ -314,7 +314,7 @@ func (e Event) StateKeyEquals(stateKey string) bool {
 }
 
 const (
-	// The event ID, room ID sender, event type and state key fields cannot be
+	// The event ID, room ID, sender, event type and state key fields cannot be
 	// bigger than this.
 	// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L173-L182
 	maxIDLength = 255
@@ -374,7 +374,7 @@ func (e Event) CheckFields() error {
 
 	if eventDomain != senderDomain {
 		// For the most part all events should be sent by a user on the
-		// orignating server
+		// originating server
 		// However "m.room.member" events created from third-party invites
 		// are allowed to have a different sender because they have the same
 		// sender as the "m.room.third_party_invite" event they derived from.
