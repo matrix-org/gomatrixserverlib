@@ -104,3 +104,106 @@ type RespDirectory struct {
 	// before it finds one that it can use to join the room.
 	Servers []ServerName `json:"servers"`
 }
+
+// Check that a response to /state is valid.
+func (r RespState) Check(keyRing KeyRing) error {
+	var allEvents []Event
+	for _, event := range r.AuthEvents {
+		if event.StateKey() == nil {
+			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		}
+		allEvents = append(allEvents, event)
+	}
+
+	stateTuples := map[StateKeyTuple]bool{}
+	for _, event := range r.StateEvents {
+		if event.StateKey() == nil {
+			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		}
+		if stateTuples[StateKeyTuple{event.Type(), *event.StateKey()}] {
+			return fmt.Errorf(
+				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
+				event.Type(), *event.StateKey(),
+			)
+		}
+		allEvents = append(allEvents, event)
+	}
+
+	// Check if the events pass signature checks.
+	if err := VerifyEventSignatures(allEvents, keyRing); err != nil {
+		return nil
+	}
+
+	eventsByID := map[string]*Event{}
+	// Collect a map of event reference to event
+	for i := range allEvents {
+		eventsByID[allEvents[i].EventID()] = &allEvents[i]
+	}
+
+	// Check whether the events are allowed by the auth rules.
+	for _, event := range allEvents {
+		if err := checkAllowedByAuthEvents(event, eventsByID); err != nil {
+			return err
+		}
+	}
+
+	// The checks pass.
+	return nil
+}
+
+// Check that a reponse to /send_join is valid.
+func (r RespSendJoin) Check(keyRing KeyRing, joinEvent Event) error {
+	// First check that the state is valid.
+	if err := RespState(r).Check(keyRing); err != nil {
+		return err
+	}
+
+	stateEventsByID := map[string]*Event{}
+	authEvents := NewAuthEvents(nil)
+	for i, event := range r.StateEvents {
+		stateEventsByID[event.EventID()] = &r.StateEvents[i]
+		if err := authEvents.AddEvent(&r.StateEvents[i]); err != nil {
+			return err
+		}
+	}
+
+	// Now check that the join event is valid against its auth events.
+	if err := checkAllowedByAuthEvents(joinEvent, stateEventsByID); err != nil {
+		return err
+	}
+
+	// Now check that the join event is valid against the supplied state.
+	if err := Allowed(joinEvent, &authEvents); err != nil {
+		return fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
+			joinEvent.EventID(), err.Error(),
+		)
+
+	}
+
+	// The checks pass
+	return nil
+}
+
+func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
+	authEvents := NewAuthEvents(nil)
+	for _, authRef := range event.AuthEvents() {
+		authEvent := eventsByID[authRef.EventID]
+		if authEvent == nil {
+			return fmt.Errorf(
+				"gomatrixserverlib: missing auth event with ID %q for event %q",
+				authRef.EventID, event.EventID(),
+			)
+		}
+		if err := authEvents.AddEvent(authEvent); err != nil {
+			return err
+		}
+	}
+	if err := Allowed(event, &authEvents); err != nil {
+		return fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
+			event.EventID(), err.Error(),
+		)
+	}
+	return nil
+}
