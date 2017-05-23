@@ -146,8 +146,6 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, 
 		event.PrevState = &emptyEventReferenceList
 	}
 
-	// TODO: Check size limits.
-
 	var eventJSON []byte
 
 	if eventJSON, err = json.Marshal(&event); err != nil {
@@ -167,7 +165,14 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, 
 	}
 
 	result.eventJSON = eventJSON
-	err = json.Unmarshal(eventJSON, &result.fields)
+	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
+		return
+	}
+
+	if err = result.CheckFields(); err != nil {
+		return
+	}
+
 	return
 }
 
