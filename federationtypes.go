@@ -34,6 +34,62 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// Events combines the auth events and the state events and returns
+// them in an order where every event comes after its auth events.
+// Returns an error if there are missing auth events or if there is
+// a cycle in the auth events.
+func (r RespState) Events() ([]Event, error) {
+	eventsByID := map[string]*Event{}
+	// Collect a map of event reference to event
+	for i := range r.StateEvents {
+		eventsByID[r.StateEvents[i].EventID()] = &r.StateEvents[i]
+	}
+	for i := range r.AuthEvents {
+		eventsByID[r.AuthEvents[i].EventID()] = &r.AuthEvents[i]
+	}
+
+	visited := map[*Event]bool{}
+	var result []Event
+	for _, event := range eventsByID {
+		if visited[event] {
+			continue
+		}
+		stack := []*Event{event}
+
+	LoopStack:
+		for len(stack) > 0 {
+			top := stack[len(stack)-1]
+			for _, ref := range top.AuthEvents() {
+				authEvent := eventsByID[ref.EventID]
+				if authEvent == nil {
+					return nil, fmt.Errorf(
+						"gomatrixserverlib: missing auth event with ID %q for event %q",
+						ref.EventID, top.EventID(),
+					)
+				}
+				if visited[authEvent] {
+					continue
+				}
+				for i := range stack {
+					if stack[i] == authEvent {
+						return nil, fmt.Errorf(
+							"gomatrixserverlib: auth event cycle for ID %q",
+							ref.EventID,
+						)
+					}
+				}
+				stack = append(stack, authEvent)
+				continue LoopStack
+			}
+			result = append(result, *top)
+			visited[top] = true
+			stack = stack[:len(stack)-1]
+		}
+	}
+
+	return result, nil
+}
+
 // Check that a response to /state is valid.
 func (r RespState) Check(keyRing KeyRing) error {
 	var allEvents []Event
