@@ -52,8 +52,15 @@ func (r RespState) Events() ([]Event, error) {
 	var result []Event
 	for _, event := range eventsByID {
 		if visited[event] {
+			// If we've already written the event then we can skip it.
 			continue
 		}
+
+		// The code below does a depth first scan through the auth events
+		// looking for events that can be appended to the output.
+
+		// We use an explicit stack rather than using recursion so
+		// that we can check we aren't creating cycles.
 		stack := []*Event{event}
 
 	LoopStack:
@@ -78,9 +85,15 @@ func (r RespState) Events() ([]Event, error) {
 						)
 					}
 				}
+				// If we haven't visited the auth event yet then we need to
+				// process it before processing the event currently on top of
+				// the stack.
 				stack = append(stack, authEvent)
 				continue LoopStack
 			}
+			// If we've processed all the auth events for the event on top of
+			// the stack then we can append it to the result an try processing
+			// the item below it in the stack.
 			result = append(result, *top)
 			visited[top] = true
 			stack = stack[:len(stack)-1]
