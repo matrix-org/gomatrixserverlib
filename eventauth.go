@@ -23,11 +23,19 @@ import (
 )
 
 const (
-	join   = "join"
-	ban    = "ban"
-	leave  = "leave"
-	invite = "invite"
-	public = "public"
+	join                   = "join"
+	ban                    = "ban"
+	leave                  = "leave"
+	invite                 = "invite"
+	public                 = "public"
+	mRoomCreate            = "m.room.create"
+	mRoomJoinRules         = "m.room.join_rules"
+	mRoomPowerLevels       = "m.room.power_levels"
+	mRoomMember            = "m.room.member"
+	mRoomThirdPartyInvite  = "m.room.third_party_invite"
+	mRoomAliases           = "m.room.aliases"
+	mRoomHistoryVisibility = "m.room.history_visibility"
+	mRoomRedaction         = "m.room.redaction"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
@@ -47,19 +55,19 @@ type StateNeeded struct {
 // Tuples returns the needed state key tuples for performing auth on an event.
 func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 	if s.Create {
-		res = append(res, StateKeyTuple{"m.room.create", ""})
+		res = append(res, StateKeyTuple{mRoomCreate, ""})
 	}
 	if s.JoinRules {
-		res = append(res, StateKeyTuple{"m.room.join_rules", ""})
+		res = append(res, StateKeyTuple{mRoomJoinRules, ""})
 	}
 	if s.PowerLevels {
-		res = append(res, StateKeyTuple{"m.room.power_levels", ""})
+		res = append(res, StateKeyTuple{mRoomPowerLevels, ""})
 	}
 	for _, userID := range s.Member {
-		res = append(res, StateKeyTuple{"m.room.member", userID})
+		res = append(res, StateKeyTuple{mRoomMember, userID})
 	}
 	for _, token := range s.ThirdPartyInvite {
-		res = append(res, StateKeyTuple{"m.room.third_party_invite", token})
+		res = append(res, StateKeyTuple{mRoomThirdPartyInvite, token})
 	}
 	return
 }
@@ -114,7 +122,7 @@ func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []Eve
 func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err error) {
 	// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 	var content *memberContent
-	if builder.Type == "m.room.member" {
+	if builder.Type == mRoomMember {
 		if err = json.Unmarshal(builder.Content, &content); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
@@ -132,7 +140,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	for _, event := range events {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 		var content *memberContent
-		if event.Type() == "m.room.member" {
+		if event.Type() == mRoomMember {
 			c, err := newMemberContentFromEvent(event)
 			if err == nil {
 				content = &c
@@ -151,17 +159,17 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 
 func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *memberContent) (err error) {
 	switch eventType {
-	case "m.room.create":
+	case mRoomCreate:
 		// The create event doesn't require any state to authenticate.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L123
-	case "m.room.aliases":
+	case mRoomAliases:
 		// Alias events need:
 		//  * The create event.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L128
 		// Alias events need no further authentication.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L160
 		result.Create = true
-	case "m.room.member":
+	case mRoomMember:
 		// Member events need:
 		//  * The previous membership of the target.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L355
@@ -255,27 +263,27 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 
 // Create implements AuthEventProvider
 func (a *AuthEvents) Create() (*Event, error) {
-	return a.events[StateKeyTuple{"m.room.create", ""}], nil
+	return a.events[StateKeyTuple{mRoomCreate, ""}], nil
 }
 
 // JoinRules implements AuthEventProvider
 func (a *AuthEvents) JoinRules() (*Event, error) {
-	return a.events[StateKeyTuple{"m.room.join_rules", ""}], nil
+	return a.events[StateKeyTuple{mRoomJoinRules, ""}], nil
 }
 
 // PowerLevels implements AuthEventProvider
 func (a *AuthEvents) PowerLevels() (*Event, error) {
-	return a.events[StateKeyTuple{"m.room.power_levels", ""}], nil
+	return a.events[StateKeyTuple{mRoomPowerLevels, ""}], nil
 }
 
 // Member implements AuthEventProvider
 func (a *AuthEvents) Member(stateKey string) (*Event, error) {
-	return a.events[StateKeyTuple{"m.room.member", stateKey}], nil
+	return a.events[StateKeyTuple{mRoomMember, stateKey}], nil
 }
 
 // ThirdPartyInvite implements AuthEventProvider
 func (a *AuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
-	return a.events[StateKeyTuple{"m.room.third_party_invite", stateKey}], nil
+	return a.events[StateKeyTuple{mRoomThirdPartyInvite, stateKey}], nil
 }
 
 // NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
@@ -306,15 +314,15 @@ func errorf(message string, args ...interface{}) error {
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event Event, authEvents AuthEventProvider) error {
 	switch event.Type() {
-	case "m.room.create":
+	case mRoomCreate:
 		return createEventAllowed(event)
-	case "m.room.aliases":
+	case mRoomAliases:
 		return aliasEventAllowed(event, authEvents)
-	case "m.room.member":
+	case mRoomMember:
 		return memberEventAllowed(event, authEvents)
-	case "m.room.power_levels":
+	case mRoomPowerLevels:
 		return powerLevelsEventAllowed(event, authEvents)
-	case "m.room.redaction":
+	case mRoomRedaction:
 		return redactEventAllowed(event, authEvents)
 	default:
 		return defaultEventAllowed(event, authEvents)

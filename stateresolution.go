@@ -114,24 +114,24 @@ func (r *stateResolver) addConflicted(events []Event) {
 		// By default we add the event to a block in the others list.
 		blockList := &r.others
 		switch key.eventType {
-		case "m.room.create":
+		case mRoomCreate:
 			if key.stateKey == "" {
 				r.creates = append(r.creates, event)
 				continue
 			}
-		case "m.room.power_levels":
+		case mRoomPowerLevels:
 			if key.stateKey == "" {
 				r.powerLevels = append(r.powerLevels, event)
 				continue
 			}
-		case "m.room.join_rules":
+		case mRoomJoinRules:
 			if key.stateKey == "" {
 				r.joinRules = append(r.joinRules, event)
 				continue
 			}
-		case "m.room.member":
+		case mRoomMember:
 			blockList = &r.members
-		case "m.room.third_party_invite":
+		case mRoomThirdPartyInvite:
 			blockList = &r.thirdPartyInvites
 		}
 		// We need to find an entry for the state key in a block list.
@@ -153,21 +153,21 @@ func (r *stateResolver) addConflicted(events []Event) {
 // Add an event to the resolved auth events.
 func (r *stateResolver) addAuthEvent(event *Event) {
 	switch event.Type() {
-	case "m.room.create":
+	case mRoomCreate:
 		if event.StateKeyEquals("") {
 			r.resolvedCreate = event
 		}
-	case "m.room.power_levels":
+	case mRoomPowerLevels:
 		if event.StateKeyEquals("") {
 			r.resolvedPowerLevels = event
 		}
-	case "m.room.join_rules":
+	case mRoomJoinRules:
 		if event.StateKeyEquals("") {
 			r.resolvedJoinRules = event
 		}
-	case "m.room.member":
+	case mRoomMember:
 		r.resolvedMembers[*event.StateKey()] = event
-	case "m.room.third_party_invite":
+	case mRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[*event.StateKey()] = event
 	default:
 		panic(fmt.Errorf("Unexpected auth event with type %q", event.Type()))
@@ -177,21 +177,21 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 // Remove the auth event with the given type and state key.
 func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 	switch eventType {
-	case "m.room.create":
+	case mRoomCreate:
 		if stateKey == "" {
 			r.resolvedCreate = nil
 		}
-	case "m.room.power_levels":
+	case mRoomPowerLevels:
 		if stateKey == "" {
 			r.resolvedPowerLevels = nil
 		}
-	case "m.room.join_rules":
+	case mRoomJoinRules:
 		if stateKey == "" {
 			r.resolvedJoinRules = nil
 		}
-	case "m.room.member":
+	case mRoomMember:
 		r.resolvedMembers[stateKey] = nil
-	case "m.room.third_party_invite":
+	case mRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[stateKey] = nil
 	default:
 		panic(fmt.Errorf("Unexpected auth event with type %q", eventType))
