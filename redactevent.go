@@ -140,17 +140,17 @@ func redactEvent(eventJSON []byte) ([]byte, error) {
 	// Copy the content fields that we should keep for the event type.
 	// By default we copy nothing leaving the content object empty.
 	switch event.Type {
-	case mRoomCreate:
+	case MRoomCreate:
 		newContent.createContent = event.Content.createContent
-	case mRoomMember:
+	case MRoomMember:
 		newContent.memberContent = event.Content.memberContent
-	case mRoomJoinRules:
+	case MRoomJoinRules:
 		newContent.joinRulesContent = event.Content.joinRulesContent
-	case mRoomPowerLevels:
+	case MRoomPowerLevels:
 		newContent.powerLevelContent = event.Content.powerLevelContent
-	case mRoomHistoryVisibility:
+	case MRoomHistoryVisibility:
 		newContent.historyVisibilityContent = event.Content.historyVisibilityContent
-	case mRoomAliases:
+	case MRoomAliases:
 		newContent.aliasesContent = event.Content.aliasesContent
 	}
 	// Replace the content with our new filtered content.
