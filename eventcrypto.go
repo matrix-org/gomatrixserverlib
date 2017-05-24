@@ -228,8 +228,8 @@ func VerifyEventSignatures(events []Event, keyRing KeyRing) error {
 
 	// Check that all the event JSON was correctly signed.
 	for _, result := range results {
-		if result.Result != nil {
-			return result.Result
+		if result.Error != nil {
+			return result.Error
 		}
 	}
 
