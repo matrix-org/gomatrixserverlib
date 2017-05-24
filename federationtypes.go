@@ -34,6 +34,52 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// Check that a response to /state is valid.
+func (r RespState) Check(keyRing KeyRing) error {
+	var allEvents []Event
+	for _, event := range r.AuthEvents {
+		if event.StateKey() == nil {
+			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		}
+		allEvents = append(allEvents, event)
+	}
+
+	stateTuples := map[StateKeyTuple]bool{}
+	for _, event := range r.StateEvents {
+		if event.StateKey() == nil {
+			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		}
+		if stateTuples[StateKeyTuple{event.Type(), *event.StateKey()}] {
+			return fmt.Errorf(
+				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
+				event.Type(), *event.StateKey(),
+			)
+		}
+		allEvents = append(allEvents, event)
+	}
+
+	// Check if the events pass signature checks.
+	if err := VerifyEventSignatures(allEvents, keyRing); err != nil {
+		return nil
+	}
+
+	eventsByID := map[string]*Event{}
+	// Collect a map of event reference to event
+	for i := range allEvents {
+		eventsByID[allEvents[i].EventID()] = &allEvents[i]
+	}
+
+	// Check whether the events are allowed by the auth rules.
+	for _, event := range allEvents {
+		if err := checkAllowedByAuthEvents(event, eventsByID); err != nil {
+			return err
+		}
+	}
+
+	// The checks pass.
+	return nil
+}
+
 // A RespMakeJoin is the content of a response to GET /_matrix/federation/v1/make_join/{roomID}/{userID}
 type RespMakeJoin struct {
 	// An incomplete m.room.member event for a user on the requesting server
@@ -103,52 +149,6 @@ type RespDirectory struct {
 	// to join the room. The joining server may need to try multiple servers
 	// before it finds one that it can use to join the room.
 	Servers []ServerName `json:"servers"`
-}
-
-// Check that a response to /state is valid.
-func (r RespState) Check(keyRing KeyRing) error {
-	var allEvents []Event
-	for _, event := range r.AuthEvents {
-		if event.StateKey() == nil {
-			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
-		}
-		allEvents = append(allEvents, event)
-	}
-
-	stateTuples := map[StateKeyTuple]bool{}
-	for _, event := range r.StateEvents {
-		if event.StateKey() == nil {
-			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
-		}
-		if stateTuples[StateKeyTuple{event.Type(), *event.StateKey()}] {
-			return fmt.Errorf(
-				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
-				event.Type(), *event.StateKey(),
-			)
-		}
-		allEvents = append(allEvents, event)
-	}
-
-	// Check if the events pass signature checks.
-	if err := VerifyEventSignatures(allEvents, keyRing); err != nil {
-		return nil
-	}
-
-	eventsByID := map[string]*Event{}
-	// Collect a map of event reference to event
-	for i := range allEvents {
-		eventsByID[allEvents[i].EventID()] = &allEvents[i]
-	}
-
-	// Check whether the events are allowed by the auth rules.
-	for _, event := range allEvents {
-		if err := checkAllowedByAuthEvents(event, eventsByID); err != nil {
-			return err
-		}
-	}
-
-	// The checks pass.
-	return nil
 }
 
 // Check that a reponse to /send_join is valid.
