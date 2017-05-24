@@ -49,12 +49,14 @@ func (r RespState) Check(keyRing KeyRing) error {
 		if event.StateKey() == nil {
 			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
-		if stateTuples[StateKeyTuple{event.Type(), *event.StateKey()}] {
+		stateTuple := StateKeyTuple{event.Type(), *event.StateKey()}
+		if stateTuples[stateTuple] {
 			return fmt.Errorf(
 				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
 				event.Type(), *event.StateKey(),
 			)
 		}
+		stateTuples[stateTuple] = true
 		allEvents = append(allEvents, event)
 	}
 
