@@ -90,6 +90,7 @@ type RespMakeJoin struct {
 }
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
+// It has the same data as a response to /state, but in a slightly different wire format.
 type RespSendJoin RespState
 
 // MarshalJSON implements json.Marshaller
@@ -141,8 +142,12 @@ type respSendJoinFields struct {
 }
 
 // Check that a reponse to /send_join is valid.
+// This checks that it would be valid as a response to /state
+// This also checks that the join event is allowed by the state.
 func (r RespSendJoin) Check(keyRing KeyRing, joinEvent Event) error {
 	// First check that the state is valid.
+	// The response to /send_join has the same data as a response to /state
+	// and the checks for a response to /state also apply.
 	if err := RespState(r).Check(keyRing); err != nil {
 		return err
 	}
