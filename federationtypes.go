@@ -139,18 +139,6 @@ type respSendJoinFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
-// A RespDirectory is the content of a response to GET  /_matrix/federation/v1/query/directory
-// This is returned when looking up a room alias from a remote server.
-// See https://matrix.org/docs/spec/server_server/unstable.html#directory
-type RespDirectory struct {
-	// The matrix room ID the room alias corresponds to.
-	RoomID string `json:"room_id"`
-	// A list of matrix servers that the directory server thinks could be used
-	// to join the room. The joining server may need to try multiple servers
-	// before it finds one that it can use to join the room.
-	Servers []ServerName `json:"servers"`
-}
-
 // Check that a reponse to /send_join is valid.
 func (r RespSendJoin) Check(keyRing KeyRing, joinEvent Event) error {
 	// First check that the state is valid.
@@ -183,6 +171,18 @@ func (r RespSendJoin) Check(keyRing KeyRing, joinEvent Event) error {
 
 	// The checks pass
 	return nil
+}
+
+// A RespDirectory is the content of a response to GET  /_matrix/federation/v1/query/directory
+// This is returned when looking up a room alias from a remote server.
+// See https://matrix.org/docs/spec/server_server/unstable.html#directory
+type RespDirectory struct {
+	// The matrix room ID the room alias corresponds to.
+	RoomID string `json:"room_id"`
+	// A list of matrix servers that the directory server thinks could be used
+	// to join the room. The joining server may need to try multiple servers
+	// before it finds one that it can use to join the room.
+	Servers []ServerName `json:"servers"`
 }
 
 func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
