@@ -76,7 +76,6 @@ func (r RespState) Check(keyRing KeyRing) error {
 		}
 	}
 
-	// The checks pass.
 	return nil
 }
 
@@ -169,7 +168,6 @@ func (r RespSendJoin) Check(keyRing KeyRing, joinEvent Event) error {
 
 	}
 
-	// The checks pass
 	return nil
 }
 
