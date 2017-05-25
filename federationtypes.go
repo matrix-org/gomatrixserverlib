@@ -36,6 +36,7 @@ type RespState struct {
 
 // Events combines the auth events and the state events and returns
 // them in an order where every event comes after its auth events.
+// Each event will only appear once in the output list.
 // Returns an error if there are missing auth events or if there is
 // a cycle in the auth events.
 func (r RespState) Events() ([]Event, error) {
