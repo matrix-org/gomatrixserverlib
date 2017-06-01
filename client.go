@@ -220,3 +220,29 @@ func (fc *Client) LookupServerKeys(
 	}
 	return result, nil
 }
+
+// CreateMediaDownloadRequest creates a request for media on a homeserver and returns the http.Response or an error
+func (fc *Client) CreateMediaDownloadRequest(matrixServer ServerName, mediaID string) (*http.Response, error) {
+	dnsResult, err := LookupServer(matrixServer)
+	if err != nil {
+		if dnsErr, ok := err.(*net.DNSError); ok && dnsErr.Timeout() {
+			return nil, fmt.Errorf("DNS lookup for homeserver at %v timed out", matrixServer)
+		}
+		return nil, fmt.Errorf("error during server lookup: %q", err)
+	}
+
+	remoteReqAddr := "https://" + dnsResult.Addrs[0] + "/_matrix/media/v1/download/" + string(matrixServer) + "/" + mediaID
+	remoteReq, err := http.NewRequest("GET", remoteReqAddr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	remoteReq.Header.Set("Host", string(matrixServer))
+
+	resp, err := fc.client.Do(remoteReq)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to execute request for remote file")
+	}
+
+	return resp, nil
+}
