@@ -8,4 +8,5 @@ install:
  - go get github.com/matrix-org/util
  - go get github.com/matrix-org/gomatrix
  - go get github.com/client9/misspell/...
+ - go get github.com/gordonklaus/ineffassign
 script: ./hooks/pre-commit

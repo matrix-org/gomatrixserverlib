@@ -18,6 +18,7 @@ then
     exit 1
 fi
 
+ineffassign .
 go tool vet --all --shadow .
 gocyclo -over 16 .
 go test -timeout 5s . ./...
