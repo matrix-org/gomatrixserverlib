@@ -54,7 +54,7 @@ type EventBuilder struct {
 	Type string `json:"type"`
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
 	StateKey *string `json:"state_key,omitempty"`
-	// The events that immediately preceeded this event in the room history.
+	// The events that immediately preceded this event in the room history.
 	PrevEvents []EventReference `json:"prev_events"`
 	// The events needed to authenticate this event.
 	AuthEvents []EventReference `json:"auth_events"`
@@ -112,7 +112,7 @@ var emptyEventReferenceList = []EventReference{}
 // Build a new Event.
 // This is used when a local event is created on this server.
 // Call this after filling out the necessary fields.
-// This can be called mutliple times on the same builder.
+// This can be called multiple times on the same builder.
 // A different event ID must be supplied each time this is called.
 func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, keyID KeyID, privateKey ed25519.PrivateKey) (result Event, err error) {
 	var event struct {

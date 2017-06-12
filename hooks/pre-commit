@@ -3,6 +3,7 @@
 set -eu
 
 golint ./...
+misspell -error .
 go fmt
 go tool vet --all --shadow .
 gocyclo -over 16 .
