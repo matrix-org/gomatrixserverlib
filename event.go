@@ -482,15 +482,15 @@ func (e Event) PrevEventIDs() []string {
 // is an "m.room.member" event.
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
-func (e Event) Membership() (*string, error) {
+func (e Event) Membership() (string, error) {
 	if e.fields.Type != MRoomMember {
-		return nil, fmt.Errorf("gomatrixserverlib: not an m.room.member event")
+		return "", fmt.Errorf("gomatrixserverlib: not an m.room.member event")
 	}
 	var content memberContent
 	if err := json.Unmarshal(e.fields.Content, &content); err != nil {
-		return nil, err
+		return "", err
 	}
-	return &content.Membership, nil
+	return content.Membership, nil
 }
 
 // AuthEvents returns references to the events needed to auth the event.
