@@ -18,10 +18,10 @@ package gomatrixserverlib
 import "fmt"
 
 func ExampleSplitID() {
-	localpart, domain, err := SplitID('@', "@alice:matrix.org")
+	localpart, domain, err := SplitID('@', "@alice:localhost:8080")
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(localpart, domain)
-	// Output: alice matrix.org
+	// Output: alice localhost:8080
 }
