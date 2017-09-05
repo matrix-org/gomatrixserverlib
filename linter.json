@@ -12,6 +12,7 @@
         "ineffassign",
         "gas",
         "misspell",
-        "gosimple"
+        "gosimple",
+        "megacheck"
     ]
 }
