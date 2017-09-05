@@ -847,7 +847,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error {
 	if m.newMember.Membership == invite && m.newMember.ThirdPartyInvite != nil {
 		// Special case third party invites
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
-		return m.membershipAllowedFronThirdPartyInvite()
+		return m.membershipAllowedFromThirdPartyInvite()
 	}
 
 	if m.targetID == m.senderID {
@@ -861,7 +861,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error {
 
 // membershipAllowedFronThirdPartyInvite determines if the member events is following
 // up the third_party_invite event it claims.
-func (m *membershipAllower) membershipAllowedFronThirdPartyInvite() error {
+func (m *membershipAllower) membershipAllowedFromThirdPartyInvite() error {
 	// Check if the event's target matches with the Matrix ID provided by the
 	// identity server.
 	if m.targetID != m.newMember.ThirdPartyInvite.Signed.MXID {
