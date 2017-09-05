@@ -2,9 +2,10 @@ package gomatrixserverlib
 
 import (
 	"fmt"
-	"golang.org/x/crypto/ed25519"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 // A PublicKeyRequest is a request for a public key with a particular key ID.

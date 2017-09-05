@@ -13,6 +13,8 @@
         "gas",
         "misspell",
         "gosimple",
-        "megacheck"
+        "megacheck",
+        "unparam",
+        "goimports"
     ]
 }

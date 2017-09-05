@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+
 	"golang.org/x/crypto/ed25519"
 )
 

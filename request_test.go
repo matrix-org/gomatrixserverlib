@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"golang.org/x/crypto/ed25519"
 	"net/http"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 // This GET request is taken from a request made by a synapse run by sytest.

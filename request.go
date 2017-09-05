@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/matrix-org/util"
-	"golang.org/x/crypto/ed25519"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/matrix-org/util"
+	"golang.org/x/crypto/ed25519"
 )
 
 // A FederationRequest is a request to send to a remote server or a request
