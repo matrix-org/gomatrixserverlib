@@ -169,7 +169,12 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 		StateKey: &skey,
 		Sender:   "@u1:a",
 	}
-	b.SetContent(memberContent{"invite", rawJSON(`{"signed":{"token":"my_token"}}`)})
+
+	b.SetContent(memberContent{"invite", &memberThirdPartyInvite{
+		Signed: memberThirdPartyInviteSigned{
+			Token: "my_token",
+		},
+	}})
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.member",
 		"state_key": "@u2:b",

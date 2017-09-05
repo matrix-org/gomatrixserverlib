@@ -224,15 +224,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 }
 
 // thirdPartyInviteToken extracts the token from the third_party_invite.
-func thirdPartyInviteToken(thirdPartyInviteData rawJSON) (string, error) {
-	var thirdPartyInvite struct {
-		Signed struct {
-			Token string `json:"token"`
-		} `json:"signed"`
-	}
-	if err := json.Unmarshal(thirdPartyInviteData, &thirdPartyInvite); err != nil {
-		return "", err
-	}
+func thirdPartyInviteToken(thirdPartyInvite *memberThirdPartyInvite) (string, error) {
 	if thirdPartyInvite.Signed.Token == "" {
 		return "", fmt.Errorf("missing 'third_party_invite.signed.token' JSON key")
 	}
@@ -840,7 +832,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error {
 		// Otherwise fall back to the normal checks.
 	}
 
-	if m.newMember.Membership == invite && len(m.newMember.ThirdPartyInvite) != 0 {
+	if m.newMember.Membership == invite && m.newMember.ThirdPartyInvite != nil {
 		// Special case third party invites
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
 		panic(fmt.Errorf("ThirdPartyInvite not implemented"))
