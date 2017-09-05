@@ -128,7 +128,9 @@ func TestStateNeededForJoin(t *testing.T) {
 		StateKey: &skey,
 		Sender:   "@u1:a",
 	}
-	b.SetContent(memberContent{"join", nil})
+	if err := b.SetContent(memberContent{"join", nil}); err != nil {
+		t.Fatal(err)
+	}
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.member",
 		"state_key": "@u1:a",
@@ -149,7 +151,9 @@ func TestStateNeededForInvite(t *testing.T) {
 		StateKey: &skey,
 		Sender:   "@u1:a",
 	}
-	b.SetContent(memberContent{"invite", nil})
+	if err := b.SetContent(memberContent{"invite", nil}); err != nil {
+		t.Fatal(err)
+	}
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.member",
 		"state_key": "@u2:b",
@@ -169,7 +173,9 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 		StateKey: &skey,
 		Sender:   "@u1:a",
 	}
-	b.SetContent(memberContent{"invite", rawJSON(`{"signed":{"token":"my_token"}}`)})
+	if err := b.SetContent(memberContent{"invite", rawJSON(`{"signed":{"token":"my_token"}}`)}); err != nil {
+		t.Fatal(err)
+	}
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.member",
 		"state_key": "@u2:b",

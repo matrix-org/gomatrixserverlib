@@ -42,7 +42,7 @@ func (ac *FederationClient) doRequest(r FederationRequest, resBody interface{}) 
 
 	res, err := ac.client.Do(req)
 	if res != nil {
-		defer res.Body.Close()
+		defer res.Body.Close() // nolint: errcheck
 	}
 
 	if err != nil {

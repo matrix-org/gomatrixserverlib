@@ -98,7 +98,7 @@ func checkEventContentHash(eventJSON []byte) error {
 
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 
-	if bytes.Compare(sha256Hash[:], []byte(hashes.Sha256)) != 0 {
+	if !bytes.Equal(sha256Hash[:], []byte(hashes.Sha256)) {
 		return fmt.Errorf("Invalid Sha256 content hash: %v != %v", sha256Hash[:], []byte(hashes.Sha256))
 	}
 
@@ -187,7 +187,7 @@ func verifyEventSignature(signingName string, keyID KeyID, publicKey ed25519.Pub
 
 // VerifyEventSignatures checks that each event in a list of events has valid
 // signatures from the server that sent it.
-func VerifyEventSignatures(events []Event, keyRing KeyRing) error {
+func VerifyEventSignatures(events []Event, keyRing KeyRing) error { // nolint: gocyclo
 	var toVerify []VerifyJSONRequest
 	for _, event := range events {
 		redactedJSON, err := redactEvent(event.eventJSON)

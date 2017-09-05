@@ -159,7 +159,6 @@ func TestVerifyPutRequest(t *testing.T) {
 }
 
 var privateKey1 = mustLoadPrivateKey(privateKeySeed1)
-var privateKey2 = mustLoadPrivateKey(privateKeySeed2)
 
 func mustLoadPrivateKey(seed string) ed25519.PrivateKey {
 	seedBytes, err := base64.RawStdEncoding.DecodeString(seed)

@@ -185,9 +185,7 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	// (This protocol oddity is the result of a typo in the synapse matrix
 	//  server, and is preserved to maintain compatibility.)
 
-	return json.Marshal([]interface{}{200, respSendJoinFields{
-		r.StateEvents, r.AuthEvents,
-	}})
+	return json.Marshal([]interface{}{200, respSendJoinFields(r)})
 }
 
 // UnmarshalJSON implements json.Unmarshaller

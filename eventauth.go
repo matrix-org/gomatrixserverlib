@@ -83,7 +83,7 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 // AuthEventReferences returns the auth_events references for the StateNeeded. Returns an error if the
 // provider returns an error. If an event is missing from the provider but is required in StateNeeded, it
 // is skipped over: no error is returned.
-func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) {
+func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) { // nolint: gocyclo
 	var e *Event
 	if s.Create {
 		if e, err = provider.Create(); err != nil {
@@ -299,7 +299,7 @@ func (a *AuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 func NewAuthEvents(events []*Event) AuthEvents {
 	a := AuthEvents{make(map[StateKeyTuple]*Event)}
 	for _, e := range events {
-		a.AddEvent(e)
+		a.AddEvent(e) // nolint: errcheck
 	}
 	return a
 }
@@ -812,7 +812,7 @@ func newMembershipAllower(authEvents AuthEventProvider, event Event) (m membersh
 }
 
 // membershipAllowed checks whether the membership event is allowed
-func (m *membershipAllower) membershipAllowed(event Event) error {
+func (m *membershipAllower) membershipAllowed(event Event) error { // nolint: gocyclo
 	if m.create.roomID != event.RoomID() {
 		return errorf("create event has different roomID: %q != %q", event.RoomID(), m.create.roomID)
 	}
@@ -856,7 +856,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error {
 }
 
 // membershipAllowedSelf determines if the change made by the user to their own membership is allowed.
-func (m *membershipAllower) membershipAllowedSelf() error {
+func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	if m.newMember.Membership == join {
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
@@ -890,7 +890,7 @@ func (m *membershipAllower) membershipAllowedSelf() error {
 }
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.
-func (m *membershipAllower) membershipAllowedOther() error {
+func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 	senderLevel := m.powerLevels.userLevel(m.senderID)
 	targetLevel := m.powerLevels.userLevel(m.targetID)
 
