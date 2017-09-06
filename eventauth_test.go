@@ -285,7 +285,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 			panic(err)
 		}
 		if err := Allowed(event, &tc.AuthEvents); err == nil {
-			t.Fatalf("Expected %q to not be allowed but it was: %q", string(data), err)
+			t.Fatalf("Expected %q to not be allowed but it was", string(data))
 		}
 	}
 }
