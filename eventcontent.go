@@ -168,13 +168,8 @@ func newThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 		err = errorf("Couldn't find third party invite event")
 		return
 	}
-	return newThirdPartyInviteContentFromEvent(*thirdPartyInviteEvent)
-}
-
-func newThirdPartyInviteContentFromEvent(event Event) (t thirdPartyInviteContent, err error) {
-	if err = json.Unmarshal(event.Content(), &t); err != nil {
+	if err = json.Unmarshal(thirdPartyInviteEvent.Content(), &t); err != nil {
 		err = errorf("unparsable third party invite event content: %s", err.Error())
-		return
 	}
 	return
 }
