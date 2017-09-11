@@ -76,6 +76,10 @@ func (ac *FederationClient) doRequest(r FederationRequest, resBody interface{}) 
 		return err
 	}
 
+	if resBody == nil {
+		return nil
+	}
+
 	return json.Unmarshal(contents, resBody)
 }
 
@@ -136,7 +140,7 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(s ServerName, builder Event
 	if err = req.SetContent(builder); err != nil {
 		return
 	}
-	err = ac.doRequest(req, struct{}{})
+	err = ac.doRequest(req, nil)
 	return
 }
 
