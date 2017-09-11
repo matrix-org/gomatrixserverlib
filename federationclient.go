@@ -129,14 +129,14 @@ func (ac *FederationClient) SendJoin(s ServerName, event Event) (res RespSendJoi
 // server.
 // This is used to exchange a m.room.third_party_invite event for a m.room.member
 // one in a room the local server isn't a member of.
-func (ac *FederationClient) ExchangeThirdPartyInvite(s ServerName, builder EventBuilder) (res EventBuilder, err error) {
+func (ac *FederationClient) ExchangeThirdPartyInvite(s ServerName, builder EventBuilder) (err error) {
 	path := "/_matrix/federation/v1/exchange_third_party_invite/" +
 		url.PathEscape(builder.RoomID)
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(builder); err != nil {
 		return
 	}
-	err = ac.doRequest(req, &res)
+	err = ac.doRequest(req, struct{}{})
 	return
 }
 
