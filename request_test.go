@@ -63,7 +63,7 @@ func TestSignGetRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := string(buf.Bytes())
+	got := buf.String()
 	want := exampleGetRequest
 	if want != got {
 		t.Errorf("Wanted %q got %q", want, got)
@@ -122,7 +122,7 @@ func TestSignPutRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := string(buf.Bytes())
+	got := buf.String()
 	want := examplePutRequest
 	if want != got {
 		t.Errorf("Wanted %q got %q", want, got)
