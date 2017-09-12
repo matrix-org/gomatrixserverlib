@@ -131,6 +131,20 @@ func (ac *FederationClient) SendJoin(s ServerName, event Event) (res RespSendJoi
 	return
 }
 
+// SendInvite sends an invite m.room.member event to an invited server to be
+// signed by it. This is used to invite a user that is not on the local server.
+func (ac *FederationClient) SendInvite(s ServerName, event Event) (res RespInvite, err error) {
+	path := federationPathPrefix + "/invite/" +
+		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.EventID())
+	req := NewFederationRequest("PUT", s, path)
+	if err = req.SetContent(event); err != nil {
+		return
+	}
+	err = ac.doRequest(req, &res)
+	return
+}
+
 // ExchangeThirdPartyInvite sends the builder of a m.room.member event of
 // "invite" membership derived from a response from invites sent by an identity
 // server.
