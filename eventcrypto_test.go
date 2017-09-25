@@ -17,7 +17,9 @@ package gomatrixserverlib
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
+	"encoding/json"
 	"testing"
 
 	"golang.org/x/crypto/ed25519"
@@ -257,4 +259,117 @@ func TestSignEventTestVectors(t *testing.T) {
    	 	    "age_ts": 1000000
    	 	}
 	}`)
+}
+
+type StubVerifier struct {
+	requests []VerifyJSONRequest
+	results  []VerifyJSONResult
+}
+
+func (v *StubVerifier) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) ([]VerifyJSONResult, error) {
+	v.requests = append(v.requests, requests...)
+	return v.results, nil
+}
+
+func TestVerifyEventSignatures(t *testing.T) {
+	verifier := StubVerifier{}
+
+	eventJSON := []byte(`{
+		"type": "m.room.name",
+		"state_key": "",
+		"event_id": "$test:localhost",
+		"room_id": "!test:localhost",
+		"sender": "@test:localhost",
+		"origin": "originserver",
+		"content": {
+			"name": "Hello World"
+		},
+		"origin_server_ts": 123456
+	}`)
+
+	var event Event
+	if err := json.Unmarshal(eventJSON, &event.fields); err != nil {
+		t.Fatal(err)
+	}
+	event.eventJSON = eventJSON
+
+	events := []Event{event}
+	if err := VerifyEventSignatures(context.Background(), events, &verifier); err != nil {
+		t.Fatal(err)
+	}
+
+	// should be one call to the verifier
+	if len(verifier.requests) != 1 {
+		t.Fatalf("Number of requests: got %d, want 1", len(verifier.requests))
+	}
+	rq0 := verifier.requests[0]
+	wantContent, err := redactEvent(eventJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(rq0.Message, wantContent) {
+		t.Errorf("Verify content: got %s, want %s", rq0.Message, wantContent)
+	}
+	if rq0.ServerName != "originserver" {
+		t.Errorf("Verify server: got %s, want %s", rq0.ServerName, "originserver")
+	}
+	if rq0.AtTS != 123456 {
+		t.Errorf("Verify time: got %d, want %d", rq0.AtTS, 123456)
+	}
+}
+
+func TestVerifyEventSignaturesForInvite(t *testing.T) {
+	verifier := StubVerifier{}
+
+	eventJSON := []byte(`{
+		"type": "m.room.member",
+		"state_key": "@bob:bobserver",
+		"event_id": "$test:aliceserver",
+		"room_id": "!test:room",
+		"sender": "@alice:aliceserver",
+		"origin": "aliceserver",
+		"content": {
+			"membership": "invite"
+		},
+		"origin_server_ts": 123456
+	}`)
+
+	var event Event
+	if err := json.Unmarshal(eventJSON, &event.fields); err != nil {
+		t.Fatal(err)
+	}
+	event.eventJSON = eventJSON
+
+	events := []Event{event}
+	if err := VerifyEventSignatures(context.Background(), events, &verifier); err != nil {
+		t.Fatal(err)
+	}
+
+	// There should be two verification requests
+	if len(verifier.requests) != 2 {
+		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
+	}
+	wantContent, err := redactEvent(eventJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, rq := range verifier.requests {
+		if !bytes.Equal(rq.Message, wantContent) {
+			t.Errorf("Verify content %d: got %s, want %s", i, rq.Message, wantContent)
+		}
+		if rq.AtTS != 123456 {
+			t.Errorf("Verify time %d: got %d, want %d", i, rq.AtTS, 123456)
+		}
+	}
+
+	rq0 := verifier.requests[0]
+	if rq0.ServerName != "aliceserver" {
+		t.Errorf("Verify server 0: got %s, want %s", rq0.ServerName, "aliceserver")
+	}
+
+	rq1 := verifier.requests[1]
+	if rq1.ServerName != "bobserver" {
+		t.Errorf("Verify server 1: got %s, want %s", rq1.ServerName, "bobserver")
+	}
 }

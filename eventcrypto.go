@@ -189,7 +189,7 @@ func verifyEventSignature(signingName string, keyID KeyID, publicKey ed25519.Pub
 
 // VerifyEventSignatures checks that each event in a list of events has valid
 // signatures from the server that sent it.
-func VerifyEventSignatures(ctx context.Context, events []Event, keyRing KeyRing) error { // nolint: gocyclo
+func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVerifier) error { // nolint: gocyclo
 	var toVerify []VerifyJSONRequest
 	for _, event := range events {
 		redactedJSON, err := redactEvent(event.eventJSON)
