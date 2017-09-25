@@ -215,7 +215,9 @@ type respSendJoinFields struct {
 // This checks that it would be valid as a response to /state
 // This also checks that the join event is allowed by the state.
 func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event) error {
-	// First check that the state is valid.
+	// First check that the state is valid and that the events in the response
+	// are correctly signed.
+	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
 	if err := RespState(r).Check(ctx, keyRing); err != nil {

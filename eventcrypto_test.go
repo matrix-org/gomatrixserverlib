@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"sort"
 	"testing"
 
 	"golang.org/x/crypto/ed25519"
@@ -298,23 +299,33 @@ func TestVerifyEventSignatures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// should be one call to the verifier
-	if len(verifier.requests) != 1 {
-		t.Fatalf("Number of requests: got %d, want 1", len(verifier.requests))
+	// There should be two verification requests
+	if len(verifier.requests) != 2 {
+		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
 	}
-	rq0 := verifier.requests[0]
 	wantContent, err := redactEvent(eventJSON)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(rq0.Message, wantContent) {
-		t.Errorf("Verify content: got %s, want %s", rq0.Message, wantContent)
+
+	servers := []string{}
+
+	for i, rq := range verifier.requests {
+		if !bytes.Equal(rq.Message, wantContent) {
+			t.Errorf("Verify content %d: got %s, want %s", i, rq.Message, wantContent)
+		}
+		if rq.AtTS != 123456 {
+			t.Errorf("Verify time %d: got %d, want %d", i, rq.AtTS, 123456)
+		}
+		servers = append(servers, string(rq.ServerName))
 	}
-	if rq0.ServerName != "originserver" {
-		t.Errorf("Verify server: got %s, want %s", rq0.ServerName, "originserver")
+
+	sort.Strings(servers)
+	if servers[0] != "localhost" {
+		t.Errorf("Verify server 0: got %s, want %s", servers[0], "localhost")
 	}
-	if rq0.AtTS != 123456 {
-		t.Errorf("Verify time: got %d, want %d", rq0.AtTS, 123456)
+	if servers[1] != "originserver" {
+		t.Errorf("Verify server 1: got %s, want %s", servers[1], "originserver")
 	}
 }
 
@@ -354,6 +365,8 @@ func TestVerifyEventSignaturesForInvite(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	servers := []string{}
+
 	for i, rq := range verifier.requests {
 		if !bytes.Equal(rq.Message, wantContent) {
 			t.Errorf("Verify content %d: got %s, want %s", i, rq.Message, wantContent)
@@ -361,15 +374,14 @@ func TestVerifyEventSignaturesForInvite(t *testing.T) {
 		if rq.AtTS != 123456 {
 			t.Errorf("Verify time %d: got %d, want %d", i, rq.AtTS, 123456)
 		}
+		servers = append(servers, string(rq.ServerName))
 	}
 
-	rq0 := verifier.requests[0]
-	if rq0.ServerName != "aliceserver" {
-		t.Errorf("Verify server 0: got %s, want %s", rq0.ServerName, "aliceserver")
+	sort.Strings(servers)
+	if servers[0] != "aliceserver" {
+		t.Errorf("Verify server 0: got %s, want %s", servers[0], "aliceserver")
 	}
-
-	rq1 := verifier.requests[1]
-	if rq1.ServerName != "bobserver" {
-		t.Errorf("Verify server 1: got %s, want %s", rq1.ServerName, "bobserver")
+	if servers[1] != "bobserver" {
+		t.Errorf("Verify server 1: got %s, want %s", servers[1], "bobserver")
 	}
 }
