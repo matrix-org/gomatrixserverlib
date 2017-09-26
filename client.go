@@ -252,12 +252,12 @@ func (fc *Client) CreateMediaDownloadRequest(
 
 func (fc *Client) doHTTPRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	reqID := util.RandomString(12)
-	logger := util.GetLogger(ctx).WithField("out.req.ID", reqID)
+	logger := util.GetLogger(ctx).WithField("server", req.URL.Host).WithField("out.req.ID", reqID)
 
-	logger.Infof("Sending request %s %s", req.Method, req.URL)
+	logger.Infof("Outgoing request %s %s", req.Method, req.URL)
 	resp, err := fc.client.Do(req.WithContext(ctx))
 	if err != nil {
-		logger.Infof("Request %s %s failed with %v", req.Method, req.URL, err)
+		logger.Infof("Outgoing request %s %s failed with %v", req.Method, req.URL, err)
 		return nil, err
 	}
 
