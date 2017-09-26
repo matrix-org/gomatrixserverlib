@@ -122,7 +122,7 @@ func (fc *Client) LookupUserInfo(
 	}
 
 	var response *http.Response
-	response, err = fc.doHttpRequest(ctx, req)
+	response, err = fc.doHTTPRequest(ctx, req)
 	if response != nil {
 		defer response.Body.Close() // nolint: errcheck
 	}
@@ -199,7 +199,7 @@ func (fc *Client) LookupServerKeys( // nolint: gocyclo
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	response, err := fc.doHttpRequest(ctx, req)
+	response, err := fc.doHTTPRequest(ctx, req)
 	if response != nil {
 		defer response.Body.Close() // nolint: errcheck
 	}
@@ -247,10 +247,10 @@ func (fc *Client) CreateMediaDownloadRequest(
 		return nil, err
 	}
 
-	return fc.doHttpRequest(ctx, req)
+	return fc.doHTTPRequest(ctx, req)
 }
 
-func (fc *Client) doHttpRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (fc *Client) doHTTPRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	reqID := util.RandomString(12)
 	logger := util.GetLogger(ctx).WithField("out.req.ID", reqID)
 
