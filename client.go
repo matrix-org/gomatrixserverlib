@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/util"
 )
 
@@ -132,7 +133,7 @@ func (fc *Client) LookupUserInfo(
 	}
 
 	var response *http.Response
-	response, err = fc.doHTTPRequest(ctx, req)
+	response, err = fc.DoHTTPRequest(ctx, req)
 	if response != nil {
 		defer response.Body.Close() // nolint: errcheck
 	}
@@ -172,7 +173,7 @@ func (fc *Client) LookupUserInfo(
 // return a cached copy of the keys or whether they will need to retrieve a fresh
 // copy of the keys.
 // Returns the keys or an error if there was a problem talking to the server.
-func (fc *Client) LookupServerKeys( // nolint: gocyclo
+func (fc *Client) LookupServerKeys(
 	ctx context.Context, matrixServer ServerName, keyRequests map[PublicKeyRequest]Timestamp,
 ) (map[PublicKeyRequest]ServerKeys, error) {
 	url := url.URL{
@@ -203,32 +204,20 @@ func (fc *Client) LookupServerKeys( // nolint: gocyclo
 		return nil, err
 	}
 
+	var body struct {
+		ServerKeyList []ServerKeys `json:"server_keys"`
+	}
+
 	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	response, err := fc.doHTTPRequest(ctx, req)
-	if response != nil {
-		defer response.Body.Close() // nolint: errcheck
-	}
+	err = fc.DoRequestAndParseResponse(
+		ctx, req, &body,
+	)
 	if err != nil {
-		return nil, err
-	}
-
-	if response.StatusCode != 200 {
-		var errorOutput []byte
-		if errorOutput, err = ioutil.ReadAll(response.Body); err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("HTTP %d : %s", response.StatusCode, errorOutput)
-	}
-
-	var body struct {
-		ServerKeyList []ServerKeys `json:"server_keys"`
-	}
-	if err = json.NewDecoder(response.Body).Decode(&body); err != nil {
 		return nil, err
 	}
 
@@ -257,10 +246,70 @@ func (fc *Client) CreateMediaDownloadRequest(
 		return nil, err
 	}
 
-	return fc.doHTTPRequest(ctx, req)
+	return fc.DoHTTPRequest(ctx, req)
 }
 
-func (fc *Client) doHTTPRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+// DoRequestAndParseResponse calls DoHTTPRequest and then decodes the response.
+//
+// If the HTTP response is not a 200, an attempt is made to parse the response
+// body into a gomatrix.RespError. In any case, a non-200 response will result
+// in a gomatrix.HTTPError.
+//
+func (fc *Client) DoRequestAndParseResponse(
+	ctx context.Context,
+	req *http.Request,
+	result interface{},
+) error {
+	response, err := fc.DoHTTPRequest(ctx, req)
+	if response != nil {
+		defer response.Body.Close() // nolint: errcheck
+	}
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode/100 != 2 { // not 2xx
+		// Adapted from https://github.com/matrix-org/gomatrix/blob/master/client.go
+		var contents []byte
+		contents, err = ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		var wrap error
+		var respErr gomatrix.RespError
+		if _ = json.Unmarshal(contents, &respErr); respErr.ErrCode != "" {
+			wrap = respErr
+		}
+
+		// If we failed to decode as RespError, don't just drop the HTTP body, include it in the
+		// HTTP error instead (e.g proxy errors which return HTML).
+		msg := "Failed to " + req.Method + " JSON to " + req.RequestURI
+		if wrap == nil {
+			msg = msg + ": " + string(contents)
+		}
+
+		return gomatrix.HTTPError{
+			Code:         response.StatusCode,
+			Message:      msg,
+			WrappedError: wrap,
+		}
+	}
+
+	if err = json.NewDecoder(response.Body).Decode(result); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DoHTTPRequest creates an outgoing request ID and adds it to the context
+// before sending off the request and awaiting a response.
+//
+// If the returned error is nil, the Response will contain a non-nil
+// Body which the caller is expected to close.
+//
+func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	reqID := util.RandomString(12)
 	logger := util.GetLogger(ctx).WithField("server", req.URL.Host).WithField("out.req.ID", reqID)
 	newCtx := util.ContextWithLogger(ctx, logger)
