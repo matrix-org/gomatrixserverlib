@@ -26,10 +26,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/util"
 )
+
+// HTTP/HTTPS request timeout
+const requestTimeout time.Duration = time.Duration(30) * time.Second
 
 // A Client makes request to the federation listeners of matrix
 // homeservers
@@ -60,7 +64,7 @@ func newFederationTripper() *federationTripper {
 			// By avoiding the default implementation we can keep the ServerName
 			// as the empty string so that crypto/tls doesn't add SNI.
 			DialTLS: func(network, addr string) (net.Conn, error) {
-				rawconn, err := net.Dial(network, addr)
+				rawconn, err := net.DialTimeout(network, addr, requestTimeout)
 				if err != nil {
 					return nil, err
 				}
