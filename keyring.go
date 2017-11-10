@@ -123,6 +123,8 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
 
 	for i := range k.KeyFetchers {
+		// TODO: we should distinguish here between expired keys, and those we don't have.
+		// If the key has expired, it's no use re-requesting it.
 		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
 		if len(keyRequests) == 0 {
 			// There aren't any keys to fetch so we can stop here.
