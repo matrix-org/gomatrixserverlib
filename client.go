@@ -26,10 +26,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/util"
 )
+
+// Default HTTPS request timeout
+const requestTimeout time.Duration = time.Duration(30) * time.Second
 
 // A Client makes request to the federation listeners of matrix
 // homeservers
@@ -42,9 +46,16 @@ type UserInfo struct {
 	Sub string `json:"sub"`
 }
 
-// NewClient makes a new Client
+// NewClient makes a new Client (with default timeout)
 func NewClient() *Client {
-	return &Client{client: http.Client{Transport: newFederationTripper()}}
+	return NewClientWithTimeout(requestTimeout)
+}
+
+// NewClientWithTimeout makes a new Client with a specified request timeout
+func NewClientWithTimeout(timeout time.Duration) *Client {
+	return &Client{client: http.Client{
+		Transport: newFederationTripper(),
+		Timeout:   timeout}}
 }
 
 type federationTripper struct {
