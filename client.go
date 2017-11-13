@@ -48,7 +48,9 @@ type UserInfo struct {
 
 // NewClient makes a new Client
 func NewClient() *Client {
-	return &Client{client: http.Client{Transport: newFederationTripper()}}
+	return &Client{client: http.Client{
+		Transport: newFederationTripper(),
+		Timeout:   requestTimeout}}
 }
 
 type federationTripper struct {
@@ -64,7 +66,7 @@ func newFederationTripper() *federationTripper {
 			// By avoiding the default implementation we can keep the ServerName
 			// as the empty string so that crypto/tls doesn't add SNI.
 			DialTLS: func(network, addr string) (net.Conn, error) {
-				rawconn, err := net.DialTimeout(network, addr, requestTimeout)
+				rawconn, err := net.Dial(network, addr)
 				if err != nil {
 					return nil, err
 				}
