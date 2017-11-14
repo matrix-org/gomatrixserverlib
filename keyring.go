@@ -270,7 +270,7 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 
 	results := map[PublicKeyRequest]PublicKeyLookupResult{}
 
-	for req, keys := range serverKeys {
+	for _, keys := range serverKeys {
 		var valid bool
 		keyIDs, err := ListKeyIDs(string(p.PerspectiveServerName), keys.Raw)
 		if err != nil {
@@ -296,13 +296,15 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 			return nil, fmt.Errorf("gomatrixserverlib: not signed with a known key for the perspective server")
 		}
 
-		// Check that the keys are valid for the server.
-		checks, _, _ := CheckKeys(req.ServerName, time.Unix(0, 0), keys, nil)
+		// Check that the keys are valid for the server they claim to be
+		checks, _, _ := CheckKeys(keys.ServerName, time.Unix(0, 0), keys, nil)
 		if !checks.AllChecksOK {
 			// This is bad because it means that the perspective server was trying to feed us an invalid response.
 			return nil, fmt.Errorf("gomatrixserverlib: key response from perspective server failed checks")
 		}
 
+		// TODO: What happens if the same key ID appears in multiple responses?
+		// We should probably take the response with the highest valid_until_ts.
 		mapServerKeysToPublicKeyLookupResult(keys, results)
 	}
 
@@ -354,13 +356,15 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 	}
 
 	results := map[PublicKeyRequest]PublicKeyLookupResult{}
-	for req, keys := range serverKeys {
+	for _, keys := range serverKeys {
 		// Check that the keys are valid for the server.
-		checks, _, _ := CheckKeys(req.ServerName, time.Unix(0, 0), keys, nil)
+		checks, _, _ := CheckKeys(serverName, time.Unix(0, 0), keys, nil)
 		if !checks.AllChecksOK {
 			return nil, fmt.Errorf("gomatrixserverlib: key response direct from %q failed checks", serverName)
 		}
 
+		// TODO: What happens if the same key ID appears in multiple responses?
+		// We should probably take the response with the highest valid_until_ts.
 		mapServerKeysToPublicKeyLookupResult(keys, results)
 	}
 
