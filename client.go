@@ -183,10 +183,10 @@ func (fc *Client) LookupUserInfo(
 // Perspective servers can use that timestamp to determine whether they can
 // return a cached copy of the keys or whether they will need to retrieve a fresh
 // copy of the keys.
-// Returns the keys or an error if there was a problem talking to the server.
+// Returns the keys returned by the server, or an error if there was a problem talking to the server.
 func (fc *Client) LookupServerKeys(
 	ctx context.Context, matrixServer ServerName, keyRequests map[PublicKeyRequest]Timestamp,
-) (map[PublicKeyRequest]ServerKeys, error) {
+) ([]ServerKeys, error) {
 	url := url.URL{
 		Scheme: "matrix",
 		Host:   string(matrixServer),
@@ -232,19 +232,7 @@ func (fc *Client) LookupServerKeys(
 		return nil, err
 	}
 
-	result := map[PublicKeyRequest]ServerKeys{}
-	for _, keys := range body.ServerKeyList {
-		keys.FromServer = matrixServer
-		// TODO: What happens if the same key ID appears in multiple responses?
-		// We should probably take the response with the highest valid_until_ts.
-		for keyID := range keys.VerifyKeys {
-			result[PublicKeyRequest{keys.ServerName, keyID}] = keys
-		}
-		for keyID := range keys.OldVerifyKeys {
-			result[PublicKeyRequest{keys.ServerName, keyID}] = keys
-		}
-	}
-	return result, nil
+	return body.ServerKeyList, nil
 }
 
 // CreateMediaDownloadRequest creates a request for media on a homeserver and returns the http.Response or an error
