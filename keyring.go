@@ -362,8 +362,9 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 
 	results := map[PublicKeyRequest]PublicKeyLookupResult{}
 
-	// TODO: What happens if the same key ID appears in multiple responses?
-	// We should probably take the response with the highest valid_until_ts.
+	// TODO (matrix-org/dendrite#345): What happens if the same key ID
+	// appears in multiple responses? We should probably take the response
+	// with the highest valid_until_ts.
 	mapServerKeysToPublicKeyLookupResult(keys, results)
 
 	return results, nil
