@@ -139,7 +139,6 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
 	if err := VerifyEventSignatures(ctx, allEvents, keyRing); err != nil {
-		logger.Warnf("Event signature check failed: %s", err)
 		return err
 	}
 
