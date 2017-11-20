@@ -303,7 +303,8 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 			return nil, fmt.Errorf("gomatrixserverlib: key response from perspective server failed checks")
 		}
 
-		// TODO: What happens if the same key ID appears in multiple responses?
+		// TODO (matrix-org/dendrite#345): What happens if the same key ID
+		// appears in multiple responses?
 		// We should probably take the response with the highest valid_until_ts.
 		mapServerKeysToPublicKeyLookupResult(keys, results)
 	}
@@ -363,8 +364,7 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 	results := map[PublicKeyRequest]PublicKeyLookupResult{}
 
 	// TODO (matrix-org/dendrite#345): What happens if the same key ID
-	// appears in multiple responses? We should probably take the response
-	// with the highest valid_until_ts.
+	// appears in multiple responses? We should probably reject the response.
 	mapServerKeysToPublicKeyLookupResult(keys, results)
 
 	return results, nil
