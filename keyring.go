@@ -303,7 +303,8 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 			return nil, fmt.Errorf("gomatrixserverlib: key response from perspective server failed checks")
 		}
 
-		// TODO: What happens if the same key ID appears in multiple responses?
+		// TODO (matrix-org/dendrite#345): What happens if the same key ID
+		// appears in multiple responses?
 		// We should probably take the response with the highest valid_until_ts.
 		mapServerKeysToPublicKeyLookupResult(keys, results)
 	}
@@ -333,9 +334,9 @@ func (d *DirectKeyFetcher) FetchKeys(
 	}
 
 	results := map[PublicKeyRequest]PublicKeyLookupResult{}
-	for server, reqs := range byServer {
+	for server := range byServer {
 		// TODO: make these requests in parallel
-		serverResults, err := d.fetchKeysForServer(ctx, server, reqs)
+		serverResults, err := d.fetchKeysForServer(ctx, server)
 		if err != nil {
 			// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
 			return nil, err
@@ -348,25 +349,23 @@ func (d *DirectKeyFetcher) FetchKeys(
 }
 
 func (d *DirectKeyFetcher) fetchKeysForServer(
-	ctx context.Context, serverName ServerName, requests map[PublicKeyRequest]Timestamp,
+	ctx context.Context, serverName ServerName,
 ) (map[PublicKeyRequest]PublicKeyLookupResult, error) {
-	serverKeys, err := d.Client.LookupServerKeys(ctx, serverName, requests)
+	keys, err := d.Client.GetServerKeys(ctx, serverName)
 	if err != nil {
 		return nil, err
 	}
+	// Check that the keys are valid for the server.
+	checks, _, _ := CheckKeys(serverName, time.Unix(0, 0), keys, nil)
+	if !checks.AllChecksOK {
+		return nil, fmt.Errorf("gomatrixserverlib: key response direct from %q failed checks", serverName)
+	}
 
 	results := map[PublicKeyRequest]PublicKeyLookupResult{}
-	for _, keys := range serverKeys {
-		// Check that the keys are valid for the server.
-		checks, _, _ := CheckKeys(serverName, time.Unix(0, 0), keys, nil)
-		if !checks.AllChecksOK {
-			return nil, fmt.Errorf("gomatrixserverlib: key response direct from %q failed checks", serverName)
-		}
 
-		// TODO: What happens if the same key ID appears in multiple responses?
-		// We should probably take the response with the highest valid_until_ts.
-		mapServerKeysToPublicKeyLookupResult(keys, results)
-	}
+	// TODO (matrix-org/dendrite#345): What happens if the same key ID
+	// appears in multiple responses? We should probably reject the response.
+	mapServerKeysToPublicKeyLookupResult(keys, results)
 
 	return results, nil
 }
