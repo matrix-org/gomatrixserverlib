@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/matrix-org/util"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -60,6 +61,10 @@ type KeyFetcher interface {
 	// The result may have more (server name, key ID) pairs than were in the request.
 	// Returns an error if there was a problem fetching the keys.
 	FetchKeys(ctx context.Context, requests map[PublicKeyRequest]Timestamp) (map[PublicKeyRequest]PublicKeyLookupResult, error)
+
+	// FetcherName returns the name of this fetcher, which can then be used for
+	// logging errors etc.
+	FetcherName() string
 }
 
 // A KeyDatabase is a store for caching public keys.
@@ -113,6 +118,7 @@ type JSONVerifier interface {
 
 // VerifyJSONs implements JSONVerifier.
 func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) ([]VerifyJSONResult, error) { // nolint: gocyclo
+	logger := util.GetLogger(ctx)
 	results := make([]VerifyJSONResult, len(requests))
 	keyIDs := make([][]KeyID, len(requests))
 
@@ -154,7 +160,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
 
-	for i := range k.KeyFetchers {
+	for _, fetcher := range k.KeyFetchers {
 		// TODO: we should distinguish here between expired keys, and those we don't have.
 		// If the key has expired, it's no use re-requesting it.
 		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
@@ -163,12 +169,14 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			// This means that we've checked every JSON object we can check.
 			return results, nil
 		}
+		logger.Infof("Requesting %d keys from %s", len(keyRequests), fetcher.FetcherName())
 		// TODO: Coalesce in-flight requests for the same keys.
 		// Otherwise we risk spamming the servers we query the keys from.
-		keysFetched, err := k.KeyFetchers[i].FetchKeys(ctx, keyRequests)
+		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
 			return nil, err
 		}
+		logger.Infof("Got %d keys from fetcher: verifying", len(keysFromDatabase))
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 		// Add the keys to the database so that we won't need to fetch them again.
@@ -259,6 +267,11 @@ type PerspectiveKeyFetcher struct {
 	Client Client
 }
 
+// FetcherName implements KeyFetcher
+func (p PerspectiveKeyFetcher) FetcherName() string {
+	return fmt.Sprintf("perspective server %s", p.PerspectiveServerName)
+}
+
 // FetchKeys implements KeyFetcher
 func (p *PerspectiveKeyFetcher) FetchKeys(
 	ctx context.Context, requests map[PublicKeyRequest]Timestamp,
@@ -316,6 +329,11 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 type DirectKeyFetcher struct {
 	// The federation client to use to fetch keys with.
 	Client Client
+}
+
+// FetcherName implements KeyFetcher
+func (d DirectKeyFetcher) FetcherName() string {
+	return "DirectKeyFetcher"
 }
 
 // FetchKeys implements KeyFetcher
