@@ -169,14 +169,22 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			// This means that we've checked every JSON object we can check.
 			return results, nil
 		}
-		logger.Infof("Requesting %d keys from %s", len(keyRequests), fetcher.FetcherName())
+		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
+
 		// TODO: Coalesce in-flight requests for the same keys.
 		// Otherwise we risk spamming the servers we query the keys from.
+
+		fetcherLogger.WithField("num_key_requests", len(keyRequests)).
+			Info("Requesting keys from fetcher")
+
 		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof("Got %d keys from fetcher: verifying", len(keysFromDatabase))
+
+		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
+			Info("Got keys from fetcher")
+
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 		// Add the keys to the database so that we won't need to fetch them again.
