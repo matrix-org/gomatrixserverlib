@@ -6,4 +6,7 @@ install:
  - go get golang.org/x/crypto/ed25519
  - go get github.com/matrix-org/util
  - go get github.com/matrix-org/gomatrix
+ - go get github.com/tidwall/gjson
+ - go get github.com/tidwall/sjson
+ - go get github.com/pkg/errors
 script: ./hooks/pre-commit
