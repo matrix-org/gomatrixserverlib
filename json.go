@@ -32,8 +32,7 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 		return nil, errors.Errorf("invalid json")
 	}
 
-	input = CompactJSON(input, make([]byte, 0, len(input)))
-	return SortJSON(input, make([]byte, 0, len(input))), nil
+	return CanonicalJSONAssumeValid(input), nil
 }
 
 // CanonicalJSONAssumeValid is the same as CanonicalJSON, but assumes the
