@@ -23,7 +23,7 @@ import (
 func benchmarkParse(b *testing.B, eventJSON string) {
 	var event Event
 
-	// run the Fib function b.N times
+	// run the Unparse function b.N times
 	for n := 0; n < b.N; n++ {
 		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 			b.Error("Failed to parse event")

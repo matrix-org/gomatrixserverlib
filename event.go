@@ -216,7 +216,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte) (result Event, err error) {
 
 		// We need to ensure that `result` is the redacted event.
 		// If redactedJSON is the same as eventJSON then `result` is already
-		// correct. If not then we need to repase.
+		// correct. If not then we need to reparse.
 		//
 		// Yes, this means that for some events we parse twice (which is slow),
 		// but means that parsing unredacted events is fast.
