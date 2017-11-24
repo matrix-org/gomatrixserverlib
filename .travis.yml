@@ -9,4 +9,5 @@ install:
  - go get github.com/tidwall/gjson
  - go get github.com/tidwall/sjson
  - go get github.com/pkg/errors
+ - go get gopkg.in/yaml.v2
 script: ./hooks/pre-commit
