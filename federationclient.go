@@ -22,7 +22,7 @@ func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           Client{client: http.Client{Transport: newFederationTripper()}},
+		Client:           *NewClient(),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
