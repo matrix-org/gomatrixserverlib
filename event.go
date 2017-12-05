@@ -318,7 +318,7 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 	// which doesn't affect the signatures or hashes, we can cheat and
 	// just fiddle those bits directly.
 
-	path = fmt.Sprintf("unsigned.%s", path)
+	path = "unsigned." + path
 	eventJSON, err := sjson.SetBytes(e.eventJSON, path, value)
 	if err != nil {
 		return err
