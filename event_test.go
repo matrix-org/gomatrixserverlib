@@ -65,7 +65,7 @@ func TestAddUnsignedField(t *testing.T) {
 		t.Error("Failed to insert foo")
 	}
 
-	event.SetUnsignedField("x", 1)
+	err = event.SetUnsignedField("x", 1)
 	if err != nil {
 		t.Error("Failed to insert x")
 	}
