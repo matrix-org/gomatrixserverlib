@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"net/http"
 	"net/url"
 
 	"golang.org/x/crypto/ed25519"
