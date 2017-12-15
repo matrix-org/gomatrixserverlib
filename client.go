@@ -207,7 +207,7 @@ func (fc *Client) GetServerKeys(
 // copy of the keys.
 // Returns the keys returned by the server, or an error if there was a problem talking to the server.
 func (fc *Client) LookupServerKeys(
-	ctx context.Context, matrixServer ServerName, keyRequests map[PublicKeyRequest]Timestamp,
+	ctx context.Context, matrixServer ServerName, keyRequests map[PublicKeyLookupRequest]Timestamp,
 ) ([]ServerKeys, error) {
 	url := url.URL{
 		Scheme: "matrix",
