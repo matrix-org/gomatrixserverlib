@@ -88,4 +88,3 @@ func DefaultFilterPart() FilterPart {
 		Types:      nil,
 	}
 }
-
