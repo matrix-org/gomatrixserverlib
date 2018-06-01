@@ -19,7 +19,7 @@ package gomatrixserverlib
 // application service as part of a transaction.
 type ApplicationServiceEvent struct {
 	Age                   int64   `json:"age,omitempty"`
-	Content               rawJSON `json:"content,omitempty"`
+	Content               RawJSON `json:"content,omitempty"`
 	EventID               string  `json:"event_id,omitempty"`
 	OriginServerTimestamp int64   `json:"origin_server_ts,omitempty"`
 	RoomID                string  `json:"room_id,omitempty"`
