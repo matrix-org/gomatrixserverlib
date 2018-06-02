@@ -15,6 +15,11 @@
 
 package gomatrixserverlib
 
+const (
+	// AppServiceDeviceID is the AS dummy device ID
+	AppServiceDeviceID = "AS_Device"
+)
+
 // ApplicationServiceEvent is an event format that is sent off to an
 // application service as part of a transaction.
 type ApplicationServiceEvent struct {
