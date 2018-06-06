@@ -37,7 +37,7 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
-// RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
+// A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
 type RespEventAuth struct {
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
