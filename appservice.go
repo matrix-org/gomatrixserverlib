@@ -16,7 +16,7 @@
 package gomatrixserverlib
 
 // ApplicationServiceUnsigned is the contents of the unsigned field of an
-// ApplicationServiceEvent
+// ApplicationServiceEvent.
 type ApplicationServiceUnsigned struct {
 	Age int64 `json:"age,omitempty"`
 }
@@ -24,14 +24,14 @@ type ApplicationServiceUnsigned struct {
 // ApplicationServiceEvent is an event format that is sent off to an
 // application service as part of a transaction.
 type ApplicationServiceEvent struct {
-	Unsigned              RawJSON `json:"unsigned,omitempty"`
-	Content               RawJSON `json:"content,omitempty"`
-	EventID               string  `json:"event_id,omitempty"`
-	OriginServerTimestamp int64   `json:"origin_server_ts,omitempty"`
-	RoomID                string  `json:"room_id,omitempty"`
-	Sender                string  `json:"sender,omitempty"`
-	Type                  string  `json:"type,omitempty"`
-	UserID                string  `json:"user_id,omitempty"`
+	Unsigned              ApplicationServiceUnsigned `json:"unsigned,omitempty"`
+	Content               RawJSON                    `json:"content,omitempty"`
+	EventID               string                     `json:"event_id,omitempty"`
+	OriginServerTimestamp int64                      `json:"origin_server_ts,omitempty"`
+	RoomID                string                     `json:"room_id,omitempty"`
+	Sender                string                     `json:"sender,omitempty"`
+	Type                  string                     `json:"type,omitempty"`
+	UserID                string                     `json:"user_id,omitempty"`
 }
 
 // ApplicationServiceTransaction is the transaction that is sent off to an
