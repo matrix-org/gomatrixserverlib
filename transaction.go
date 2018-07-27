@@ -21,7 +21,7 @@ type Transaction struct {
 	// by this transaction. The events should either be events that originate
 	// on the origin server or be join m.room.member events.
 	PDUs []Event `json:"pdus"`
-	// The empheral events pushed from origin server to destination server
+	// The ephemeral events pushed from origin server to destination server
 	// by this transaction. The events must orginate at the origin server.
 	EDUs []EDU `json:"edus,omitempty"`
 }
