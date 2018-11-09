@@ -188,7 +188,7 @@ func (ac *FederationClient) Backfill(
 
 	// Use the url.URL structure to easily generate the request's URI (path?query).
 	u := url.URL{
-		Path:     "/_matrix/federation/v1/backfill/" + roomID,
+		Path:     "/_matrix/federation/v1/backfill/" + roomID + "/",
 		RawQuery: query.Encode(),
 	}
 	path := u.RequestURI()
