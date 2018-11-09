@@ -178,6 +178,9 @@ func (ac *FederationClient) LookupRoomAlias(
 func (ac *FederationClient) Backfill(
 	ctx context.Context, s ServerName, roomID string, limit int, eventIDs []string,
 ) (res Transaction, err error) {
+	// Encode the room ID so it won't interfer with the path.
+	roomID = url.PathEscape(roomID)
+
 	// Parse the limit into a string so that we can include it in the URL's query.
 	limitStr := strconv.Itoa(limit)
 
