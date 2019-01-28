@@ -8,7 +8,7 @@ import (
 // system root CAs and an optional pool of intermediate CAs.
 func IsValidCertificate(serverName ServerName, c *x509.Certificate, intermediates *x509.CertPool) (valid bool, err error) {
 	verificationOpts := x509.VerifyOptions{
-		DNSName:       serverName,
+		DNSName:       string(serverName),
 		Intermediates: intermediates,
 	}
 	roots, err := c.Verify(verificationOpts)
