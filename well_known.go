@@ -11,7 +11,7 @@ import (
 // WellKnownResult is the result of looking up a matrix server's well-known file.
 // Located at https://<server_name>/.well-known/matrix/server
 type WellKnownResult struct {
-	NewAddress ServerName `json:m.server`
+	NewAddress ServerName `json:"m.server"`
 }
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
