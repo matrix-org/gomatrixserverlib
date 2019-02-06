@@ -17,8 +17,6 @@ package gomatrixserverlib
 
 import (
 	"bufio"
-	"bytes"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
 	"net"
@@ -173,30 +171,10 @@ func CheckKeys(serverName ServerName, now time.Time, keys ServerKeys, connState 
 
 	ed25519Keys = checkVerifyKeys(keys, &checks)
 
-	// Only check the fingerprint if we have the TLS connection state.
-	if connState != nil {
-		// Check the peer certificates.
-		checks.AllChecksOK = checks.AllChecksOK
-	}
-
 	if !checks.AllChecksOK {
 		ed25519Keys = nil
 	}
 	return
-}
-
-func checkFingerprint(connState *tls.ConnectionState, sha256Fingerprints []Base64String) bool {
-	if len(connState.PeerCertificates) == 0 {
-		return false
-	}
-	cert := connState.PeerCertificates[0]
-	digest := sha256.Sum256(cert.Raw)
-	for _, fingerprint := range sha256Fingerprints {
-		if bytes.Equal(digest[:], fingerprint) {
-			return true
-		}
-	}
-	return false
 }
 
 func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[KeyID]Base64String {
