@@ -162,8 +162,13 @@ type KeyChecks struct {
 
 // CheckKeys checks the keys returned from a server to make sure they are valid.
 // If the checks pass then also return a map of key_id to Ed25519 public key
-func CheckKeys(serverName ServerName, now time.Time, keys ServerKeys) (
-	checks KeyChecks, ed25519Keys map[KeyID]Base64String,
+func CheckKeys(
+	serverName ServerName,
+	now time.Time,
+	keys ServerKeys,
+) (
+	checks KeyChecks,
+	ed25519Keys map[KeyID]Base64String,
 ) {
 	checks.MatchingServerName = serverName == keys.ServerName
 	checks.FutureValidUntilTS = keys.ValidUntilTS.Time().After(now)
