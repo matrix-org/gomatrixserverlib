@@ -33,13 +33,15 @@ func cleanAndVerifyServerName(serverName ServerName) (serverNameCleaned string, 
 	serverNameCleaned = string(serverName)
 
 	// Remove port from serverName if it exists
-	serverNameCleaned = strings.Split(string(serverName), ":")[0]
-	 
+	serverNameCleanedNoPort := strings.Split(string(serverName), ":")[0]
+
 	// Fail if serverName is an ipv4/6
-	if strings.Contains(serverNameCleaned, "[") || net.ParseIP(serverNameCleaned) != nil {
+	if strings.Contains(serverNameCleaned, "[") || net.ParseIP(serverNameCleaned) != nil ||
+		net.ParseIP(serverNameCleanedNoPort) != nil {
 		// This is an IP Address, fail
 		return "", errors.New("serverName is an IP literal. This is not currently supported for certificate validation checking.")
 	}
+	 
 
-	return serverNameCleaned, nil
+	return serverNameCleanedNoPort, nil
 }
