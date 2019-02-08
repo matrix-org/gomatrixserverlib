@@ -20,5 +20,5 @@ func IsValidCertificate(serverNames []ServerName, c *x509.Certificate, intermedi
 		}
 	}
 
-	return false, err
+	return false, nil
 }
