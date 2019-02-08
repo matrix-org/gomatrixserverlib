@@ -21,7 +21,7 @@ import (
 
 // TODO: Change test for function to support IP Addresses
 func TestCleanAndVerifyServerName(t *testing.T) { // nolint: gocyclo
-	input := append(make([]string, 0, 6), 
+	input := append(make([]string, 0, 6),
 		"www.example.org:1234",
 		"www.example.org",
 		"1.1.1.1:1234",
@@ -31,7 +31,7 @@ func TestCleanAndVerifyServerName(t *testing.T) { // nolint: gocyclo
 		"2001:0db8:0000:0000:0000:ff00:0042:8329",
 		"[2001:0db8:0000:0000:0000:ff00:0042]:8329",
 	)
-	output := append(make([]string, 0, 6), 
+	output := append(make([]string, 0, 6),
 		"www.example.org",
 		"www.example.org",
 		"",

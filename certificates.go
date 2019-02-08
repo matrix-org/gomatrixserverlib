@@ -39,9 +39,8 @@ func cleanAndVerifyServerName(serverName ServerName) (serverNameCleaned string, 
 	if strings.Contains(serverNameCleaned, "[") || net.ParseIP(serverNameCleaned) != nil ||
 		net.ParseIP(serverNameCleanedNoPort) != nil {
 		// This is an IP Address, fail
-		return "", errors.New("serverName is an IP literal. This is not currently supported for certificate validation checking.")
+		return "", errors.New("serverName is an IP literal. This is not currently supported for certificate validation checking")
 	}
-	 
 
 	return serverNameCleanedNoPort, nil
 }
