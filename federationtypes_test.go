@@ -16,7 +16,7 @@ func TestParseServerName(t *testing.T) {
 	}
 
 	for input, output := range validTests {
-		host, port, isValid := parseAndValidateServerName(ServerName(input))
+		host, port, isValid := ParseAndValidateServerName(ServerName(input))
 		if !isValid {
 			t.Errorf("Expected serverName '%s' to be parsed as valid, but was not", input)
 		}
@@ -41,7 +41,7 @@ func TestParseServerName(t *testing.T) {
 	}
 
 	for _, input := range invalidTests {
-		_, _, isValid := parseAndValidateServerName(ServerName(input))
+		_, _, isValid := ParseAndValidateServerName(ServerName(input))
 		if isValid {
 			t.Errorf("Expected serverName '%s' to be rejected but was accepted", input)
 		}

@@ -18,11 +18,11 @@ import (
 // https://matrix.org/docs/spec/appendices.html#server-name
 type ServerName string
 
-// parseAndValidateServerName splits a ServerName into a host and port part,
+// ParseAndValidateServerName splits a ServerName into a host and port part,
 // and checks that it is a valid server name according to the spec.
 //
 // if there is no explicit port, returns '-1' as the port.
-func parseAndValidateServerName(serverName ServerName) (host string, port int, valid bool) {
+func ParseAndValidateServerName(serverName ServerName) (host string, port int, valid bool) {
 	host, port = splitServerName(serverName)
 	valid = false
 
@@ -49,7 +49,7 @@ func parseAndValidateServerName(serverName ServerName) (host string, port int, v
 	} else {
 		// must be a valid DNS Name
 		for _, r := range host {
-			if !isDnsNameChar(r) {
+			if !isDNSNameChar(r) {
 				return
 			}
 		}
@@ -59,7 +59,7 @@ func parseAndValidateServerName(serverName ServerName) (host string, port int, v
 	return
 }
 
-func isDnsNameChar(r rune) bool {
+func isDNSNameChar(r rune) bool {
 	if r >= 'A' && r <= 'Z' {
 		return true
 	}

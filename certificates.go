@@ -8,7 +8,7 @@ import (
 // IsValidCertificate checks if the given x509 certificate can be verified using
 // system root CAs and an optional pool of intermediate CAs.
 func IsValidCertificate(serverName ServerName, c *x509.Certificate, intermediates *x509.CertPool) (valid bool, err error) {
-	host, _, isValid := parseAndValidateServerName(serverName)
+	host, _, isValid := ParseAndValidateServerName(serverName)
 	if !isValid {
 		return false, errors.New("Not a valid serverName")
 	}
