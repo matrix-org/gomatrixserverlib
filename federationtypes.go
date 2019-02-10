@@ -18,9 +18,10 @@ import (
 // https://matrix.org/docs/spec/appendices.html#server-name
 type ServerName string
 
-// parseServerName splits a ServerName into a host and port part.
+// parseAndValidateServerName splits a ServerName into a host and port part,
+// and checks that it is a valid server name according to the spec.
 //
-// if there is no explicit port, returns '-1' as the port
+// if there is no explicit port, returns '-1' as the port.
 func parseAndValidateServerName(serverName ServerName) (host string, port int, valid bool) {
 	host, port = splitServerName(serverName)
 	valid = false
