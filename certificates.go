@@ -2,7 +2,7 @@ package gomatrixserverlib
 
 import (
 	"crypto/x509"
-	"errors"
+	"fmt"
 )
 
 // IsValidCertificate checks if the given x509 certificate can be verified using
@@ -10,7 +10,8 @@ import (
 func IsValidCertificate(serverName ServerName, c *x509.Certificate, intermediates *x509.CertPool) (valid bool, err error) {
 	host, _, isValid := ParseAndValidateServerName(serverName)
 	if !isValid {
-		return false, errors.New("Not a valid serverName")
+		err = fmt.Errorf("%q is not a valid serverName", serverName)
+		return false, err
 	}
 
 	// Check certificate chain validity
