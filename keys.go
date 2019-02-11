@@ -25,11 +25,6 @@ import (
 	"time"
 )
 
-// A ServerName is the name a matrix homeserver is identified by.
-// It is a DNS name without a trailing dot optionally followed by a port.
-// So it has the format: "[0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*(:[0-9]+)?"
-type ServerName string
-
 // ServerKeys are the ed25519 signing keys published by a matrix server.
 // Contains SHA256 fingerprints of the TLS X509 certificates used by the server.
 type ServerKeys struct {
