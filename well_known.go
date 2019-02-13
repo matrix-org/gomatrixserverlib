@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -12,11 +11,12 @@ import (
 // Located at https://<server_name>/.well-known/matrix/server
 type WellKnownResult struct {
 	NewAddress ServerName `json:"m.server"`
+	Error string `json:"Error,omitempty"`
 }
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
 // found, it returns the server to redirect to.
-func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
+func LookupWellKnown(serverNameType ServerName) (WellKnownResult) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"
@@ -28,27 +28,27 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 	// Request server's well-known record
 	resp, err := http.Get(wellKnown)
 	if err != nil {
-		return nil, err
+		return WellKnownResult{Error: err.Error()}
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != 200 {
-		return nil, errors.New("No .well-known found")
+		return WellKnownResult{Error: "No .well-known found"}
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return WellKnownResult{Error: err.Error()}
 	}
 
 	// Convert result to JSON
 	wellKnownResponse := &WellKnownResult{}
 	err = json.Unmarshal(body, wellKnownResponse)
 	if err != nil {
-		return nil, err
+		wellKnownResponse.Error = err.Error()
 	}
 
 	// Return result
-	return wellKnownResponse, nil
+	return *wellKnownResponse
 }
