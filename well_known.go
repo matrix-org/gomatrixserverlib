@@ -34,8 +34,7 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != 200 {
-		err = errors.New("No .well-known found")
-		return nil, err
+		return nil, errors.New("No .well-known found")
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
