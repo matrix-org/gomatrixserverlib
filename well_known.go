@@ -12,12 +12,11 @@ import (
 // Located at https://<server_name>/.well-known/matrix/server
 type WellKnownResult struct {
 	NewAddress ServerName `json:"m.server"`
-	Error      string     `json:"Error,omitempty"`
 }
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
 // found, it returns the server to redirect to.
-func LookupWellKnown(serverNameType ServerName) (WellKnownResult, error) {
+func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"
@@ -29,29 +28,28 @@ func LookupWellKnown(serverNameType ServerName) (WellKnownResult, error) {
 	// Request server's well-known record
 	resp, err := http.Get(wellKnown)
 	if err != nil {
-		return WellKnownResult{Error: err.Error()}, err
+		return nil, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != 200 {
 		err = errors.New("No .well-known found")
-		return WellKnownResult{Error: err.Error()}, err
+		return nil, err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return WellKnownResult{Error: err.Error()}, err
+		return nil, err
 	}
 
 	// Convert result to JSON
 	wellKnownResponse := &WellKnownResult{}
 	err = json.Unmarshal(body, wellKnownResponse)
 	if err != nil {
-		wellKnownResponse.Error = err.Error()
-		return *wellKnownResponse, err
+		return nil, err
 	}
 
 	// Return result
-	return *wellKnownResponse, nil
+	return wellKnownResponse, nil
 }
