@@ -12,7 +12,7 @@ import (
 // Located at https://<server_name>/.well-known/matrix/server
 type WellKnownResult struct {
 	NewAddress ServerName `json:"m.server"`
-	Error string `json:"Error,omitempty"`
+	Error      string     `json:"Error,omitempty"`
 }
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
