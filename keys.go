@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -132,9 +133,12 @@ func FetchKeysDirect(serverName ServerName, addr, sni string) (*ServerKeys, *tls
 	if err != nil {
 		return nil, nil, err
 	}
+	if response.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("Remote host responded with non-OK status when attempting to fetch server keys: %s", response.Status)
+	}
 	var keys ServerKeys
 	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("Couldn't decode JSON when attempting to fetch server keys: %s", err.Error())
 	}
 	return &keys, &connectionState, nil
 }
