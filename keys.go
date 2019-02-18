@@ -134,7 +134,7 @@ func FetchKeysDirect(serverName ServerName, addr, sni string) (*ServerKeys, *tls
 		return nil, nil, err
 	}
 	if response.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("Remote host responded with non-OK status when attempting to fetch server keys: %s", response.Status)
+		return nil, nil, fmt.Errorf("Non-200 response %d from remote server", response.StatusCode)
 	}
 	var keys ServerKeys
 	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
