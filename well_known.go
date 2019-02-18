@@ -49,6 +49,10 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 		return nil, err
 	}
 
+	if wellKnownResponse.NewAddress == "" {
+		return nil, errors.New("No m.server key found in well-known response")
+	}
+
 	// Return result
 	return wellKnownResponse, nil
 }
