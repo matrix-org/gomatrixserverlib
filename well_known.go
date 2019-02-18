@@ -14,7 +14,8 @@ type WellKnownResult struct {
 }
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
-// found, it returns the server to redirect to.
+// found, it returns the server to redirect to. It also returns a boolean which
+// value is true if a well-known record was found, false otherwise.
 func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, bool, error) {
 	serverName := string(serverNameType)
 
