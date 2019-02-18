@@ -138,7 +138,7 @@ func FetchKeysDirect(serverName ServerName, addr, sni string) (*ServerKeys, *tls
 	}
 	var keys ServerKeys
 	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
-		return nil, nil, fmt.Errorf("Couldn't decode JSON when attempting to fetch server keys: %s", err.Error())
+		return nil, nil, errors.Wrap(err, "Unable to decode JSON from remote server")
 	}
 	return &keys, &connectionState, nil
 }
