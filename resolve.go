@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
