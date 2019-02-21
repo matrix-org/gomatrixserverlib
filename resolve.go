@@ -117,6 +117,7 @@ func LookupServer(serverName ServerName) (*DNSResult, error) { // nolint: gocycl
 // Returns an error if the server name isn't valid, or if either the .well-known
 // lookup or any DNS lookup failed. Doesn't return an error if no .well-known
 // file could be found for the given server name.
+// nolint: gocyclo
 func ResolveServer(serverName ServerName, needWellKnown bool) (hosts []string, err error) {
 	host, port, valid := ParseAndValidateServerName(serverName)
 	if !valid {
