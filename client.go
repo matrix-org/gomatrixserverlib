@@ -101,19 +101,19 @@ func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {
 
 func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	serverName := ServerName(r.URL.Host)
-	dnsResult, err := LookupServer(serverName)
+	hosts, err := ResolveServer(serverName, true)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(dnsResult.Addrs) == 0 {
+	if len(hosts) == 0 {
 		return nil, fmt.Errorf("no address found for matrix host %v", serverName)
 	}
 
 	var resp *http.Response
 	// TODO: respect the priority and weight fields from the SRV record
-	for _, addr := range dnsResult.Addrs {
-		u := makeHTTPSURL(r.URL, addr)
+	for _, host := range hosts {
+		u := makeHTTPSURL(r.URL, host)
 		r.URL = &u
 		resp, err = f.transport.RoundTrip(r)
 		if err == nil {

@@ -107,3 +107,66 @@ func LookupServer(serverName ServerName) (*DNSResult, error) { // nolint: gocycl
 
 	return &result, nil
 }
+
+// ResolveServer implements the server name resolution algorithm described at
+// https://matrix.org/docs/spec/server_server/r0.1.1.html#resolving-server-names
+// Returns a slice containing the hosts (using the host:port form) that can be
+// used to send a federation request to the server using a given server name.
+// needWellKnown indicates whether a .well-known file should be looked up.
+// Returns an error if the server name isn't valid, or if either the .well-known
+// lookup or any DNS lookup failed. Doesn't return an error if no .well-known
+// file could be found for the given server name.
+func ResolveServer(serverName ServerName, needWellKnown bool) (hosts []string, err error) {
+	host, port, valid := ParseAndValidateServerName(serverName)
+	if !valid {
+		err = fmt.Errorf("Invalid server name")
+		return
+	}
+
+	hosts = make([]string, 0)
+
+	// 1. If the hostname is an IP literal
+	if net.ParseIP(host) != nil {
+		if port == -1 {
+			port = 8448
+		}
+		hosts = append(hosts, fmt.Sprintf("%s:%d", host, port))
+		return
+	}
+
+	// 2. If the hostname is not an IP literal, and the server name includes an
+	// explicit port
+	if port != -1 {
+		var addrs []string
+		addrs, err = net.LookupHost(host)
+		if err != nil {
+			return
+		}
+
+		for _, addr := range addrs {
+			hosts = append(hosts, fmt.Sprintf("%s:%d", addr, port))
+		}
+		return
+	}
+
+	if needWellKnown {
+		// 3. If the hostname is not an IP literal
+		var result *WellKnownResult
+		result, err = LookupWellKnown(serverName)
+		if err == nil {
+			// We don't want to check .well-known on the result
+			return ResolveServer(result.NewAddress, false)
+		} else if err != errNoWellKnown {
+			return
+		}
+	}
+
+	// LookupServer implements steps 4 and 5 of the algorithm (as well as 3.3
+	// and 3.4)
+	dnsResults, err := LookupServer(serverName)
+	if err != nil {
+		return
+	}
+
+	return dnsResults.Addrs, nil
+}
