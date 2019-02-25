@@ -22,10 +22,12 @@ import (
 	"strings"
 )
 
+// ResolutionResult is a result of looking up a Matrix homeserver according to
+// the federation specification.
 type ResolutionResult struct {
-	Destination string
-	Host        ServerName
-	Name        string
+	Destination string     // The hostname and port to send federation requests to.
+	Host        ServerName // The value of the Host headers.
+	Name        string     // The TLS server name to request a certificate for.
 }
 
 // A HostResult is the result of looking up the IP addresses for a host.
