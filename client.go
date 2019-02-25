@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -67,26 +66,9 @@ func newFederationTripper() *federationTripper {
 	// TODO: Verify ceritificates
 	return &federationTripper{
 		transport: &http.Transport{
-			// Set our own DialTLS function to avoid the default net/http SNI.
-			// By default net/http and crypto/tls set the SNI to the target host.
-			// By avoiding the default implementation we can keep the ServerName
-			// as the empty string so that crypto/tls doesn't add SNI.
-			DialTLS: func(network, addr string) (net.Conn, error) {
-				rawconn, err := net.Dial(network, addr)
-				if err != nil {
-					return nil, err
-				}
-				// Wrap a raw connection ourselves since tls.Dial defaults the SNI
-				conn := tls.Client(rawconn, &tls.Config{
-					ServerName: "",
-					// TODO: We should be checking that the TLS certificate we see here matches
-					//       one of the allowed SHA-256 fingerprints for the server.
-					InsecureSkipVerify: true, // nolint: gas
-				})
-				if err := conn.Handshake(); err != nil {
-					return nil, err
-				}
-				return conn, nil
+			TLSClientConfig: &tls.Config{
+				// TODO: Remove this when we enforce MSC1711.
+				InsecureSkipVerify: true,
 			},
 		},
 	}
@@ -101,20 +83,22 @@ func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {
 
 func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	serverName := ServerName(r.URL.Host)
-	hosts, err := ResolveServer(serverName, true)
+	resolutionResults, err := ResolveServer(serverName)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(hosts) == 0 {
+	if len(resolutionResults) == 0 {
 		return nil, fmt.Errorf("no address found for matrix host %v", serverName)
 	}
 
 	var resp *http.Response
 	// TODO: respect the priority and weight fields from the SRV record
-	for _, host := range hosts {
-		u := makeHTTPSURL(r.URL, host)
+	for _, result := range resolutionResults {
+		u := makeHTTPSURL(r.URL, result.Destination)
 		r.URL = &u
+		r.Host = string(result.Host)
+		f.transport.(*http.Transport).TLSClientConfig.ServerName = result.Name
 		resp, err = f.transport.RoundTrip(r)
 		if err == nil {
 			return resp, nil

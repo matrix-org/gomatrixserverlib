@@ -22,6 +22,12 @@ import (
 	"strings"
 )
 
+type ResolutionResult struct {
+	Destination string
+	Host        ServerName
+	Name        string
+}
+
 // A HostResult is the result of looking up the IP addresses for a host.
 type HostResult struct {
 	CName string   // The canonical name for the host.
@@ -113,41 +119,55 @@ func LookupServer(serverName ServerName) (*DNSResult, error) { // nolint: gocycl
 // https://matrix.org/docs/spec/server_server/r0.1.1.html#resolving-server-names
 // Returns a slice containing the hosts (using the host:port form) that can be
 // used to send a federation request to the server using a given server name.
-// needWellKnown indicates whether a .well-known file should be looked up.
 // Returns an error if the server name isn't valid, or if either the .well-known
 // lookup or any DNS lookup failed. Doesn't return an error if no .well-known
 // file could be found for the given server name.
-// nolint: gocyclo
-func ResolveServer(serverName ServerName, needWellKnown bool) (hosts []string, err error) {
+func ResolveServer(serverName ServerName) (results []ResolutionResult, err error) {
+	return resolveServer(serverName, true)
+}
+
+// resolveServer does the same thing as ResolveServer, except it also requires
+// the needWellKnown parameter, which indicates whether a .well-known file
+// should be looked up.
+func resolveServer(serverName ServerName, needWellKnown bool) (results []ResolutionResult, err error) {
 	host, port, valid := ParseAndValidateServerName(serverName)
 	if !valid {
 		err = fmt.Errorf("Invalid server name")
 		return
 	}
 
-	hosts = make([]string, 0)
-
 	// 1. If the hostname is an IP literal
 	if net.ParseIP(host) != nil {
+		var destination string
+
 		if port == -1 {
-			port = 8448
+			destination = fmt.Sprintf("%s:%d", host, 8448)
+		} else {
+			destination = string(serverName)
 		}
-		hosts = append(hosts, fmt.Sprintf("%s:%d", host, port))
+
+		results = []ResolutionResult{
+			ResolutionResult{
+				Destination: destination,
+				Host:        serverName,
+				Name:        host,
+			},
+		}
+
 		return
 	}
 
 	// 2. If the hostname is not an IP literal, and the server name includes an
 	// explicit port
 	if port != -1 {
-		var addrs []string
-		addrs, err = net.LookupHost(host)
-		if err != nil {
-			return
+		results = []ResolutionResult{
+			ResolutionResult{
+				Destination: string(serverName),
+				Host:        serverName,
+				Name:        host,
+			},
 		}
 
-		for _, addr := range addrs {
-			hosts = append(hosts, fmt.Sprintf("%s:%d", addr, port))
-		}
 		return
 	}
 
@@ -156,19 +176,49 @@ func ResolveServer(serverName ServerName, needWellKnown bool) (hosts []string, e
 		var result *WellKnownResult
 		result, err = LookupWellKnown(serverName)
 		if err == nil {
-			// We don't want to check .well-known on the result
-			return ResolveServer(result.NewAddress, false)
-		} else if err != errNoWellKnown {
-			return
+			if len(result.NewAddress) > 0 {
+				// We don't want to check .well-known on the result
+				return resolveServer(result.NewAddress, false)
+			}
 		}
 	}
 
-	// LookupServer implements steps 4 and 5 of the algorithm (as well as 3.3
-	// and 3.4)
+	// handleNoWellKnown implements steps 4 and 5 of the algorithm (as well as
+	// 3.3 and 3.4)
+	return handleNoWellKnown(serverName, host)
+}
+
+func handleNoWellKnown(serverName ServerName, host string) (results []ResolutionResult, err error) {
 	dnsResults, err := LookupServer(serverName)
 	if err != nil {
 		return
 	}
 
-	return dnsResults.Addrs, nil
+	// We can't check the length of dnsResults.SRVRecords because LookupServer
+	// might have added a serverName:8448 there. Instead we check whether
+	// there's a dnsResult.SRVError.
+	if dnsResults.SRVError == nil {
+		// 4. If the /.well-known request resulted in an error response
+		for _, rec := range dnsResults.SRVRecords {
+			results = append(results, ResolutionResult{
+				Destination: fmt.Sprintf("%s:%d", rec.Target, rec.Port),
+				Host:        serverName,
+				Name:        string(serverName),
+			})
+		}
+
+		return
+	}
+
+	// 5. If the /.well-known request returned an error response, and the SRV
+	// record was not found
+	results = []ResolutionResult{
+		ResolutionResult{
+			Destination: fmt.Sprintf("%s:%d", host, 8448),
+			Host:        serverName,
+			Name:        string(serverName),
+		},
+	}
+
+	return
 }
