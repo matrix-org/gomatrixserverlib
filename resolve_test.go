@@ -22,7 +22,6 @@ const (
 	delegatedAddressDefaultPort = "matrix.example.com:8448"
 	delegatedAddressWithPort    = "matrix.example.com:4242"
 	srvHostname                 = "matrix.otherexample.com"
-	srvHostnameDefaultPort      = "matrix.otherexample.com:8448"
 	srvHostnameWithPort         = "matrix.otherexample.com:4242"
 	srvPort                     = 4242
 
