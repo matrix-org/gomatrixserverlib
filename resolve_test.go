@@ -172,6 +172,25 @@ func TestHostnameWellKnownWithHostnameSRVWithPort(t *testing.T) {
 	)
 }
 
+func TestHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
+	defer gock.Off()
+
+	gock.New("https://" + hostname).
+		Get("/.well-known/matrix/server").
+		Reply(200).
+		JSON(WellKnownResult{NewAddress: delegatedAddress})
+
+	defer clearFakeDNS(setupFakeDNS(0, false))
+
+	testResolve(
+		t,
+		ServerName(hostname),        // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which no SRV record exists
+		delegatedAddressDefaultPort, // Destination must be the hostname + port from the SRV record
+		delegatedAddress,            // Host must be the delegated hostname
+		delegatedAddress,            // Certificate (Name) must be for the delegated hostname
+	)
+}
+
 func TestHostnameWithSRVNoPort(t *testing.T) {
 	defer clearFakeDNS(setupFakeDNS(0, true))
 
