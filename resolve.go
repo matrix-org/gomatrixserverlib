@@ -202,8 +202,23 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 	if dnsResults.SRVError == nil {
 		// 4. If the /.well-known request resulted in an error response
 		for _, rec := range dnsResults.SRVRecords {
+			// If the domain is a FQDN, remove the trailing dot at the end. This
+			// isn't critical to send the request, as Go's HTTP client and most
+			// servers understand FQDNs quite well, but it makes automated
+			// testing easier.
+			target := rec.Target
+			if target[len(target)-1] == '.' {
+				target = target[:len(target)-1]
+			}
+
+			// If the port is 0, default to 8448.
+			port := rec.Port
+			if port == 0 {
+				port = 8448
+			}
+
 			results = append(results, ResolutionResult{
-				Destination: fmt.Sprintf("%s:%d", rec.Target, rec.Port),
+				Destination: fmt.Sprintf("%s:%d", target, port),
 				Host:        serverName,
 				Name:        string(serverName),
 			})
