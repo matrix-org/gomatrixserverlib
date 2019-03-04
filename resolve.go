@@ -211,14 +211,8 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 				target = target[:len(target)-1]
 			}
 
-			// If the port is 0, default to 8448.
-			port := rec.Port
-			if port == 0 {
-				port = 8448
-			}
-
 			results = append(results, ResolutionResult{
-				Destination: fmt.Sprintf("%s:%d", target, port),
+				Destination: fmt.Sprintf("%s:%d", target, rec.Port),
 				Host:        serverName,
 				Name:        string(serverName),
 			})

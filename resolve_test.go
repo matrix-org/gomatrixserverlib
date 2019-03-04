@@ -53,16 +53,18 @@ func testResolve(t *testing.T, serverName ServerName, destination, host, certNam
 	assertCritical(t, res[0].Name, certName)
 }
 
+// Tests step 1 (without a port) of the resolution algorithm.
 func TestIPLiteral(t *testing.T) {
 	testResolve(
 		t,
 		ServerName(ipLiteral), // The server name is an IP literal without a port
-		ipLiteralDefaultPort,  // Destination must be the IP address + 8448
+		ipLiteralDefaultPort,  // Destination must be the IP address + port 8448
 		ipLiteral,             // Host must be the IP address
 		ipLiteral,             // Certificate (Name) must be for the IP address
 	)
 }
 
+// Tests step 1 (with a port) of the resolution algorithm.
 func TestIPLiteralWithPort(t *testing.T) {
 	testResolve(
 		t,
@@ -73,6 +75,7 @@ func TestIPLiteralWithPort(t *testing.T) {
 	)
 }
 
+// Tests step 2 of the resolution algorithm.
 func TestHostnameAndPort(t *testing.T) {
 	testResolve(
 		t,
@@ -83,6 +86,7 @@ func TestHostnameAndPort(t *testing.T) {
 	)
 }
 
+// Tests step 3a (without a port) of the resolution algorithm.
 func TestHostnameWellKnownWithIPLiteral(t *testing.T) {
 	defer gock.Off()
 
@@ -94,12 +98,13 @@ func TestHostnameWellKnownWithIPLiteral(t *testing.T) {
 	testResolve(
 		t,
 		ServerName(hostname), // The server name is a domain hosting a .well-known file which specifies an IP literal without a port
-		ipLiteralDefaultPort, // Destination must be the IP literal + 8448
+		ipLiteralDefaultPort, // Destination must be the IP literal + port 8448
 		ipLiteral,            // Host must be the IP literal
 		ipLiteral,            // Certificate (Name) must be for the IP literal
 	)
 }
 
+// Tests step 3a (with a port) of the resolution algorithm.
 func TestHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 	defer gock.Off()
 
@@ -117,6 +122,7 @@ func TestHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 	)
 }
 
+// Tests step 3b of the resolution algorithm.
 func TestHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 	defer gock.Off()
 
@@ -134,7 +140,8 @@ func TestHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 	)
 }
 
-func TestHostnameWellKnownWithHostnameSRVNoPort(t *testing.T) {
+// Tests step 3c of the resolution algorithm.
+func TestHostnameWellKnownWithHostnameSRV(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://" + hostname).
@@ -142,26 +149,7 @@ func TestHostnameWellKnownWithHostnameSRVNoPort(t *testing.T) {
 		Reply(200).
 		JSON(WellKnownResult{NewAddress: delegatedAddress})
 
-	defer clearFakeDNS(setupFakeDNS(0, true))
-
-	testResolve(
-		t,
-		ServerName(hostname),   // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which a SRV record with port 0 exists
-		srvHostnameDefaultPort, // Destination must be the hostname from the SRV record + 8448
-		delegatedAddress,       // Host must be the delegated hostname
-		delegatedAddress,       // Certificate (Name) must be for the delegated hostname
-	)
-}
-
-func TestHostnameWellKnownWithHostnameSRVWithPort(t *testing.T) {
-	defer gock.Off()
-
-	gock.New("https://" + hostname).
-		Get("/.well-known/matrix/server").
-		Reply(200).
-		JSON(WellKnownResult{NewAddress: delegatedAddress})
-
-	defer clearFakeDNS(setupFakeDNS(srvPort, true))
+	defer clearFakeDNS(setupFakeDNS(true))
 
 	testResolve(
 		t,
@@ -172,6 +160,7 @@ func TestHostnameWellKnownWithHostnameSRVWithPort(t *testing.T) {
 	)
 }
 
+// Tests step 3d of the resolution algorithm.
 func TestHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
 	defer gock.Off()
 
@@ -180,31 +169,20 @@ func TestHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
 		Reply(200).
 		JSON(WellKnownResult{NewAddress: delegatedAddress})
 
-	defer clearFakeDNS(setupFakeDNS(0, false))
+	defer clearFakeDNS(setupFakeDNS(false))
 
 	testResolve(
 		t,
 		ServerName(hostname),        // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which no SRV record exists
-		delegatedAddressDefaultPort, // Destination must be the hostname + port from the SRV record
+		delegatedAddressDefaultPort, // Destination must be the delegated hostname + port 8448
 		delegatedAddress,            // Host must be the delegated hostname
 		delegatedAddress,            // Certificate (Name) must be for the delegated hostname
 	)
 }
 
-func TestHostnameWithSRVNoPort(t *testing.T) {
-	defer clearFakeDNS(setupFakeDNS(0, true))
-
-	testResolve(
-		t,
-		ServerName(hostname),   // The server name is a domain for which a SRV record exists with port 0
-		srvHostnameDefaultPort, // Destination must be the hostname + 8448
-		hostname,               // Host must be the server name
-		hostname,               // Certificate (Name) must be for the server name
-	)
-}
-
-func TestHostnameWithSRVWithPort(t *testing.T) {
-	defer clearFakeDNS(setupFakeDNS(srvPort, true))
+// Tests step 4 of the resolution algorithm.
+func TestHostnameWithSRV(t *testing.T) {
+	defer clearFakeDNS(setupFakeDNS(true))
 
 	testResolve(
 		t,
@@ -215,6 +193,7 @@ func TestHostnameWithSRVWithPort(t *testing.T) {
 	)
 }
 
+// Tests step 5 of the resolution algorithm.
 func TestHostnameWithNoWellKnownNorSRV(t *testing.T) {
 	defer gock.Off()
 
@@ -222,7 +201,7 @@ func TestHostnameWithNoWellKnownNorSRV(t *testing.T) {
 		Get("/.well-known/matrix/server").
 		Reply(404)
 
-	defer clearFakeDNS(setupFakeDNS(0, false))
+	defer clearFakeDNS(setupFakeDNS(false))
 
 	testResolve(
 		t,
@@ -242,12 +221,12 @@ func TestHostnameWithNoWellKnownNorSRV(t *testing.T) {
 // answer.
 // Returns with the server so it can be shutdown later, and the default resolver
 // as it was at the beginning so it can be reset.
-func setupFakeDNS(delegatedPort int, answerSRV bool) (*dns.Server, *net.Resolver) {
+func setupFakeDNS(answerSRV bool) (*dns.Server, *net.Resolver) {
 	defaultResolver := net.DefaultResolver
 
 	// Start a DNS server with our custom handler.
 	srv := &dns.Server{Addr: fmt.Sprintf("127.0.0.1:%d", dnsPort), Net: "udp"}
-	srv.Handler = &dnsHandler{delegatedPort: uint16(delegatedPort), answerSRV: answerSRV}
+	srv.Handler = &dnsHandler{answerSRV: answerSRV}
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
@@ -276,8 +255,7 @@ func clearFakeDNS(srv *dns.Server, resolver *net.Resolver) {
 
 // dnsHandler is the handler used to answer DNS queries.
 type dnsHandler struct {
-	delegatedPort uint16
-	answerSRV     bool
+	answerSRV bool
 }
 
 // ServeDNS answers DNS queries.
@@ -293,7 +271,7 @@ func (h *dnsHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				Hdr:      dns.RR_Header{Name: domain, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 60},
 				Priority: 10,
 				Weight:   0,
-				Port:     h.delegatedPort,
+				Port:     srvPort,
 				Target:   srvHostname + ".", // Domain name needs to be fully qualified.
 			})
 		}
