@@ -12,19 +12,6 @@ import (
 )
 
 const (
-	ipLiteral                   = "42.42.42.42"
-	ipLiteralDefaultPort        = "42.42.42.42:8448"
-	ipLiteralAndPort            = "42.42.42.42:443"
-	hostname                    = "example.com"
-	hostnameDefaultPort         = "example.com:8448"
-	hostnameAndPort             = "example.com:4242"
-	delegatedAddress            = "matrix.example.com"
-	delegatedAddressDefaultPort = "matrix.example.com:8448"
-	delegatedAddressWithPort    = "matrix.example.com:4242"
-	srvHostname                 = "matrix.otherexample.com"
-	srvHostnameWithPort         = "matrix.otherexample.com:4242"
-	srvPort                     = 4242
-
 	dnsPort = 5555
 )
 
@@ -49,28 +36,50 @@ func testResolve(t *testing.T, serverName ServerName, destination, host, certNam
 	assertCritical(t, len(res), 1)
 	assertCritical(t, res[0].Destination, destination)
 	assertCritical(t, res[0].Host, ServerName(host))
-	assertCritical(t, res[0].Name, certName)
+	assertCritical(t, res[0].TLSServerName, certName)
 }
 
-// Tests step 1 (without a port) of the resolution algorithm.
+// Tests step 1 (IPv4 without a port) of the resolution algorithm.
 func TestIPLiteral(t *testing.T) {
 	testResolve(
 		t,
-		ServerName(ipLiteral), // The server name is an IP literal without a port
-		ipLiteralDefaultPort,  // Destination must be the IP address + port 8448
-		ipLiteral,             // Host must be the IP address
-		ipLiteral,             // Certificate (Name) must be for the IP address
+		ServerName("42.42.42.42"), // The server name is an IP literal without a port
+		"42.42.42.42:8448",        // Destination must be the IP address + port 8448
+		"42.42.42.42",             // Host must be the IP address
+		"42.42.42.42",             // Certificate (Name) must be for the IP address
 	)
 }
 
-// Tests step 1 (with a port) of the resolution algorithm.
+// Tests step 1 (IPv6 without a port) of the resolution algorithm.
+func TestIPv6Literal(t *testing.T) {
+	testResolve(
+		t,
+		ServerName("[42:42::42]"), // The server name is an IP literal without a port
+		"[42:42::42]:8448",        // Destination must be the IP address + port 8448
+		"[42:42::42]",             // Host must be the IP address
+		"42:42::42",               // Certificate (Name) must be for the IP address
+	)
+}
+
+// Tests step 1 (IPv4 with a port) of the resolution algorithm.
 func TestIPLiteralWithPort(t *testing.T) {
 	testResolve(
 		t,
-		ServerName(ipLiteralAndPort), // The server name is an IP literal with a port
-		ipLiteralAndPort,             // Destination must be the IP address + port
-		ipLiteralAndPort,             // Host must be the IP address + port
-		ipLiteral,                    // Certificate (Name) must be for the IP address
+		ServerName("42.42.42.42:443"), // The server name is an IP literal with a port
+		"42.42.42.42:443",             // Destination must be the IP address + port
+		"42.42.42.42:443",             // Host must be the IP address + port
+		"42.42.42.42",                 // Certificate (Name) must be for the IP address
+	)
+}
+
+// Tests step 1 (IPv6 with a port) of the resolution algorithm.
+func TestIPv6LiteralWithPort(t *testing.T) {
+	testResolve(
+		t,
+		ServerName("[42:42::42]:443"), // The server name is an IP literal with a port
+		"[42:42::42]:443",             // Destination must be the IP address + port
+		"[42:42::42]:443",             // Host must be the IP address + port
+		"42:42::42",                   // Certificate (Name) must be for the IP address
 	)
 }
 
@@ -78,10 +87,10 @@ func TestIPLiteralWithPort(t *testing.T) {
 func TestHostnameAndPort(t *testing.T) {
 	testResolve(
 		t,
-		ServerName(hostnameAndPort), // The server name is not an IP literal and includes an explicit port
-		hostnameAndPort,             // Destination must be the hostname + port
-		hostnameAndPort,             // Host must be the hostname + port
-		hostname,                    // Certificate (Name) must be for the hostname
+		ServerName("example.com:4242"), // The server name is not an IP literal and includes an explicit port
+		"example.com:4242",             // Destination must be the hostname + port
+		"example.com:4242",             // Host must be the hostname + port
+		"example.com",                  // Certificate (Name) must be for the hostname
 	)
 }
 
@@ -89,17 +98,17 @@ func TestHostnameAndPort(t *testing.T) {
 func TestHostnameWellKnownWithIPLiteral(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://" + hostname).
+	gock.New("https://example.com").
 		Get("/.well-known/matrix/server").
 		Reply(200).
-		JSON(WellKnownResult{NewAddress: ipLiteral})
+		BodyString("{\"m.server\": \"42.42.42.42\"}")
 
 	testResolve(
 		t,
-		ServerName(hostname), // The server name is a domain hosting a .well-known file which specifies an IP literal without a port
-		ipLiteralDefaultPort, // Destination must be the IP literal + port 8448
-		ipLiteral,            // Host must be the IP literal
-		ipLiteral,            // Certificate (Name) must be for the IP literal
+		ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies an IP literal without a port
+		"42.42.42.42:8448",        // Destination must be the IP literal + port 8448
+		"42.42.42.42",             // Host must be the IP literal
+		"42.42.42.42",             // Certificate (Name) must be for the IP literal
 	)
 }
 
@@ -107,17 +116,17 @@ func TestHostnameWellKnownWithIPLiteral(t *testing.T) {
 func TestHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://" + hostname).
+	gock.New("https://example.com").
 		Get("/.well-known/matrix/server").
 		Reply(200).
-		JSON(WellKnownResult{NewAddress: ipLiteralAndPort})
+		BodyString("{\"m.server\": \"42.42.42.42:443\"}")
 
 	testResolve(
 		t,
-		ServerName(hostname), // The server name is a domain hosting a .well-known file which specifies an IP literal with a port
-		ipLiteralAndPort,     // Destination must be the IP literal + port
-		ipLiteralAndPort,     // Host must be the IP literal + port
-		ipLiteral,            // Certificate (Name) must be for the IP literal
+		ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies an IP literal with a port
+		"42.42.42.42:443",         // Destination must be the IP literal + port
+		"42.42.42.42:443",         // Host must be the IP literal + port
+		"42.42.42.42",             // Certificate (Name) must be for the IP literal
 	)
 }
 
@@ -125,17 +134,17 @@ func TestHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 func TestHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://" + hostname).
+	gock.New("https://example.com").
 		Get("/.well-known/matrix/server").
 		Reply(200).
-		JSON(WellKnownResult{NewAddress: delegatedAddressWithPort})
+		BodyString("{\"m.server\": \"matrix.example.com:4242\"}")
 
 	testResolve(
 		t,
-		ServerName(hostname),     // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal and has a port
-		delegatedAddressWithPort, // Destination must be the hostname + port
-		delegatedAddressWithPort, // Host must be the hostname + port
-		delegatedAddress,         // Certificate (Name) must be for the hostname
+		ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal and has a port
+		"matrix.example.com:4242", // Destination must be the hostname + port
+		"matrix.example.com:4242", // Host must be the hostname + port
+		"matrix.example.com",      // Certificate (Name) must be for the hostname
 	)
 }
 
@@ -143,19 +152,20 @@ func TestHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 func TestHostnameWellKnownWithHostnameSRV(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://" + hostname).
+	gock.New("https://example.com").
 		Get("/.well-known/matrix/server").
 		Reply(200).
-		JSON(WellKnownResult{NewAddress: delegatedAddress})
+		BodyString("{\"m.server\": \"matrix.example.com\"}")
 
-	defer clearFakeDNS(setupFakeDNS(true))
+	cleanup := setupFakeDNS(true)
+	defer cleanup()
 
 	testResolve(
 		t,
-		ServerName(hostname), // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which a SRV record with a non-0 exists
-		srvHostnameWithPort,  // Destination must be the hostname + port from the SRV record
-		delegatedAddress,     // Host must be the delegated hostname
-		delegatedAddress,     // Certificate (Name) must be for the delegated hostname
+		ServerName("example.com"),      // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which a SRV record with a non-0 exists
+		"matrix.otherexample.com:4242", // Destination must be the hostname + port from the SRV record
+		"matrix.example.com",           // Host must be the delegated hostname
+		"matrix.example.com",           // Certificate (Name) must be for the delegated hostname
 	)
 }
 
@@ -163,32 +173,34 @@ func TestHostnameWellKnownWithHostnameSRV(t *testing.T) {
 func TestHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://" + hostname).
+	gock.New("https://example.com").
 		Get("/.well-known/matrix/server").
 		Reply(200).
-		JSON(WellKnownResult{NewAddress: delegatedAddress})
+		BodyString("{\"m.server\": \"matrix.example.com\"}")
 
-	defer clearFakeDNS(setupFakeDNS(false))
+	cleanup := setupFakeDNS(false)
+	defer cleanup()
 
 	testResolve(
 		t,
-		ServerName(hostname),        // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which no SRV record exists
-		delegatedAddressDefaultPort, // Destination must be the delegated hostname + port 8448
-		delegatedAddress,            // Host must be the delegated hostname
-		delegatedAddress,            // Certificate (Name) must be for the delegated hostname
+		ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which no SRV record exists
+		"matrix.example.com:8448", // Destination must be the delegated hostname + port 8448
+		"matrix.example.com",      // Host must be the delegated hostname
+		"matrix.example.com",      // Certificate (Name) must be for the delegated hostname
 	)
 }
 
 // Tests step 4 of the resolution algorithm.
 func TestHostnameWithSRV(t *testing.T) {
-	defer clearFakeDNS(setupFakeDNS(true))
+	cleanup := setupFakeDNS(true)
+	defer cleanup()
 
 	testResolve(
 		t,
-		ServerName(hostname), // The server name is a domain for which a SRV record exists with a non-0 port
-		srvHostnameWithPort,  // Destination must be the hostname + port
-		hostname,             // Host must be the server name
-		hostname,             // Certificate (Name) must be for the server name
+		ServerName("example.com"),      // The server name is a domain for which a SRV record exists with a non-0 port
+		"matrix.otherexample.com:4242", // Destination must be the hostname + port
+		"example.com",                  // Host must be the server name
+		"example.com",                  // Certificate (Name) must be for the server name
 	)
 }
 
@@ -196,18 +208,19 @@ func TestHostnameWithSRV(t *testing.T) {
 func TestHostnameWithNoWellKnownNorSRV(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://" + hostname).
+	gock.New("https://example.com").
 		Get("/.well-known/matrix/server").
 		Reply(404)
 
-	defer clearFakeDNS(setupFakeDNS(false))
+	cleanup := setupFakeDNS(false)
+	defer cleanup()
 
 	testResolve(
 		t,
-		ServerName(hostname), // The server name is a domain for no .well-known file nor SRV record exist
-		hostnameDefaultPort,  // Destination must be the hostname + 8448
-		hostname,             // Host must be the server name
-		hostname,             // Certificate (Name) must be for the server name
+		ServerName("example.com"), // The server name is a domain for no .well-known file nor SRV record exist
+		"example.com:8448",        // Destination must be the hostname + 8448
+		"example.com",             // Host must be the server name
+		"example.com",             // Certificate (Name) must be for the server name
 	)
 }
 
@@ -218,9 +231,9 @@ func TestHostnameWithNoWellKnownNorSRV(t *testing.T) {
 // It expects to be provided with a port to return in answers, and a boolean
 // which, if set to false, will cause the server to respond to any query with no
 // answer.
-// Returns with the server so it can be shutdown later, and the default resolver
-// as it was at the beginning so it can be reset.
-func setupFakeDNS(answerSRV bool) (*dns.Server, *net.Resolver) {
+// Returns with a cleanup callback function to call when the fake DNS isn't
+// needed anymore.
+func setupFakeDNS(answerSRV bool) (cleanup func()) {
 	defaultResolver := net.DefaultResolver
 
 	// Start a DNS server with our custom handler.
@@ -242,14 +255,16 @@ func setupFakeDNS(answerSRV bool) (*dns.Server, *net.Resolver) {
 		},
 	}
 
-	return srv, defaultResolver
-}
+	// Define a function that will shutdown the DNS server, and reset the
+	// default resolver with the value it had before being tempered with, so we
+	// can return that as the callback function to call when the fake DNS isn't
+	// needed anymore.
+	cleanup = func() {
+		srv.Shutdown()
+		net.DefaultResolver = defaultResolver
+	}
 
-// clearFakeDNS shutdowns the DNS server, and reset the default resolver with
-// the value it had before being tempered with.
-func clearFakeDNS(srv *dns.Server, resolver *net.Resolver) {
-	srv.Shutdown()
-	net.DefaultResolver = resolver
+	return
 }
 
 // dnsHandler is the handler used to answer DNS queries.
@@ -270,8 +285,8 @@ func (h *dnsHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				Hdr:      dns.RR_Header{Name: domain, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 60},
 				Priority: 10,
 				Weight:   0,
-				Port:     srvPort,
-				Target:   srvHostname + ".", // Domain name needs to be fully qualified.
+				Port:     4242,
+				Target:   "matrix.otherexample.com.", // Domain name needs to be fully qualified.
 			})
 		}
 	}

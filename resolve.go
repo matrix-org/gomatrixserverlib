@@ -25,9 +25,9 @@ import (
 // ResolutionResult is a result of looking up a Matrix homeserver according to
 // the federation specification.
 type ResolutionResult struct {
-	Destination string     // The hostname and port to send federation requests to.
-	Host        ServerName // The value of the Host headers.
-	Name        string     // The TLS server name to request a certificate for.
+	Destination   string     // The hostname and port to send federation requests to.
+	Host          ServerName // The value of the Host headers.
+	TLSServerName string     // The TLS server name to request a certificate for.
 }
 
 // A HostResult is the result of looking up the IP addresses for a host.
@@ -119,19 +119,17 @@ func LookupServer(serverName ServerName) (*DNSResult, error) { // nolint: gocycl
 
 // ResolveServer implements the server name resolution algorithm described at
 // https://matrix.org/docs/spec/server_server/r0.1.1.html#resolving-server-names
-// Returns a slice containing the hosts (using the host:port form) that can be
-// used to send a federation request to the server using a given server name.
-// Returns an error if the server name isn't valid, or if either the .well-known
-// lookup or any DNS lookup failed. Doesn't return an error if no .well-known
-// file could be found for the given server name.
+// Returns a slice of ResolutionResult that can be used to send a federation
+// request to the server using a given server name.
+// Returns an error if the server name isn't valid, or if any DNS lookup failed.
 func ResolveServer(serverName ServerName) (results []ResolutionResult, err error) {
 	return resolveServer(serverName, true)
 }
 
 // resolveServer does the same thing as ResolveServer, except it also requires
-// the needWellKnown parameter, which indicates whether a .well-known file
+// the checkWellKnown parameter, which indicates whether a .well-known file
 // should be looked up.
-func resolveServer(serverName ServerName, needWellKnown bool) (results []ResolutionResult, err error) {
+func resolveServer(serverName ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
 	host, port, valid := ParseAndValidateServerName(serverName)
 	if !valid {
 		err = fmt.Errorf("Invalid server name")
@@ -139,20 +137,25 @@ func resolveServer(serverName ServerName, needWellKnown bool) (results []Resolut
 	}
 
 	// 1. If the hostname is an IP literal
+	// Check if we're dealing with an IPv6 literal with square brackets. If so,
+	// remove the brackets.
+	if host[0] == '[' && host[len(host)-1] == ']' {
+		host = host[1 : len(host)-1]
+	}
 	if net.ParseIP(host) != nil {
 		var destination string
 
 		if port == -1 {
-			destination = fmt.Sprintf("%s:%d", host, 8448)
+			destination = net.JoinHostPort(host, strconv.Itoa(8448))
 		} else {
 			destination = string(serverName)
 		}
 
 		results = []ResolutionResult{
 			ResolutionResult{
-				Destination: destination,
-				Host:        serverName,
-				Name:        host,
+				Destination:   destination,
+				Host:          serverName,
+				TLSServerName: host,
 			},
 		}
 
@@ -164,24 +167,22 @@ func resolveServer(serverName ServerName, needWellKnown bool) (results []Resolut
 	if port != -1 {
 		results = []ResolutionResult{
 			ResolutionResult{
-				Destination: string(serverName),
-				Host:        serverName,
-				Name:        host,
+				Destination:   string(serverName),
+				Host:          serverName,
+				TLSServerName: host,
 			},
 		}
 
 		return
 	}
 
-	if needWellKnown {
+	if checkWellKnown {
 		// 3. If the hostname is not an IP literal
 		var result *WellKnownResult
 		result, err = LookupWellKnown(serverName)
 		if err == nil {
-			if len(result.NewAddress) > 0 {
-				// We don't want to check .well-known on the result
-				return resolveServer(result.NewAddress, false)
-			}
+			// We don't want to check .well-known on the result
+			return resolveServer(result.NewAddress, false)
 		}
 	}
 
@@ -200,7 +201,7 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 	// might have added a serverName:8448 there. Instead we check whether
 	// there's a dnsResult.SRVError.
 	if dnsResults.SRVError == nil {
-		// 4. If the /.well-known request resulted in an error response
+		// 4. If the SRV lookup resulted in an error response
 		for _, rec := range dnsResults.SRVRecords {
 			// If the domain is a FQDN, remove the trailing dot at the end. This
 			// isn't critical to send the request, as Go's HTTP client and most
@@ -212,22 +213,22 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 			}
 
 			results = append(results, ResolutionResult{
-				Destination: fmt.Sprintf("%s:%d", target, rec.Port),
-				Host:        serverName,
-				Name:        string(serverName),
+				Destination:   fmt.Sprintf("%s:%d", target, rec.Port),
+				Host:          serverName,
+				TLSServerName: string(serverName),
 			})
 		}
 
 		return
 	}
 
-	// 5. If the /.well-known request returned an error response, and the SRV
-	// record was not found
+	// 5. If the SRV lookup returned an error response, and the SRV record was
+	// not found
 	results = []ResolutionResult{
 		ResolutionResult{
-			Destination: fmt.Sprintf("%s:%d", host, 8448),
-			Host:        serverName,
-			Name:        string(serverName),
+			Destination:   fmt.Sprintf("%s:%d", host, 8448),
+			Host:          serverName,
+			TLSServerName: string(serverName),
 		},
 	}
 

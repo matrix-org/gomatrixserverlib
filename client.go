@@ -59,19 +59,30 @@ func NewClientWithTimeout(timeout time.Duration) *Client {
 }
 
 type federationTripper struct {
-	transport http.RoundTripper
+	transports map[string]http.RoundTripper
 }
 
 func newFederationTripper() *federationTripper {
-	// TODO: Verify ceritificates
-	return &federationTripper{
-		transport: &http.Transport{
+	tripper := new(federationTripper)
+	tripper.transports = make(map[string]http.RoundTripper)
+	return tripper
+}
+
+// getTransport returns a http.Transport instance with a TLS configuration using
+// the given server name for SNI. It also creates the instance if there isn't
+// any for this server name.
+func (f *federationTripper) getTransport(tlsServerName string) http.RoundTripper {
+	if transport, ok := f.transports[tlsServerName]; !ok || transport == nil {
+		f.transports[tlsServerName] = &http.Transport{
 			TLSClientConfig: &tls.Config{
+				ServerName: tlsServerName,
 				// TODO: Remove this when we enforce MSC1711.
 				InsecureSkipVerify: true,
 			},
-		},
+		}
 	}
+
+	return f.transports[tlsServerName]
 }
 
 func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {
@@ -98,8 +109,7 @@ func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 		u := makeHTTPSURL(r.URL, result.Destination)
 		r.URL = &u
 		r.Host = string(result.Host)
-		f.transport.(*http.Transport).TLSClientConfig.ServerName = result.Name
-		resp, err = f.transport.RoundTrip(r)
+		resp, err = f.getTransport(result.TLSServerName).RoundTrip(r)
 		if err == nil {
 			return resp, nil
 		}
