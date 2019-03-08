@@ -40,7 +40,7 @@ func testResolve(t *testing.T, serverName ServerName, destination, host, certNam
 }
 
 // Tests step 1 (IPv4 without a port) of the resolution algorithm.
-func TestIPLiteral(t *testing.T) {
+func TestResolutionIPLiteral(t *testing.T) {
 	testResolve(
 		t,
 		ServerName("42.42.42.42"), // The server name is an IP literal without a port
@@ -51,7 +51,7 @@ func TestIPLiteral(t *testing.T) {
 }
 
 // Tests step 1 (IPv6 without a port) of the resolution algorithm.
-func TestIPv6Literal(t *testing.T) {
+func TestResolutionIPv6Literal(t *testing.T) {
 	testResolve(
 		t,
 		ServerName("[42:42::42]"), // The server name is an IP literal without a port
@@ -62,7 +62,7 @@ func TestIPv6Literal(t *testing.T) {
 }
 
 // Tests step 1 (IPv4 with a port) of the resolution algorithm.
-func TestIPLiteralWithPort(t *testing.T) {
+func TestResolutionIPLiteralWithPort(t *testing.T) {
 	testResolve(
 		t,
 		ServerName("42.42.42.42:443"), // The server name is an IP literal with a port
@@ -73,7 +73,7 @@ func TestIPLiteralWithPort(t *testing.T) {
 }
 
 // Tests step 1 (IPv6 with a port) of the resolution algorithm.
-func TestIPv6LiteralWithPort(t *testing.T) {
+func TestResolutionIPv6LiteralWithPort(t *testing.T) {
 	testResolve(
 		t,
 		ServerName("[42:42::42]:443"), // The server name is an IP literal with a port
@@ -84,7 +84,7 @@ func TestIPv6LiteralWithPort(t *testing.T) {
 }
 
 // Tests step 2 of the resolution algorithm.
-func TestHostnameAndPort(t *testing.T) {
+func TestResolutionHostnameAndPort(t *testing.T) {
 	testResolve(
 		t,
 		ServerName("example.com:4242"), // The server name is not an IP literal and includes an explicit port
@@ -95,7 +95,7 @@ func TestHostnameAndPort(t *testing.T) {
 }
 
 // Tests step 3a (without a port) of the resolution algorithm.
-func TestHostnameWellKnownWithIPLiteral(t *testing.T) {
+func TestResolutionHostnameWellKnownWithIPLiteral(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://example.com").
@@ -113,7 +113,7 @@ func TestHostnameWellKnownWithIPLiteral(t *testing.T) {
 }
 
 // Tests step 3a (with a port) of the resolution algorithm.
-func TestHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
+func TestResolutionHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://example.com").
@@ -131,7 +131,7 @@ func TestHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 }
 
 // Tests step 3b of the resolution algorithm.
-func TestHostnameWellKnownWithHostnameAndPort(t *testing.T) {
+func TestResolutionHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://example.com").
@@ -149,7 +149,7 @@ func TestHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 }
 
 // Tests step 3c of the resolution algorithm.
-func TestHostnameWellKnownWithHostnameSRV(t *testing.T) {
+func TestResolutionHostnameWellKnownWithHostnameSRV(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://example.com").
@@ -170,7 +170,7 @@ func TestHostnameWellKnownWithHostnameSRV(t *testing.T) {
 }
 
 // Tests step 3d of the resolution algorithm.
-func TestHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
+func TestResolutionHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://example.com").
@@ -191,7 +191,7 @@ func TestHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
 }
 
 // Tests step 4 of the resolution algorithm.
-func TestHostnameWithSRV(t *testing.T) {
+func TestResolutionHostnameWithSRV(t *testing.T) {
 	cleanup := setupFakeDNS(true)
 	defer cleanup()
 
@@ -205,7 +205,7 @@ func TestHostnameWithSRV(t *testing.T) {
 }
 
 // Tests step 5 of the resolution algorithm.
-func TestHostnameWithNoWellKnownNorSRV(t *testing.T) {
+func TestResolutionHostnameWithNoWellKnownNorSRV(t *testing.T) {
 	defer gock.Off()
 
 	gock.New("https://example.com").
