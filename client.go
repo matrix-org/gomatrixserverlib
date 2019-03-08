@@ -67,8 +67,7 @@ type federationTripper struct {
 
 func newFederationTripper() *federationTripper {
 	return &federationTripper{
-		transports:      make(map[string]http.RoundTripper),
-		transportsMutex: sync.Mutex{},
+		transports: make(map[string]http.RoundTripper),
 	}
 }
 
