@@ -121,7 +121,7 @@ func LookupServer(serverName ServerName) (*DNSResult, error) { // nolint: gocycl
 // https://matrix.org/docs/spec/server_server/r0.1.1.html#resolving-server-names
 // Returns a slice of ResolutionResult that can be used to send a federation
 // request to the server using a given server name.
-// Returns an error if the server name isn't valid, or if any DNS lookup failed.
+// Returns an error if the server name isn't valid.
 func ResolveServer(serverName ServerName) (results []ResolutionResult, err error) {
 	return resolveServer(serverName, true)
 }
