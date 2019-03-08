@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matrix-org/gomatrix"
@@ -59,30 +60,45 @@ func NewClientWithTimeout(timeout time.Duration) *Client {
 }
 
 type federationTripper struct {
-	transports map[string]http.RoundTripper
+	// transports maps an TLS server name with an HTTP transport.
+	transports      map[string]http.RoundTripper
+	transportsMutex *sync.Mutex
 }
 
 func newFederationTripper() *federationTripper {
-	tripper := new(federationTripper)
-	tripper.transports = make(map[string]http.RoundTripper)
-	return tripper
+	return &federationTripper{
+		transports:      make(map[string]http.RoundTripper),
+		transportsMutex: new(sync.Mutex),
+	}
 }
 
 // getTransport returns a http.Transport instance with a TLS configuration using
 // the given server name for SNI. It also creates the instance if there isn't
 // any for this server name.
-func (f *federationTripper) getTransport(tlsServerName string) http.RoundTripper {
-	if transport, ok := f.transports[tlsServerName]; !ok || transport == nil {
-		f.transports[tlsServerName] = &http.Transport{
+// We need to use one transport per TLS server name (instead of giving our round
+// tripper a single transport) because a transport is bound to a single server
+// name.
+func (f *federationTripper) getTransport(tlsServerName string) (transport http.RoundTripper) {
+	var ok bool
+
+	f.transportsMutex.Lock()
+
+	// Create the transport if we don't have any for this TLS server name.
+	if transport, ok = f.transports[tlsServerName]; !ok {
+		transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
 				ServerName: tlsServerName,
 				// TODO: Remove this when we enforce MSC1711.
 				InsecureSkipVerify: true,
 			},
 		}
+
+		f.transports[tlsServerName] = transport
 	}
 
-	return f.transports[tlsServerName]
+	f.transportsMutex.Unlock()
+
+	return transport
 }
 
 func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {

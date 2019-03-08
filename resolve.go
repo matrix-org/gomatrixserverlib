@@ -186,12 +186,12 @@ func resolveServer(serverName ServerName, checkWellKnown bool) (results []Resolu
 		}
 	}
 
-	return handleNoWellKnown(serverName, host), nil
+	return handleNoWellKnown(serverName), nil
 }
 
 // handleNoWellKnown implements steps 4 and 5 of the resolution algorithm (as
 // well as 3.3 and 3.4)
-func handleNoWellKnown(serverName ServerName, host string) (results []ResolutionResult) {
+func handleNoWellKnown(serverName ServerName) (results []ResolutionResult) {
 	// 4. If the /.well-known request resulted in an error response
 	_, records, err := net.LookupSRV("matrix", "tcp", string(serverName))
 	if err == nil && len(records) > 0 {
@@ -206,7 +206,7 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 			}
 
 			results = append(results, ResolutionResult{
-				Destination:   net.JoinHostPort(target, strconv.Itoa(int(rec.Port))),
+				Destination:   fmt.Sprintf("%s:%d", target, rec.Port),
 				Host:          serverName,
 				TLSServerName: string(serverName),
 			})
@@ -219,7 +219,7 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 	// record was not found
 	results = []ResolutionResult{
 		ResolutionResult{
-			Destination:   net.JoinHostPort(host, strconv.Itoa(8448)),
+			Destination:   net.JoinHostPort(string(serverName), strconv.Itoa(8448)),
 			Host:          serverName,
 			TLSServerName: string(serverName),
 		},
