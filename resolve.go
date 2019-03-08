@@ -47,6 +47,8 @@ type DNSResult struct {
 }
 
 // LookupServer looks up a matrix server in DNS.
+// This function is rendered obsolete by ResolveServer, and will be removed in
+// the future.
 func LookupServer(serverName ServerName) (*DNSResult, error) { // nolint: gocyclo
 	var result DNSResult
 	result.Hosts = map[string]HostResult{}
@@ -219,7 +221,7 @@ func handleNoWellKnown(serverName ServerName) (results []ResolutionResult) {
 	// record was not found
 	results = []ResolutionResult{
 		ResolutionResult{
-			Destination:   net.JoinHostPort(string(serverName), strconv.Itoa(8448)),
+			Destination:   fmt.Sprintf("%s:%d", serverName, 8448),
 			Host:          serverName,
 			TLSServerName: string(serverName),
 		},

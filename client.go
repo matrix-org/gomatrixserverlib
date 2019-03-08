@@ -62,13 +62,13 @@ func NewClientWithTimeout(timeout time.Duration) *Client {
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
-	transportsMutex *sync.Mutex
+	transportsMutex sync.Mutex
 }
 
 func newFederationTripper() *federationTripper {
 	return &federationTripper{
 		transports:      make(map[string]http.RoundTripper),
-		transportsMutex: new(sync.Mutex),
+		transportsMutex: sync.Mutex{},
 	}
 }
 
@@ -76,8 +76,8 @@ func newFederationTripper() *federationTripper {
 // the given server name for SNI. It also creates the instance if there isn't
 // any for this server name.
 // We need to use one transport per TLS server name (instead of giving our round
-// tripper a single transport) because a transport is bound to a single server
-// name.
+// tripper a single transport) because there is no way to specify the TLS
+// ServerName on a per-connection basis.
 func (f *federationTripper) getTransport(tlsServerName string) (transport http.RoundTripper) {
 	var ok bool
 
