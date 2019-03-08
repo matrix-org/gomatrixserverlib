@@ -186,23 +186,16 @@ func resolveServer(serverName ServerName, checkWellKnown bool) (results []Resolu
 		}
 	}
 
-	// handleNoWellKnown implements steps 4 and 5 of the algorithm (as well as
-	// 3.3 and 3.4)
-	return handleNoWellKnown(serverName, host)
+	return handleNoWellKnown(serverName, host), nil
 }
 
-func handleNoWellKnown(serverName ServerName, host string) (results []ResolutionResult, err error) {
-	dnsResults, err := LookupServer(serverName)
-	if err != nil {
-		return
-	}
-
-	// We can't check the length of dnsResults.SRVRecords because LookupServer
-	// might have added a serverName:8448 there. Instead we check whether
-	// there's a dnsResult.SRVError.
-	if dnsResults.SRVError == nil {
-		// 4. If the SRV lookup resulted in an error response
-		for _, rec := range dnsResults.SRVRecords {
+// handleNoWellKnown implements steps 4 and 5 of the resolution algorithm (as
+// well as 3.3 and 3.4)
+func handleNoWellKnown(serverName ServerName, host string) (results []ResolutionResult) {
+	// 4. If the /.well-known request resulted in an error response
+	_, records, err := net.LookupSRV("matrix", "tcp", string(serverName))
+	if err == nil && len(records) > 0 {
+		for _, rec := range records {
 			// If the domain is a FQDN, remove the trailing dot at the end. This
 			// isn't critical to send the request, as Go's HTTP client and most
 			// servers understand FQDNs quite well, but it makes automated
@@ -213,7 +206,7 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 			}
 
 			results = append(results, ResolutionResult{
-				Destination:   fmt.Sprintf("%s:%d", target, rec.Port),
+				Destination:   net.JoinHostPort(target, strconv.Itoa(int(rec.Port))),
 				Host:          serverName,
 				TLSServerName: string(serverName),
 			})
@@ -222,11 +215,11 @@ func handleNoWellKnown(serverName ServerName, host string) (results []Resolution
 		return
 	}
 
-	// 5. If the SRV lookup returned an error response, and the SRV record was
-	// not found
+	// 5. If the /.well-known request returned an error response, and the SRV
+	// record was not found
 	results = []ResolutionResult{
 		ResolutionResult{
-			Destination:   fmt.Sprintf("%s:%d", host, 8448),
+			Destination:   net.JoinHostPort(host, strconv.Itoa(8448)),
 			Host:          serverName,
 			TLSServerName: string(serverName),
 		},
