@@ -365,3 +365,24 @@ func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.R
 
 	return resp, nil
 }
+
+// GetVersion gets the version information of a homeserver.
+// See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-version
+func (fc *Client) GetVersion(
+	ctx context.Context, s ServerName,
+) (res Version, err error) {
+	// Construct a request for version information
+	url := url.URL{
+		Scheme: "https",
+		Host:   string(s),
+		Path:   "/_matrix/federation/v1/version",
+	}
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return
+	}
+
+	// Make the request and parse the response
+	err = fc.DoRequestAndParseResponse(ctx, req, &res)
+	return
+}
