@@ -21,9 +21,9 @@ type Version struct {
 	// Server is a struct containing the homserver version values
 	Server struct {
 		// Name is an arbitrary string that the Matrix server uses to identify itself
-		Name string `json:"name"`
+		Name string `json:"name,omitempty"`
 		// Version is a string that identifies the Matrix server's version, the format
 		// of which depends on the Matrx server implementation
-		Version string `json:"version"`
-	} `json:"server"`
+		Version string `json:"version,omitempty"`
+	} `json:"server,omitempty"`
 }
