@@ -212,3 +212,19 @@ func (ac *FederationClient) Backfill(
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
+
+// GetVersion gets the version information of a homeserver.
+// See https://matrix.org/docs/spec/server_server/unstable.html#get-matrix-federation-v1-version
+func (ac *FederationClient) GetVersion(
+	ctx context.Context, s ServerName,
+) (res Version, err error) {
+	// Make a request
+	u := url.URL{
+		Path: "/_matrix/federation/v1/version",
+	}
+	path := u.RequestURI()
+
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
