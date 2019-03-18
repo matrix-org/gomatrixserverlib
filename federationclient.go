@@ -214,7 +214,7 @@ func (ac *FederationClient) Backfill(
 }
 
 // GetVersion gets the version information of a homeserver.
-// See https://matrix.org/docs/spec/server_server/unstable.html#get-matrix-federation-v1-version
+// See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-version
 func (ac *FederationClient) GetVersion(
 	ctx context.Context, s ServerName,
 ) (res Version, err error) {

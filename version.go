@@ -16,11 +16,14 @@
 package gomatrixserverlib
 
 // A Version is a struct that matches the version response from a Matrix homeserver. See
-// https://matrix.org/docs/spec/server_server/unstable.html#get-matrix-federation-v1-version
+// https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-version
 type Version struct {
-	// Name is an arbitrary string that the Matrix server uses to identify itself
-	Name string `json:"name"`
-	// Version is a string that identifies the Matrix server's version, the format
-	// of which depends on the Matrx server implementation
-	Version string `json:"version"`
+	// Server is a struct containing the homserver version values
+	Server struct {
+		// Name is an arbitrary string that the Matrix server uses to identify itself
+		Name string `json:"name"`
+		// Version is a string that identifies the Matrix server's version, the format
+		// of which depends on the Matrx server implementation
+		Version string `json:"version"`
+	} `json:"server"`
 }
