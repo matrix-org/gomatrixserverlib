@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 )
 
 // ResolutionResult is a result of looking up a Matrix homeserver according to
