@@ -19,12 +19,13 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/pkg/errors"
 	"fmt"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // ServerKeys are the ed25519 signing keys published by a matrix server.
