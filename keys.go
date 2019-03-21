@@ -19,7 +19,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
+	"github.com/pkg/errors"
 	"fmt"
 	"net"
 	"net/http"
