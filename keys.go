@@ -19,10 +19,13 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // ServerKeys are the ed25519 signing keys published by a matrix server.
@@ -132,9 +135,12 @@ func FetchKeysDirect(serverName ServerName, addr, sni string) (*ServerKeys, *tls
 	if err != nil {
 		return nil, nil, err
 	}
+	if response.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("Non-200 response %d from remote server", response.StatusCode)
+	}
 	var keys ServerKeys
 	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "Unable to decode JSON from remote server")
 	}
 	return &keys, &connectionState, nil
 }
