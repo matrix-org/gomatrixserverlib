@@ -22,6 +22,11 @@ type ServerName string
 //
 // if there is no explicit port, returns '-1' as the port.
 func ParseAndValidateServerName(serverName ServerName) (host string, port int, valid bool) {
+	// Don't go any further if the server name is an empty string.
+	if len(serverName) == 0 {
+		return
+	}
+
 	host, port = splitServerName(serverName)
 	valid = false
 
