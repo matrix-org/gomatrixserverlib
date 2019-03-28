@@ -28,7 +28,6 @@ func ParseAndValidateServerName(serverName ServerName) (host string, port int, v
 	}
 
 	host, port = splitServerName(serverName)
-	valid = false
 
 	// the host part must be one of:
 	//  - a valid (ascii) dns name
