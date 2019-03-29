@@ -105,7 +105,8 @@ func FetchKeysDirect(addr, sni string, timeout time.Duration) (*ServerKeys, *tls
 		Timeout: timeout, // A 0 timeout means no timeout.
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				ServerName:         sni,
+				ServerName: sni,
+				// TODO: Remove this once Synapse 1.0 is out.
 				InsecureSkipVerify: true, // nolint: gas
 			},
 		},
