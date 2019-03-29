@@ -93,14 +93,17 @@ func (keys ServerKeys) PublicKey(keyID KeyID, atTS Timestamp) []byte {
 	return nil
 }
 
-// FetchKeysDirect fetches the matrix keys directly from the given address.
+// FetchKeysDirect fetches the matrix keys for a given server name directly from
+// the given address.
 // Optionally sets a SNI header if ``sni`` is not empty.
 // Optionally sets a timeout to the HTTP client if ``timeout`` isn't 0.
 // Note that this function doesn't check the validity of the certificate(s)
 // served by the server.
 // Returns the server keys and the state of the TLS connection used to retrieve
 // them.
-func FetchKeysDirect(addr, sni string, timeout time.Duration) (*ServerKeys, *tls.ConnectionState, error) {
+func FetchKeysDirect(
+	serverName ServerName, addr, sni string, timeout time.Duration,
+) (*ServerKeys, *tls.ConnectionState, error) {
 	cli := http.Client{
 		Timeout: timeout, // A 0 timeout means no timeout.
 		Transport: &http.Transport{
@@ -118,6 +121,7 @@ func FetchKeysDirect(addr, sni string, timeout time.Duration) (*ServerKeys, *tls
 	if err != nil {
 		return nil, nil, err
 	}
+	request.Host = string(serverName)
 	request.Header.Set("Connection", "close")
 	// Send the request and wait for the response.
 	response, err := cli.Do(request)
