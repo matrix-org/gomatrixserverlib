@@ -4,7 +4,6 @@ require (
 	github.com/matrix-org/gomatrix v0.0.0-20190130130140-385f072fe9af
 	github.com/matrix-org/util v0.0.0-20171127121716-2e2df66af2f5
 	github.com/miekg/dns v1.1.4
-	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.3.0
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/tidwall/gjson v1.1.5
