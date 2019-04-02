@@ -16,16 +16,9 @@
 package gomatrixserverlib
 
 import (
-	"bufio"
-	"crypto/tls"
 	"encoding/json"
-	"fmt"
-	"net"
-	"net/http"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // ServerKeys are the ed25519 signing keys published by a matrix server.
@@ -93,56 +86,6 @@ func (keys ServerKeys) PublicKey(keyID KeyID, atTS Timestamp) []byte {
 		return oldKey.Key
 	}
 	return nil
-}
-
-// FetchKeysDirect fetches the matrix keys directly from the given address.
-// Optionally sets a SNI header if ``sni`` is not empty.
-// Returns the server keys and the state of the TLS connection used to retrieve them.
-func FetchKeysDirect(serverName ServerName, addr, sni string) (*ServerKeys, *tls.ConnectionState, error) {
-	// Create a TLS connection.
-	tcpconn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer tcpconn.Close() // nolint: errcheck
-	tlsconn := tls.Client(tcpconn, &tls.Config{
-		ServerName: sni,
-
-		// This must be specified even though the TLS library will ignore it.
-		InsecureSkipVerify: true, // nolint: gas
-	})
-	if err = tlsconn.Handshake(); err != nil {
-		return nil, nil, err
-	}
-	connectionState := tlsconn.ConnectionState()
-
-	// Write a GET /_matrix/key/v2/server down the connection.
-	requestURL := "matrix://" + string(serverName) + "/_matrix/key/v2/server"
-	request, err := http.NewRequest("GET", requestURL, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	request.Header.Set("Connection", "close")
-	if err = request.Write(tlsconn); err != nil {
-		return nil, nil, err
-	}
-
-	// Read the 200 OK from the server.
-	response, err := http.ReadResponse(bufio.NewReader(tlsconn), request)
-	if response != nil {
-		defer response.Body.Close() // nolint: errcheck
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	if response.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("Non-200 response %d from remote server", response.StatusCode)
-	}
-	var keys ServerKeys
-	if err = json.NewDecoder(response.Body).Decode(&keys); err != nil {
-		return nil, nil, errors.Wrap(err, "Unable to decode JSON from remote server")
-	}
-	return &keys, &connectionState, nil
 }
 
 // Ed25519Checks are the checks that are applied to Ed25519 keys in ServerKey responses.
