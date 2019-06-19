@@ -368,6 +368,12 @@ type RespDirectory struct {
 	Servers []ServerName `json:"servers"`
 }
 
+// RespProfile is the content of a response to GET /_matrix/federation/v1/query/profile
+type RespProfile struct {
+	DisplayName string `json:"displayname,omitempty"`
+	AvatarURL   string `json:"avatar_url,omitempty"`
+}
+
 func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
 	authEvents := NewAuthEvents(nil)
 	for _, authRef := range event.AuthEvents() {

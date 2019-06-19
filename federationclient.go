@@ -172,6 +172,24 @@ func (ac *FederationClient) LookupRoomAlias(
 	return
 }
 
+// LookupProfile queries the profile of a user.
+// If field is empty, the server returns the full profile of the user.
+// Otherwise, it must be one of: ["displayname", "avatar_url"], indicating
+// which field of the profile should be returned.
+// Spec: https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-query-profile
+func (ac *FederationClient) LookupProfile(
+	ctx context.Context, s ServerName, userID string, field string,
+) (res RespProfile, err error) {
+	path := federationPathPrefix + "/query/profile?user_id=" +
+		url.QueryEscape(userID)
+	if field != "" {
+		path += "&field=" + url.QueryEscape(field)
+	}
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // GetEvent gets an event by ID from a remote server.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-event-eventid
 func (ac *FederationClient) GetEvent(
