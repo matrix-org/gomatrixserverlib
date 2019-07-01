@@ -206,6 +206,36 @@ func (ac *FederationClient) LookupRoomAlias(
 	return
 }
 
+// GetPublicRooms gets all public rooms listed on the target homeserver's directory.
+// Spec: https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-publicrooms
+// thirdPartyInstanceID can only be non-empty if includeAllNetworks is false.
+func (ac *FederationClient) GetPublicRooms(
+	ctx context.Context, s ServerName, limit int, since string,
+	includeAllNetworks bool, thirdPartyInstanceID string,
+) (res RespPublicRooms, err error) {
+	if includeAllNetworks && thirdPartyInstanceID != "" {
+		panic("thirdPartyInstanceID can only be used if includeAllNetworks is false")
+	}
+
+	query := url.Values{}
+	query.Set("limit", strconv.Itoa(limit))
+	query.Set("since", since)
+	query.Set("include_all_networks", strconv.FormatBool(includeAllNetworks))
+	if !includeAllNetworks {
+		query.Set("third_party_instance_id", thirdPartyInstanceID)
+	}
+
+	u := url.URL{
+		Path:     federationPathPrefix + "/publicRooms",
+		RawQuery: query.Encode(),
+	}
+	path := u.RequestURI()
+
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // LookupProfile queries the profile of a user.
 // If field is empty, the server returns the full profile of the user.
 // Otherwise, it must be one of: ["displayname", "avatar_url"], indicating

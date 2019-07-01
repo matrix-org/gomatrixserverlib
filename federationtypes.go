@@ -133,6 +133,41 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
+type RespPublicRooms struct {
+	// A paginated chunk of public rooms.
+	Chunk []PublicRoom `json:"chunk"`
+	// A pagination token for the response. The absence of this token means there are no more results to fetch and the client should stop paginating.
+	NextBatch string `json:"next_batch,omitempty"`
+	// A pagination token that allows fetching previous results. The absence of this token means there are no results before this batch, i.e. this is the first batch.
+	PrevBatch string `json:"prev_batch,omitempty"`
+	// An estimate on the total number of public rooms, if the server has an estimate.
+	TotalRoomCountEstimate int `json:"total_room_count_estimate,omitempty"`
+}
+
+// PublicRoom stores the info of a room returned by
+// GET /_matrix/federation/v1/publicRooms
+type PublicRoom struct {
+	// Aliases of the room. May be empty.
+	Aliases []string `json:"aliases,omitempty"`
+	// The canonical alias of the room, if any.
+	CanonicalAlias string `json:"canonical_alias,omitempty"`
+	// The name of the room, if any.
+	Name string `json:"name,omitempty"`
+	// The number of members joined to the room.
+	JoinedMembersCount int `json:"num_joined_members"`
+	// The ID of the room.
+	RoomID string `json:"room_id"`
+	// The topic of the room, if any.
+	Topic string `json:"topic,omitempty"`
+	// Whether the room may be viewed by guest users without joining.
+	WorldReadable bool `json:"world_readable"`
+	// Whether guest users may join the room and participate in it. If they can, they will be subject to ordinary power level rules like any other user.
+	GuestCanJoin bool `json:"guest_can_join"`
+	// The URL for the room's avatar, if one is set.
+	AvatarURL string `json:"avatar_url,omitempty"`
+}
+
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
 type RespEventAuth struct {
 	// A list of events needed to authenticate the state events.
