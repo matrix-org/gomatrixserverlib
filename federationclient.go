@@ -95,6 +95,40 @@ func (ac *FederationClient) SendJoin(
 	return
 }
 
+// MakeLeave makes a leave m.room.member event for a room on a remote matrix server.
+// This is used to reject a remote invite and is similar to MakeJoin.
+// If this successfully returns an acceptable event we will sign it, replace
+// the event_id with our own, and pass it to SendLeave.
+// See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-make-leave-roomid-userid
+func (ac *FederationClient) MakeLeave(
+	ctx context.Context, s ServerName, roomID, userID string,
+) (res RespMakeLeave, err error) {
+	path := federationPathPrefix + "/make_leave/" +
+		url.PathEscape(roomID) + "/" +
+		url.PathEscape(userID)
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
+// SendLeave sends a leave m.room.member event obtained using MakeLeave via a
+// remote matrix server.
+// This is used to reject a remote invite.
+// See https://matrix.org/docs/spec/server_server/r0.1.1.html#put-matrix-federation-v1-send-leave-roomid-eventid
+func (ac *FederationClient) SendLeave(
+	ctx context.Context, s ServerName, event Event,
+) (err error) {
+	path := federationPathPrefix + "/send_leave/" +
+		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.EventID())
+	req := NewFederationRequest("PUT", s, path)
+	if err = req.SetContent(event); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, nil)
+	return
+}
+
 // SendInvite sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *FederationClient) SendInvite(
