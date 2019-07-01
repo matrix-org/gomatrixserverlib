@@ -199,6 +199,8 @@ func (ac *FederationClient) GetPublicRooms(
 
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
+	return
+}
 
 // LookupProfile queries the profile of a user.
 // If field is empty, the server returns the full profile of the user.
