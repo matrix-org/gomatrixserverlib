@@ -35,6 +35,8 @@ type createContent struct {
 	Federate *bool `json:"m.federate"`
 	// The creator of the room tells us what the default power levels are.
 	Creator string `json:"creator"`
+	// The version of the room. Should be treated as "1" when the key doesn't exist.
+	RoomVersion *string `json:"room_version"`
 }
 
 // newCreateContentFromAuthEvents loads the create event content from the create event in the
