@@ -638,7 +638,7 @@ func redactEventAllowed(event Event, authEvents AuthEventProvider) error {
 
 	roomVersion := allower.create.RoomVersion
 	if roomVersion != nil && *roomVersion != "1" && *roomVersion != "2" {
-		// We always accept redaction events into DAG for rooms >= v3 after the
+		// We always accept redaction events into the DAG for rooms >= v3 after the
 		// very basic checks.
 		return nil
 	}
