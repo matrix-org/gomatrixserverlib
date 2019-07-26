@@ -333,8 +333,15 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 	var tuple []RawJSON
+	// TODO: Change above comment in that we're supporting both Synapse's behaviour
+	// and nice behaviour
 	if err := json.Unmarshal(data, &tuple); err != nil {
-		return err
+		var fields respSendJoinFields
+		if err := json.Unmarshal(data, &fields); err != nil {
+			return err
+		}
+		*r = RespSendJoin(fields)
+		return nil
 	}
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid send join response, invalid length: %d != 2", len(tuple))
