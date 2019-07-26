@@ -37,6 +37,7 @@ type ClientEvent struct {
 	StateKey *string `json:"state_key,omitempty"`
 	Type     string  `json:"type"`
 	Unsigned RawJSON `json:"unsigned,omitempty"`
+	Redacts  string  `json:"redacts,omitempty"`
 }
 
 // ToClientEvents converts server events to client events.
@@ -58,6 +59,7 @@ func ToClientEvent(se Event, format EventFormat) ClientEvent {
 		Unsigned:       RawJSON(se.Unsigned()),
 		OriginServerTS: se.OriginServerTS(),
 		EventID:        se.EventID(),
+		Redacts:        se.Redacts(),
 	}
 	if format == FormatAll {
 		ce.RoomID = se.RoomID()
