@@ -618,7 +618,11 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 	return nil
 }
 
-// redactEventAllowed checks whether the m.room.redaction event is allowed.
+// redactEventAllowed checks whether the m.room.redaction event is allowed to
+// enter the DAG of a room. Note that for v1, v2 rooms, this doesn't check if
+// the redactor is the sender of the redacted event, and for rooms >= v3, this
+// doesn't provide substantial checks other than some basic checks (e.g.
+// membership) on the event.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
 func redactEventAllowed(event Event, authEvents AuthEventProvider) error {
@@ -632,7 +636,15 @@ func redactEventAllowed(event Event, authEvents AuthEventProvider) error {
 		return err
 	}
 
-	senderDomain, err := domainFromID(event.Sender())
+	roomVersion := allower.create.RoomVersion
+	if roomVersion != nil && *roomVersion != "1" && *roomVersion != "2" {
+		// We always accept redaction events into the DAG for rooms >= v3 after the
+		// very basic checks.
+		return nil
+	}
+
+	sender := event.Sender()
+	senderDomain, err := domainFromID(sender)
 	if err != nil {
 		return err
 	}
@@ -655,7 +667,7 @@ func redactEventAllowed(event Event, authEvents AuthEventProvider) error {
 
 	// Otherwise the sender must have enough power.
 	// This allows room admins and ops to redact messages sent by other servers.
-	senderLevel := allower.powerLevels.userLevel(event.Sender())
+	senderLevel := allower.powerLevels.userLevel(sender)
 	redactLevel := allower.powerLevels.redactLevel
 	if senderLevel >= redactLevel {
 		return nil
@@ -663,7 +675,7 @@ func redactEventAllowed(event Event, authEvents AuthEventProvider) error {
 
 	return errorf(
 		"%q is not allowed to redact message from %q. %d < %d",
-		event.Sender(), redactDomain, senderLevel, redactLevel,
+		sender, redactDomain, senderLevel, redactLevel,
 	)
 }
 
