@@ -26,11 +26,16 @@ import (
 )
 
 const (
-	join   = "join"
-	ban    = "ban"
-	leave  = "leave"
-	invite = "invite"
-	public = "public"
+	// Join is the string constant "join"
+	Join = "join"
+	// Ban is the string constant "ban"
+	Ban = "ban"
+	// Leave is the string constant "leave"
+	Leave = "leave"
+	// Invite is the string constant "invite"
+	Invite = "invite"
+	// Public is the string constant "public"
+	Public = "public"
 	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
 	MRoomCreate = "m.room.create"
 	// MRoomJoinRules https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules
@@ -203,7 +208,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		if stateKey != nil {
 			result.Member = append(result.Member, sender, *stateKey)
 		}
-		if content.Membership == join {
+		if content.Membership == Join {
 			result.JoinRules = true
 		}
 		if content.ThirdPartyInvite != nil {
@@ -734,7 +739,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 
 	// Check that the sender is in the room.
 	// Every event other than m.room.create, m.room.member and m.room.aliases require this.
-	if e.member.Membership != join {
+	if e.member.Membership != Join {
 		return errorf("sender %q not in room", sender)
 	}
 
@@ -843,7 +848,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error { // nolint: go
 	// Special case the first join event in the room to allow the creator to join.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
 	if m.targetID == m.create.Creator &&
-		m.newMember.Membership == join &&
+		m.newMember.Membership == Join &&
 		m.senderID == m.targetID &&
 		len(event.PrevEvents()) == 1 {
 
@@ -858,7 +863,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error { // nolint: go
 		// Otherwise fall back to the normal checks.
 	}
 
-	if m.newMember.Membership == invite && m.newMember.ThirdPartyInvite != nil {
+	if m.newMember.Membership == Invite && m.newMember.ThirdPartyInvite != nil {
 		// Special case third party invites
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
 		return m.membershipAllowedFromThirdPartyInvite()
@@ -911,32 +916,32 @@ func (m *membershipAllower) membershipAllowedFromThirdPartyInvite() error {
 
 // membershipAllowedSelf determines if the change made by the user to their own membership is allowed.
 func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
-	if m.newMember.Membership == join {
+	if m.newMember.Membership == Join {
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
-		if m.oldMember.Membership == leave && m.joinRule.JoinRule == public {
+		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Public {
 			return nil
 		}
 		// An invited user is allowed to join if the join rules are "public"
-		if m.oldMember.Membership == invite && m.joinRule.JoinRule == public {
+		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Public {
 			return nil
 		}
 		// An invited user is allowed to join if the join rules are "invite"
-		if m.oldMember.Membership == invite && m.joinRule.JoinRule == invite {
+		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Invite {
 			return nil
 		}
 		// A joined user is allowed to update their join.
-		if m.oldMember.Membership == join {
+		if m.oldMember.Membership == Join {
 			return nil
 		}
 	}
-	if m.newMember.Membership == leave {
+	if m.newMember.Membership == Leave {
 		// A joined user is allowed to leave the room.
-		if m.oldMember.Membership == join {
+		if m.oldMember.Membership == Join {
 			return nil
 		}
 		// An invited user is allowed to reject an invite.
-		if m.oldMember.Membership == invite {
+		if m.oldMember.Membership == Invite {
 			return nil
 		}
 	}
@@ -949,11 +954,11 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 	targetLevel := m.powerLevels.userLevel(m.targetID)
 
 	// You may only modify the membership of another user if you are in the room.
-	if m.senderMember.Membership != join {
+	if m.senderMember.Membership != Join {
 		return errorf("sender %q is not in the room", m.senderID)
 	}
 
-	if m.newMember.Membership == ban {
+	if m.newMember.Membership == Ban {
 		// A user may ban another user if their level is high enough
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
 		if senderLevel >= m.powerLevels.banLevel &&
@@ -961,31 +966,31 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			return nil
 		}
 	}
-	if m.newMember.Membership == leave {
+	if m.newMember.Membership == Leave {
 		// A user may unban another user if their level is high enough.
 		// This is doesn't require the same power_level checks as banning.
 		// You can unban someone with higher power_level than you.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
-		if m.oldMember.Membership == ban && senderLevel >= m.powerLevels.banLevel {
+		if m.oldMember.Membership == Ban && senderLevel >= m.powerLevels.banLevel {
 			return nil
 		}
 		// A user may kick another user if their level is high enough.
 		// TODO: You can kick a user that was already kicked, or has left the room, or was
 		// never in the room in the first place. Do we want to allow these redundant kicks?
-		if m.oldMember.Membership != ban &&
+		if m.oldMember.Membership != Ban &&
 			senderLevel >= m.powerLevels.kickLevel &&
 			senderLevel > targetLevel {
 			return nil
 		}
 	}
-	if m.newMember.Membership == invite {
+	if m.newMember.Membership == Invite {
 		// A user may invite another user if the user has left the room.
 		// and their level is high enough.
-		if m.oldMember.Membership == leave && senderLevel >= m.powerLevels.inviteLevel {
+		if m.oldMember.Membership == Leave && senderLevel >= m.powerLevels.inviteLevel {
 			return nil
 		}
 		// A user may re-invite a user.
-		if m.oldMember.Membership == invite && senderLevel >= m.powerLevels.inviteLevel {
+		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.inviteLevel {
 			return nil
 		}
 	}

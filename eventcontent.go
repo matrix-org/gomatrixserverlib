@@ -134,7 +134,7 @@ func newMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 	if memberEvent == nil {
 		// If there isn't a member event then the membership for the user
 		// defaults to leave.
-		c.Membership = leave
+		c.Membership = Leave
 		return
 	}
 	return newMemberContentFromEvent(*memberEvent)
@@ -193,7 +193,7 @@ func newJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c joinRuleC
 	if joinRulesEvent == nil {
 		// Default to "invite"
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L368
-		c.JoinRule = invite
+		c.JoinRule = Invite
 		return
 	}
 	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
