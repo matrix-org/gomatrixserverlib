@@ -27,11 +27,11 @@ import (
 
 const (
 	// Join is the string constant "join"
-	Join   = "join"
+	Join = "join"
 	// Ban is the string constant "ban"
-	Ban    = "ban"
+	Ban = "ban"
 	// Leave is the string constant "leave"
-	Leave  = "leave"
+	Leave = "leave"
 	// Invite is the string constant "invite"
 	Invite = "invite"
 	// Public is the string constant "public"
