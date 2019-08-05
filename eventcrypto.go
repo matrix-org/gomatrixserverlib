@@ -228,7 +228,7 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 				if err != nil {
 					return nil, err
 				}
-				if c.Membership == invite {
+				if c.Membership == Invite {
 					domains[ServerName(targetDomain)] = true
 				}
 			}
