@@ -26,10 +26,15 @@ import (
 )
 
 const (
+	// String constant "join"
 	Join   = "join"
+	// String constant "ban"
 	Ban    = "ban"
+	// String constant "leave"
 	Leave  = "leave"
+	// String constant "invite"
 	Invite = "invite"
+	// String constant "public"
 	Public = "public"
 	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
 	MRoomCreate = "m.room.create"
