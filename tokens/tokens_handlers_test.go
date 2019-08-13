@@ -14,7 +14,6 @@ package tokens
 
 import (
 	"testing"
-	"time"
 )
 
 var (
@@ -30,18 +29,19 @@ var (
 	}
 )
 
-func expireZeroValidTokenOp() TokenOptions {
+func expiredValidTokenOp() TokenOptions {
 	op := validTokenOp
-	op.Duration = 0
+	// This will set the expiry to 1 second ago
+	op.Duration = -1
 	return op
 }
 
 func TestExpiredLoginToken(t *testing.T) {
-	fakeToken, err := GenerateLoginToken(expireZeroValidTokenOp())
-	// token uses 1 second precision
-	time.Sleep(time.Second)
-	res := ValidateToken(validTokenOp, fakeToken)
-	if res == nil {
+	fakeToken, err := GenerateLoginToken(expiredValidTokenOp())
+	if err != nil {
+		t.Errorf("Unexpected error from token generation: %v", err)
+	}
+	if err = ValidateToken(validTokenOp, fakeToken); err == nil {
 		t.Error("Token validation should fail for expired token")
 	}
 }
@@ -69,7 +69,7 @@ func TestValidateToken(t *testing.T) {
 	for _, invalid := range []TokenOptions{invalidKeyTokenOp, invalidUserTokenOp} {
 		res = ValidateToken(invalid, fakeToken)
 		if res == nil {
-			t.Errorf("Token validation should fail for invalid TokenOptions: ", invalid)
+			t.Error("Token validation should fail for invalid TokenOptions: ", invalid)
 		}
 	}
 }

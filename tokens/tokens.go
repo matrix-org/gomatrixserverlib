@@ -38,7 +38,9 @@ type TokenOptions struct {
 	ServerPrivateKey []byte `yaml:"private_key"`
 	ServerName       string `yaml:"server_name"`
 	UserID           string `json:"user_id"`
-	Duration         int    // optional
+	// The valid period of the token in seconds since its generation.
+	// Only used in GenerateLoginToken; 0 is treated as defaultDuration.
+	Duration int
 }
 
 // GenerateLoginToken generates a short term login token to be used as
