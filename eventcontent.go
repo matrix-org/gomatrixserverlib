@@ -124,11 +124,13 @@ type MemberContent struct {
 	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
 }
 
+// MemberThirdPartyInvite is the "Invite" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
 type MemberThirdPartyInvite struct {
 	DisplayName string                       `json:"display_name"`
 	Signed      MemberThirdPartyInviteSigned `json:"signed"`
 }
 
+// MemberThirdPartyInviteSigned is the "signed" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
 type MemberThirdPartyInviteSigned struct {
 	MXID       string                       `json:"mxid"`
 	Signatures map[string]map[string]string `json:"signatures"`
@@ -174,6 +176,8 @@ type ThirdPartyInviteContent struct {
 	} `json:"public_keys"`
 }
 
+// NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
+// Returns an error if there was an error loading the third party invite event or parsing the event content.
 func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, token string) (t ThirdPartyInviteContent, err error) {
 	var thirdPartyInviteEvent *Event
 	if thirdPartyInviteEvent, err = authEvents.ThirdPartyInvite(token); err != nil {
@@ -235,7 +239,7 @@ type PowerLevelContent struct {
 	StateDefault  int64            `json:"state_default"`
 }
 
-// userLevel returns the power level a user has in the room.
+// UserLevel returns the power level a user has in the room.
 func (c *PowerLevelContent) UserLevel(userID string) int64 {
 	level, ok := c.Users[userID]
 	if ok {
@@ -244,7 +248,7 @@ func (c *PowerLevelContent) UserLevel(userID string) int64 {
 	return c.UsersDefault
 }
 
-// eventLevel returns the power level needed to send an event in the room.
+// EventLevel returns the power level needed to send an event in the room.
 func (c *PowerLevelContent) EventLevel(eventType string, isState bool) int64 {
 	if eventType == MRoomThirdPartyInvite {
 		// Special case third_party_invite events to have the same level as
@@ -285,7 +289,7 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 	return
 }
 
-// defaults sets the power levels to their default values.
+// Defaults sets the power levels to their default values.
 func (c *PowerLevelContent) Defaults() {
 	// Default invite level is 0.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L426
