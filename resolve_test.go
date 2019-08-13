@@ -11,10 +11,6 @@ import (
 	"gopkg.in/h2non/gock.v1"
 )
 
-const (
-	dnsPort = 5555
-)
-
 // assertCritical checks whether the second parameter it gets has the same type
 // and value as the third one, and aborts the current test if that's not the
 // case.
@@ -236,22 +232,33 @@ func TestResolutionHostnameWithNoWellKnownNorSRV(t *testing.T) {
 func setupFakeDNS(answerSRV bool) (cleanup func()) {
 	defaultResolver := net.DefaultResolver
 
-	// Start a DNS server with our custom handler.
-	srv := &dns.Server{Addr: fmt.Sprintf("127.0.0.1:%d", dnsPort), Net: "udp"}
-	srv.Handler = &dnsHandler{answerSRV: answerSRV}
+	// Start a DNS server with our custom handler on a random available port.
+	listenAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		panic(fmt.Sprintf("failed to ResolveUDPAddr: %v", err))
+	}
+	udpConn, err := net.ListenUDP("udp", listenAddr)
+	if err != nil {
+		panic(fmt.Sprintf("failed to ListenUDP: %v", err))
+	}
+
+	handler := dnsHandler{answerSRV: answerSRV}
+	srv := &dns.Server{PacketConn: udpConn, Handler: &handler}
+
 	go func() {
-		err := srv.ListenAndServe()
+		err := srv.ActivateAndServe()
 		if err != nil {
 			panic(err)
 		}
 	}()
 
 	// Redefine the default resolver so it uses our local server.
+	actualListenAddr := udpConn.LocalAddr().String()
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			// Redirect every DNS query to our local server.
-			return net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", dnsPort))
+			return net.Dial("udp", actualListenAddr)
 		},
 	}
 
