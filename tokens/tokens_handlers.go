@@ -32,8 +32,8 @@ func GetUserFromToken(token string) (user string, err error) {
 	return
 }
 
-// ValidateToken validates that the Token is understood and was signed by this server.
-// Returns nil if token is valid, otherwise returns a error.
+// ValidateToken validates that the token is parseable and signed by this server.
+// Returns an error if the token is invalid, otherwise nil.
 func ValidateToken(op TokenOptions, token string) error {
 	mac, err := deSerializeMacaroon(token)
 	if err != nil {
