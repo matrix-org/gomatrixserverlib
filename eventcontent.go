@@ -171,9 +171,13 @@ type ThirdPartyInviteContent struct {
 	PublicKey      string `json:"public_key"`
 	// Public keys are used to verify the signature of a m.room.member event that
 	// came from a m.room.third_party_invite event
-	PublicKeys []struct {
-		PublicKey Base64String `json:"public_key"`
-	} `json:"public_keys"`
+	PublicKeys []PublicKey `json:"public_keys"`
+}
+
+// PublicKey is the "PublicKeys" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-third-party-invite
+type PublicKey struct {
+	PublicKey      Base64String `json:"public_key"`
+	KeyValidityURL string       `json:"key_validity_url"`
 }
 
 // NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
