@@ -139,7 +139,7 @@ func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []Eve
 // if there is a m.room.member without a membership key.
 func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err error) {
 	// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
-	var content *memberContent
+	var content *MemberContent
 	if builder.Type == MRoomMember {
 		if err = json.Unmarshal(builder.Content, &content); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
@@ -157,9 +157,9 @@ func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err 
 func StateNeededForAuth(events []Event) (result StateNeeded) {
 	for _, event := range events {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
-		var content *memberContent
+		var content *MemberContent
 		if event.Type() == MRoomMember {
-			c, err := newMemberContentFromEvent(event)
+			c, err := NewMemberContentFromEvent(event)
 			if err == nil {
 				content = &c
 			}
@@ -175,7 +175,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	return
 }
 
-func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *memberContent) (err error) {
+func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *MemberContent) (err error) {
 	switch eventType {
 	case MRoomCreate:
 		// The create event doesn't require any state to authenticate.
@@ -234,7 +234,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 }
 
 // thirdPartyInviteToken extracts the token from the third_party_invite.
-func thirdPartyInviteToken(thirdPartyInvite *memberThirdPartyInvite) (string, error) {
+func thirdPartyInviteToken(thirdPartyInvite *MemberThirdPartyInvite) (string, error) {
 	if thirdPartyInvite.Signed.Token == "" {
 		return "", fmt.Errorf("missing 'third_party_invite.signed.token' JSON key")
 	}
@@ -380,7 +380,7 @@ func aliasEventAllowed(event Event, authEvents AuthEventProvider) error {
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
 
-	create, err := newCreateContentFromAuthEvents(authEvents)
+	create, err := NewCreateContentFromAuthEvents(authEvents)
 	if err != nil {
 		return err
 	}
@@ -395,7 +395,7 @@ func aliasEventAllowed(event Event, authEvents AuthEventProvider) error {
 	}
 
 	// Check that server is allowed in the room by the m.room.federate flag.
-	if err := create.domainAllowed(senderDomain); err != nil {
+	if err := create.DomainAllowed(senderDomain); err != nil {
 		return err
 	}
 
@@ -425,14 +425,14 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEventProvider) error {
 	}
 
 	// Parse the power levels.
-	newPowerLevels, err := newPowerLevelContentFromEvent(event)
+	newPowerLevels, err := NewPowerLevelContentFromEvent(event)
 	if err != nil {
 		return err
 	}
 
 	// Check that the user levels are all valid user IDs
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1063
-	for userID := range newPowerLevels.userLevels {
+	for userID := range newPowerLevels.Users {
 		if !isValidUserID(userID) {
 			return errorf("Not a valid user ID: %q", userID)
 		}
@@ -451,7 +451,7 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEventProvider) error {
 
 	// Grab the old levels so that we can compare new the levels against them.
 	oldPowerLevels := allower.powerLevels
-	senderLevel := oldPowerLevels.userLevel(event.Sender())
+	senderLevel := oldPowerLevels.UserLevel(event.Sender())
 
 	// Check that the changes in event levels are allowed.
 	if err = checkEventLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
@@ -463,7 +463,7 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEventProvider) error {
 }
 
 // checkEventLevels checks that the changes in event levels are allowed.
-func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLevelContent) error {
+func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	type levelPair struct {
 		old int64
 		new int64
@@ -474,12 +474,12 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 
 	// First add all the named levels.
 	levelChecks := []levelPair{
-		{oldPowerLevels.banLevel, newPowerLevels.banLevel},
-		{oldPowerLevels.inviteLevel, newPowerLevels.inviteLevel},
-		{oldPowerLevels.kickLevel, newPowerLevels.kickLevel},
-		{oldPowerLevels.redactLevel, newPowerLevels.redactLevel},
-		{oldPowerLevels.stateDefaultLevel, newPowerLevels.stateDefaultLevel},
-		{oldPowerLevels.eventDefaultLevel, newPowerLevels.eventDefaultLevel},
+		{oldPowerLevels.Ban, newPowerLevels.Ban},
+		{oldPowerLevels.Invite, newPowerLevels.Invite},
+		{oldPowerLevels.Kick, newPowerLevels.Kick},
+		{oldPowerLevels.Redact, newPowerLevels.Redact},
+		{oldPowerLevels.StateDefault, newPowerLevels.StateDefault},
+		{oldPowerLevels.EventsDefault, newPowerLevels.EventsDefault},
 	}
 
 	// Then add checks for each event key in the new levels.
@@ -493,20 +493,20 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 	const (
 		isStateEvent = false
 	)
-	for eventType := range newPowerLevels.eventLevels {
+	for eventType := range newPowerLevels.Events {
 		levelChecks = append(levelChecks, levelPair{
-			oldPowerLevels.eventLevel(eventType, isStateEvent),
-			newPowerLevels.eventLevel(eventType, isStateEvent),
+			oldPowerLevels.EventLevel(eventType, isStateEvent),
+			newPowerLevels.EventLevel(eventType, isStateEvent),
 		})
 	}
 
 	// Then add checks for each event key in the old levels.
 	// Some of these will be duplicates of the ones added using the keys from
 	// the new levels. But it doesn't hurt to run the checks twice for the same level.
-	for eventType := range oldPowerLevels.eventLevels {
+	for eventType := range oldPowerLevels.Events {
 		levelChecks = append(levelChecks, levelPair{
-			oldPowerLevels.eventLevel(eventType, isStateEvent),
-			newPowerLevels.eventLevel(eventType, isStateEvent),
+			oldPowerLevels.EventLevel(eventType, isStateEvent),
+			newPowerLevels.EventLevel(eventType, isStateEvent),
 		})
 	}
 
@@ -546,7 +546,7 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels powerLev
 }
 
 // checkUserLevels checks that the changes in user levels are allowed.
-func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowerLevels powerLevelContent) error {
+func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	type levelPair struct {
 		old    int64
 		new    int64
@@ -559,22 +559,22 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 
 	// First add the user default level.
 	userLevelChecks := []levelPair{
-		{oldPowerLevels.userDefaultLevel, newPowerLevels.userDefaultLevel, ""},
+		{oldPowerLevels.UsersDefault, newPowerLevels.UsersDefault, ""},
 	}
 
 	// Then add checks for each user key in the new levels.
-	for userID := range newPowerLevels.userLevels {
+	for userID := range newPowerLevels.Users {
 		userLevelChecks = append(userLevelChecks, levelPair{
-			oldPowerLevels.userLevel(userID), newPowerLevels.userLevel(userID), userID,
+			oldPowerLevels.UserLevel(userID), newPowerLevels.UserLevel(userID), userID,
 		})
 	}
 
 	// Then add checks for each user key in the old levels.
 	// Some of these will be duplicates of the ones added using the keys from
 	// the new levels. But it doesn't hurt to run the checks twice for the same level.
-	for userID := range oldPowerLevels.userLevels {
+	for userID := range oldPowerLevels.Users {
 		userLevelChecks = append(userLevelChecks, levelPair{
-			oldPowerLevels.userLevel(userID), newPowerLevels.userLevel(userID), userID,
+			oldPowerLevels.UserLevel(userID), newPowerLevels.UserLevel(userID), userID,
 		})
 	}
 
@@ -672,8 +672,8 @@ func redactEventAllowed(event Event, authEvents AuthEventProvider) error {
 
 	// Otherwise the sender must have enough power.
 	// This allows room admins and ops to redact messages sent by other servers.
-	senderLevel := allower.powerLevels.userLevel(sender)
-	redactLevel := allower.powerLevels.redactLevel
+	senderLevel := allower.powerLevels.UserLevel(sender)
+	redactLevel := allower.powerLevels.Redact
 	if senderLevel >= redactLevel {
 		return nil
 	}
@@ -701,23 +701,23 @@ func defaultEventAllowed(event Event, authEvents AuthEventProvider) error {
 // other than m.room.create, m.room.member and m.room.aliases which are special.
 type eventAllower struct {
 	// The content of the m.room.create.
-	create createContent
+	create CreateContent
 	// The content of the m.room.member event for the sender.
-	member memberContent
+	member MemberContent
 	// The content of the m.room.power_levels event for the room.
-	powerLevels powerLevelContent
+	powerLevels PowerLevelContent
 }
 
 // newEventAllower loads the information needed to authorise an event sent
 // by a given user ID from the auth events.
 func newEventAllower(authEvents AuthEventProvider, senderID string) (e eventAllower, err error) {
-	if e.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
+	if e.create, err = NewCreateContentFromAuthEvents(authEvents); err != nil {
 		return
 	}
-	if e.member, err = newMemberContentFromAuthEvents(authEvents, senderID); err != nil {
+	if e.member, err = NewMemberContentFromAuthEvents(authEvents, senderID); err != nil {
 		return
 	}
-	if e.powerLevels, err = newPowerLevelContentFromAuthEvents(authEvents, e.create.Creator); err != nil {
+	if e.powerLevels, err = NewPowerLevelContentFromAuthEvents(authEvents, e.create.Creator); err != nil {
 		return
 	}
 	return
@@ -733,7 +733,7 @@ func (e *eventAllower) commonChecks(event Event) error {
 	sender := event.Sender()
 	stateKey := event.StateKey()
 
-	if err := e.create.userIDAllowed(sender); err != nil {
+	if err := e.create.UserIDAllowed(sender); err != nil {
 		return err
 	}
 
@@ -743,8 +743,8 @@ func (e *eventAllower) commonChecks(event Event) error {
 		return errorf("sender %q not in room", sender)
 	}
 
-	senderLevel := e.powerLevels.userLevel(sender)
-	eventLevel := e.powerLevels.eventLevel(event.Type(), stateKey != nil)
+	senderLevel := e.powerLevels.UserLevel(sender)
+	eventLevel := e.powerLevels.EventLevel(event.Type(), stateKey != nil)
 	if senderLevel < eventLevel {
 		return errorf(
 			"sender %q is not allowed to send event. %d < %d",
@@ -777,19 +777,19 @@ type membershipAllower struct {
 	// The user ID of the user who sent the membership event.
 	senderID string
 	// The membership of the user who sent the membership event.
-	senderMember memberContent
+	senderMember MemberContent
 	// The previous membership of the user whose membership is changing.
-	oldMember memberContent
+	oldMember MemberContent
 	// The new membership of the user if this event is accepted.
-	newMember memberContent
+	newMember MemberContent
 	// The m.room.create content for the room.
-	create createContent
+	create CreateContent
 	// The m.room.power_levels content for the room.
-	powerLevels powerLevelContent
+	powerLevels PowerLevelContent
 	// The m.room.join_rules content for the room.
-	joinRule joinRuleContent
+	joinRule JoinRuleContent
 	// The m.room.third_party_invite content referenced by this event.
-	thirdPartyInvite thirdPartyInviteContent
+	thirdPartyInvite ThirdPartyInviteContent
 }
 
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
@@ -803,31 +803,31 @@ func newMembershipAllower(authEvents AuthEventProvider, event Event) (m membersh
 	// TODO: Check that the IDs are valid user IDs.
 	m.targetID = *stateKey
 	m.senderID = event.Sender()
-	if m.create, err = newCreateContentFromAuthEvents(authEvents); err != nil {
+	if m.create, err = NewCreateContentFromAuthEvents(authEvents); err != nil {
 		return
 	}
-	if m.newMember, err = newMemberContentFromEvent(event); err != nil {
+	if m.newMember, err = NewMemberContentFromEvent(event); err != nil {
 		return
 	}
-	if m.oldMember, err = newMemberContentFromAuthEvents(authEvents, m.targetID); err != nil {
+	if m.oldMember, err = NewMemberContentFromAuthEvents(authEvents, m.targetID); err != nil {
 		return
 	}
-	if m.senderMember, err = newMemberContentFromAuthEvents(authEvents, m.senderID); err != nil {
+	if m.senderMember, err = NewMemberContentFromAuthEvents(authEvents, m.senderID); err != nil {
 		return
 	}
-	if m.powerLevels, err = newPowerLevelContentFromAuthEvents(authEvents, m.create.Creator); err != nil {
+	if m.powerLevels, err = NewPowerLevelContentFromAuthEvents(authEvents, m.create.Creator); err != nil {
 		return
 	}
 	// We only need to check the join rules if the proposed membership is "join".
 	if m.newMember.Membership == "join" {
-		if m.joinRule, err = newJoinRuleContentFromAuthEvents(authEvents); err != nil {
+		if m.joinRule, err = NewJoinRuleContentFromAuthEvents(authEvents); err != nil {
 			return
 		}
 	}
 	// If this event comes from a third_party_invite, we need to check it against the original event.
 	if m.newMember.ThirdPartyInvite != nil {
 		token := m.newMember.ThirdPartyInvite.Signed.Token
-		if m.thirdPartyInvite, err = newThirdPartyInviteContentFromAuthEvents(authEvents, token); err != nil {
+		if m.thirdPartyInvite, err = NewThirdPartyInviteContentFromAuthEvents(authEvents, token); err != nil {
 			return
 		}
 	}
@@ -839,10 +839,10 @@ func (m *membershipAllower) membershipAllowed(event Event) error { // nolint: go
 	if m.create.roomID != event.RoomID() {
 		return errorf("create event has different roomID: %q != %q", event.RoomID(), m.create.roomID)
 	}
-	if err := m.create.userIDAllowed(m.senderID); err != nil {
+	if err := m.create.UserIDAllowed(m.senderID); err != nil {
 		return err
 	}
-	if err := m.create.userIDAllowed(m.targetID); err != nil {
+	if err := m.create.UserIDAllowed(m.targetID); err != nil {
 		return err
 	}
 	// Special case the first join event in the room to allow the creator to join.
@@ -950,8 +950,8 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.
 func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
-	senderLevel := m.powerLevels.userLevel(m.senderID)
-	targetLevel := m.powerLevels.userLevel(m.targetID)
+	senderLevel := m.powerLevels.UserLevel(m.senderID)
+	targetLevel := m.powerLevels.UserLevel(m.targetID)
 
 	// You may only modify the membership of another user if you are in the room.
 	if m.senderMember.Membership != Join {
@@ -961,7 +961,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 	if m.newMember.Membership == Ban {
 		// A user may ban another user if their level is high enough
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
-		if senderLevel >= m.powerLevels.banLevel &&
+		if senderLevel >= m.powerLevels.Ban &&
 			senderLevel > targetLevel {
 			return nil
 		}
@@ -971,14 +971,14 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		// This is doesn't require the same power_level checks as banning.
 		// You can unban someone with higher power_level than you.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
-		if m.oldMember.Membership == Ban && senderLevel >= m.powerLevels.banLevel {
+		if m.oldMember.Membership == Ban && senderLevel >= m.powerLevels.Ban {
 			return nil
 		}
 		// A user may kick another user if their level is high enough.
 		// TODO: You can kick a user that was already kicked, or has left the room, or was
 		// never in the room in the first place. Do we want to allow these redundant kicks?
 		if m.oldMember.Membership != Ban &&
-			senderLevel >= m.powerLevels.kickLevel &&
+			senderLevel >= m.powerLevels.Kick &&
 			senderLevel > targetLevel {
 			return nil
 		}
@@ -986,11 +986,11 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 	if m.newMember.Membership == Invite {
 		// A user may invite another user if the user has left the room.
 		// and their level is high enough.
-		if m.oldMember.Membership == Leave && senderLevel >= m.powerLevels.inviteLevel {
+		if m.oldMember.Membership == Leave && senderLevel >= m.powerLevels.Invite {
 			return nil
 		}
 		// A user may re-invite a user.
-		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.inviteLevel {
+		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.Invite {
 			return nil
 		}
 	}

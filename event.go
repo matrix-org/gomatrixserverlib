@@ -564,7 +564,7 @@ func (e Event) Membership() (string, error) {
 	if e.fields.Type != MRoomMember {
 		return "", fmt.Errorf("gomatrixserverlib: not an m.room.member event")
 	}
-	var content memberContent
+	var content MemberContent
 	if err := json.Unmarshal(e.fields.Content, &content); err != nil {
 		return "", err
 	}

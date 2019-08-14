@@ -224,7 +224,7 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 				return nil, err
 			}
 			if ServerName(targetDomain) != event.Origin() {
-				c, err := newMemberContentFromEvent(event)
+				c, err := NewMemberContentFromEvent(event)
 				if err != nil {
 					return nil, err
 				}

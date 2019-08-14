@@ -128,7 +128,7 @@ func TestStateNeededForJoin(t *testing.T) {
 		StateKey: &skey,
 		Sender:   "@u1:a",
 	}
-	if err := b.SetContent(memberContent{"join", nil}); err != nil {
+	if err := b.SetContent(newMemberContent("join", nil)); err != nil {
 		t.Fatal(err)
 	}
 	testStateNeededForAuth(t, `[{
@@ -151,7 +151,7 @@ func TestStateNeededForInvite(t *testing.T) {
 		StateKey: &skey,
 		Sender:   "@u1:a",
 	}
-	if err := b.SetContent(memberContent{"invite", nil}); err != nil {
+	if err := b.SetContent(newMemberContent("invite", nil)); err != nil {
 		t.Fatal(err)
 	}
 	testStateNeededForAuth(t, `[{
@@ -174,11 +174,11 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 		Sender:   "@u1:a",
 	}
 
-	if err := b.SetContent(memberContent{"invite", &memberThirdPartyInvite{
-		Signed: memberThirdPartyInviteSigned{
+	if err := b.SetContent(newMemberContent("invite", &MemberThirdPartyInvite{
+		Signed: MemberThirdPartyInviteSigned{
 			Token: "my_token",
 		},
-	}}); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
 	testStateNeededForAuth(t, `[{
@@ -1036,5 +1036,14 @@ func TestAuthEvents(t *testing.T) {
 	}
 	if e, err = a.Create(); err != nil || e != &create {
 		t.Errorf("TestAuthEvents: failed to get same create event")
+	}
+}
+
+func newMemberContent(
+	membership string, thirdPartyInvite *MemberThirdPartyInvite,
+) MemberContent {
+	return MemberContent{
+		Membership:       membership,
+		ThirdPartyInvite: thirdPartyInvite,
 	}
 }

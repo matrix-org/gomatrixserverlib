@@ -21,10 +21,10 @@ import (
 	"strings"
 )
 
-// createContent is the JSON content of a m.room.create event along with
+// CreateContent is the JSON content of a m.room.create event along with
 // the top level keys needed for auth.
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create for descriptions of the fields.
-type createContent struct {
+type CreateContent struct {
 	// We need the domain of the create event when checking federatability.
 	senderDomain string
 	// We need the roomID to check that events are in the same room as the create event.
@@ -32,16 +32,24 @@ type createContent struct {
 	// We need the eventID to check the first join event in the room.
 	eventID string
 	// The "m.federate" flag tells us whether the room can be federated to other servers.
-	Federate *bool `json:"m.federate"`
+	Federate *bool `json:"m.federate,omitempty"`
 	// The creator of the room tells us what the default power levels are.
 	Creator string `json:"creator"`
 	// The version of the room. Should be treated as "1" when the key doesn't exist.
-	RoomVersion *string `json:"room_version"`
+	RoomVersion *string `json:"room_version,omitempty"`
+	// The predecessor of the room.
+	Predecessor PreviousRoom `json:"predecessor,omitempty"`
 }
 
-// newCreateContentFromAuthEvents loads the create event content from the create event in the
+// PreviousRoom is the "Previous Room" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-create
+type PreviousRoom struct {
+	RoomID  string `json:"room_id"`
+	EventID string `json:"event_id"`
+}
+
+// NewCreateContentFromAuthEvents loads the create event content from the create event in the
 // auth events.
-func newCreateContentFromAuthEvents(authEvents AuthEventProvider) (c createContent, err error) {
+func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateContent, err error) {
 	var createEvent *Event
 	if createEvent, err = authEvents.Create(); err != nil {
 		return
@@ -62,9 +70,9 @@ func newCreateContentFromAuthEvents(authEvents AuthEventProvider) (c createConte
 	return
 }
 
-// domainAllowed checks whether the domain is allowed in the room by the
+// DomainAllowed checks whether the domain is allowed in the room by the
 // "m.federate" flag.
-func (c *createContent) domainAllowed(domain string) error {
+func (c *CreateContent) DomainAllowed(domain string) error {
 	if domain == c.senderDomain {
 		// If the domain matches the domain of the create event then the event
 		// is always allowed regardless of the value of the "m.federate" flag.
@@ -79,14 +87,14 @@ func (c *createContent) domainAllowed(domain string) error {
 	return errorf("room is unfederatable")
 }
 
-// userIDAllowed checks whether the domain part of the user ID is allowed in
+// UserIDAllowed checks whether the domain part of the user ID is allowed in
 // the room by the "m.federate" flag.
-func (c *createContent) userIDAllowed(id string) error {
+func (c *CreateContent) UserIDAllowed(id string) error {
 	domain, err := domainFromID(id)
 	if err != nil {
 		return err
 	}
-	return c.domainAllowed(domain)
+	return c.DomainAllowed(domain)
 }
 
 // domainFromID returns everything after the first ":" character to extract
@@ -104,29 +112,34 @@ func domainFromID(id string) (string, error) {
 	return parts[1], nil
 }
 
-// memberContent is the JSON content of a m.room.member event needed for auth checks.
+// MemberContent is the JSON content of a m.room.member event needed for auth checks.
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member for descriptions of the fields.
-type memberContent struct {
+type MemberContent struct {
 	// We use the membership key in order to check if the user is in the room.
-	Membership string `json:"membership"`
+	Membership  string `json:"membership"`
+	DisplayName string `json:"displayname,omitempty"`
+	AvatarURL   string `json:"avatar_url,omitempty"`
+	Reason      string `json:"reason,omitempty"`
 	// We use the third_party_invite key to special case thirdparty invites.
-	ThirdPartyInvite *memberThirdPartyInvite `json:"third_party_invite,omitempty"`
+	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
 }
 
-type memberThirdPartyInvite struct {
+// MemberThirdPartyInvite is the "Invite" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
+type MemberThirdPartyInvite struct {
 	DisplayName string                       `json:"display_name"`
-	Signed      memberThirdPartyInviteSigned `json:"signed"`
+	Signed      MemberThirdPartyInviteSigned `json:"signed"`
 }
 
-type memberThirdPartyInviteSigned struct {
+// MemberThirdPartyInviteSigned is the "signed" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
+type MemberThirdPartyInviteSigned struct {
 	MXID       string                       `json:"mxid"`
 	Signatures map[string]map[string]string `json:"signatures"`
 	Token      string                       `json:"token"`
 }
 
-// newMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
+// NewMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
 // Returns an error if there was an error loading the member event or parsing the event content.
-func newMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string) (c memberContent, err error) {
+func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string) (c MemberContent, err error) {
 	var memberEvent *Event
 	if memberEvent, err = authEvents.Member(userID); err != nil {
 		return
@@ -137,12 +150,12 @@ func newMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 		c.Membership = Leave
 		return
 	}
-	return newMemberContentFromEvent(*memberEvent)
+	return NewMemberContentFromEvent(*memberEvent)
 }
 
-// newMemberContentFromEvent parse the member content from an event.
+// NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
-func newMemberContentFromEvent(event Event) (c memberContent, err error) {
+func NewMemberContentFromEvent(event Event) (c MemberContent, err error) {
 	if err = json.Unmarshal(event.Content(), &c); err != nil {
 		err = errorf("unparsable member event content: %s", err.Error())
 		return
@@ -150,17 +163,26 @@ func newMemberContentFromEvent(event Event) (c memberContent, err error) {
 	return
 }
 
-// thirdPartyInviteContent is the JSON content of a m.room.third_party_invite event needed for auth checks.
+// ThirdPartyInviteContent is the JSON content of a m.room.third_party_invite event needed for auth checks.
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-third-party-invite for descriptions of the fields.
-type thirdPartyInviteContent struct {
+type ThirdPartyInviteContent struct {
+	DisplayName    string `json:"display_name"`
+	KeyValidityURL string `json:"key_validity_url"`
+	PublicKey      string `json:"public_key"`
 	// Public keys are used to verify the signature of a m.room.member event that
 	// came from a m.room.third_party_invite event
-	PublicKeys []struct {
-		PublicKey Base64String `json:"public_key"`
-	} `json:"public_keys"`
+	PublicKeys []PublicKey `json:"public_keys"`
 }
 
-func newThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, token string) (t thirdPartyInviteContent, err error) {
+// PublicKey is the "PublicKeys" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-third-party-invite
+type PublicKey struct {
+	PublicKey      Base64String `json:"public_key"`
+	KeyValidityURL string       `json:"key_validity_url"`
+}
+
+// NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
+// Returns an error if there was an error loading the third party invite event or parsing the event content.
+func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, token string) (t ThirdPartyInviteContent, err error) {
 	var thirdPartyInviteEvent *Event
 	if thirdPartyInviteEvent, err = authEvents.ThirdPartyInvite(token); err != nil {
 		return
@@ -176,16 +198,16 @@ func newThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 	return
 }
 
-// joinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.
+// JoinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.
 // See  https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules for descriptions of the fields.
-type joinRuleContent struct {
+type JoinRuleContent struct {
 	// We use the join_rule key to check whether join m.room.member events are allowed.
 	JoinRule string `json:"join_rule"`
 }
 
-// newJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
+// NewJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
 // Returns an error if there was an error loading the join rule event or parsing the content.
-func newJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c joinRuleContent, err error) {
+func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleContent, err error) {
 	var joinRulesEvent *Event
 	if joinRulesEvent, err = authEvents.JoinRules(); err != nil {
 		return
@@ -203,99 +225,101 @@ func newJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c joinRuleC
 	return
 }
 
-// powerLevelContent is the JSON content of a m.room.power_levels event needed for auth checks.
-// We can't unmarshal the content directly from JSON because we need to set
-// defaults and convert string values to int values.
+// PowerLevelContent is the JSON content of a m.room.power_levels event needed for auth checks.
+// Typically the user calls NewPowerLevelContentFromAuthEvents instead of
+// unmarshalling the content directly from JSON so defaults can be applied.
+// However, the JSON key names are still preserved so it's possible to marshal
+// the struct into JSON easily.
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-power-levels for descriptions of the fields.
-type powerLevelContent struct {
-	banLevel          int64
-	inviteLevel       int64
-	kickLevel         int64
-	redactLevel       int64
-	userLevels        map[string]int64
-	userDefaultLevel  int64
-	eventLevels       map[string]int64
-	eventDefaultLevel int64
-	stateDefaultLevel int64
+type PowerLevelContent struct {
+	Ban           int64            `json:"ban"`
+	Invite        int64            `json:"invite"`
+	Kick          int64            `json:"kick"`
+	Redact        int64            `json:"redact"`
+	Users         map[string]int64 `json:"users"`
+	UsersDefault  int64            `json:"users_default"`
+	Events        map[string]int64 `json:"events"`
+	EventsDefault int64            `json:"events_default"`
+	StateDefault  int64            `json:"state_default"`
 }
 
-// userLevel returns the power level a user has in the room.
-func (c *powerLevelContent) userLevel(userID string) int64 {
-	level, ok := c.userLevels[userID]
+// UserLevel returns the power level a user has in the room.
+func (c *PowerLevelContent) UserLevel(userID string) int64 {
+	level, ok := c.Users[userID]
 	if ok {
 		return level
 	}
-	return c.userDefaultLevel
+	return c.UsersDefault
 }
 
-// eventLevel returns the power level needed to send an event in the room.
-func (c *powerLevelContent) eventLevel(eventType string, isState bool) int64 {
+// EventLevel returns the power level needed to send an event in the room.
+func (c *PowerLevelContent) EventLevel(eventType string, isState bool) int64 {
 	if eventType == MRoomThirdPartyInvite {
 		// Special case third_party_invite events to have the same level as
 		// m.room.member invite events.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L182
-		return c.inviteLevel
+		return c.Invite
 	}
-	level, ok := c.eventLevels[eventType]
+	level, ok := c.Events[eventType]
 	if ok {
 		return level
 	}
 	if isState {
-		return c.stateDefaultLevel
+		return c.StateDefault
 	}
-	return c.eventDefaultLevel
+	return c.EventsDefault
 }
 
-// newPowerLevelContentFromAuthEvents loads the power level content from the
+// NewPowerLevelContentFromAuthEvents loads the power level content from the
 // power level event in the auth events or returns the default values if there
 // is no power level event.
-func newPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUserID string) (c powerLevelContent, err error) {
+func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUserID string) (c PowerLevelContent, err error) {
 	powerLevelsEvent, err := authEvents.PowerLevels()
 	if err != nil {
 		return
 	}
 	if powerLevelsEvent != nil {
-		return newPowerLevelContentFromEvent(*powerLevelsEvent)
+		return NewPowerLevelContentFromEvent(*powerLevelsEvent)
 	}
 
 	// If there are no power levels then fall back to defaults.
-	c.defaults()
+	c.Defaults()
 	// If there is no power level event then the creator gets level 100
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
-	c.userLevels = map[string]int64{creatorUserID: 100}
+	c.Users = map[string]int64{creatorUserID: 100}
 	// If there is no power level event then the state_default is level 0
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L997
-	c.stateDefaultLevel = 0
+	c.StateDefault = 0
 	return
 }
 
-// defaults sets the power levels to their default values.
-func (c *powerLevelContent) defaults() {
+// Defaults sets the power levels to their default values.
+func (c *PowerLevelContent) Defaults() {
 	// Default invite level is 0.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L426
-	c.inviteLevel = 0
+	c.Invite = 0
 	// Default ban, kick and redacts levels are 50
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L376
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L456
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1041
-	c.banLevel = 50
-	c.kickLevel = 50
-	c.redactLevel = 50
+	c.Ban = 50
+	c.Kick = 50
+	c.Redact = 50
 	// Default user level is 0
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L558
-	c.userDefaultLevel = 0
+	c.UsersDefault = 0
 	// Default event level is 0, Default state level is 50
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L987
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L991
-	c.eventDefaultLevel = 0
-	c.stateDefaultLevel = 50
+	c.EventsDefault = 0
+	c.StateDefault = 50
 
 }
 
-// newPowerLevelContentFromEvent loads the power level content from an event.
-func newPowerLevelContentFromEvent(event Event) (c powerLevelContent, err error) {
+// NewPowerLevelContentFromEvent loads the power level content from an event.
+func NewPowerLevelContentFromEvent(event Event) (c PowerLevelContent, err error) {
 	// Set the levels to their default values.
-	c.defaults()
+	c.Defaults()
 
 	// We can't extract the JSON directly to the powerLevelContent because we
 	// need to convert string values to int values.
@@ -316,26 +340,26 @@ func newPowerLevelContentFromEvent(event Event) (c powerLevelContent, err error)
 	}
 
 	// Update the levels with the values that are present in the event content.
-	content.InviteLevel.assignIfExists(&c.inviteLevel)
-	content.BanLevel.assignIfExists(&c.banLevel)
-	content.KickLevel.assignIfExists(&c.kickLevel)
-	content.RedactLevel.assignIfExists(&c.redactLevel)
-	content.UsersDefaultLevel.assignIfExists(&c.userDefaultLevel)
-	content.StateDefaultLevel.assignIfExists(&c.stateDefaultLevel)
-	content.EventDefaultLevel.assignIfExists(&c.eventDefaultLevel)
+	content.InviteLevel.assignIfExists(&c.Invite)
+	content.BanLevel.assignIfExists(&c.Ban)
+	content.KickLevel.assignIfExists(&c.Kick)
+	content.RedactLevel.assignIfExists(&c.Redact)
+	content.UsersDefaultLevel.assignIfExists(&c.UsersDefault)
+	content.StateDefaultLevel.assignIfExists(&c.StateDefault)
+	content.EventDefaultLevel.assignIfExists(&c.EventsDefault)
 
 	for k, v := range content.UserLevels {
-		if c.userLevels == nil {
-			c.userLevels = make(map[string]int64)
+		if c.Users == nil {
+			c.Users = make(map[string]int64)
 		}
-		c.userLevels[k] = v.value
+		c.Users[k] = v.value
 	}
 
 	for k, v := range content.EventLevels {
-		if c.eventLevels == nil {
-			c.eventLevels = make(map[string]int64)
+		if c.Events == nil {
+			c.Events = make(map[string]int64)
 		}
-		c.eventLevels[k] = v.value
+		c.Events[k] = v.value
 	}
 
 	return
