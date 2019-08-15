@@ -242,6 +242,9 @@ func setupFakeDNS(answerSRV bool) (cleanup func()) {
 		panic(fmt.Sprintf("failed to ListenUDP: %v", err))
 	}
 
+	// Get the actual address and port we're listening on
+	actualListenAddr := udpConn.LocalAddr().String()
+
 	handler := dnsHandler{answerSRV: answerSRV}
 	srv := &dns.Server{PacketConn: udpConn, Handler: &handler}
 
@@ -253,7 +256,6 @@ func setupFakeDNS(answerSRV bool) (cleanup func()) {
 	}()
 
 	// Redefine the default resolver so it uses our local server.
-	actualListenAddr := udpConn.LocalAddr().String()
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
