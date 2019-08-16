@@ -232,19 +232,21 @@ func TestResolutionHostnameWithNoWellKnownNorSRV(t *testing.T) {
 func setupFakeDNS(answerSRV bool) (cleanup func()) {
 	defaultResolver := net.DefaultResolver
 
-	// Start a DNS server with our custom handler on a random available port.
-	listenAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	// Create a UDP connection on a random available port.
+	// Using 0 as the port will tell the system to find a suitable available port.
+	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 	if err != nil {
-		panic(fmt.Sprintf("failed to ResolveUDPAddr: %v", err))
+		panic(fmt.Errorf("failed to ResolveUDPAddr: %v", err))
 	}
-	udpConn, err := net.ListenUDP("udp", listenAddr)
+	udpConn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		panic(fmt.Sprintf("failed to ListenUDP: %v", err))
+		panic(fmt.Errorf("failed to ListenUDP: %v", err))
 	}
 
-	// Get the actual address and port we're listening on
-	actualListenAddr := udpConn.LocalAddr().String()
+	// Get the actual address and port we're listening on.
+	listenAddr := udpConn.LocalAddr().String()
 
+	// Start a DNS server with our custom handler.
 	handler := dnsHandler{answerSRV: answerSRV}
 	srv := &dns.Server{PacketConn: udpConn, Handler: &handler}
 
@@ -260,7 +262,7 @@ func setupFakeDNS(answerSRV bool) (cleanup func()) {
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			// Redirect every DNS query to our local server.
-			return net.Dial("udp", actualListenAddr)
+			return net.Dial("udp", listenAddr)
 		},
 	}
 
