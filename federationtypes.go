@@ -127,12 +127,12 @@ type RespStateIDs struct {
 
 // A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
 type RespState struct {
-	// The resident server's DNS name. This field is only for type compatibility with RespSendJoin and should be empty.
-	Origin string `json:"origin,omitempty"`
 	// A list of events giving the state of the room before the request event.
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
+	// The resident server's DNS name. This field is only for type compatibility with RespSendJoin and should be empty.
+	Origin string `json:"origin,omitempty"`
 }
 
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
@@ -350,9 +350,9 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 }
 
 type respSendJoinFields struct {
-	Origin      string  `json:"origin"`
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
+	Origin      string  `json:"origin"`
 }
 
 // Check that a response to /send_join is valid.
