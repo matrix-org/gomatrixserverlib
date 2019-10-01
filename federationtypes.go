@@ -127,6 +127,8 @@ type RespStateIDs struct {
 
 // A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
 type RespState struct {
+	// The resident server's DNS name. This field is only for type compatibility with RespSendJoin and should be empty.
+	Origin string `json:"origin,omitempty"`
 	// A list of events giving the state of the room before the request event.
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
@@ -314,7 +316,7 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	//  1) The "pdus" field is renamed to "state".
 	//  2) The object is placed as the second element of a two element list
 	//     where the first element is the constant integer 200.
-	//
+	//	3) SendJoinResponses has an additional "origin" field.
 	//
 	// So a state response of:
 	//
@@ -322,7 +324,7 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	//
 	// Becomes:
 	//
-	//      [200, {"state": x, "auth_chain": y}]
+	//      [200, {""state": x, "auth_chain": y, "origin": z}]
 	//
 	// (This protocol oddity is the result of a typo in the synapse matrix
 	//  server, and is preserved to maintain compatibility.)
@@ -348,6 +350,7 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 }
 
 type respSendJoinFields struct {
+	Origin      string  `json:"origin"`
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
 }
