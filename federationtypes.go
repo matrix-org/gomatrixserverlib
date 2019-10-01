@@ -131,8 +131,6 @@ type RespState struct {
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
-	// The resident server's DNS name. This field is only for type compatibility with RespSendJoin and should be empty.
-	Origin string `json:"origin,omitempty"`
 }
 
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
@@ -250,9 +248,13 @@ func (r RespState) Events() ([]Event, error) {
 
 // Check that a response to /state is valid.
 func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
+	return checkStateAndAuthChain(ctx, r.StateEvents, r.AuthEvents, keyRing)
+}
+
+func checkStateAndAuthChain(ctx context.Context, StateEvents []Event, AuthEvents []Event, keyRing JSONVerifier) error {
 	logger := util.GetLogger(ctx)
 	var allEvents []Event
-	for _, event := range r.AuthEvents {
+	for _, event := range AuthEvents {
 		if event.StateKey() == nil {
 			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
@@ -260,7 +262,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
 	}
 
 	stateTuples := map[StateKeyTuple]bool{}
-	for _, event := range r.StateEvents {
+	for _, event := range StateEvents {
 		if event.StateKey() == nil {
 			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
@@ -307,49 +309,7 @@ type RespMakeJoin struct {
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
 // It has the same data as a response to /state, but in a slightly different wire format.
-type RespSendJoin RespState
-
-// MarshalJSON implements json.Marshaller
-func (r RespSendJoin) MarshalJSON() ([]byte, error) {
-	// SendJoinResponses contain the same data as a StateResponse but are
-	// formatted slightly differently on the wire:
-	//  1) The "pdus" field is renamed to "state".
-	//  2) The object is placed as the second element of a two element list
-	//     where the first element is the constant integer 200.
-	//	3) SendJoinResponses has an additional "origin" field.
-	//
-	// So a state response of:
-	//
-	//		{"pdus": x, "auth_chain": y}
-	//
-	// Becomes:
-	//
-	//      [200, {""state": x, "auth_chain": y, "origin": z}]
-	//
-	// (This protocol oddity is the result of a typo in the synapse matrix
-	//  server, and is preserved to maintain compatibility.)
-
-	return json.Marshal([]interface{}{200, respSendJoinFields(r)})
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	var tuple []RawJSON
-	if err := json.Unmarshal(data, &tuple); err != nil {
-		return err
-	}
-	if len(tuple) != 2 {
-		return fmt.Errorf("gomatrixserverlib: invalid send join response, invalid length: %d != 2", len(tuple))
-	}
-	var fields respSendJoinFields
-	if err := json.Unmarshal(tuple[1], &fields); err != nil {
-		return err
-	}
-	*r = RespSendJoin(fields)
-	return nil
-}
-
-type respSendJoinFields struct {
+type RespSendJoin struct {
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
 	Origin      string  `json:"origin"`
@@ -361,10 +321,7 @@ type respSendJoinFields struct {
 func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event) error {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
-	//
-	// The response to /send_join has the same data as a response to /state
-	// and the checks for a response to /state also apply.
-	if err := RespState(r).Check(ctx, keyRing); err != nil {
+	if err := checkStateAndAuthChain(ctx, r.StateEvents, r.AuthEvents, keyRing); err != nil {
 		return err
 	}
 
