@@ -62,14 +62,16 @@ type StateFilter struct {
 
 // RoomEventFilter is used to define filtering rules for events in rooms
 type RoomEventFilter struct {
-	Limit       int      `json:"limit,omitempty"`
-	NotSenders  []string `json:"not_senders,omitempty"`
-	NotTypes    []string `json:"not_types,omitempty"`
-	Senders     []string `json:"senders,omitempty"`
-	Types       []string `json:"types,omitempty"`
-	NotRooms    []string `json:"not_rooms,omitempty"`
-	Rooms       []string `json:"rooms,omitempty"`
-	ContainsURL *bool    `json:"contains_url,omitempty"`
+	Limit                   int      `json:"limit,omitempty"`
+	NotSenders              []string `json:"not_senders,omitempty"`
+	NotTypes                []string `json:"not_types,omitempty"`
+	Senders                 []string `json:"senders,omitempty"`
+	Types                   []string `json:"types,omitempty"`
+	LazyLoadMembers         bool     `json:"lazy_load_members,omitempty"`
+	IncludeRedundantMembers bool     `json:"include_redundant_members,omitempty"`
+	NotRooms                []string `json:"not_rooms,omitempty"`
+	Rooms                   []string `json:"rooms,omitempty"`
+	ContainsURL             *bool    `json:"contains_url,omitempty"`
 }
 
 // Validate checks if the filter contains valid property values
@@ -80,7 +82,8 @@ func (filter *Filter) Validate() error {
 	return nil
 }
 
-// DefaultFilter returns the default filter used by the Matrix server if no filter is provided in the request
+// DefaultFilter returns the default filter used by the Matrix server if no filter is provided in
+// the request
 func DefaultFilter() Filter {
 	return Filter{
 		AccountData: DefaultEventFilter(),
@@ -99,7 +102,8 @@ func DefaultFilter() Filter {
 	}
 }
 
-// DefaultEventFilter returns the default event filter used by the Matrix server if no filter is provided in the request
+// DefaultEventFilter returns the default event filter used by the Matrix server if no filter is
+// provided in the request
 func DefaultEventFilter() EventFilter {
 	return EventFilter{
 		Limit:      20,
@@ -110,7 +114,8 @@ func DefaultEventFilter() EventFilter {
 	}
 }
 
-// DefaultStateFilter returns the default state event filter used by the Matrix server if no filter is provided in the request
+// DefaultStateFilter returns the default state event filter used by the Matrix server if no filter
+// is provided in the request
 func DefaultStateFilter() StateFilter {
 	return StateFilter{
 		Limit:                   20,
@@ -126,7 +131,8 @@ func DefaultStateFilter() StateFilter {
 	}
 }
 
-// DefaultRoomEventFilter returns the default room event filter used by the Matrix server if no filter is provided in the request
+// DefaultRoomEventFilter returns the default room event filter used by the Matrix server if no
+// filter is provided in the request
 func DefaultRoomEventFilter() RoomEventFilter {
 	return RoomEventFilter{
 		Limit:       20,
