@@ -305,28 +305,18 @@ type RespMakeJoin struct {
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
 // It has the same data as a response to /state, but in a slightly different wire format.
-type RespSendJoin RespState
+type RespSendJoin struct {
+	StateEvents []Event
+	AuthEvents  []Event
+	Origin      string
+}
 
 // MarshalJSON implements json.Marshaller
 func (r RespSendJoin) MarshalJSON() ([]byte, error) {
-	// SendJoinResponses contain the same data as a StateResponse but are
-	// formatted slightly differently on the wire:
-	//  1) The "pdus" field is renamed to "state".
-	//  2) The object is placed as the second element of a two element list
-	//     where the first element is the constant integer 200.
-	//
-	//
-	// So a state response of:
-	//
-	//		{"pdus": x, "auth_chain": y}
-	//
-	// Becomes:
-	//
-	//      [200, {"state": x, "auth_chain": y}]
-	//
+	// RespSendJoin is sent as the second element
+	// of a two element list where the first element is the constant integer 200.
 	// (This protocol oddity is the result of a typo in the synapse matrix
 	//  server, and is preserved to maintain compatibility.)
-
 	return json.Marshal([]interface{}{200, respSendJoinFields(r)})
 }
 
@@ -350,6 +340,15 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 type respSendJoinFields struct {
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
+	Origin      string  `json:"origin"`
+}
+
+// ToRespState returns a new RespState with the same data from the given RespSendJoin
+func (r RespSendJoin) ToRespState() RespState {
+	return RespState{
+		StateEvents: r.StateEvents,
+		AuthEvents:  r.AuthEvents,
+	}
 }
 
 // Check that a response to /send_join is valid.
@@ -361,7 +360,7 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	if err := RespState(r).Check(ctx, keyRing); err != nil {
+	if err := r.ToRespState().Check(ctx, keyRing); err != nil {
 		return err
 	}
 

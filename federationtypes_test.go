@@ -50,8 +50,8 @@ func TestParseServerName(t *testing.T) {
 }
 
 func TestRespSendJoinMarshalJSON(t *testing.T) {
-	inputData := `{"pdus":[],"auth_chain":[]}`
-	var input RespState
+	inputData := `{"state":[],"auth_chain":[],"origin":""}`
+	var input respSendJoinFields
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := `[200,{"state":[],"auth_chain":[]}]`
+	want := `[200,{"state":[],"auth_chain":[],"origin":""}]`
 	got := string(gotBytes)
 
 	if want != got {
@@ -70,18 +70,18 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 }
 
 func TestRespSendJoinUnmarshalJSON(t *testing.T) {
-	inputData := `[200,{"state":[],"auth_chain":[]}]`
+	inputData := `[200,{"state":[],"auth_chain":[],"origin":""}]`
 	var input RespSendJoin
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
 
-	gotBytes, err := json.Marshal(RespState(input))
+	gotBytes, err := json.Marshal(respSendJoinFields(input))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	want := `{"pdus":[],"auth_chain":[]}`
+	want := `{"state":[],"auth_chain":[],"origin":""}`
 	got := string(gotBytes)
 
 	if want != got {
