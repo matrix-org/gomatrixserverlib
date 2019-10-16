@@ -308,7 +308,7 @@ type RespMakeJoin struct {
 type RespSendJoin struct {
 	StateEvents []Event
 	AuthEvents  []Event
-	Origin      string
+	Origin      ServerName
 }
 
 // MarshalJSON implements json.Marshaller
@@ -338,9 +338,9 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 }
 
 type respSendJoinFields struct {
-	StateEvents []Event `json:"state"`
-	AuthEvents  []Event `json:"auth_chain"`
-	Origin      string  `json:"origin"`
+	StateEvents []Event    `json:"state"`
+	AuthEvents  []Event    `json:"auth_chain"`
+	Origin      ServerName `json:"origin"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
