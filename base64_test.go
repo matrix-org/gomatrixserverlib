@@ -36,7 +36,7 @@ func TestMarshalBase64(t *testing.T) {
 
 func TestUnmarshalBase64(t *testing.T) {
 	input := []byte(`"dGhpc/9pc/9h/3Rlc3Q"`)
-	want := "this\xffis\xffa\xfftest"
+	want := "this\xffis\xffa\xfftest" // nolint:goconst
 	var got Base64String
 	err := json.Unmarshal(input, &got)
 	if err != nil {

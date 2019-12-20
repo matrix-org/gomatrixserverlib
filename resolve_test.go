@@ -271,7 +271,7 @@ func setupFakeDNS(answerSRV bool) (cleanup func()) {
 	// can return that as the callback function to call when the fake DNS isn't
 	// needed anymore.
 	cleanup = func() {
-		srv.Shutdown()
+		_ = srv.Shutdown()
 		net.DefaultResolver = defaultResolver
 	}
 

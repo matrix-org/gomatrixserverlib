@@ -1,0 +1,23 @@
+run:
+  timeout: 5m
+linters:
+  enable:
+    - vet
+    - vetshadow
+    - typecheck
+    - deadcode
+    - gocyclo
+    - golint
+    - varcheck
+    - structcheck
+    - maligned
+    - ineffassign
+#    - gosec - complains about weak cryptographic primitive sha1 and TLS InsecureSkipVerify set true in getTransport
+    - misspell
+    - unparam
+    - goimports
+    - goconst
+    - unconvert
+    - errcheck
+    - interfacer
+#    - testify - not available in golangci-lint
