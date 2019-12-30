@@ -1,4 +1,4 @@
-module github.com/matrix-org/gomatrixserverlib-p2p
+module github.com/matrix-org/gomatrixserverlib
 
 require (
 	github.com/matrix-org/gomatrix v0.0.0-20190130130140-385f072fe9af
