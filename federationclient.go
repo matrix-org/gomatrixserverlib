@@ -170,7 +170,7 @@ func (ac *FederationClient) LookupState(
 ) (res RespState, err error) {
 	path := federationPathPrefix + "/state/" +
 		url.PathEscape(roomID) +
-		"/?event_id=" +
+		"?event_id=" +
 		url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
@@ -184,7 +184,7 @@ func (ac *FederationClient) LookupStateIDs(
 ) (res RespStateIDs, err error) {
 	path := federationPathPrefix + "/state_ids/" +
 		url.PathEscape(roomID) +
-		"/?event_id=" +
+		"?event_id=" +
 		url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
