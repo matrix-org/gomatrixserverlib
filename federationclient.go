@@ -48,7 +48,7 @@ var federationPathPrefix = "/_matrix/federation/v1"
 func (ac *FederationClient) SendTransaction(
 	ctx context.Context, t Transaction,
 ) (res RespSend, err error) {
-	path := federationPathPrefix + "/send/" + string(t.TransactionID) + "/"
+	path := federationPathPrefix + "/send/" + string(t.TransactionID)
 	req := NewFederationRequest("PUT", t.Destination, path)
 	if err = req.SetContent(t); err != nil {
 		return
