@@ -306,9 +306,8 @@ type RespMakeJoin struct {
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v1/send_join/{roomID}/{eventID}
 // It has the same data as a response to /state, but in a slightly different wire format.
 type RespSendJoin struct {
-	StateEvents []Event
-	AuthEvents  []Event
-	Origin      ServerName
+	RespState
+	Origin ServerName
 }
 
 // MarshalJSON implements json.Marshaller
@@ -317,23 +316,33 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	// of a two element list where the first element is the constant integer 200.
 	// (This protocol oddity is the result of a typo in the synapse matrix
 	//  server, and is preserved to maintain compatibility.)
-	return json.Marshal([]interface{}{200, respSendJoinFields(r)})
+	return json.Marshal(respSendJoinFields{
+		StateEvents: r.StateEvents,
+		AuthEvents:  r.AuthEvents,
+		Origin:      r.Origin,
+	})
 }
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	var tuple []RawJSON
+	/*var tuple []RawJSON
 	if err := json.Unmarshal(data, &tuple); err != nil {
 		return err
 	}
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid send join response, invalid length: %d != 2", len(tuple))
-	}
+	} */
 	var fields respSendJoinFields
-	if err := json.Unmarshal(tuple[1], &fields); err != nil {
+	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
-	*r = RespSendJoin(fields)
+	*r = RespSendJoin{
+		Origin: fields.Origin,
+		RespState: RespState{
+			StateEvents: fields.StateEvents,
+			AuthEvents:  fields.AuthEvents,
+		},
+	}
 	return nil
 }
 
