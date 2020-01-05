@@ -54,17 +54,17 @@ type testEventList []Event
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
 	var eventJSONs []RawJSON
 	var events []Event
-	if err := json.Unmarshal([]byte(data), &eventJSONs); err != nil {
+	if err := json.Unmarshal(data, &eventJSONs); err != nil {
 		return err
 	}
 	for _, eventJSON := range eventJSONs {
-		event, err := NewEventFromTrustedJSON([]byte(eventJSON), false)
+		event, err := NewEventFromTrustedJSON(eventJSON, false)
 		if err != nil {
 			return err
 		}
 		events = append(events, event)
 	}
-	*tel = testEventList(events)
+	*tel = events
 	return nil
 }
 
