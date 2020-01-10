@@ -58,7 +58,7 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gotBytes, err := json.Marshal(input) // json.Marshal(RespSendJoin(input))
+	gotBytes, err := json.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
