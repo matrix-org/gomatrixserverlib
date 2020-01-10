@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const emptyRespStateResponse = `{"state":[],"auth_chain":[],"origin":""}`
+
 func TestParseServerName(t *testing.T) {
 	validTests := map[string][]interface{}{
 		"www.example.org:1234":         {"www.example.org", 1234},
@@ -61,11 +63,10 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := `{"state":[],"auth_chain":[],"origin":""}`
 	got := string(gotBytes)
 
-	if want != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, want, got)
+	if emptyRespStateResponse != got {
+		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 }
 
@@ -80,12 +81,10 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	want := `{"state":[],"auth_chain":[],"origin":""}`
 	got := string(gotBytes)
 
-	if want != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, want, got)
+	if emptyRespStateResponse != got {
+		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 
 }
