@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -23,6 +24,19 @@ func NewFederationClient(
 ) *FederationClient {
 	return &FederationClient{
 		Client:           *NewClient(),
+		serverName:       serverName,
+		serverKeyID:      keyID,
+		serverPrivateKey: privateKey,
+	}
+}
+
+// NewFederationClientWithTransport makes a new FederationClient with a custom
+// transport.
+func NewFederationClientWithTransport(
+	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey, transport *http.Transport,
+) *FederationClient {
+	return &FederationClient{
+		Client:           *NewClientWithTransport(transport),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
