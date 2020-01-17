@@ -49,14 +49,22 @@ type UserInfo struct {
 
 // NewClient makes a new Client (with default timeout)
 func NewClient() *Client {
-	return NewClientWithTimeout(requestTimeout)
+	return NewClientWithTimeout(requestTimeout, newFederationTripper())
+}
+
+// NewClientWithTransport makes a new Client with an existing transport
+func NewClientWithTransport(transport http.RoundTripper) *Client {
+	return NewClientWithTimeout(requestTimeout, transport)
 }
 
 // NewClientWithTimeout makes a new Client with a specified request timeout
-func NewClientWithTimeout(timeout time.Duration) *Client {
-	return &Client{client: http.Client{
-		Transport: newFederationTripper(),
-		Timeout:   timeout}}
+func NewClientWithTimeout(timeout time.Duration, transport http.RoundTripper) *Client {
+	return &Client{
+		client: http.Client{
+			Transport: transport,
+			Timeout:   timeout,
+		},
+	}
 }
 
 type federationTripper struct {
