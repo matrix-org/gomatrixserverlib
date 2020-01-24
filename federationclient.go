@@ -286,9 +286,6 @@ func (ac *FederationClient) GetEvent(
 func (ac *FederationClient) Backfill(
 	ctx context.Context, s ServerName, roomID string, limit int, eventIDs []string,
 ) (res Transaction, err error) {
-	// Encode the room ID so it won't interfer with the path.
-	roomID = url.PathEscape(roomID)
-
 	// Parse the limit into a string so that we can include it in the URL's query.
 	limitStr := strconv.Itoa(limit)
 
@@ -299,7 +296,7 @@ func (ac *FederationClient) Backfill(
 
 	// Use the url.URL structure to easily generate the request's URI (path?query).
 	u := url.URL{
-		Path:     "/_matrix/federation/v1/backfill/" + roomID + "/",
+		Path:     "/_matrix/federation/v1/backfill/" + roomID,
 		RawQuery: query.Encode(),
 	}
 	path := u.RequestURI()
