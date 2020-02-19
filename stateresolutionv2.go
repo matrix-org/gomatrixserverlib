@@ -16,9 +16,9 @@
 package gomatrixserverlib
 
 import (
-	"bytes"
+	"container/heap"
 	"fmt"
-	"sort"
+	"strings"
 )
 
 // ResolveStateConflicts takes a list of state events with conflicting state keys
@@ -272,22 +272,63 @@ func (r *stateResolverV2) resolveNormalBlock(events []Event) *Event {
 
 // sortConflictedEventsByReverseTopologicalOrdering performs reverse topological ordering.
 func sortConflictedEventsByReverseTopologicalOrdering(events []Event) []conflictedEventV2 {
-	events = kahnsAlgorithmUsingAuthEvents(events)
-	/*for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
-		events[i], events[j] = events[j], events[i]
-	}*/
 	block := make([]conflictedEventV2, len(events))
 	for i := range events {
 		event := &events[i]
 		block[i] = conflictedEventV2{
 			// effectivePowerLevel: event.
 			originServerTS: int64(event.OriginServerTS()),
-			eventID:        []byte(event.EventID()),
+			eventID:        event.EventID(),
 			event:          event,
 		}
 	}
-	sort.Sort(conflictedEventV2Sorter(block))
-	return block
+
+	return kahnsAlgorithmUsingAuthEvents(block)
+}
+
+// A conflictedEventV2 is used to sort the events in a block by ascending depth
+// and descending sha1 of event ID. It is a bit of an optimisation to use this -
+// by working out the effective power level etc ahead of time, we use less CPU
+// cycles during the sort.
+type conflictedEventV2 struct {
+	effectivePowerLevel int64
+	originServerTS      int64
+	eventID             string
+	event               *Event
+}
+
+// A conflictedEventV2Heap is used to sort the events using sort.Sort. We do
+// this before processing the initial set of events with no incoming auth
+// dependencies as it should help us get a deterministic result.
+type conflictedEventV2Heap []conflictedEventV2
+
+func (s conflictedEventV2Heap) Len() int {
+	return len(s)
+}
+
+func (s conflictedEventV2Heap) Less(i, j int) bool {
+	if s[i].effectivePowerLevel > s[j].effectivePowerLevel {
+		return true
+	}
+	if s[i].originServerTS < s[j].originServerTS {
+		return true
+	}
+	return strings.Compare(s[i].eventID[:], s[j].eventID[:]) < 0
+}
+
+func (s conflictedEventV2Heap) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (pq *conflictedEventV2Heap) Push(x interface{}) {
+	*pq = append(*pq, x.(conflictedEventV2))
+}
+
+func (pq *conflictedEventV2Heap) Pop() interface{} {
+	old := *pq
+	x := old[0]
+	*pq = old[1:]
+	return x
 }
 
 // kahnsAlgorithmByAuthEvents is, predictably, an implementation of Kahn's
@@ -295,24 +336,24 @@ func sortConflictedEventsByReverseTopologicalOrdering(events []Event) []conflict
 // events. This works through each event, counting how many incoming auth event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingAuthEvents(events []Event) (graph []Event) {
-	eventMap := make(map[string]Event)
+func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflictedEventV2) {
+	eventMap := make(map[string]conflictedEventV2)
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
 		// For each even that we have been given, add it to the event map so that we
 		// can easily refer back to it by event ID later.
-		eventMap[event.EventID()] = event
+		eventMap[event.eventID] = event
 
 		// If we haven't encountered this event ID yet, also start with a zero count
 		// of incoming auth event dependencies.
-		if _, ok := inDegree[event.EventID()]; !ok {
-			inDegree[event.EventID()] = 0
+		if _, ok := inDegree[event.eventID]; !ok {
+			inDegree[event.eventID] = 0
 		}
 
 		// Find each of the auth events that this event depends on and make a note
 		// for each auth event that there's an additional incoming dependency.
-		for _, auth := range event.AuthEventIDs() {
+		for _, auth := range event.event.AuthEventIDs() {
 			if _, ok := inDegree[auth]; !ok {
 				// We don't know about this event yet - set an initial value.
 				inDegree[auth] = 1
@@ -325,29 +366,30 @@ func kahnsAlgorithmUsingAuthEvents(events []Event) (graph []Event) {
 
 	// Now we need to work out which events don't have any incoming auth event
 	// dependencies. These will be placed into the graph first.
-	var noIncoming []string
+	var noIncoming conflictedEventV2Heap
+	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
-			noIncoming = append(noIncoming, eventID)
+			heap.Push(&noIncoming, eventMap[eventID])
 		}
 	}
 
-	var eventID string
-	for len(noIncoming) > 0 {
+	var event conflictedEventV2
+	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
-		eventID, noIncoming = noIncoming[0], noIncoming[1:]
+		//event, noIncoming = noIncoming[0], noIncoming[1:]
+		event = heap.Pop(&noIncoming).(conflictedEventV2)
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		realEvent := eventMap[eventID]
-		graph = append([]Event{realEvent}, graph...)
+		graph = append([]conflictedEventV2{event}, graph...)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
 		// dependencies are no longer valid - those map to incoming dependencies on
 		// the auth events, so let's update those.
-		for _, auth := range realEvent.AuthEventIDs() {
+		for _, auth := range event.event.AuthEventIDs() {
 			inDegree[auth]--
 
 			// If we see, by updating the incoming dependencies, that the auth event
@@ -355,41 +397,11 @@ func kahnsAlgorithmUsingAuthEvents(events []Event) (graph []Event) {
 			// into the graph on the next pass. In turn, this will also mean that we
 			// process the outgoing dependencies of this auth event.
 			if inDegree[auth] == 0 {
-				noIncoming = append(noIncoming, auth)
+				heap.Push(&noIncoming, eventMap[auth])
 			}
 		}
 	}
 
 	// The graph is complete at this point!
 	return graph
-}
-
-// A conflictedEventV2 is used to sort the events in a block by ascending depth and descending sha1 of event ID.
-// (SPEC: We use the SHA1 of the event ID as an arbitrary tie breaker between events with the same depth)
-type conflictedEventV2 struct {
-	effectivePowerLevel int64
-	originServerTS      int64
-	eventID             []byte
-	event               *Event
-}
-
-// A conflictedEventV2Sorter is used to sort the events using sort.Sort.
-type conflictedEventV2Sorter []conflictedEventV2
-
-func (s conflictedEventV2Sorter) Len() int {
-	return len(s)
-}
-
-func (s conflictedEventV2Sorter) Less(i, j int) bool {
-	if s[i].effectivePowerLevel > s[j].effectivePowerLevel {
-		return true
-	}
-	if s[i].originServerTS < s[j].originServerTS {
-		return true
-	}
-	return bytes.Compare(s[i].eventID[:], s[j].eventID[:]) > 0
-}
-
-func (s conflictedEventV2Sorter) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }
