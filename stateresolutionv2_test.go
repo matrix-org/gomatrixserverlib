@@ -1,6 +1,7 @@
 package gomatrixserverlib
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 )
@@ -13,6 +14,8 @@ var (
 	ZARA    = "@zara:test"
 )
 
+var emptyStateKey = ""
+
 var stateResolutionV2Base = []Event{
 	{
 		fields: eventFields{
@@ -20,6 +23,7 @@ var stateResolutionV2Base = []Event{
 			Type:           "m.room.create",
 			OriginServerTS: 1,
 			Sender:         ALICE,
+			StateKey:       &emptyStateKey,
 			Content:        []byte(`{"creator": "` + ALICE + `"}`),
 		},
 	},
@@ -45,6 +49,7 @@ var stateResolutionV2Base = []Event{
 			Type:           "m.room.power_levels",
 			OriginServerTS: 3,
 			Sender:         ALICE,
+			StateKey:       &emptyStateKey,
 			PrevEvents: []EventReference{
 				EventReference{EventID: "IMA"},
 			},
@@ -61,6 +66,7 @@ var stateResolutionV2Base = []Event{
 			Type:           "m.room.join_rules",
 			OriginServerTS: 4,
 			Sender:         ALICE,
+			StateKey:       &emptyStateKey,
 			PrevEvents: []EventReference{
 				EventReference{EventID: "IPOWER"},
 			},
@@ -165,4 +171,11 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 			t.Fatalf("position %d did not match, got '%s' but expected '%s'", p, i.eventID, expected[p])
 		}
 	}
+}
+
+func TestStateTestCase(t *testing.T) {
+	orig := append(stateResolutionV2Base, []Event{}...)
+
+	result := ResolveStateConflictsV2(orig[:len(orig)-1], orig[:len(orig)-1])
+	fmt.Println("State:", result)
 }

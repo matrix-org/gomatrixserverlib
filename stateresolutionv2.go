@@ -274,12 +274,12 @@ func (r *stateResolverV2) resolveNormalBlock(events []Event) *Event {
 func sortConflictedEventsByReverseTopologicalOrdering(events []Event) []conflictedEventV2 {
 	block := make([]conflictedEventV2, len(events))
 	for i := range events {
-		event := &events[i]
+		event := events[i]
 		block[i] = conflictedEventV2{
 			// effectivePowerLevel: event.
 			originServerTS: int64(event.OriginServerTS()),
 			eventID:        event.EventID(),
-			event:          event,
+			event:          &event,
 		}
 	}
 
@@ -365,12 +365,14 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflict
 	}
 
 	// Now we need to work out which events don't have any incoming auth event
-	// dependencies. These will be placed into the graph first.
+	// dependencies. These will be placed into the graph first. Remove the event
+	// from the event map as this prevents us from processing it a second time.
 	var noIncoming conflictedEventV2Heap
 	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
 			heap.Push(&noIncoming, eventMap[eventID])
+			delete(eventMap, eventID)
 		}
 	}
 
@@ -378,7 +380,6 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflict
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
-		//event, noIncoming = noIncoming[0], noIncoming[1:]
 		event = heap.Pop(&noIncoming).(conflictedEventV2)
 
 		// Since there are no incoming dependencies to resolve, we can now add this
@@ -397,7 +398,10 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflict
 			// into the graph on the next pass. In turn, this will also mean that we
 			// process the outgoing dependencies of this auth event.
 			if inDegree[auth] == 0 {
-				heap.Push(&noIncoming, eventMap[auth])
+				if _, ok := eventMap[auth]; ok {
+					heap.Push(&noIncoming, eventMap[auth])
+					delete(eventMap, auth)
+				}
 			}
 		}
 	}
