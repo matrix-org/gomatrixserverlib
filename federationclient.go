@@ -97,6 +97,9 @@ func (ac *FederationClient) MakeJoin(
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
+	fmt.Println("**********")
+	fmt.Println("MAKE_JOIN PATH IS", path)
+	fmt.Println("**********")
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
