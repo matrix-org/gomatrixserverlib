@@ -7,11 +7,11 @@ import (
 )
 
 var (
-	ALICE   = "@alice:test"
-	BOB     = "@bob:test"
-	CHARLIE = "@charlie:test"
-	EVELYN  = "@evelyn:test"
-	ZARA    = "@zara:test"
+	ALICE   = "@alice:example.com"
+	BOB     = "@bob:example.com"
+	CHARLIE = "@charlie:example.com"
+	EVELYN  = "@evelyn:example.com"
+	ZARA    = "@zara:example.com"
 )
 
 var emptyStateKey = ""
@@ -19,8 +19,9 @@ var emptyStateKey = ""
 var stateResolutionV2Base = []Event{
 	{
 		fields: eventFields{
-			EventID:        "CREATE",
-			Type:           "m.room.create",
+			EventID:        "$CREATE:example.com",
+			RoomID:         "!ROOM:example.com",
+			Type:           MRoomCreate,
 			OriginServerTS: 1,
 			Sender:         ALICE,
 			StateKey:       &emptyStateKey,
@@ -29,119 +30,107 @@ var stateResolutionV2Base = []Event{
 	},
 	{
 		fields: eventFields{
-			EventID:        "IMA",
-			Type:           "m.room.member",
+			EventID:        "$IMEMBERA:example.com",
+			RoomID:         "!ROOM:example.com",
+			Type:           MRoomMember,
 			OriginServerTS: 2,
 			Sender:         ALICE,
 			StateKey:       &ALICE,
 			PrevEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
+				EventReference{EventID: "$CREATE:example.com"},
 			},
 			AuthEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
+				EventReference{EventID: "$CREATE:example.com"},
 			},
 			Content: []byte(`{"membership": "join"}`),
 		},
 	},
 	{
 		fields: eventFields{
-			EventID:        "IPOWER",
-			Type:           "m.room.power_levels",
+			EventID:        "$IPOWER:example.com",
+			RoomID:         "!ROOM:example.com",
+			Type:           MRoomPowerLevels,
 			OriginServerTS: 3,
 			Sender:         ALICE,
 			StateKey:       &emptyStateKey,
 			PrevEvents: []EventReference{
-				EventReference{EventID: "IMA"},
+				EventReference{EventID: "$IMEMBERA:example.com"},
 			},
 			AuthEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
-				EventReference{EventID: "IMA"},
+				EventReference{EventID: "$CREATE:example.com"},
+				EventReference{EventID: "$IMEMBERA:example.com"},
 			},
 			Content: []byte(`{"users": {"` + ALICE + `": 100}}`),
 		},
 	},
 	{
 		fields: eventFields{
-			EventID:        "IJR",
-			Type:           "m.room.join_rules",
+			EventID:        "$IJOINRULE:example.com",
+			RoomID:         "!ROOM:example.com",
+			Type:           MRoomJoinRules,
 			OriginServerTS: 4,
 			Sender:         ALICE,
 			StateKey:       &emptyStateKey,
 			PrevEvents: []EventReference{
-				EventReference{EventID: "IPOWER"},
+				EventReference{EventID: "$IPOWER:example.com"},
 			},
 			AuthEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
-				EventReference{EventID: "IMA"},
-				EventReference{EventID: "IPOWER"},
+				EventReference{EventID: "$CREATE:example.com"},
+				EventReference{EventID: "$IMEMBERA:example.com"},
+				EventReference{EventID: "$IPOWER:example.com"},
 			},
 			Content: []byte(`{"join_rule": "public"}`),
 		},
 	},
 	{
 		fields: eventFields{
-			EventID:        "IMC",
-			Type:           "m.room.member",
+			EventID:        "$IMEMBERC:example.com",
+			RoomID:         "!ROOM:example.com",
+			Type:           MRoomMember,
 			OriginServerTS: 5,
 			Sender:         BOB,
 			StateKey:       &BOB,
 			PrevEvents: []EventReference{
-				EventReference{EventID: "IJR"},
+				EventReference{EventID: "$IJOINRULE:example.com"},
 			},
 			AuthEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
-				EventReference{EventID: "IJR"},
-				EventReference{EventID: "IPOWER"},
+				EventReference{EventID: "$CREATE:example.com"},
+				EventReference{EventID: "$IJOINRULE:example.com"},
+				EventReference{EventID: "$IPOWER:example.com"},
 			},
 			Content: []byte(`{"membership": "join"}`),
 		},
 	},
 	{
 		fields: eventFields{
-			EventID:        "IMZ",
-			Type:           "m.room.member",
+			EventID:        "$IMEMBERZ:example.com",
+			RoomID:         "!ROOM:example.com",
+			Type:           MRoomMember,
 			OriginServerTS: 6,
 			Sender:         ZARA,
 			StateKey:       &ZARA,
 			PrevEvents: []EventReference{
-				EventReference{EventID: "IMC"},
+				EventReference{EventID: "$IMEMBERC:example.com"},
 			},
 			AuthEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
-				EventReference{EventID: "IJR"},
-				EventReference{EventID: "IPOWER"},
+				EventReference{EventID: "$CREATE:example.com"},
+				EventReference{EventID: "$IJOINRULE:example.com"},
+				EventReference{EventID: "$IPOWER:example.com"},
 			},
 			Content: []byte(`{"membership": "join"}`),
-		},
-	},
-	{
-		fields: eventFields{
-			EventID:        "START",
-			Type:           "m.room.message",
-			OriginServerTS: 7,
-			Sender:         ZARA,
-			PrevEvents: []EventReference{
-				EventReference{EventID: "IMZ"},
-			},
-			AuthEvents: []EventReference{
-				EventReference{EventID: "CREATE"},
-				EventReference{EventID: "IMZ"},
-				EventReference{EventID: "IPOWER"},
-			},
-			Content: []byte(`{}`),
 		},
 	},
 }
 
 func TestLexicographicalSorting(t *testing.T) {
 	input := []conflictedEventV2{
-		conflictedEventV2{eventID: "a", effectivePowerLevel: 0, originServerTS: 1},
-		conflictedEventV2{eventID: "b", effectivePowerLevel: 0, originServerTS: 2},
-		conflictedEventV2{eventID: "c", effectivePowerLevel: 0, originServerTS: 2},
-		conflictedEventV2{eventID: "d", effectivePowerLevel: 25, originServerTS: 3},
-		conflictedEventV2{eventID: "e", effectivePowerLevel: 50, originServerTS: 4},
-		conflictedEventV2{eventID: "f", effectivePowerLevel: 75, originServerTS: 4},
-		conflictedEventV2{eventID: "g", effectivePowerLevel: 100, originServerTS: 5},
+		conflictedEventV2{eventID: "a", powerLevel: 0, originServerTS: 1},
+		conflictedEventV2{eventID: "b", powerLevel: 0, originServerTS: 2},
+		conflictedEventV2{eventID: "c", powerLevel: 0, originServerTS: 2},
+		conflictedEventV2{eventID: "d", powerLevel: 25, originServerTS: 3},
+		conflictedEventV2{eventID: "e", powerLevel: 50, originServerTS: 4},
+		conflictedEventV2{eventID: "f", powerLevel: 75, originServerTS: 4},
+		conflictedEventV2{eventID: "g", powerLevel: 100, originServerTS: 5},
 	}
 	expected := []string{"g", "f", "e", "d", "a", "b", "c"}
 
@@ -159,23 +148,131 @@ func TestLexicographicalSorting(t *testing.T) {
 }
 
 func TestReverseTopologicalEventSorting(t *testing.T) {
-	input := sortConflictedEventsByReverseTopologicalOrdering(stateResolutionV2Base)
-	expected := []string{"CREATE", "IMA", "IPOWER", "IJR", "IMC", "IMZ", "START"}
+	r := stateResolverV2{}
+	conflicted, _ := separate(stateResolutionV2Base)
+	//prepared := r.prepareConflictedEvents(conflicted)
+	//	fmt.Println("Conflicted:", conflicted)
+	//	fmt.Println("Unconflicted:", unconflicted)
+	input := r.reverseTopologicalOrdering(conflicted)
+	expected := []string{
+		"$CREATE:example.com", "$IMEMBERA:example.com", "$IPOWER:example.com",
+		"$IJOINRULE:example.com", "$IMEMBERC:example.com", "$IMEMBERZ:example.com",
+	}
+
+	for _, i := range input {
+		fmt.Println("-", i.EventID())
+	}
 
 	if len(input) != len(expected) {
 		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
 	}
 
 	for p, i := range input {
-		if i.eventID != expected[p] {
-			t.Fatalf("position %d did not match, got '%s' but expected '%s'", p, i.eventID, expected[p])
+		if i.EventID() != expected[p] {
+			t.Fatalf(
+				"position %d did not match, got '%s' but expected '%s'",
+				p, i.EventID(), expected[p],
+			)
 		}
 	}
 }
 
 func TestStateTestCase(t *testing.T) {
-	orig := append(stateResolutionV2Base, []Event{}...)
+	input := append(stateResolutionV2Base, []Event{
+		{
+			fields: eventFields{
+				EventID:        "$PA:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomPowerLevels,
+				OriginServerTS: 7,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMEMBERZ:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"users": {
+          "` + ALICE + `": 100,
+          "` + BOB + `": 50
+        }}`),
+			},
+		},
+		{
+			fields: eventFields{
+				EventID:        "$MB:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 8,
+				Sender:         ALICE,
+				StateKey:       &EVELYN,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$PA:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+				},
+				Content: []byte(`{"membership": "ban"}`),
+			},
+		},
+		{
+			fields: eventFields{
+				EventID:        "$IME:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 9,
+				Sender:         EVELYN,
+				StateKey:       &EVELYN,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$MB:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
+			},
+		},
+	}...)
 
-	result := ResolveStateConflictsV2(orig[:len(orig)-1], orig[:len(orig)-1])
-	fmt.Println("State:", result)
+	conflicted, unconflicted := separate(input)
+	result := ResolveStateConflictsV2(conflicted, unconflicted, input)
+
+	fmt.Println("Conflicted:")
+	for k, v := range conflicted {
+		fmt.Println("-", k, "->", v.EventID(), "->", string(v.Content()))
+	}
+	fmt.Println()
+
+	fmt.Println("Unconflicted:")
+	for k, v := range unconflicted {
+		fmt.Println("-", k, "->", v.EventID(), "->", string(v.Content()))
+	}
+	fmt.Println()
+
+	fmt.Println("Resolved:")
+	for k, v := range result {
+		fmt.Println("-", k, "->", v.EventID(), "->", string(v.Content()))
+	}
+	fmt.Println()
+
+	expected := []string{
+		"$CREATE:example.com", "$PA:example.com", "$IJOINRULE:example.com",
+		"$IMEMBERA:example.com", "$IMEMBERC:example.com", "$IMEMBERZ:example.com",
+		"$MB:example.com",
+	}
+
+	if len(result) != len(expected) {
+		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
+	}
+
+	for p, i := range result {
+		if i.EventID() != expected[p] {
+			t.Fatalf("position %d did not match, got '%s' but expected '%s'", p, i.EventID(), expected[p])
+		}
+	}
 }

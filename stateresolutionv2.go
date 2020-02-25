@@ -17,273 +17,251 @@ package gomatrixserverlib
 
 import (
 	"container/heap"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
-// ResolveStateConflicts takes a list of state events with conflicting state keys
-// and works out which event should be used for each state event.
-func ResolveStateConflictsV2(conflicted []Event, authEvents []Event) []Event {
-	var r stateResolverV2
-	r.resolvedThirdPartyInvites = map[string]*Event{}
-	r.resolvedMembers = map[string]*Event{}
-	// Group the conflicted events by type and state key.
-	r.addConflicted(conflicted)
-	// Add the unconflicted auth events needed for auth checks.
-	for i := range authEvents {
-		r.addAuthEvent(&authEvents[i])
-	}
-	// Resolve the conflicted auth events.
-	r.resolveAndAddAuthBlocks([][]Event{r.creates})
-	r.resolveAndAddAuthBlocks([][]Event{r.powerLevels})
-	r.resolveAndAddAuthBlocks([][]Event{r.joinRules})
-	r.resolveAndAddAuthBlocks(r.thirdPartyInvites)
-	r.resolveAndAddAuthBlocks(r.members)
-	// Resolve any other conflicted state events.
-	for _, block := range r.others {
-		if event := r.resolveNormalBlock(block); event != nil {
-			r.result = append(r.result, *event)
-		}
-	}
-	return r.result
-}
-
-// A stateResolver tracks the internal state of the state resolution algorithm
-// It has 3 sections:
-//
-//  * Lists of lists of events to resolve grouped by event type and state key.
-//  * The resolved auth events grouped by type and state key.
-//  * A List of resolved events.
-//
-// It implements the AuthEvents interface and can be used for running auth checks.
 type stateResolverV2 struct {
-	// Lists of lists of events to resolve grouped by event type and state key:
-	//   * creates, powerLevels, joinRules have empty state keys.
-	//   * members and thirdPartyInvites are grouped by state key.
-	//   * the others are grouped by the pair of type and state key.
-	creates           []Event
-	powerLevels       []Event
-	joinRules         []Event
-	thirdPartyInvites [][]Event
-	members           [][]Event
-	others            [][]Event
-	// The resolved auth events grouped by type and state key.
+	authEventMap              map[string]Event
+	conflictedMap             map[string]Event
+	unconflictedMap           map[string]Event
+	powerLevelMainline        []Event
+	conflictedPowerLevels     []Event
+	conflictedOthers          []Event
 	resolvedCreate            *Event
 	resolvedPowerLevels       *Event
 	resolvedJoinRules         *Event
 	resolvedThirdPartyInvites map[string]*Event
 	resolvedMembers           map[string]*Event
-	// The list of resolved events.
-	// This will contain one entry for each conflicted event type and state key.
-	result []Event
+	result                    []Event
 }
 
 func (r *stateResolverV2) Create() (*Event, error) {
+	if r.resolvedCreate == nil {
+		return nil, errors.New("not resolved create event yet")
+	}
 	return r.resolvedCreate, nil
 }
 
 func (r *stateResolverV2) PowerLevels() (*Event, error) {
+	if r.resolvedCreate == nil {
+		return nil, errors.New("not resolved power levels event yet")
+	}
 	return r.resolvedPowerLevels, nil
 }
 
 func (r *stateResolverV2) JoinRules() (*Event, error) {
+	if r.resolvedCreate == nil {
+		return nil, errors.New("not resolved join rules event yet")
+	}
 	return r.resolvedJoinRules, nil
 }
 
 func (r *stateResolverV2) ThirdPartyInvite(key string) (*Event, error) {
-	return r.resolvedThirdPartyInvites[key], nil
+	value := r.resolvedThirdPartyInvites[key]
+	return value, nil
 }
 
 func (r *stateResolverV2) Member(key string) (*Event, error) {
-	return r.resolvedMembers[key], nil
+	value := r.resolvedMembers[key]
+	return value, nil
 }
 
-func (r *stateResolverV2) addConflicted(events []Event) { // nolint: gocyclo
-	type conflictKey struct {
-		eventType string
-		stateKey  string
+// ResolveStateConflicts takes a list of state events with conflicting state keys
+// and works out which event should be used for each state event.
+func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Event) []Event {
+	r := stateResolverV2{
+		authEventMap:              eventMapFromEvents(authEvents),
+		conflictedMap:             eventMapFromEvents(conflicted),
+		unconflictedMap:           eventMapFromEvents(unconflicted),
+		resolvedThirdPartyInvites: make(map[string]*Event),
+		resolvedMembers:           make(map[string]*Event),
 	}
-	offsets := map[conflictKey]int{}
-	// Split up the conflicted events into blocks with the same type and state key.
-	// Separate the auth events into specifically named lists because they have
-	// special rules for state resolution.
-	for _, event := range events {
-		key := conflictKey{event.Type(), *event.StateKey()}
-		// Work out which block to add the event to.
-		// By default we add the event to a block in the others list.
-		blockList := &r.others
-		switch key.eventType {
+
+	// Start with the unconflicted events and auth them.
+	unconflicted = r.reverseTopologicalOrdering(unconflicted)
+	if err := r.resolveUsingPartialState(unconflicted); err != nil {
+		return r.result
+	}
+
+	// Take all power events (and any events in their auth chains) that appear in
+	// the full conflicted set and order them by the reverse topological power
+	// ordering.
+	for _, p := range r.conflictedMap {
+		if p.Type() == MRoomPowerLevels {
+			r.conflictedPowerLevels = append(r.conflictedPowerLevels, p)
+		}
+	}
+	r.conflictedPowerLevels = r.reverseTopologicalOrdering(r.conflictedPowerLevels)
+
+	// Resolve the conflicted power level events.
+	if err := r.resolveUsingPartialState(r.conflictedPowerLevels); err != nil {
+		fmt.Println("error resolving partial state for conflicted power events:", err)
+	}
+
+	// then generate the mainline
+	// then order the remaining normal state events events
+
+	// Finally reapply the unconflicted state.
+	if err := r.resolveUsingPartialState(unconflicted); err != nil {
+		return r.result
+	}
+
+	// populate the final result list
+	r.result = append(r.result, *r.resolvedCreate)
+	r.result = append(r.result, *r.resolvedJoinRules)
+	r.result = append(r.result, *r.resolvedPowerLevels)
+	for _, member := range r.resolvedMembers {
+		r.result = append(r.result, *member)
+	}
+	for _, invite := range r.resolvedThirdPartyInvites {
+		r.result = append(r.result, *invite)
+	}
+
+	return r.result
+}
+
+func (r *stateResolverV2) resolveUsingPartialState(events []Event) error {
+	for _, e := range events {
+		event := e // so that the event remains addressable
+		if err := Allowed(event, r); err != nil {
+			fmt.Println(event.EventID(), "not allowed:", err)
+			return err
+		}
+		switch event.Type() {
 		case MRoomCreate:
-			if key.stateKey == "" {
-				r.creates = append(r.creates, event)
-				continue
+			if event.StateKey() == nil || *event.StateKey() == "" {
+				r.resolvedCreate = &event
 			}
 		case MRoomPowerLevels:
-			if key.stateKey == "" {
-				r.powerLevels = append(r.powerLevels, event)
-				continue
+			if event.StateKey() == nil || *event.StateKey() == "" {
+				r.resolvedPowerLevels = &event
 			}
 		case MRoomJoinRules:
-			if key.stateKey == "" {
-				r.joinRules = append(r.joinRules, event)
-				continue
+			if event.StateKey() == nil || *event.StateKey() == "" {
+				r.resolvedJoinRules = &event
+			}
+		case MRoomThirdPartyInvite:
+			if event.StateKey() != nil && *event.StateKey() != "" {
+				r.resolvedThirdPartyInvites[*event.StateKey()] = &event
 			}
 		case MRoomMember:
-			blockList = &r.members
-		case MRoomThirdPartyInvite:
-			blockList = &r.thirdPartyInvites
+			if event.StateKey() != nil && *event.StateKey() != "" {
+				r.resolvedMembers[*event.StateKey()] = &event
+			}
 		}
-		// We need to find an entry for the state key in a block list.
-		offset, ok := offsets[key]
-		if !ok {
-			// This is the first time we've seen that state key so we add a
-			// new block to the block list.
-			offset = len(*blockList)
-			*blockList = append(*blockList, nil)
-			offsets[key] = offset
-		}
-		// Get the address of the block in the block list.
-		block := &(*blockList)[offset]
-		// Add the event to the block.
-		*block = append(*block, event)
 	}
+	return nil
 }
 
-// Add an event to the resolved auth events.
-func (r *stateResolverV2) addAuthEvent(event *Event) {
-	switch event.Type() {
-	case MRoomCreate:
-		if event.StateKeyEquals("") {
-			r.resolvedCreate = event
-		}
-	case MRoomPowerLevels:
-		if event.StateKeyEquals("") {
-			r.resolvedPowerLevels = event
-		}
-	case MRoomJoinRules:
-		if event.StateKeyEquals("") {
-			r.resolvedJoinRules = event
-		}
-	case MRoomMember:
-		r.resolvedMembers[*event.StateKey()] = event
-	case MRoomThirdPartyInvite:
-		r.resolvedThirdPartyInvites[*event.StateKey()] = event
-	default:
-		panic(fmt.Errorf("Unexpected auth event with type %q", event.Type()))
+func eventMapFromEvents(events []Event) map[string]Event {
+	r := make(map[string]Event)
+	for _, e := range events {
+		r[e.EventID()] = e
 	}
+	return r
 }
 
-// Remove the auth event with the given type and state key.
-func (r *stateResolverV2) removeAuthEvent(eventType, stateKey string) {
-	switch eventType {
-	case MRoomCreate:
-		if stateKey == "" {
-			r.resolvedCreate = nil
+func separate(events []Event) (conflicted, unconflicted []Event) {
+	// The stack maps event type -> event state key -> list of state events
+	stack := make(map[string]map[string][]Event)
+	// Prepare the map
+	for _, event := range events {
+		// If we haven't encountered an entry of this type yet, create an entry§
+		if _, ok := stack[event.Type()]; !ok {
+			stack[event.Type()] = make(map[string][]Event)
 		}
-	case MRoomPowerLevels:
-		if stateKey == "" {
-			r.resolvedPowerLevels = nil
-		}
-	case MRoomJoinRules:
-		if stateKey == "" {
-			r.resolvedJoinRules = nil
-		}
-	case MRoomMember:
-		r.resolvedMembers[stateKey] = nil
-	case MRoomThirdPartyInvite:
-		r.resolvedThirdPartyInvites[stateKey] = nil
-	default:
-		panic(fmt.Errorf("Unexpected auth event with type %q", eventType))
+		// Add the event to the map
+		stack[event.Type()][*event.StateKey()] = append(
+			stack[event.Type()][*event.StateKey()], event,
+		)
 	}
+	// Now we need to work out which of these events are conflicted. An event is
+	// conflicted if there is more than one entry for the (type, statekey) tuple.
+	// If we encounter these events, add them to their relevant conflicted list.
+	for _, eventsOfType := range stack {
+		for _, eventsOfStateKey := range eventsOfType {
+			if len(eventsOfStateKey) > 1 {
+				// We have more than one event for the (type, statekey) tuple, therefore
+				// these are conflicted.
+				for _, event := range eventsOfStateKey {
+					conflicted = append(conflicted, event)
+				}
+			} else if len(eventsOfStateKey) == 1 {
+				unconflicted = append(unconflicted, eventsOfStateKey[0])
+			}
+		}
+	}
+	return
 }
 
-// resolveAndAddAuthBlocks resolves each block of conflicting auth state events in a list of blocks
-// where all the blocks have the same event type.
-// Once every block has been resolved the resulting events are added to the events used for auth checks.
-// This is called once per auth event type and state key pair.
-func (r *stateResolverV2) resolveAndAddAuthBlocks(blocks [][]Event) {
-	start := len(r.result)
-	for _, block := range blocks {
-		if len(block) == 0 {
-			continue
-		}
-		if event := r.resolveAuthBlock(block); event != nil {
-			r.result = append(r.result, *event)
-		}
-	}
-	// Only add the events to the auth events once all of the events with that type have been resolved.
-	// (SPEC: This is done to avoid the result of state resolution depending on the iteration order)
-	for i := start; i < len(r.result); i++ {
-		r.addAuthEvent(&r.result[i])
-	}
-}
-
-// resolveAuthBlock resolves a block of auth events with the same state key to a single event.
-func (r *stateResolverV2) resolveAuthBlock(events []Event) *Event {
-	// Sort the events by depth and sha1 of event ID
-	block := sortConflictedEventsByReverseTopologicalOrdering(events)
-
-	// Pick the "oldest" event, that is the one with the lowest depth, as the first candidate.
-	// If none of the newer events pass auth checks against this event then we pick the "oldest" event.
-	// (SPEC: This ensures that we always pick a state event for this type and state key.
-	//  Note that if all the events fail auth checks we will still pick the "oldest" event.)
-	result := block[0].event
-	// Temporarily add the candidate event to the auth events.
-	r.addAuthEvent(result)
-	for i := 1; i < len(block); i++ {
-		event := block[i].event
-		// Check if the next event passes authentication checks against the current candidate.
-		// (SPEC: This ensures that "ban" events cannot be replaced by "join" events through a conflict)
-		if Allowed(*event, r) == nil {
-			// If the event passes authentication checks pick it as the current candidate.
-			// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
-			result = event
-			r.addAuthEvent(result)
-		} else {
-			// If the authentication check fails then we stop iterating the list and return the current candidate.
-			break
-		}
-	}
-	// Discard the event from the auth events.
-	// We'll add it back later when all events of the same type have been resolved.
-	// (SPEC: This is done to avoid the result of state resolution depending on the iteration order)
-	r.removeAuthEvent(result.Type(), *result.StateKey())
-	return result
-}
-
-// resolveNormalBlock resolves a block of normal state events with the same state key to a single event.
-func (r *stateResolverV2) resolveNormalBlock(events []Event) *Event {
-	// Sort the events by depth and sha1 of event ID
-	block := sortConflictedEventsByReverseTopologicalOrdering(events)
-	// Start at the "newest" event, that is the one with the highest depth, and go
-	// backward through the list until we find one that passes authentication checks.
-	// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
-	for i := len(block) - 1; i > 0; i-- {
-		event := block[i].event
-		if Allowed(*event, r) == nil {
-			return event
-		}
-	}
-	// If all the auth checks for newer events fail then we pick the oldest event.
-	// (SPEC: This ensures that we always pick a state event for this type and state key.
-	//  Note that if all the events fail auth checks we will still pick the "oldest" event.)
-	return block[0].event
-}
-
-// sortConflictedEventsByReverseTopologicalOrdering performs reverse topological ordering.
-func sortConflictedEventsByReverseTopologicalOrdering(events []Event) []conflictedEventV2 {
+func (r *stateResolverV2) prepareConflictedEvents(events []Event) []conflictedEventV2 {
 	block := make([]conflictedEventV2, len(events))
-	for i := range events {
-		event := events[i]
+	for i, event := range events {
 		block[i] = conflictedEventV2{
-			// effectivePowerLevel: event.
+			powerLevel:     r.getPowerLevelFromAuthEvents(event),
 			originServerTS: int64(event.OriginServerTS()),
 			eventID:        event.EventID(),
-			event:          &event,
+			event:          event,
+		}
+	}
+	return block
+}
+
+func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []Event) {
+	block := r.prepareConflictedEvents(events)
+	sorted := kahnsAlgorithmUsingAuthEvents(block)
+	for _, s := range sorted {
+		result = append(result, s.event)
+	}
+	return
+}
+
+// getPowerLevelFromAuthEvents tries to determine the effective power level of
+// the sender at the time that of the given event, based on the auth events.
+// This is used in the Kahn's algorithm tiebreak.
+func (r *stateResolverV2) getPowerLevelFromAuthEvents(event Event) (pl int) {
+	for _, authID := range event.AuthEventIDs() {
+		// First check and see if we have the auth event in the auth map, if not
+		// then we cannot deduce the real effective power level
+		authEvent, ok := r.authEventMap[authID]
+		if !ok {
+			return 0
+		}
+
+		// Ignore the auth event if it isn't a power level event
+		if authEvent.Type() != MRoomPowerLevels || *authEvent.StateKey() != "" {
+			continue
+		}
+
+		// Try and parse the content of the event
+		var content map[string]interface{}
+		if err := json.Unmarshal(authEvent.Content(), &content); err != nil {
+			return 0
+		}
+
+		// First of all try to see if there's a default user power level. We'll use
+		// that for now as a fallback
+		if defaultPl, ok := content["users_default"].(int); ok {
+			pl = defaultPl
+		}
+
+		// See if there is a "users" key in the event content
+		if users, ok := content["users"].(map[string]string); ok {
+			// Is there a key that matches the sender?
+			if _, ok := users[event.Sender()]; ok {
+				// A power level for this specific user is known, let's use that instead
+				if p, err := strconv.Atoi(users[event.Sender()]); err == nil {
+					pl = p
+				}
+			}
 		}
 	}
 
-	return kahnsAlgorithmUsingAuthEvents(block)
+	return
 }
 
 // A conflictedEventV2 is used to sort the events in a block by ascending depth
@@ -291,10 +269,10 @@ func sortConflictedEventsByReverseTopologicalOrdering(events []Event) []conflict
 // by working out the effective power level etc ahead of time, we use less CPU
 // cycles during the sort.
 type conflictedEventV2 struct {
-	effectivePowerLevel int64
-	originServerTS      int64
-	eventID             string
-	event               *Event
+	powerLevel     int
+	originServerTS int64
+	eventID        string
+	event          Event
 }
 
 // A conflictedEventV2Heap is used to sort the events using sort.Sort. We do
@@ -307,7 +285,7 @@ func (s conflictedEventV2Heap) Len() int {
 }
 
 func (s conflictedEventV2Heap) Less(i, j int) bool {
-	if s[i].effectivePowerLevel > s[j].effectivePowerLevel {
+	if s[i].powerLevel > s[j].powerLevel {
 		return true
 	}
 	if s[i].originServerTS < s[j].originServerTS {
