@@ -123,18 +123,18 @@ var stateResolutionV2Base = []Event{
 }
 
 func TestLexicographicalSorting(t *testing.T) {
-	input := []conflictedEventV2{
-		conflictedEventV2{eventID: "a", powerLevel: 0, originServerTS: 1},
-		conflictedEventV2{eventID: "b", powerLevel: 0, originServerTS: 2},
-		conflictedEventV2{eventID: "c", powerLevel: 0, originServerTS: 2},
-		conflictedEventV2{eventID: "d", powerLevel: 25, originServerTS: 3},
-		conflictedEventV2{eventID: "e", powerLevel: 50, originServerTS: 4},
-		conflictedEventV2{eventID: "f", powerLevel: 75, originServerTS: 4},
-		conflictedEventV2{eventID: "g", powerLevel: 100, originServerTS: 5},
+	input := []conflictedPowerLevelEventV2{
+		conflictedPowerLevelEventV2{eventID: "a", powerLevel: 0, originServerTS: 1},
+		conflictedPowerLevelEventV2{eventID: "b", powerLevel: 0, originServerTS: 2},
+		conflictedPowerLevelEventV2{eventID: "c", powerLevel: 0, originServerTS: 2},
+		conflictedPowerLevelEventV2{eventID: "d", powerLevel: 25, originServerTS: 3},
+		conflictedPowerLevelEventV2{eventID: "e", powerLevel: 50, originServerTS: 4},
+		conflictedPowerLevelEventV2{eventID: "f", powerLevel: 75, originServerTS: 4},
+		conflictedPowerLevelEventV2{eventID: "g", powerLevel: 100, originServerTS: 5},
 	}
 	expected := []string{"g", "f", "e", "d", "a", "b", "c"}
 
-	sort.Stable(conflictedEventV2Heap(input))
+	sort.Stable(conflictedPowerLevelEventV2Heap(input))
 
 	if len(input) != len(expected) {
 		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
@@ -203,10 +203,32 @@ func TestStateTestCase(t *testing.T) {
 		},
 		{
 			fields: eventFields{
+				EventID:        "$PB:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomPowerLevels,
+				OriginServerTS: 8,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMEMBERZ:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"users": {
+          "` + ALICE + `": 100,
+          "` + BOB + `": 50
+        }}`),
+			},
+		},
+		{
+			fields: eventFields{
 				EventID:        "$MB:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomMember,
-				OriginServerTS: 8,
+				OriginServerTS: 9,
 				Sender:         ALICE,
 				StateKey:       &EVELYN,
 				PrevEvents: []EventReference{
@@ -215,6 +237,7 @@ func TestStateTestCase(t *testing.T) {
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
 					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$PB:example.com"},
 				},
 				Content: []byte(`{"membership": "ban"}`),
 			},
@@ -224,7 +247,7 @@ func TestStateTestCase(t *testing.T) {
 				EventID:        "$IME:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomMember,
-				OriginServerTS: 9,
+				OriginServerTS: 10,
 				Sender:         EVELYN,
 				StateKey:       &EVELYN,
 				PrevEvents: []EventReference{
@@ -233,6 +256,7 @@ func TestStateTestCase(t *testing.T) {
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
 					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$PA:example.com"},
 				},
 				Content: []byte(`{"membership": "join"}`),
 			},

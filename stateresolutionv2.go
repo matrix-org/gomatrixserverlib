@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
-	"strings"
 )
 
 type stateResolverV2 struct {
@@ -93,6 +93,8 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	for _, p := range r.conflictedMap {
 		if p.Type() == MRoomPowerLevels {
 			r.conflictedPowerLevels = append(r.conflictedPowerLevels, p)
+		} else {
+			r.conflictedOthers = append(r.conflictedOthers, p)
 		}
 	}
 	r.conflictedPowerLevels = r.reverseTopologicalOrdering(r.conflictedPowerLevels)
@@ -102,10 +104,17 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 		fmt.Println("error resolving partial state for conflicted power events:", err)
 	}
 
-	// then generate the mainline
-	// then order the remaining normal state events events
+	// Then generate the mainline.
+	r.powerLevelMainline = r.createPowerLevelMainline()
 
-	// Finally reapply the unconflicted state.
+	// Then order the remaining normal state events events using mainline
+	// ordering.
+	if err := r.resolveUsingPartialState(r.mainlineOrdering(r.conflictedOthers)); err != nil {
+		fmt.Println("error resolving partial state for conflicted other events:", err)
+	}
+
+	// Finally reapply the unconflicted state one more time, just to be sure that
+	// we haven't overwritten any of these keys in the conflicted events.
 	if err := r.resolveUsingPartialState(unconflicted); err != nil {
 		return r.result
 	}
@@ -122,6 +131,62 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	}
 
 	return r.result
+}
+
+func (r *stateResolverV2) createPowerLevelMainline() []Event {
+	var mainline []Event
+	var iter func(event Event)
+	iter = func(event Event) {
+		mainline = append([]Event{event}, mainline...)
+		for _, authEventID := range event.AuthEventIDs() {
+			if authEvent, ok := r.authEventMap[authEventID]; ok {
+				if authEvent.Type() == MRoomPowerLevels {
+					iter(authEvent)
+				}
+			}
+		}
+	}
+	iter(*r.resolvedPowerLevels)
+
+	fmt.Println("Mainline:")
+	for k, v := range mainline {
+		fmt.Println("-", k, "->", v.EventID(), "->", v.Type())
+	}
+	fmt.Println()
+
+	return mainline
+}
+
+func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
+	mainlineEvent Event, mainlinePosition int, steps int,
+) {
+	isInMainline := func(searchEvent Event) (bool, int) {
+		for pos, mainlineEvent := range r.powerLevelMainline {
+			if mainlineEvent.EventID() == searchEvent.EventID() {
+				return true, pos
+			}
+		}
+		return false, 0
+	}
+
+	var iter func(event Event)
+	iter = func(event Event) {
+		for _, authEventID := range event.AuthEventIDs() {
+			if authEvent, ok := r.authEventMap[authEventID]; ok {
+				if authEvent.Type() == MRoomPowerLevels {
+					if isIn, pos := isInMainline(authEvent); isIn {
+						mainlineEvent = authEvent
+						mainlinePosition = pos
+						return
+					}
+					steps++
+					iter(authEvent)
+				}
+			}
+		}
+	}
+	iter(event)
+	return
 }
 
 func (r *stateResolverV2) resolveUsingPartialState(events []Event) error {
@@ -198,10 +263,10 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 	return
 }
 
-func (r *stateResolverV2) prepareConflictedEvents(events []Event) []conflictedEventV2 {
-	block := make([]conflictedEventV2, len(events))
+func (r *stateResolverV2) prepareConflictedEvents(events []Event) []conflictedPowerLevelEventV2 {
+	block := make([]conflictedPowerLevelEventV2, len(events))
 	for i, event := range events {
-		block[i] = conflictedEventV2{
+		block[i] = conflictedPowerLevelEventV2{
 			powerLevel:     r.getPowerLevelFromAuthEvents(event),
 			originServerTS: int64(event.OriginServerTS()),
 			eventID:        event.EventID(),
@@ -211,10 +276,33 @@ func (r *stateResolverV2) prepareConflictedEvents(events []Event) []conflictedEv
 	return block
 }
 
+func (r *stateResolverV2) prepareOtherEvents(events []Event) []conflictedOtherEventV2 {
+	block := make([]conflictedOtherEventV2, len(events))
+	for i, event := range events {
+		_, pos, _ := r.getFirstPowerLevelMainlineEvent(event)
+		block[i] = conflictedOtherEventV2{
+			mainlinePosition: pos,
+			originServerTS:   int64(event.OriginServerTS()),
+			eventID:          event.EventID(),
+			event:            event,
+		}
+	}
+	return block
+}
+
 func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []Event) {
 	block := r.prepareConflictedEvents(events)
 	sorted := kahnsAlgorithmUsingAuthEvents(block)
 	for _, s := range sorted {
+		result = append(result, s.event)
+	}
+	return
+}
+
+func (r *stateResolverV2) mainlineOrdering(events []Event) (result []Event) {
+	block := r.prepareOtherEvents(events)
+	sort.Sort(conflictedOtherEventV2Heap(block))
+	for _, s := range block {
 		result = append(result, s.event)
 	}
 	return
@@ -264,58 +352,13 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event Event) (pl int) {
 	return
 }
 
-// A conflictedEventV2 is used to sort the events in a block by ascending depth
-// and descending sha1 of event ID. It is a bit of an optimisation to use this -
-// by working out the effective power level etc ahead of time, we use less CPU
-// cycles during the sort.
-type conflictedEventV2 struct {
-	powerLevel     int
-	originServerTS int64
-	eventID        string
-	event          Event
-}
-
-// A conflictedEventV2Heap is used to sort the events using sort.Sort. We do
-// this before processing the initial set of events with no incoming auth
-// dependencies as it should help us get a deterministic result.
-type conflictedEventV2Heap []conflictedEventV2
-
-func (s conflictedEventV2Heap) Len() int {
-	return len(s)
-}
-
-func (s conflictedEventV2Heap) Less(i, j int) bool {
-	if s[i].powerLevel > s[j].powerLevel {
-		return true
-	}
-	if s[i].originServerTS < s[j].originServerTS {
-		return true
-	}
-	return strings.Compare(s[i].eventID[:], s[j].eventID[:]) < 0
-}
-
-func (s conflictedEventV2Heap) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (pq *conflictedEventV2Heap) Push(x interface{}) {
-	*pq = append(*pq, x.(conflictedEventV2))
-}
-
-func (pq *conflictedEventV2Heap) Pop() interface{} {
-	old := *pq
-	x := old[0]
-	*pq = old[1:]
-	return x
-}
-
 // kahnsAlgorithmByAuthEvents is, predictably, an implementation of Kahn's
 // algorithm that uses auth events to topologically sort the input list of
 // events. This works through each event, counting how many incoming auth event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflictedEventV2) {
-	eventMap := make(map[string]conflictedEventV2)
+func kahnsAlgorithmUsingAuthEvents(events []conflictedPowerLevelEventV2) (graph []conflictedPowerLevelEventV2) {
+	eventMap := make(map[string]conflictedPowerLevelEventV2)
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -345,7 +388,7 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflict
 	// Now we need to work out which events don't have any incoming auth event
 	// dependencies. These will be placed into the graph first. Remove the event
 	// from the event map as this prevents us from processing it a second time.
-	var noIncoming conflictedEventV2Heap
+	var noIncoming conflictedPowerLevelEventV2Heap
 	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
@@ -354,15 +397,15 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedEventV2) (graph []conflict
 		}
 	}
 
-	var event conflictedEventV2
+	var event conflictedPowerLevelEventV2
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
-		event = heap.Pop(&noIncoming).(conflictedEventV2)
+		event = heap.Pop(&noIncoming).(conflictedPowerLevelEventV2)
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append([]conflictedEventV2{event}, graph...)
+		graph = append([]conflictedPowerLevelEventV2{event}, graph...)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
