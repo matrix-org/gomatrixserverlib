@@ -603,7 +603,7 @@ func (e Event) Depth() int64 {
 // UnmarshalJSON implements json.Unmarshaller assuming the Event is from an untrusted source.
 // This will cause more checks than might be necessary but is probably better to be safe than sorry.
 func (e *Event) UnmarshalJSON(data []byte) (err error) {
-	*e, err = NewEventFromUntrustedJSON(data)
+	*e, err = NewEventFromTrustedJSON(data, false)
 	return
 }
 

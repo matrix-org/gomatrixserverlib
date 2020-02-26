@@ -26,6 +26,47 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+func TestHash(t *testing.T) {
+
+	//x := `{"auth_events":[],"content":{"creator":"@test:localhost","room_version":"1"},"depth":1,"event_id":"$smpQvxTygWOVp8so:localhost","hashes":{"sha256":"OyRF5EXSTMFBOeSJq0d3FFYsHK0BQw2s/5Q7Y2fJUUs"},"origin":"localhost","origin_server_ts":1582735911474,"prev_events":[],"prev_state":[],"room_id":"!QjPcIdpjVi2MvEp5:localhost","sender":"@test:localhost","signatures":{"localhost":{"ed25519:1337":"bIBkVt12ZYWVaOeYM8dJFGLX7oeTYdE0KyOZzYIhXyz5WF45IyVW94Xu0u8qeiaHD42mRQu35TsboHju7D3PAQ"}},"state_key":"","type":"m.room.create"}`
+	
+	x := `
+	{
+		"auth_events": [],
+		"content": {
+			"creator": "@test:localhost",
+			"room_version": "1"
+		},
+		"depth": 1,
+		"event_id": "$RWx6tSZdOPh1lqWo:localhost",
+		"hashes": {
+			"sha256": "8QSqe+TTfZT2RxgjaRYIdfsnmZ+eEi+gztwkCUEmodg"
+		},
+		"origin": "localhost",
+		"origin_server_ts": 1582737711413,
+		"prev_events": [],
+		"prev_state": [],
+		"room_id": "!XvLRqLu9RCAnO1Z7:localhost",
+		"sender": "@test:localhost",
+		"signatures": {
+			"localhost": {
+				"ed25519:1337": "GBOqPNgErBCTeS9kiGEk9kGz9234Gbxf+ccyPTPGxejAEm3h3h7YzyaE9y+36oCUtMpytTJvj4a/RS4Lpvl1Cw"
+			}
+		},
+		"state_key": "",
+		"type": "m.room.create"
+	}
+	`
+	
+	var ev Event
+	if err := json.Unmarshal([]byte(x), &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.Redacted() {
+		t.Fatal("Event is redacted")
+	}
+}
+
 func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	// Check JSON verification using the test vectors from https://matrix.org/docs/spec/appendices.html
 	seed, err := base64.RawStdEncoding.DecodeString("YJDBA9Xnr2sVqXD9Vj7XVUnmFZcZrlw8Md7kMW+3XA1")

@@ -1,18 +1,20 @@
 module github.com/matrix-org/gomatrixserverlib
 
 require (
-	github.com/matrix-org/gomatrix v0.0.0-20190130130140-385f072fe9af
-	github.com/matrix-org/util v0.0.0-20171127121716-2e2df66af2f5
-	github.com/miekg/dns v1.1.4
-	github.com/sirupsen/logrus v1.3.0
+	github.com/matrix-org/go-http-js-libp2p v0.0.0-20200225225149-e7191ca90a94 // indirect
+	github.com/matrix-org/go-sqlite3-js v0.0.0-20200226144546-ea6ed5b90074 // indirect
+	github.com/matrix-org/gomatrix v0.0.0-20190528120928-7df988a63f26
+	github.com/matrix-org/util v0.0.0-20190711121626-527ce5ddefc7
+	github.com/miekg/dns v1.1.12
+	github.com/sirupsen/logrus v1.4.2
 	github.com/tidwall/gjson v1.1.5
-	github.com/tidwall/match v1.0.1 // indirect
 	github.com/tidwall/sjson v1.0.3
-	golang.org/x/crypto v0.0.0-20190131182504-b8fe1690c613
-	golang.org/x/net v0.0.0-20190301231341-16b79f2e4e95 // indirect
+	github.com/uber/jaeger-client-go v2.22.1+incompatible // indirect
+	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	gopkg.in/h2non/gock.v1 v1.0.14
 	gopkg.in/macaroon.v2 v2.1.0
-	gopkg.in/yaml.v2 v2.2.2
+	gopkg.in/yaml.v2 v2.2.5
 )
 
 go 1.13
