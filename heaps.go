@@ -76,10 +76,10 @@ func (s stateResV2ConflictedOtherHeap) Len() int {
 }
 
 func (s stateResV2ConflictedOtherHeap) Less(i, j int) bool {
-	if s[i].mainlinePosition > s[j].mainlinePosition {
+	if s[i].mainlinePosition < s[j].mainlinePosition {
 		return true
 	}
-	if s[i].mainlinePosition < s[j].mainlinePosition {
+	if s[i].mainlinePosition > s[j].mainlinePosition {
 		return false
 	}
 	if s[i].originServerTS < s[j].originServerTS {
