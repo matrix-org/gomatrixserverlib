@@ -45,7 +45,7 @@ func (s stateResV2ConflictedPowerLevelHeap) Swap(i, j int) {
 }
 
 func (s *stateResV2ConflictedPowerLevelHeap) Push(x interface{}) {
-	*s = append(*pq, x.(stateResV2ConflictedPowerLevel))
+	*s = append(*s, x.(stateResV2ConflictedPowerLevel))
 }
 
 func (s *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
@@ -96,7 +96,7 @@ func (s stateResV2ConflictedOtherHeap) Swap(i, j int) {
 }
 
 func (s *stateResV2ConflictedOtherHeap) Push(x interface{}) {
-	*s = append(*pq, x.(stateResV2ConflictedOther))
+	*s = append(*s, x.(stateResV2ConflictedOther))
 }
 
 func (s *stateResV2ConflictedOtherHeap) Pop() interface{} {
