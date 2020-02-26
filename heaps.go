@@ -44,14 +44,14 @@ func (s stateResV2ConflictedPowerLevelHeap) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (pq *stateResV2ConflictedPowerLevelHeap) Push(x interface{}) {
-	*pq = append(*pq, x.(stateResV2ConflictedPowerLevel))
+func (s *stateResV2ConflictedPowerLevelHeap) Push(x interface{}) {
+	*s = append(*pq, x.(stateResV2ConflictedPowerLevel))
 }
 
-func (pq *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
-	old := *pq
+func (s *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
+	old := *s
 	x := old[0]
-	*pq = old[1:]
+	*s = old[1:]
 	return x
 }
 
@@ -95,13 +95,13 @@ func (s stateResV2ConflictedOtherHeap) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (pq *stateResV2ConflictedOtherHeap) Push(x interface{}) {
-	*pq = append(*pq, x.(stateResV2ConflictedOther))
+func (s *stateResV2ConflictedOtherHeap) Push(x interface{}) {
+	*s = append(*pq, x.(stateResV2ConflictedOther))
 }
 
-func (pq *stateResV2ConflictedOtherHeap) Pop() interface{} {
-	old := *pq
+func (s *stateResV2ConflictedOtherHeap) Pop() interface{} {
+	old := *s
 	x := old[0]
-	*pq = old[1:]
+	*s = old[1:]
 	return x
 }

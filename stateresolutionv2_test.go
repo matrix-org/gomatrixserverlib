@@ -6,11 +6,10 @@ import (
 )
 
 var (
-	ALICE   = "@alice:example.com"
-	BOB     = "@bob:example.com"
-	CHARLIE = "@charlie:example.com"
-	EVELYN  = "@evelyn:example.com"
-	ZARA    = "@zara:example.com"
+	ALICE  = "@alice:example.com"
+	BOB    = "@bob:example.com"
+	EVELYN = "@evelyn:example.com"
+	ZARA   = "@zara:example.com"
 )
 
 var emptyStateKey = ""

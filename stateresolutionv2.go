@@ -285,9 +285,7 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 			if len(eventsOfStateKey) > 1 {
 				// We have more than one event for the (type, statekey) tuple, therefore
 				// these are conflicted.
-				for _, event := range eventsOfStateKey {
-					conflicted = append(conflicted, event)
-				}
+				conflicted = append(conflicted, eventsOfStateKey...)
 			} else if len(eventsOfStateKey) == 1 {
 				unconflicted = append(unconflicted, eventsOfStateKey[0])
 			}
