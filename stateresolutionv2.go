@@ -148,11 +148,13 @@ func (r *stateResolverV2) createPowerLevelMainline() []Event {
 	}
 	iter(*r.resolvedPowerLevels)
 
-	fmt.Println("Mainline:")
-	for k, v := range mainline {
-		fmt.Println("-", k, "->", v.EventID(), "->", v.Type())
-	}
-	fmt.Println()
+	/*
+		fmt.Println("Mainline:")
+		for k, v := range mainline {
+			fmt.Println("-", k, "->", v.EventID(), "->", v.Type())
+		}
+		fmt.Println()
+	*/
 
 	return mainline
 }
@@ -194,7 +196,7 @@ func (r *stateResolverV2) resolveUsingPartialState(events []Event) error {
 		event := e // so that the event remains addressable
 		if err := Allowed(event, r); err != nil {
 			fmt.Println(event.EventID(), "not allowed:", err)
-			return err
+			continue
 		}
 		switch event.Type() {
 		case MRoomCreate:
@@ -263,10 +265,10 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 	return
 }
 
-func (r *stateResolverV2) prepareConflictedEvents(events []Event) []conflictedPowerLevelEventV2 {
-	block := make([]conflictedPowerLevelEventV2, len(events))
+func (r *stateResolverV2) prepareConflictedEvents(events []Event) []stateResV2ConflictedPowerLevel {
+	block := make([]stateResV2ConflictedPowerLevel, len(events))
 	for i, event := range events {
-		block[i] = conflictedPowerLevelEventV2{
+		block[i] = stateResV2ConflictedPowerLevel{
 			powerLevel:     r.getPowerLevelFromAuthEvents(event),
 			originServerTS: int64(event.OriginServerTS()),
 			eventID:        event.EventID(),
@@ -276,11 +278,11 @@ func (r *stateResolverV2) prepareConflictedEvents(events []Event) []conflictedPo
 	return block
 }
 
-func (r *stateResolverV2) prepareOtherEvents(events []Event) []conflictedOtherEventV2 {
-	block := make([]conflictedOtherEventV2, len(events))
+func (r *stateResolverV2) prepareOtherEvents(events []Event) []stateResV2ConflictedOther {
+	block := make([]stateResV2ConflictedOther, len(events))
 	for i, event := range events {
 		_, pos, _ := r.getFirstPowerLevelMainlineEvent(event)
-		block[i] = conflictedOtherEventV2{
+		block[i] = stateResV2ConflictedOther{
 			mainlinePosition: pos,
 			originServerTS:   int64(event.OriginServerTS()),
 			eventID:          event.EventID(),
@@ -301,7 +303,7 @@ func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []E
 
 func (r *stateResolverV2) mainlineOrdering(events []Event) (result []Event) {
 	block := r.prepareOtherEvents(events)
-	sort.Sort(conflictedOtherEventV2Heap(block))
+	sort.Sort(stateResV2ConflictedOtherHeap(block))
 	for _, s := range block {
 		result = append(result, s.event)
 	}
@@ -357,8 +359,8 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event Event) (pl int) {
 // events. This works through each event, counting how many incoming auth event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingAuthEvents(events []conflictedPowerLevelEventV2) (graph []conflictedPowerLevelEventV2) {
-	eventMap := make(map[string]conflictedPowerLevelEventV2)
+func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (graph []stateResV2ConflictedPowerLevel) {
+	eventMap := make(map[string]stateResV2ConflictedPowerLevel)
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -388,7 +390,7 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedPowerLevelEventV2) (graph 
 	// Now we need to work out which events don't have any incoming auth event
 	// dependencies. These will be placed into the graph first. Remove the event
 	// from the event map as this prevents us from processing it a second time.
-	var noIncoming conflictedPowerLevelEventV2Heap
+	var noIncoming stateResV2ConflictedPowerLevelHeap
 	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
@@ -397,15 +399,15 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedPowerLevelEventV2) (graph 
 		}
 	}
 
-	var event conflictedPowerLevelEventV2
+	var event stateResV2ConflictedPowerLevel
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
-		event = heap.Pop(&noIncoming).(conflictedPowerLevelEventV2)
+		event = heap.Pop(&noIncoming).(stateResV2ConflictedPowerLevel)
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append([]conflictedPowerLevelEventV2{event}, graph...)
+		graph = append([]stateResV2ConflictedPowerLevel{event}, graph...)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
@@ -426,6 +428,12 @@ func kahnsAlgorithmUsingAuthEvents(events []conflictedPowerLevelEventV2) (graph 
 			}
 		}
 	}
+
+	fmt.Println("Topological ordering:")
+	for k, v := range graph {
+		fmt.Println("-", k, "->", v.eventID)
+	}
+	fmt.Println()
 
 	// The graph is complete at this point!
 	return graph

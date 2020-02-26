@@ -123,18 +123,18 @@ var stateResolutionV2Base = []Event{
 }
 
 func TestLexicographicalSorting(t *testing.T) {
-	input := []conflictedPowerLevelEventV2{
-		conflictedPowerLevelEventV2{eventID: "a", powerLevel: 0, originServerTS: 1},
-		conflictedPowerLevelEventV2{eventID: "b", powerLevel: 0, originServerTS: 2},
-		conflictedPowerLevelEventV2{eventID: "c", powerLevel: 0, originServerTS: 2},
-		conflictedPowerLevelEventV2{eventID: "d", powerLevel: 25, originServerTS: 3},
-		conflictedPowerLevelEventV2{eventID: "e", powerLevel: 50, originServerTS: 4},
-		conflictedPowerLevelEventV2{eventID: "f", powerLevel: 75, originServerTS: 4},
-		conflictedPowerLevelEventV2{eventID: "g", powerLevel: 100, originServerTS: 5},
+	input := []stateResV2ConflictedPowerLevel{
+		stateResV2ConflictedPowerLevel{eventID: "a", powerLevel: 0, originServerTS: 1},
+		stateResV2ConflictedPowerLevel{eventID: "b", powerLevel: 0, originServerTS: 2},
+		stateResV2ConflictedPowerLevel{eventID: "c", powerLevel: 0, originServerTS: 2},
+		stateResV2ConflictedPowerLevel{eventID: "d", powerLevel: 25, originServerTS: 3},
+		stateResV2ConflictedPowerLevel{eventID: "e", powerLevel: 50, originServerTS: 4},
+		stateResV2ConflictedPowerLevel{eventID: "f", powerLevel: 75, originServerTS: 4},
+		stateResV2ConflictedPowerLevel{eventID: "g", powerLevel: 100, originServerTS: 5},
 	}
 	expected := []string{"g", "f", "e", "d", "a", "b", "c"}
 
-	sort.Stable(conflictedPowerLevelEventV2Heap(input))
+	sort.Stable(stateResV2ConflictedPowerLevelHeap(input))
 
 	if len(input) != len(expected) {
 		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
@@ -268,19 +268,19 @@ func TestStateTestCase(t *testing.T) {
 
 	fmt.Println("Conflicted:")
 	for k, v := range conflicted {
-		fmt.Println("-", k, "->", v.EventID(), "->", string(v.Content()))
+		fmt.Println("-", k, "->", v.EventID(), "->", *v.StateKey(), "->", string(v.Content()))
 	}
 	fmt.Println()
 
 	fmt.Println("Unconflicted:")
 	for k, v := range unconflicted {
-		fmt.Println("-", k, "->", v.EventID(), "->", string(v.Content()))
+		fmt.Println("-", k, "->", v.EventID(), "->", *v.StateKey(), "->", string(v.Content()))
 	}
 	fmt.Println()
 
 	fmt.Println("Resolved:")
 	for k, v := range result {
-		fmt.Println("-", k, "->", v.EventID(), "->", string(v.Content()))
+		fmt.Println("-", k, "->", v.EventID(), "->", *v.StateKey(), "->", string(v.Content()))
 	}
 	fmt.Println()
 
