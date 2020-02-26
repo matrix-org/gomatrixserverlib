@@ -267,9 +267,34 @@ func TestStateResolution(t *testing.T) {
 		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
 	}
 
-	for p, i := range result {
-		if i.EventID() != expected[p] {
-			t.Fatalf("position %d did not match, got '%s' but expected '%s'", p, i.EventID(), expected[p])
+	isExpected := func(s string) bool {
+		for _, e := range expected {
+			if e == s {
+				return true
+			}
 		}
+		return false
+	}
+
+	noneMissing := func() (found bool) {
+		for _, e := range expected {
+			for _, r := range result {
+				if r.EventID() == e {
+					found = true
+					return
+				}
+			}
+		}
+		return
+	}
+
+	for p, r := range result {
+		if !isExpected(r.EventID()) {
+			t.Fatalf("position %d did not match, got '%s' but expected '%s'", p, r.EventID(), expected[p])
+		}
+	}
+
+	if !noneMissing() {
+		t.Fatalf("expected to find element but didn't")
 	}
 }
