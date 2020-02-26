@@ -1,7 +1,6 @@
 package gomatrixserverlib
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 )
@@ -149,18 +148,11 @@ func TestLexicographicalSorting(t *testing.T) {
 
 func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
-	conflicted, _ := separate(stateResolutionV2Base)
-	//prepared := r.prepareConflictedEvents(conflicted)
-	//	fmt.Println("Conflicted:", conflicted)
-	//	fmt.Println("Unconflicted:", unconflicted)
-	input := r.reverseTopologicalOrdering(conflicted)
+	input := r.reverseTopologicalOrdering(stateResolutionV2Base)
+
 	expected := []string{
 		"$CREATE:example.com", "$IMEMBERA:example.com", "$IPOWER:example.com",
 		"$IJOINRULE:example.com", "$IMEMBERC:example.com", "$IMEMBERZ:example.com",
-	}
-
-	for _, i := range input {
-		fmt.Println("-", i.EventID())
 	}
 
 	if len(input) != len(expected) {
@@ -177,7 +169,7 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
-func TestStateTestCase(t *testing.T) {
+func TestStateResolution(t *testing.T) {
 	input := append(stateResolutionV2Base, []Event{
 		{
 			fields: eventFields{
@@ -266,26 +258,8 @@ func TestStateTestCase(t *testing.T) {
 	conflicted, unconflicted := separate(input)
 	result := ResolveStateConflictsV2(conflicted, unconflicted, input)
 
-	fmt.Println("Conflicted:")
-	for k, v := range conflicted {
-		fmt.Println("-", k, "->", v.EventID(), "->", *v.StateKey(), "->", string(v.Content()))
-	}
-	fmt.Println()
-
-	fmt.Println("Unconflicted:")
-	for k, v := range unconflicted {
-		fmt.Println("-", k, "->", v.EventID(), "->", *v.StateKey(), "->", string(v.Content()))
-	}
-	fmt.Println()
-
-	fmt.Println("Resolved:")
-	for k, v := range result {
-		fmt.Println("-", k, "->", v.EventID(), "->", *v.StateKey(), "->", string(v.Content()))
-	}
-	fmt.Println()
-
 	expected := []string{
-		"$CREATE:example.com", "$PA:example.com", "$IJOINRULE:example.com",
+		"$CREATE:example.com", "$IJOINRULE:example.com", "$PB:example.com",
 		"$IMEMBERA:example.com", "$IMEMBERC:example.com", "$IMEMBERZ:example.com",
 		"$MB:example.com",
 	}
