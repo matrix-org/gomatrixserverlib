@@ -138,19 +138,9 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 		return fmt.Errorf("Bad signature length from %q with ID %q", signingName, keyID)
 	}
 
-	fmt.Println("Object before:")
-	for k, v := range object {
-		fmt.Println("-", k, "->", string(*v))
-	}
-
 	// The "unsigned" key and "signatures" keys aren't covered by the signature so remove them.
 	delete(object, "unsigned")
 	delete(object, "signatures")
-
-	fmt.Println("Object after:")
-	for k, v := range object {
-		fmt.Println("-", k, "->", string(*v))
-	}
 
 	// Encode the JSON without the "unsigned" and "signatures" keys in the canonical format.
 	unsorted, err := json.Marshal(object)
@@ -161,6 +151,8 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Canonical:", string(canonical))
 
 	// Verify the ed25519 signature.
 	if !ed25519.Verify(publicKey, canonical, signature) {
