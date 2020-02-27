@@ -121,7 +121,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	fmt.Println("Signing name:", signingName)
 	fmt.Println("Key ID:", keyID)
 	fmt.Println("Public key:", publicKey)
-	fmt.Println("Message:", str(message))
+	fmt.Println("Message:", string(message))
 
 	// Check that there is a signature from the entity that we are expecting a signature from.
 	if object["signatures"] == nil {
