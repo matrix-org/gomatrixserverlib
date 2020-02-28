@@ -58,36 +58,36 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	testVerifyOK(`{
 		"event_id": "$0:domain",
 		"hashes": {
-		    "sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
-   		},
-   		"origin": "domain",
-   		"origin_server_ts": 1000000,
-   		"signatures": {
-   		    "domain": {
-   		        "ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
-   		    }
-   		},
-   		"type": "X",
-   		"unsigned": {
-   		    "age_ts": 1000000
-   		}
+			"sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"signatures": {
+			"domain": {
+				"ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
+			}
+		},
+		"type": "X",
+		"unsigned": {
+			"age_ts": 1000000
+		}
 	}`)
 
 	// It should still pass signature checks, even if we remove the unsigned data.
 	testVerifyOK(`{
 		"event_id": "$0:domain",
 		"hashes": {
-		    "sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
-   		},
-   		"origin": "domain",
-   		"origin_server_ts": 1000000,
-   		"signatures": {
-   		    "domain": {
-   		        "ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
-   		    }
-   		},
-   		"type": "X",
-   		"unsigned": {}
+			"sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"signatures": {
+			"domain": {
+				"ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
+			}
+		},
+		"type": "X",
+		"unsigned": {}
 	}`)
 
 	testVerifyOK(`{
@@ -96,21 +96,21 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 		},
 		"event_id": "$0:domain",
 		"hashes": {
-   	 	    "sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
-   	 	},
-   	 	"origin": "domain",
-   	 	"origin_server_ts": 1000000,
-   	 	"type": "m.room.message",
-   	 	"room_id": "!r:domain",
-   	 	"sender": "@u:domain",
-   	 	"signatures": {
-   	 	    "domain": {
-   	 	        "ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
-   	 	    }
-   	 	},
-   	 	"unsigned": {
-   	 	    "age_ts": 1000000
-   	 	}
+			"sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"type": "m.room.message",
+		"room_id": "!r:domain",
+		"sender": "@u:domain",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
+			}
+		},
+		"unsigned": {
+			"age_ts": 1000000
+		}
 	}`)
 
 	// It should still pass signature checks, even if we redact the content.
@@ -118,54 +118,54 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 		"content": {},
 		"event_id": "$0:domain",
 		"hashes": {
-   	 	    "sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
-   	 	},
-   	 	"origin": "domain",
-   	 	"origin_server_ts": 1000000,
-   	 	"type": "m.room.message",
-   	 	"room_id": "!r:domain",
-   	 	"sender": "@u:domain",
-   	 	"signatures": {
-   	 	    "domain": {
-   	 	        "ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
-   	 	    }
-   	 	},
-   	 	"unsigned": {}
+			"sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"type": "m.room.message",
+		"room_id": "!r:domain",
+		"sender": "@u:domain",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
+			}
+		},
+		"unsigned": {}
 	}`)
 
 	testVerifyNotOK("The event is modified", `{
 		"event_id": "$0:domain",
 		"hashes": {
-		    "sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
-   		},
-   		"origin": "domain",
-   		"origin_server_ts": 1000000,
-   		"signatures": {
-   		    "domain": {
-   		        "ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
-   		    }
-   		},
-   		"type": "modified",
-   		"unsigned": {}
+			"sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"signatures": {
+			"domain": {
+				"ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
+			}
+		},
+		"type": "modified",
+		"unsigned": {}
 	}`)
 
 	testVerifyNotOK("The content hash is modified", `{
 		"content": {},
 		"event_id": "$0:domain",
 		"hashes": {
-   	 	    "sha256": "adifferenthashvalueaP9SorVmRQNdN5aM2JYU2n/g"
-   	 	},
-   	 	"origin": "domain",
-   	 	"origin_server_ts": 1000000,
-   	 	"type": "m.room.message",
-   	 	"room_id": "!r:domain",
-   	 	"sender": "@u:domain",
-   	 	"signatures": {
-   	 	    "domain": {
-   	 	        "ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
-   	 	    }
-   	 	},
-   	 	"unsigned": {}
+			"sha256": "adifferenthashvalueaP9SorVmRQNdN5aM2JYU2n/g"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"type": "m.room.message",
+		"room_id": "!r:domain",
+		"sender": "@u:domain",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
+			}
+		},
+		"unsigned": {}
 	}`)
 }
 
@@ -200,81 +200,80 @@ func TestSignEventTestVectors(t *testing.T) {
 	}
 
 	testSign(`
-    {
-      "room_id": "!x:domain",
-      "sender": "@a:domain",
-      "origin": "domain",
-      "origin_server_ts": 1000000,
-      "signatures": {},
-      "hashes": {},
-      "type": "X",
-      "content": {},
-      "prev_events": [],
-      "auth_events": [],
-      "depth": 3,
-      "unsigned": {
-          "age_ts": 1000000
-      }
-    }`, `{
-      "auth_events": [],
-      "content": {},
-      "depth": 3,
-      "hashes": {
-          "sha256": "5jM4wQpv6lnBo7CLIghJuHdW+s2CMBJPUOGOC89ncos"
-      },
-      "origin": "domain",
-      "origin_server_ts": 1000000,
-      "prev_events": [],
-      "room_id": "!x:domain",
-      "sender": "@a:domain",
-      "signatures": {
-          "domain": {
-              "ed25519:1": "KxwGjPSDEtvnFgU00fwFz+l6d2pJM6XBIaMEn81SXPTRl16AqLAYqfIReFGZlHi5KLjAWbOoMszkwsQma+lYAg"
-          }
-      },
-      "type": "X",
-      "unsigned": {
-          "age_ts": 1000000
-      }
-    }
-  `)
+	{
+		"room_id": "!x:domain",
+		"sender": "@a:domain",
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"signatures": {},
+		"hashes": {},
+		"type": "X",
+		"content": {},
+		"prev_events": [],
+		"auth_events": [],
+		"depth": 3,
+		"unsigned": {
+			"age_ts": 1000000
+		}
+	}`, `{
+		"auth_events": [],
+		"content": {},
+		"depth": 3,
+		"hashes": {
+			"sha256": "5jM4wQpv6lnBo7CLIghJuHdW+s2CMBJPUOGOC89ncos"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"prev_events": [],
+		"room_id": "!x:domain",
+		"sender": "@a:domain",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "KxwGjPSDEtvnFgU00fwFz+l6d2pJM6XBIaMEn81SXPTRl16AqLAYqfIReFGZlHi5KLjAWbOoMszkwsQma+lYAg"
+			}
+		},
+		"type": "X",
+		"unsigned": {
+			"age_ts": 1000000
+		}
+	}`)
 
 	testSign(`{
-    "content": {
-        "body": "Here is the message content"
-    },
-    "event_id": "$0:domain",
-    "origin": "domain",
-    "origin_server_ts": 1000000,
-    "type": "m.room.message",
-    "room_id": "!r:domain",
-    "sender": "@u:domain",
-    "signatures": {},
-    "unsigned": {
-        "age_ts": 1000000
-    }
-  }`, `{
-    "content": {
-        "body": "Here is the message content"
-    },
-    "event_id": "$0:domain",
-    "hashes": {
-        "sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
-    },
-    "origin": "domain",
-    "origin_server_ts": 1000000,
-    "type": "m.room.message",
-    "room_id": "!r:domain",
-    "sender": "@u:domain",
-    "signatures": {
-        "domain": {
-            "ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
-        }
-    },
-    "unsigned": {
-        "age_ts": 1000000
-    }
-  }`)
+		"content": {
+			"body": "Here is the message content"
+		},
+		"event_id": "$0:domain",
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"type": "m.room.message",
+		"room_id": "!r:domain",
+		"sender": "@u:domain",
+		"signatures": {},
+		"unsigned": {
+			"age_ts": 1000000
+		}
+	}`, `{
+		"content": {
+			"body": "Here is the message content"
+		},
+		"event_id": "$0:domain",
+		"hashes": {
+			"sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"type": "m.room.message",
+		"room_id": "!r:domain",
+		"sender": "@u:domain",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
+			}
+		},
+		"unsigned": {
+			"age_ts": 1000000
+		}
+	}`)
 
 	testSign(`{
 		"event_id": "$0:domain",
@@ -287,19 +286,19 @@ func TestSignEventTestVectors(t *testing.T) {
 	}`, `{
 		"event_id": "$0:domain",
 		"hashes": {
-		    "sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
-   		},
-   		"origin": "domain",
-   		"origin_server_ts": 1000000,
-   		"signatures": {
-   		    "domain": {
-   		        "ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
-   		    }
-   		},
-   		"type": "X",
-   		"unsigned": {
-   		    "age_ts": 1000000
-   		}
+			"sha256": "6tJjLpXtggfke8UxFhAKg82QVkJzvKOVOOSjUDK4ZSI"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"signatures": {
+			"domain": {
+				"ed25519:1": "2Wptgo4CwmLo/Y8B8qinxApKaCkBG2fjTWB7AbP5Uy+aIbygsSdLOFzvdDjww8zUVKCmI02eP9xtyJxc/cLiBA"
+			}
+		},
+		"type": "X",
+		"unsigned": {
+			"age_ts": 1000000
+		}
 	}`)
 
 	testSign(`{
@@ -321,21 +320,21 @@ func TestSignEventTestVectors(t *testing.T) {
 		},
 		"event_id": "$0:domain",
 		"hashes": {
-   	 	    "sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
-   	 	},
-   	 	"origin": "domain",
-   	 	"origin_server_ts": 1000000,
-   	 	"type": "m.room.message",
-   	 	"room_id": "!r:domain",
-   	 	"sender": "@u:domain",
-   	 	"signatures": {
-   	 	    "domain": {
-   	 	        "ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
-   	 	    }
-   	 	},
-   	 	"unsigned": {
-   	 	    "age_ts": 1000000
-   	 	}
+			"sha256": "onLKD1bGljeBWQhWZ1kaP9SorVmRQNdN5aM2JYU2n/g"
+		},
+		"origin": "domain",
+		"origin_server_ts": 1000000,
+		"type": "m.room.message",
+		"room_id": "!r:domain",
+		"sender": "@u:domain",
+		"signatures": {
+			"domain": {
+				"ed25519:1": "Wm+VzmOUOz08Ds+0NTWb1d4CZrVsJSikkeRxh6aCcUwu6pNC78FunoD7KNWzqFn241eYHYMGCA5McEiVPdhzBA"
+			}
+		},
+		"unsigned": {
+			"age_ts": 1000000
+		}
 	}`)
 }
 
