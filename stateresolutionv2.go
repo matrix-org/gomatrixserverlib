@@ -275,10 +275,10 @@ func eventMapFromEvents(events []Event) map[string]Event {
 	return r
 }
 
-// preparePowerLevelEvents takes the input power level events and wraps them in
-// stateResV2ConflictedPowerLevel structs so that we have the necessary
+// wrapPowerLevelEventsForSort takes the input power level events and wraps them
+// in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) preparePowerLevelEvents(events []Event) []stateResV2ConflictedPowerLevel {
+func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []Event) []stateResV2ConflictedPowerLevel {
 	block := make([]stateResV2ConflictedPowerLevel, len(events))
 	for i, event := range events {
 		block[i] = stateResV2ConflictedPowerLevel{
@@ -291,10 +291,10 @@ func (r *stateResolverV2) preparePowerLevelEvents(events []Event) []stateResV2Co
 	return block
 }
 
-// prepareOtherEvents takes the input non-power level events and wraps them in
-// stateResV2ConflictedPowerLevel structs so that we have the necessary
+// wrapOtherEventsForSort takes the input non-power level events and wraps them
+// in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) prepareOtherEvents(events []Event) []stateResV2ConflictedOther {
+func (r *stateResolverV2) wrapOtherEventsForSort(events []Event) []stateResV2ConflictedOther {
 	block := make([]stateResV2ConflictedOther, len(events))
 	for i, event := range events {
 		_, pos, _ := r.getFirstPowerLevelMainlineEvent(event)
@@ -309,10 +309,10 @@ func (r *stateResolverV2) prepareOtherEvents(events []Event) []stateResV2Conflic
 }
 
 // reverseTopologicalOrdering takes a set of input events, prepares them using
-// preparePowerLevelEvents and then starts the Kahn's algorithm in order to
+// wrapPowerLevelEventsForSort and then starts the Kahn's algorithm in order to
 // topologically sort them. The result that is returned is correctly ordered.
 func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []Event) {
-	block := r.preparePowerLevelEvents(events)
+	block := r.wrapPowerLevelEventsForSort(events)
 	sorted := kahnsAlgorithmUsingAuthEvents(block)
 	for _, s := range sorted {
 		result = append(result, s.event)
@@ -321,10 +321,10 @@ func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []E
 }
 
 // mainlineOrdering takes a set of input events, prepares them using
-// prepareOtherEvents and then sorts them based on mainline ordering. The result
-// that is returned is correctly ordered.
+// wrapOtherEventsForSort and then sorts them based on mainline ordering. The
+// result that is returned is correctly ordered.
 func (r *stateResolverV2) mainlineOrdering(events []Event) (result []Event) {
-	block := r.prepareOtherEvents(events)
+	block := r.wrapOtherEventsForSort(events)
 	sort.Sort(stateResV2ConflictedOtherHeap(block))
 	for _, s := range block {
 		result = append(result, s.event)
