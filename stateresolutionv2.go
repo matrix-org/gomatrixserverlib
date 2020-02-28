@@ -101,9 +101,15 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 
 	// Now that we have our final state, populate the result array with the
 	// resolved state and return it.
-	r.result = append(r.result, *r.resolvedCreate)
-	r.result = append(r.result, *r.resolvedJoinRules)
-	r.result = append(r.result, *r.resolvedPowerLevels)
+	if r.resolvedCreate != nil {
+		r.result = append(r.result, *r.resolvedCreate)
+	}
+	if r.resolvedJoinRules != nil {
+		r.result = append(r.result, *r.resolvedJoinRules)
+	}
+	if r.resolvedPowerLevels != nil {
+		r.result = append(r.result, *r.resolvedPowerLevels)
+	}
 	for _, member := range r.resolvedMembers {
 		r.result = append(r.result, *member)
 	}
