@@ -139,8 +139,12 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	// delete(object, "unsigned")
 	// delete(object, "signatures")
 	empty := json.RawMessage("{}")
-	object["unsigned"] = &empty
-	object["signatures"] = &empty
+	if object["unsigned"] != nil {
+		object["unsigned"] = &empty
+	}
+	if object["signatures"] != nil {
+		object["signatures"] = &empty
+	}
 
 	// Encode the JSON without the "unsigned" and "signatures" keys in the canonical format.
 	unsorted, err := json.Marshal(object)
