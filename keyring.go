@@ -128,9 +128,14 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			results[i].Error = fmt.Errorf("gomatrixserverlib: error extracting key IDs")
 			continue
 		}
+		fmt.Println("*** KEY SEARCH FOR", requests[i].ServerName, "***")
 		for _, keyID := range ids {
+			fmt.Println("Looking up", keyID)
 			if k.isAlgorithmSupported(keyID) {
+				fmt.Println("Algorithm supported")
 				keyIDs[i] = append(keyIDs[i], keyID)
+			} else {
+				fmt.Println("Algorithm not supported")
 			}
 		}
 		if len(keyIDs[i]) == 0 {
