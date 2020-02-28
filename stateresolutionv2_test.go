@@ -28,6 +28,39 @@ var (
 
 var emptyStateKey = ""
 
+// separate takes a list of events and works out which events are conflicted and
+// which are unconflicted.
+func separate(events []Event) (conflicted, unconflicted []Event) {
+	// The stack maps event type -> event state key -> list of state events.
+	stack := make(map[string]map[string][]Event)
+	// Prepare the map.
+	for _, event := range events {
+		// If we haven't encountered an entry of this type yet, create an entry.
+		if _, ok := stack[event.Type()]; !ok {
+			stack[event.Type()] = make(map[string][]Event)
+		}
+		// Add the event to the map.
+		stack[event.Type()][*event.StateKey()] = append(
+			stack[event.Type()][*event.StateKey()], event,
+		)
+	}
+	// Now we need to work out which of these events are conflicted. An event is
+	// conflicted if there is more than one entry for the (type, statekey) tuple.
+	// If we encounter these events, add them to their relevant conflicted list.
+	for _, eventsOfType := range stack {
+		for _, eventsOfStateKey := range eventsOfType {
+			if len(eventsOfStateKey) > 1 {
+				// We have more than one event for the (type, statekey) tuple, therefore
+				// these are conflicted.
+				conflicted = append(conflicted, eventsOfStateKey...)
+			} else if len(eventsOfStateKey) == 1 {
+				unconflicted = append(unconflicted, eventsOfStateKey[0])
+			}
+		}
+	}
+	return
+}
+
 var stateResolutionV2Base = []Event{
 	{
 		fields: eventFields{
