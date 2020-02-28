@@ -39,6 +39,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 
 	unsignedJSON := event["unsigned"]
 
+	delete(event, "signatures")
 	delete(event, "unsigned")
 	delete(event, "hashes")
 
