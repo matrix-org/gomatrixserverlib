@@ -80,7 +80,7 @@ func (s *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
 	return x
 }
 
-// A stateResV2ConflictedPowerLevel is used to sort the events by power level
+// A stateResV2ConflictedOther is used to sort the events by power level
 // mainline positions, origin server TS and the lexicographical comparison of
 // event IDs. It is a bit of an optimisation to use this - by working out the
 // effective power level etc ahead of time, we use less CPU cycles during the
