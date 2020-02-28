@@ -143,7 +143,9 @@ func (r *stateResolverV2) createPowerLevelMainline() []Event {
 
 	// Begin the sequence from the currently resolved power level event from the
 	// topological ordering.
-	iter(*r.resolvedPowerLevels)
+	if r.resolvedPowerLevels != nil {
+		iter(*r.resolvedPowerLevels)
+	}
 
 	return mainline
 }
