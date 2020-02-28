@@ -129,6 +129,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			continue
 		}
 		fmt.Println("*** KEY SEARCH FOR", requests[i].ServerName, "***")
+		fmt.Println("Message:", string(requests[i].Message))
 		for _, keyID := range ids {
 			fmt.Println("Looking up", keyID)
 			if k.isAlgorithmSupported(keyID) {
