@@ -118,8 +118,6 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 		return err
 	}
 
-	fmt.Println("Before:", string(message))
-
 	// Check that there is a signature from the entity that we are expecting a signature from.
 	if object["signatures"] == nil {
 		return fmt.Errorf("No signatures")
@@ -136,15 +134,8 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	}
 
 	// The "unsigned" key and "signatures" keys aren't covered by the signature so remove them.
-	// delete(object, "unsigned")
-	// delete(object, "signatures")
-	empty := json.RawMessage("{}")
-	if object["unsigned"] != nil {
-		object["unsigned"] = &empty
-	}
-	if object["signatures"] != nil {
-		object["signatures"] = &empty
-	}
+	delete(object, "unsigned")
+	delete(object, "signatures")
 
 	// Encode the JSON without the "unsigned" and "signatures" keys in the canonical format.
 	unsorted, err := json.Marshal(object)
@@ -155,8 +146,6 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("After:", string(canonical))
 
 	// Verify the ed25519 signature.
 	if !ed25519.Verify(publicKey, canonical, signature) {
