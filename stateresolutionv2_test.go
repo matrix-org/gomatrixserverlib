@@ -216,8 +216,10 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
-func TestStateResolutionX1000(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+func TestStateResolutionX100(t *testing.T) {
+	// This test will very quickly highlight if the algorithm is non-deterministic
+	// or resolves different results when ran multiple times.
+	for i := 0; i < 100; i++ {
 		TestStateResolution(t)
 	}
 }
