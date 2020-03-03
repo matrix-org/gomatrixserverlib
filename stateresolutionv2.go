@@ -24,6 +24,7 @@ import (
 type stateResolverV2 struct {
 	authEventMap              map[string]Event
 	powerLevelMainline        []Event
+	powerLevelMainlinePos     map[string]int
 	resolvedCreate            *Event
 	resolvedPowerLevels       *Event
 	resolvedJoinRules         *Event
@@ -66,6 +67,7 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	var conflictedOthers []Event
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
+		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]*Event),
 		resolvedMembers:           make(map[string]*Event),
 		resolvedOthers:            make(map[string]map[string]*Event),
@@ -220,6 +222,11 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 	// Define a function that the iterator can use to determine whether the event
 	// is in the mainline set or not.
 	isInMainline := func(searchEvent Event) (bool, int) {
+		// First of all check the cache. If we've processed this event already then
+		// we should already know the mainline position.
+		if pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]; ok {
+			return true, pos
+		}
 		// Loop through the mainline.
 		for pos, mainlineEvent := range r.powerLevelMainline {
 			// Check if the search event matches this event. If it does then the event
@@ -250,6 +257,9 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 						// iterator from running any further.
 						mainlineEvent = authEvent
 						mainlinePosition = pos
+						// Cache the result so that a future request for this position will
+						// be faster.
+						r.powerLevelMainlinePos[mainlineEvent.EventID()] = mainlinePosition
 						return
 					}
 					// It isn't - increase the step count and then run the iterator again

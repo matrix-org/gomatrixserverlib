@@ -168,6 +168,93 @@ var stateResolutionV2Base = []Event{
 	},
 }
 
+func getFullStateResTest() []Event {
+	return append(stateResolutionV2Base, []Event{
+		{
+			fields: eventFields{
+				EventID:        "$PA:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomPowerLevels,
+				OriginServerTS: 7,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMEMBERZ:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"users": {
+					"` + ALICE + `": 100,
+					"` + BOB + `": 50
+				}}`),
+			},
+		},
+		{
+			fields: eventFields{
+				EventID:        "$PB:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomPowerLevels,
+				OriginServerTS: 8,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMEMBERZ:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"users": {
+					"` + ALICE + `": 100,
+					"` + BOB + `": 50
+				}}`),
+			},
+		},
+		{
+			fields: eventFields{
+				EventID:        "$MB:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 9,
+				Sender:         ALICE,
+				StateKey:       &EVELYN,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$PA:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$PB:example.com"},
+				},
+				Content: []byte(`{"membership": "ban"}`),
+			},
+		},
+		{
+			fields: eventFields{
+				EventID:        "$IME:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 10,
+				Sender:         EVELYN,
+				StateKey:       &EVELYN,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$MB:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$PA:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
+			},
+		},
+	}...)
+}
+
 func TestLexicographicalSorting(t *testing.T) {
 	input := []stateResV2ConflictedPowerLevel{
 		stateResV2ConflictedPowerLevel{eventID: "a", powerLevel: 0, originServerTS: 1},
@@ -224,92 +311,17 @@ func TestStateResolutionX100(t *testing.T) {
 	}
 }
 
-func TestStateResolution(t *testing.T) {
-	input := append(stateResolutionV2Base, []Event{
-		{
-			fields: eventFields{
-				EventID:        "$PA:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomPowerLevels,
-				OriginServerTS: 7,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
-				PrevEvents: []EventReference{
-					EventReference{EventID: "$IMEMBERZ:example.com"},
-				},
-				AuthEvents: []EventReference{
-					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
-					EventReference{EventID: "$IPOWER:example.com"},
-				},
-				Content: []byte(`{"users": {
-          "` + ALICE + `": 100,
-          "` + BOB + `": 50
-        }}`),
-			},
-		},
-		{
-			fields: eventFields{
-				EventID:        "$PB:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomPowerLevels,
-				OriginServerTS: 8,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
-				PrevEvents: []EventReference{
-					EventReference{EventID: "$IMEMBERZ:example.com"},
-				},
-				AuthEvents: []EventReference{
-					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
-					EventReference{EventID: "$IPOWER:example.com"},
-				},
-				Content: []byte(`{"users": {
-          "` + ALICE + `": 100,
-          "` + BOB + `": 50
-        }}`),
-			},
-		},
-		{
-			fields: eventFields{
-				EventID:        "$MB:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 9,
-				Sender:         ALICE,
-				StateKey:       &EVELYN,
-				PrevEvents: []EventReference{
-					EventReference{EventID: "$PA:example.com"},
-				},
-				AuthEvents: []EventReference{
-					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
-					EventReference{EventID: "$PB:example.com"},
-				},
-				Content: []byte(`{"membership": "ban"}`),
-			},
-		},
-		{
-			fields: eventFields{
-				EventID:        "$IME:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 10,
-				Sender:         EVELYN,
-				StateKey:       &EVELYN,
-				PrevEvents: []EventReference{
-					EventReference{EventID: "$MB:example.com"},
-				},
-				AuthEvents: []EventReference{
-					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
-					EventReference{EventID: "$PA:example.com"},
-				},
-				Content: []byte(`{"membership": "join"}`),
-			},
-		},
-	}...)
+func BenchmarkStateResolution(b *testing.B) {
+	input := getFullStateResTest()
+	conflicted, unconflicted := separate(input)
 
+	for i := 0; i < b.N; i++ {
+		ResolveStateConflictsV2(conflicted, unconflicted, input)
+	}
+}
+
+func TestStateResolution(t *testing.T) {
+	input := getFullStateResTest()
 	conflicted, unconflicted := separate(input)
 	result := ResolveStateConflictsV2(conflicted, unconflicted, input)
 
