@@ -15,6 +15,7 @@
 package gomatrixserverlib
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 )
@@ -215,6 +216,12 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
+func TestStateResolutionX1000(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		TestStateResolution(t)
+	}
+}
+
 func TestStateResolution(t *testing.T) {
 	input := append(stateResolutionV2Base, []Event{
 		{
@@ -311,7 +318,16 @@ func TestStateResolution(t *testing.T) {
 	}
 
 	if len(result) != len(expected) {
-		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
+		fmt.Println("Result:")
+		for k, v := range result {
+			fmt.Println("-", k, v.EventID())
+		}
+		fmt.Println("Expected:")
+		for k, v := range expected {
+			fmt.Println("-", k, v)
+		}
+
+		t.Fatalf("got %d elements but expected %d", len(result), len(expected))
 	}
 
 	isExpected := func(s string) bool {

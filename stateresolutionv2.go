@@ -29,6 +29,7 @@ type stateResolverV2 struct {
 	resolvedJoinRules         *Event
 	resolvedThirdPartyInvites map[string]*Event
 	resolvedMembers           map[string]*Event
+	resolvedOthers            map[string]map[string]*Event
 	result                    []Event
 }
 
@@ -67,6 +68,7 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 		authEventMap:              eventMapFromEvents(authEvents),
 		resolvedThirdPartyInvites: make(map[string]*Event),
 		resolvedMembers:           make(map[string]*Event),
+		resolvedOthers:            make(map[string]map[string]*Event),
 	}
 
 	// Separate out power level events from the rest of the events. This is
@@ -83,9 +85,10 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 
 	// Start with the unconflicted events by ordering them topologically and then
 	// authing them. The successfully authed events will form the initial partial
-	// state.
+	// state. We will then keep the successfully authed unconflicted events so that
+	// they can be reapplied later.
 	unconflicted = r.reverseTopologicalOrdering(unconflicted)
-	r.authAndApplyEvents(unconflicted)
+	unconflicted, _ = r.authAndApplyEvents(unconflicted)
 
 	// Then order the conflicted power level events topologically and then also
 	// auth those too. The successfully authed events will be layered on top of
@@ -103,7 +106,7 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	// partial state, just in case any of these were overwritten by pulling in
 	// auth events in the previous two steps, and that gives us our final resolved
 	// state.
-	r.authAndApplyEvents(unconflicted)
+	r.applyEvents(unconflicted)
 
 	// Now that we have our final state, populate the result array with the
 	// resolved state and return it.
@@ -121,6 +124,11 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	}
 	for _, invite := range r.resolvedThirdPartyInvites {
 		r.result = append(r.result, *invite)
+	}
+	for _, other := range r.resolvedOthers {
+		for _, event := range other {
+			r.result = append(r.result, *event)
+		}
 	}
 	return r.result
 }
@@ -224,17 +232,29 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 // authAndApplyEvents iterates through the supplied list of events and auths
 // them against the current partial state. If they pass the auth checks then we
 // also apply them on top of the partial state. If they fail auth checks then
-// the event is ignored and dropped.
-func (r *stateResolverV2) authAndApplyEvents(events []Event) {
-	for _, e := range events {
-		event := e
+// the event is ignored and dropped. Returns two lists - the first contains the
+// accepted (authed) events and the second contains the rejected events.
+func (r *stateResolverV2) authAndApplyEvents(events []Event) (accepted, rejected []Event) {
+	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
 		if err := Allowed(event, r); err != nil {
+			rejected = append(rejected, event)
 			continue
 		}
-		// We've now authed the event - work out what the type is and apply it to
-		// the partial state based on type.
+		// We've now authed the event.
+		accepted = append(accepted, event)
+		// Apply the newly authed event to the partial state. We need to do this
+		// here so that the next loop will have partial state to auth against.
+		r.applyEvents([]Event{event})
+	}
+	return
+}
+
+// applyEvents applies the events on top of the partial state.
+func (r *stateResolverV2) applyEvents(events []Event) {
+	for _, e := range events {
+		event := e
 		switch event.Type() {
 		case MRoomCreate:
 			// Room creation events are only valid with an empty state key.
@@ -261,6 +281,10 @@ func (r *stateResolverV2) authAndApplyEvents(events []Event) {
 			if event.StateKey() != nil && *event.StateKey() != "" {
 				r.resolvedMembers[*event.StateKey()] = &event
 			}
+		default:
+			// Doesn't match one of the core state types so store it by type and state
+			// key.
+			r.resolvedOthers[event.Type()][*event.StateKey()] = &event
 		}
 	}
 }
