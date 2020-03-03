@@ -62,7 +62,7 @@ func (r *stateResolverV2) Member(key string) (*Event, error) {
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
 func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Event) []Event {
-	var conflictedPowerLevels []Event
+	var conflictedControlEvents []Event
 	var conflictedOthers []Event
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
@@ -71,13 +71,13 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 		resolvedOthers:            make(map[string]map[string]*Event),
 	}
 
-	// Separate out power level events from the rest of the events. This is
-	// necessary because we perform topological ordering of the power events
-	// separately, and then the mainline ordering of all other events depends
-	// on that power level ordering.
+	// Separate out control events from the rest of the events. This is necessary
+	// because we perform topological ordering of the control events separately,
+	// and then the mainline ordering of all other events depends on that
+	// ordering.
 	for _, p := range conflicted {
-		if p.Type() == MRoomPowerLevels {
-			conflictedPowerLevels = append(conflictedPowerLevels, p)
+		if isControlEvent(p) {
+			conflictedControlEvents = append(conflictedControlEvents, p)
 		} else {
 			conflictedOthers = append(conflictedOthers, p)
 		}
@@ -93,8 +93,8 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	// Then order the conflicted power level events topologically and then also
 	// auth those too. The successfully authed events will be layered on top of
 	// the partial state.
-	conflictedPowerLevels = r.reverseTopologicalOrdering(conflictedPowerLevels)
-	r.authAndApplyEvents(conflictedPowerLevels)
+	conflictedControlEvents = r.reverseTopologicalOrdering(conflictedControlEvents)
+	r.authAndApplyEvents(conflictedControlEvents)
 
 	// Then generate the mainline of power level events, order the remaining state
 	// events based on the mainline ordering and auth those too. The successfully
@@ -131,6 +131,44 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 		}
 	}
 	return r.result
+}
+
+// isControlEvent returns true if the event meets the criteria for being classed
+// as a "control" event for reverse topological sorting. If not then the event
+// will be mainline sorted.
+func isControlEvent(e Event) bool {
+	switch e.Type() {
+	case MRoomPowerLevels:
+		// Power level events are control events.
+		return true
+	case MRoomJoinRules:
+		// Join rule events are control events.
+		return true
+	case MRoomMember:
+		// Membership events must not have an empty state key.
+		if e.StateKey() == nil || *e.StateKey() == "" {
+			break
+		}
+		// Membership events are only control events if the sender does not match
+		// the state key, i.e. because the event is caused by an admin or moderator.
+		if e.Sender() == *e.StateKey() {
+			break
+		}
+		// Membership events are only control events if the "membership" key in the
+		// content is "leave" or "ban" so we need to extract the content.
+		var content map[string]interface{}
+		if err := json.Unmarshal(e.Content(), &content); err != nil {
+			break
+		}
+		// If the "membership" key is set and is set to either "leave" or "ban" then
+		// the event is a control event.
+		if m, ok := content["membership"]; ok && (m == "leave" || m == "ban") {
+			return true
+		}
+	}
+	// If we have reached this point then we have failed all checks and we don't
+	// count the event as a control event.
+	return false
 }
 
 // createPowerLevelMainline generates the mainline of power level events,
