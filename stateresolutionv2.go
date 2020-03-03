@@ -88,7 +88,7 @@ func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Even
 	// state. We will then keep the successfully authed unconflicted events so that
 	// they can be reapplied later.
 	unconflicted = r.reverseTopologicalOrdering(unconflicted)
-	unconflicted, _ = r.authAndApplyEvents(unconflicted)
+	unconflicted = r.authAndApplyEvents(unconflicted)
 
 	// Then order the conflicted power level events topologically and then also
 	// auth those too. The successfully authed events will be layered on top of
@@ -234,12 +234,11 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 // also apply them on top of the partial state. If they fail auth checks then
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
-func (r *stateResolverV2) authAndApplyEvents(events []Event) (accepted, rejected []Event) {
+func (r *stateResolverV2) authAndApplyEvents(events []Event) (accepted []Event) {
 	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
 		if err := Allowed(event, r); err != nil {
-			rejected = append(rejected, event)
 			continue
 		}
 		// We've now authed the event.
