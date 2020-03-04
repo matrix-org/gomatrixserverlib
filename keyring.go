@@ -160,6 +160,18 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
 
+	// If we can verify using the keys from the database, don't make a federation call.
+	doFederationHit := false
+	for _, r := range results {
+		if r.Error != nil {
+			doFederationHit = true
+			break
+		}
+	}
+	if !doFederationHit {
+		return results, nil
+	}
+
 	for _, fetcher := range k.KeyFetchers {
 		// TODO: we should distinguish here between expired keys, and those we don't have.
 		// If the key has expired, it's no use re-requesting it.
