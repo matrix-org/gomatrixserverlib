@@ -24,7 +24,6 @@ import (
 // effective power level etc ahead of time, we use less CPU cycles during the
 // sort.
 type stateResV2ConflictedPowerLevel struct {
-	index          int
 	powerLevel     int
 	originServerTS int64
 	eventID        string
