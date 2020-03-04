@@ -15,16 +15,16 @@
 package gomatrixserverlib
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 )
 
 var (
-	ALICE  = "@alice:example.com"
-	BOB    = "@bob:example.com"
-	EVELYN = "@evelyn:example.com"
-	ZARA   = "@zara:example.com"
+	ALICE   = "@alice:example.com"
+	BOB     = "@bob:example.com"
+	CHARLIE = "@charlie:example.com"
+	EVELYN  = "@evelyn:example.com"
+	ZARA    = "@zara:example.com"
 )
 
 var emptyStateKey = ""
@@ -62,128 +62,165 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 	return
 }
 
-var stateResolutionV2Base = []Event{
-	{
-		fields: eventFields{
-			EventID:        "$CREATE:example.com",
-			RoomID:         "!ROOM:example.com",
-			Type:           MRoomCreate,
-			OriginServerTS: 1,
-			Sender:         ALICE,
-			StateKey:       &emptyStateKey,
-			Content:        []byte(`{"creator": "` + ALICE + `"}`),
+func getBaseStateResV2Graph() []Event {
+	return []Event{
+		{
+			fields: eventFields{
+				EventID:        "$CREATE:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomCreate,
+				OriginServerTS: 1,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content:        []byte(`{"creator": "` + ALICE + `"}`),
+			},
 		},
-	},
-	{
-		fields: eventFields{
-			EventID:        "$IMEMBERA:example.com",
-			RoomID:         "!ROOM:example.com",
-			Type:           MRoomMember,
-			OriginServerTS: 2,
-			Sender:         ALICE,
-			StateKey:       &ALICE,
-			PrevEvents: []EventReference{
-				EventReference{EventID: "$CREATE:example.com"},
+		{
+			fields: eventFields{
+				EventID:        "$IMA:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 2,
+				Sender:         ALICE,
+				StateKey:       &ALICE,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
 			},
-			AuthEvents: []EventReference{
-				EventReference{EventID: "$CREATE:example.com"},
-			},
-			Content: []byte(`{"membership": "join"}`),
 		},
-	},
-	{
-		fields: eventFields{
-			EventID:        "$IPOWER:example.com",
-			RoomID:         "!ROOM:example.com",
-			Type:           MRoomPowerLevels,
-			OriginServerTS: 3,
-			Sender:         ALICE,
-			StateKey:       &emptyStateKey,
-			PrevEvents: []EventReference{
-				EventReference{EventID: "$IMEMBERA:example.com"},
+		{
+			fields: eventFields{
+				EventID:        "$IPOWER:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomPowerLevels,
+				OriginServerTS: 3,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMA:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IMA:example.com"},
+				},
+				Content: []byte(`{"users": {"` + ALICE + `": 100}}`),
 			},
-			AuthEvents: []EventReference{
-				EventReference{EventID: "$CREATE:example.com"},
-				EventReference{EventID: "$IMEMBERA:example.com"},
-			},
-			Content: []byte(`{"users": {"` + ALICE + `": 100}}`),
 		},
-	},
-	{
-		fields: eventFields{
-			EventID:        "$IJOINRULE:example.com",
-			RoomID:         "!ROOM:example.com",
-			Type:           MRoomJoinRules,
-			OriginServerTS: 4,
-			Sender:         ALICE,
-			StateKey:       &emptyStateKey,
-			PrevEvents: []EventReference{
-				EventReference{EventID: "$IPOWER:example.com"},
+		{
+			fields: eventFields{
+				EventID:        "$IJR:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomJoinRules,
+				OriginServerTS: 4,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IMA:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"join_rule": "public"}`),
 			},
-			AuthEvents: []EventReference{
-				EventReference{EventID: "$CREATE:example.com"},
-				EventReference{EventID: "$IMEMBERA:example.com"},
-				EventReference{EventID: "$IPOWER:example.com"},
-			},
-			Content: []byte(`{"join_rule": "public"}`),
 		},
-	},
-	{
-		fields: eventFields{
-			EventID:        "$IMEMBERC:example.com",
-			RoomID:         "!ROOM:example.com",
-			Type:           MRoomMember,
-			OriginServerTS: 5,
-			Sender:         BOB,
-			StateKey:       &BOB,
-			PrevEvents: []EventReference{
-				EventReference{EventID: "$IJOINRULE:example.com"},
+		{
+			fields: eventFields{
+				EventID:        "$IMB:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 5,
+				Sender:         BOB,
+				StateKey:       &BOB,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IJR:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
 			},
-			AuthEvents: []EventReference{
-				EventReference{EventID: "$CREATE:example.com"},
-				EventReference{EventID: "$IJOINRULE:example.com"},
-				EventReference{EventID: "$IPOWER:example.com"},
-			},
-			Content: []byte(`{"membership": "join"}`),
 		},
-	},
-	{
-		fields: eventFields{
-			EventID:        "$IMEMBERZ:example.com",
-			RoomID:         "!ROOM:example.com",
-			Type:           MRoomMember,
-			OriginServerTS: 6,
-			Sender:         ZARA,
-			StateKey:       &ZARA,
-			PrevEvents: []EventReference{
-				EventReference{EventID: "$IMEMBERC:example.com"},
+		{
+			fields: eventFields{
+				EventID:        "$IMC:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 6,
+				Sender:         CHARLIE,
+				StateKey:       &CHARLIE,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMB:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
 			},
-			AuthEvents: []EventReference{
-				EventReference{EventID: "$CREATE:example.com"},
-				EventReference{EventID: "$IJOINRULE:example.com"},
-				EventReference{EventID: "$IPOWER:example.com"},
-			},
-			Content: []byte(`{"membership": "join"}`),
 		},
-	},
+		{
+			fields: eventFields{
+				EventID:        "$IMZ:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 7,
+				Sender:         ZARA,
+				StateKey:       &ZARA,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMC:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
+			},
+		},
+	}
 }
 
-func getFullStateResTest() []Event {
-	return append(stateResolutionV2Base, []Event{
+func TestStateResolutionBase(t *testing.T) {
+	expected := []string{
+		"$CREATE:example.com", "$IJR:example.com", "$IPOWER:example.com",
+		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
+		"$IMZ:example.com",
+	}
+
+	runStateResolutionV2(t, []Event{}, expected)
+}
+
+func TestStateResolutionBanVsPowerLevel(t *testing.T) {
+	expected := []string{
+		"$CREATE:example.com", "$IJR:example.com", "$PA:example.com",
+		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
+		"$MB:example.com", "$IMZ:example.com",
+	}
+
+	runStateResolutionV2(t, []Event{
 		{
 			fields: eventFields{
 				EventID:        "$PA:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomPowerLevels,
-				OriginServerTS: 7,
+				OriginServerTS: 8,
 				Sender:         ALICE,
 				StateKey:       &emptyStateKey,
 				PrevEvents: []EventReference{
-					EventReference{EventID: "$IMEMBERZ:example.com"},
+					EventReference{EventID: "$IMC:example.com"},
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
 				Content: []byte(`{"users": {
@@ -197,15 +234,15 @@ func getFullStateResTest() []Event {
 				EventID:        "$PB:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomPowerLevels,
-				OriginServerTS: 8,
+				OriginServerTS: 9,
 				Sender:         ALICE,
 				StateKey:       &emptyStateKey,
 				PrevEvents: []EventReference{
-					EventReference{EventID: "$IMEMBERZ:example.com"},
+					EventReference{EventID: "$IMC:example.com"},
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
 				Content: []byte(`{"users": {
@@ -219,7 +256,7 @@ func getFullStateResTest() []Event {
 				EventID:        "$MB:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomMember,
-				OriginServerTS: 9,
+				OriginServerTS: 10,
 				Sender:         ALICE,
 				StateKey:       &EVELYN,
 				PrevEvents: []EventReference{
@@ -227,7 +264,7 @@ func getFullStateResTest() []Event {
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$PB:example.com"},
 				},
 				Content: []byte(`{"membership": "ban"}`),
@@ -238,7 +275,7 @@ func getFullStateResTest() []Event {
 				EventID:        "$IME:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomMember,
-				OriginServerTS: 10,
+				OriginServerTS: 11,
 				Sender:         EVELYN,
 				StateKey:       &EVELYN,
 				PrevEvents: []EventReference{
@@ -246,13 +283,13 @@ func getFullStateResTest() []Event {
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJOINRULE:example.com"},
+					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$PA:example.com"},
 				},
 				Content: []byte(`{"membership": "join"}`),
 			},
 		},
-	}...)
+	}, expected)
 }
 
 func TestLexicographicalSorting(t *testing.T) {
@@ -265,9 +302,18 @@ func TestLexicographicalSorting(t *testing.T) {
 		stateResV2ConflictedPowerLevel{eventID: "f", powerLevel: 75, originServerTS: 4},
 		stateResV2ConflictedPowerLevel{eventID: "g", powerLevel: 100, originServerTS: 5},
 	}
-	expected := []string{"g", "f", "e", "d", "a", "b", "c"}
+	expected := []string{"g", "f", "e", "d", "c", "b", "a"}
 
 	sort.Stable(stateResV2ConflictedPowerLevelHeap(input))
+
+	t.Log("Results:")
+	for k, v := range input {
+		t.Log("-", k, v.eventID)
+	}
+	t.Log("Expected:")
+	for k, v := range expected {
+		t.Log("-", k, v)
+	}
 
 	if len(input) != len(expected) {
 		t.Fatalf("got %d elements but expected %d", len(input), len(expected))
@@ -282,11 +328,20 @@ func TestLexicographicalSorting(t *testing.T) {
 
 func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
-	input := r.reverseTopologicalOrdering(stateResolutionV2Base)
+	input := r.reverseTopologicalOrdering(getBaseStateResV2Graph())
 
 	expected := []string{
-		"$CREATE:example.com", "$IMEMBERA:example.com", "$IPOWER:example.com",
-		"$IJOINRULE:example.com", "$IMEMBERC:example.com", "$IMEMBERZ:example.com",
+		"$CREATE:example.com", "$IMA:example.com", "$IPOWER:example.com",
+		"$IJR:example.com", "$IMB:example.com", "$IMC:example.com", "$IMZ:example.com",
+	}
+
+	t.Log("Result:")
+	for k, v := range input {
+		t.Log("-", k, v.EventID(), v.OriginServerTS())
+	}
+	t.Log("Expected:")
+	for k, v := range expected {
+		t.Log("-", k, v)
 	}
 
 	if len(input) != len(expected) {
@@ -303,44 +358,26 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
-func TestStateResolutionX100(t *testing.T) {
-	// This test will very quickly highlight if the algorithm is non-deterministic
-	// or resolves different results when ran multiple times.
-	for i := 0; i < 100; i++ {
-		TestStateResolution(t)
-	}
-}
-
-func BenchmarkStateResolution(b *testing.B) {
-	input := getFullStateResTest()
+func runStateResolutionV2(t *testing.T, additional []Event, expected []string) {
+	input := append(getBaseStateResV2Graph(), additional...)
 	conflicted, unconflicted := separate(input)
+	result := ResolveStateConflictsV2(
+		conflicted,   // conflicted set
+		unconflicted, // unconflicted set
+		input,        // full auth set
+		additional,   // auth difference
+	)
 
-	for i := 0; i < b.N; i++ {
-		ResolveStateConflictsV2(conflicted, unconflicted, input)
+	t.Log("Result:")
+	for k, v := range result {
+		t.Log("-", k, v.EventID())
 	}
-}
-
-func TestStateResolution(t *testing.T) {
-	input := getFullStateResTest()
-	conflicted, unconflicted := separate(input)
-	result := ResolveStateConflictsV2(conflicted, unconflicted, input)
-
-	expected := []string{
-		"$CREATE:example.com", "$IJOINRULE:example.com", "$PB:example.com",
-		"$IMEMBERA:example.com", "$IMEMBERC:example.com", "$IMEMBERZ:example.com",
-		"$MB:example.com",
+	t.Log("Expected:")
+	for k, v := range expected {
+		t.Log("-", k, v)
 	}
 
 	if len(result) != len(expected) {
-		fmt.Println("Result:")
-		for k, v := range result {
-			fmt.Println("-", k, v.EventID())
-		}
-		fmt.Println("Expected:")
-		for k, v := range expected {
-			fmt.Println("-", k, v)
-		}
-
 		t.Fatalf("got %d elements but expected %d", len(result), len(expected))
 	}
 
@@ -353,25 +390,30 @@ func TestStateResolution(t *testing.T) {
 		return false
 	}
 
-	noneMissing := func() (found bool) {
-		for _, e := range expected {
-			for _, r := range result {
-				if r.EventID() == e {
-					found = true
-					return
-				}
+	noneMissing := func() (bool, string) {
+		e := make(map[string]bool)
+		r := make(map[string]bool)
+		for _, event := range expected {
+			e[event] = true
+		}
+		for _, event := range result {
+			r[event.EventID()] = true
+		}
+		for event := range e {
+			if _, ok := r[event]; !ok {
+				return false, event
 			}
 		}
-		return
+		return true, ""
 	}
 
-	for p, r := range result {
+	for _, r := range result {
 		if !isExpected(r.EventID()) {
-			t.Fatalf("position %d did not match, got '%s' but expected '%s'", p, r.EventID(), expected[p])
+			t.Fatalf("didn't expect to find '%s' in resolved state", r.EventID())
 		}
 	}
 
-	if !noneMissing() {
-		t.Fatalf("expected to find element but didn't")
+	if ok, missing := noneMissing(); !ok {
+		t.Fatalf("expected to find '%s' in resolved state but didn't", missing)
 	}
 }

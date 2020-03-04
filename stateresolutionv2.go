@@ -22,16 +22,16 @@ import (
 )
 
 type stateResolverV2 struct {
-	authEventMap              map[string]Event
-	powerLevelMainline        []Event
-	powerLevelMainlinePos     map[string]int
-	resolvedCreate            *Event
-	resolvedPowerLevels       *Event
-	resolvedJoinRules         *Event
-	resolvedThirdPartyInvites map[string]*Event
-	resolvedMembers           map[string]*Event
-	resolvedOthers            map[string]map[string]*Event
-	result                    []Event
+	authEventMap              map[string]Event             // Map of all provided auth events
+	powerLevelMainline        []Event                      // Power level events in mainline ordering
+	powerLevelMainlinePos     map[string]int               // Power level event positions in mainline
+	resolvedCreate            *Event                       // Resolved create event
+	resolvedPowerLevels       *Event                       // Resolved power level event
+	resolvedJoinRules         *Event                       // Resolved join rules event
+	resolvedThirdPartyInvites map[string]*Event            // Resolved third party invite events
+	resolvedMembers           map[string]*Event            // Resolved member events
+	resolvedOthers            map[string]map[string]*Event // Resolved other events
+	result                    []Event                      // Final list of resolved events
 }
 
 // Create implements AuthEventProvider
@@ -62,9 +62,13 @@ func (r *stateResolverV2) Member(key string) (*Event, error) {
 // ResolveStateConflicts takes a list of state events with conflicting state
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
-func ResolveStateConflictsV2(conflicted, unconflicted []Event, authEvents []Event) []Event {
-	var conflictedControlEvents []Event
-	var conflictedOthers []Event
+func ResolveStateConflictsV2(
+	conflicted, unconflicted []Event,
+	authEvents, authDifference []Event,
+) []Event {
+	conflictedControlEvents := authDifference
+	conflictedOthers := []Event{}
+
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		powerLevelMainlinePos:     make(map[string]int),
@@ -341,7 +345,9 @@ func (r *stateResolverV2) applyEvents(events []Event) {
 func eventMapFromEvents(events []Event) map[string]Event {
 	r := make(map[string]Event)
 	for _, e := range events {
-		r[e.EventID()] = e
+		if _, ok := r[e.EventID()]; !ok {
+			r[e.EventID()] = e
+		}
 	}
 	return r
 }
@@ -384,8 +390,7 @@ func (r *stateResolverV2) wrapOtherEventsForSort(events []Event) []stateResV2Con
 // topologically sort them. The result that is returned is correctly ordered.
 func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []Event) {
 	block := r.wrapPowerLevelEventsForSort(events)
-	sorted := kahnsAlgorithmUsingAuthEvents(block)
-	for _, s := range sorted {
+	for _, s := range kahnsAlgorithmUsingAuthEvents(block) {
 		result = append(result, s.event)
 	}
 	return
@@ -526,5 +531,6 @@ func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (
 	}
 
 	// The graph is complete at this point!
+	//sort.Sort(sort.Reverse(stateResV2ConflictedPowerLevelHeap(graph)))
 	return graph
 }

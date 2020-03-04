@@ -24,6 +24,7 @@ import (
 // effective power level etc ahead of time, we use less CPU cycles during the
 // sort.
 type stateResV2ConflictedPowerLevel struct {
+	index          int
 	powerLevel     int
 	originServerTS int64
 	eventID        string
@@ -52,14 +53,14 @@ func (s stateResV2ConflictedPowerLevelHeap) Less(i, j int) bool {
 	// If we've reached here then s[i].powerLevel == s[j].powerLevel
 	// so instead try to tiebreak on origin server TS
 	if s[i].originServerTS < s[j].originServerTS {
-		return true
+		return false
 	}
 	if s[i].originServerTS > s[j].originServerTS {
-		return false
+		return true
 	}
 	// If we've reached here then s[i].originServerTS == s[j].originServerTS
 	// so instead try to tiebreak on a lexicographical comparison of the event ID
-	return strings.Compare(s[i].eventID[:], s[j].eventID[:]) < 0
+	return strings.Compare(s[i].eventID[:], s[j].eventID[:]) > 0
 }
 
 // Swap implements sort.Interface
@@ -75,8 +76,9 @@ func (s *stateResV2ConflictedPowerLevelHeap) Push(x interface{}) {
 // Pop implements heap.Interface
 func (s *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
 	old := *s
-	x := old[0]
-	*s = old[1:]
+	n := len(old)
+	x := old[n-1]
+	*s = old[:n-1]
 	return x
 }
 
@@ -106,10 +108,10 @@ func (s stateResV2ConflictedOtherHeap) Len() int {
 func (s stateResV2ConflictedOtherHeap) Less(i, j int) bool {
 	// Try to tiebreak on the mainline position
 	if s[i].mainlinePosition < s[j].mainlinePosition {
-		return true
+		return false
 	}
 	if s[i].mainlinePosition > s[j].mainlinePosition {
-		return false
+		return true
 	}
 	// If we've reached here then s[i].mainlinePosition == s[j].mainlinePosition
 	// so instead try to tiebreak on origin server TS
@@ -137,7 +139,8 @@ func (s *stateResV2ConflictedOtherHeap) Push(x interface{}) {
 // Pop implements heap.Interface
 func (s *stateResV2ConflictedOtherHeap) Pop() interface{} {
 	old := *s
-	x := old[0]
-	*s = old[1:]
+	n := len(old)
+	x := old[n-1]
+	*s = old[:n-1]
 	return x
 }
