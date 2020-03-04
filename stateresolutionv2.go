@@ -66,9 +66,8 @@ func ResolveStateConflictsV2(
 	conflicted, unconflicted []Event,
 	authEvents, authDifference []Event,
 ) []Event {
-	conflictedControlEvents := authDifference
-	conflictedOthers := []Event{}
-
+	var conflictedControlEvents []Event
+	var conflictedOthers []Event
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		powerLevelMainlinePos:     make(map[string]int),
@@ -77,15 +76,29 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[string]map[string]*Event),
 	}
 
+	// This is a quick helper function to determine if an event already belongs to
+	// the unconflicted set. If it does then we shouldn't add it back into the
+	// conflicted set later.
+	isUnconflicted := func(event Event) bool {
+		for _, v := range unconflicted {
+			if event.EventID() == v.EventID() {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Separate out control events from the rest of the events. This is necessary
 	// because we perform topological ordering of the control events separately,
 	// and then the mainline ordering of all other events depends on that
 	// ordering.
-	for _, p := range conflicted {
-		if isControlEvent(p) {
-			conflictedControlEvents = append(conflictedControlEvents, p)
-		} else {
-			conflictedOthers = append(conflictedOthers, p)
+	for _, p := range append(conflicted, authDifference...) {
+		if !isUnconflicted(p) {
+			if isControlEvent(p) {
+				conflictedControlEvents = append(conflictedControlEvents, p)
+			} else {
+				conflictedOthers = append(conflictedOthers, p)
+			}
 		}
 	}
 
@@ -94,7 +107,7 @@ func ResolveStateConflictsV2(
 	// state. We will then keep the successfully authed unconflicted events so that
 	// they can be reapplied later.
 	unconflicted = r.reverseTopologicalOrdering(unconflicted)
-	unconflicted = r.authAndApplyEvents(unconflicted)
+	r.applyEvents(unconflicted)
 
 	// Then order the conflicted power level events topologically and then also
 	// auth those too. The successfully authed events will be layered on top of
@@ -106,7 +119,8 @@ func ResolveStateConflictsV2(
 	// events based on the mainline ordering and auth those too. The successfully
 	// authed events are also layered on top of the partial state.
 	r.powerLevelMainline = r.createPowerLevelMainline()
-	r.authAndApplyEvents(r.mainlineOrdering(conflictedOthers))
+	conflictedOthers = r.mainlineOrdering(conflictedOthers)
+	r.authAndApplyEvents(conflictedOthers)
 
 	// Finally we will reapply the original set of unconflicted events onto the
 	// partial state, just in case any of these were overwritten by pulling in
@@ -136,6 +150,7 @@ func ResolveStateConflictsV2(
 			r.result = append(r.result, *event)
 		}
 	}
+
 	return r.result
 }
 
@@ -171,6 +186,7 @@ func isControlEvent(e Event) bool {
 		if m, ok := content["membership"]; ok && (m == "leave" || m == "ban") {
 			return true
 		}
+	default:
 	}
 	// If we have reached this point then we have failed all checks and we don't
 	// count the event as a control event.
@@ -501,6 +517,7 @@ func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (
 	}
 
 	var event stateResV2ConflictedPowerLevel
+resetNoIncoming:
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
@@ -509,6 +526,7 @@ func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
 		graph = append([]stateResV2ConflictedPowerLevel{event}, graph...)
+		//graph = append(graph, event)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
@@ -525,9 +543,20 @@ func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (
 				if _, ok := eventMap[auth]; ok {
 					heap.Push(&noIncoming, eventMap[auth])
 					delete(eventMap, auth)
+					goto resetNoIncoming
 				}
 			}
 		}
+	}
+
+	// If we have stray events left over then add them into the result.
+	if len(eventMap) > 0 {
+		var remaining stateResV2ConflictedPowerLevelHeap
+		for _, event := range eventMap {
+			heap.Push(&remaining, event)
+		}
+		sort.Sort(sort.Reverse(remaining))
+		graph = append(remaining, graph...)
 	}
 
 	// The graph is complete at this point!

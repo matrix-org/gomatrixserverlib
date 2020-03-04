@@ -40,22 +40,37 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 		if _, ok := stack[event.Type()]; !ok {
 			stack[event.Type()] = make(map[string][]Event)
 		}
-		// Add the event to the map.
-		stack[event.Type()][*event.StateKey()] = append(
-			stack[event.Type()][*event.StateKey()], event,
-		)
+		// Work out the state key in a crash-proof manner.
+		statekey := ""
+		if event.StateKey() != nil {
+			statekey = *event.StateKey()
+		}
+		// Check that we haven't already got this event in the list already. If we
+		// do then don't bother duplicating it - that way if we end up with only
+		// one unique value eventually, it'll get sorted as unconflicted.
+		found := false
+		for _, e := range stack[event.Type()][statekey] {
+			if e.EventID() == event.EventID() {
+				found = true
+			}
+		}
+		// Add the event to the map if we haven't already found it.
+		if !found {
+			stack[event.Type()][statekey] = append(
+				stack[event.Type()][statekey], event,
+			)
+		}
 	}
+
 	// Now we need to work out which of these events are conflicted. An event is
 	// conflicted if there is more than one entry for the (type, statekey) tuple.
 	// If we encounter these events, add them to their relevant conflicted list.
 	for _, eventsOfType := range stack {
 		for _, eventsOfStateKey := range eventsOfType {
 			if len(eventsOfStateKey) > 1 {
-				// We have more than one event for the (type, statekey) tuple, therefore
-				// these are conflicted.
 				conflicted = append(conflicted, eventsOfStateKey...)
-			} else if len(eventsOfStateKey) == 1 {
-				unconflicted = append(unconflicted, eventsOfStateKey[0])
+			} else {
+				unconflicted = append(unconflicted, eventsOfStateKey...)
 			}
 		}
 	}
@@ -167,25 +182,6 @@ func getBaseStateResV2Graph() []Event {
 				Content: []byte(`{"membership": "join"}`),
 			},
 		},
-		{
-			fields: eventFields{
-				EventID:        "$IMZ:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 7,
-				Sender:         ZARA,
-				StateKey:       &ZARA,
-				PrevEvents: []EventReference{
-					EventReference{EventID: "$IMC:example.com"},
-				},
-				AuthEvents: []EventReference{
-					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJR:example.com"},
-					EventReference{EventID: "$IPOWER:example.com"},
-				},
-				Content: []byte(`{"membership": "join"}`),
-			},
-		},
 	}
 }
 
@@ -193,7 +189,6 @@ func TestStateResolutionBase(t *testing.T) {
 	expected := []string{
 		"$CREATE:example.com", "$IJR:example.com", "$IPOWER:example.com",
 		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
-		"$IMZ:example.com",
 	}
 
 	runStateResolutionV2(t, []Event{}, expected)
@@ -203,7 +198,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 	expected := []string{
 		"$CREATE:example.com", "$IJR:example.com", "$PA:example.com",
 		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
-		"$MB:example.com", "$IMZ:example.com",
+		"$MB:example.com",
 	}
 
 	runStateResolutionV2(t, []Event{
@@ -212,15 +207,15 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID:        "$PA:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomPowerLevels,
-				OriginServerTS: 8,
+				OriginServerTS: 7,
 				Sender:         ALICE,
 				StateKey:       &emptyStateKey,
 				PrevEvents: []EventReference{
-					EventReference{EventID: "$IMC:example.com"},
+					EventReference{EventID: "$IMZJOIN:example.com"},
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJR:example.com"},
+					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
 				Content: []byte(`{"users": {
@@ -234,7 +229,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID:        "$PB:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomPowerLevels,
-				OriginServerTS: 9,
+				OriginServerTS: 8,
 				Sender:         ALICE,
 				StateKey:       &emptyStateKey,
 				PrevEvents: []EventReference{
@@ -242,7 +237,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJR:example.com"},
+					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
 				Content: []byte(`{"users": {
@@ -256,7 +251,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID:        "$MB:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomMember,
-				OriginServerTS: 10,
+				OriginServerTS: 9,
 				Sender:         ALICE,
 				StateKey:       &EVELYN,
 				PrevEvents: []EventReference{
@@ -264,7 +259,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
-					EventReference{EventID: "$IJR:example.com"},
+					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$PB:example.com"},
 				},
 				Content: []byte(`{"membership": "ban"}`),
@@ -275,7 +270,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID:        "$IME:example.com",
 				RoomID:         "!ROOM:example.com",
 				Type:           MRoomMember,
-				OriginServerTS: 11,
+				OriginServerTS: 10,
 				Sender:         EVELYN,
 				StateKey:       &EVELYN,
 				PrevEvents: []EventReference{
@@ -285,6 +280,55 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					EventReference{EventID: "$CREATE:example.com"},
 					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$PA:example.com"},
+				},
+				Content: []byte(`{"membership": "join"}`),
+			},
+		},
+	}, expected)
+}
+
+func TestStateResolutionJoinRuleEvasion(t *testing.T) {
+	expected := []string{
+		"$CREATE:example.com", "$JR:example.com", "$IPOWER:example.com",
+		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
+		"$IMZ:example.com",
+	}
+
+	runStateResolutionV2(t, []Event{
+		{
+			fields: eventFields{
+				EventID:        "$JR:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomJoinRules,
+				OriginServerTS: 8,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$IMZ:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$IMA:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
+				},
+				Content: []byte(`{"join_rule": "invite"}`),
+			},
+		},
+		{
+			fields: eventFields{
+				EventID:        "$IMZ:example.com",
+				RoomID:         "!ROOM:example.com",
+				Type:           MRoomMember,
+				OriginServerTS: 9,
+				Sender:         ZARA,
+				StateKey:       &ZARA,
+				PrevEvents: []EventReference{
+					EventReference{EventID: "$JR:example.com"},
+				},
+				AuthEvents: []EventReference{
+					EventReference{EventID: "$CREATE:example.com"},
+					EventReference{EventID: "$JR:example.com"},
+					EventReference{EventID: "$IPOWER:example.com"},
 				},
 				Content: []byte(`{"membership": "join"}`),
 			},
@@ -328,11 +372,12 @@ func TestLexicographicalSorting(t *testing.T) {
 
 func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
-	input := r.reverseTopologicalOrdering(getBaseStateResV2Graph())
+	base := getBaseStateResV2Graph()
+	input := r.reverseTopologicalOrdering(base)
 
 	expected := []string{
 		"$CREATE:example.com", "$IMA:example.com", "$IPOWER:example.com",
-		"$IJR:example.com", "$IMB:example.com", "$IMC:example.com", "$IMZ:example.com",
+		"$IJR:example.com", "$IMB:example.com", "$IMC:example.com",
 	}
 
 	t.Log("Result:")
@@ -361,6 +406,7 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 func runStateResolutionV2(t *testing.T, additional []Event, expected []string) {
 	input := append(getBaseStateResV2Graph(), additional...)
 	conflicted, unconflicted := separate(input)
+
 	result := ResolveStateConflictsV2(
 		conflicted,   // conflicted set
 		unconflicted, // unconflicted set
