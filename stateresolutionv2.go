@@ -342,6 +342,9 @@ func (r *stateResolverV2) applyEvents(events []Event) {
 		default:
 			// Doesn't match one of the core state types so store it by type and state
 			// key.
+			if _, ok := r.resolvedOthers[event.Type()]; !ok {
+				r.resolvedOthers[event.Type()] = make(map[string]*Event)
+			}
 			r.resolvedOthers[event.Type()][*event.StateKey()] = &event
 		}
 	}
