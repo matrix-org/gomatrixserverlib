@@ -2,9 +2,11 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -82,11 +84,19 @@ func (ac *FederationClient) SendTransaction(
 // server's key and pass it to SendJoin.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) MakeJoin(
-	ctx context.Context, s ServerName, roomID, userID string,
+	ctx context.Context, s ServerName, roomID, userID string, roomVersions []int,
 ) (res RespMakeJoin, err error) {
+	versionQueryString := ""
+	if len(roomVersions) > 0 {
+		var vqs []string
+		for _, v := range roomVersions {
+			vqs = append(vqs, fmt.Sprintf("ver=%d", v))
+		}
+		versionQueryString = "?" + strings.Join(vqs, "&")
+	}
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
-		url.PathEscape(userID)
+		url.PathEscape(userID) + versionQueryString
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
