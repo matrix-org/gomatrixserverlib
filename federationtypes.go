@@ -213,10 +213,7 @@ func (r RespState) Events() ([]Event, error) {
 			for _, ref := range top.AuthEvents() {
 				authEvent := eventsByID[ref.EventID]
 				if authEvent == nil {
-					return nil, fmt.Errorf(
-						"gomatrixserverlib: missing auth event with ID %q for event %q",
-						ref.EventID, top.EventID(),
-					)
+					return nil, MissingAuthEventError{ref.EventID, top.EventID()}
 				}
 				if outputted[authEvent] {
 					continue
@@ -419,10 +416,7 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
 	for _, authRef := range event.AuthEvents() {
 		authEvent := eventsByID[authRef.EventID]
 		if authEvent == nil {
-			return fmt.Errorf(
-				"gomatrixserverlib: missing auth event with ID %q for event %q",
-				authRef.EventID, event.EventID(),
-			)
+			return MissingAuthEventError{authRef.EventID, event.EventID()}
 		}
 		if err := authEvents.AddEvent(authEvent); err != nil {
 			return err
