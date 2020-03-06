@@ -307,7 +307,6 @@ func (r *stateResolverV2) authAndApplyEvents(events []Event) {
 		// here so that the next loop will have partial state to auth against.
 		r.applyEvents([]Event{event})
 	}
-	return
 }
 
 // applyEvents applies the events on top of the partial state.
