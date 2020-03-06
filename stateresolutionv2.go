@@ -119,6 +119,9 @@ func ResolveStateConflictsV2(
 	// events based on the mainline ordering and auth those too. The successfully
 	// authed events are also layered on top of the partial state.
 	r.powerLevelMainline = r.createPowerLevelMainline()
+	for pos, event := range r.powerLevelMainline {
+		r.powerLevelMainlinePos[event.EventID()] = pos
+	}
 	conflictedOthers = r.mainlineOrdering(conflictedOthers)
 	r.authAndApplyEvents(conflictedOthers)
 
@@ -242,20 +245,11 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 	// Define a function that the iterator can use to determine whether the event
 	// is in the mainline set or not.
 	isInMainline := func(searchEvent Event) (bool, int) {
-		// First of all check the cache. If we've processed this event already then
-		// we should already know the mainline position.
+		// If we already know the mainline position then return it.
 		if pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]; ok {
 			return true, pos
 		}
-		// Loop through the mainline.
-		for pos, mainlineEvent := range r.powerLevelMainline {
-			// Check if the search event matches this event. If it does then the event
-			// is in the mainline.
-			if mainlineEvent.EventID() == searchEvent.EventID() {
-				return true, pos
-			}
-		}
-		// If we've reached this point then the event is not in the mainline.
+		// Otherwise, the event is not in the mainline.
 		return false, 0
 	}
 
