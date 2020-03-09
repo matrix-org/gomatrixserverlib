@@ -18,7 +18,11 @@ func TestConflictEventSorter(t *testing.T) {
 	f1.Depth = 1
 	f2.Depth = 2
 	f3.Depth = 2
-	input := []Event{{fields: f1}, {fields: f2}, {fields: f3}}
+	input := []Event{
+		{roomVersion: RoomVersionV1, fields: f1},
+		{roomVersion: RoomVersionV1, fields: f2},
+		{roomVersion: RoomVersionV1, fields: f3},
+	}
 
 	got := sortConflictedEventsByDepthAndSHA1(input)
 	want := []conflictedEvent{

@@ -80,6 +80,7 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 func getBaseStateResV2Graph() []Event {
 	return []Event{
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$CREATE:example.com",
@@ -93,6 +94,7 @@ func getBaseStateResV2Graph() []Event {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IMA:example.com",
@@ -112,6 +114,7 @@ func getBaseStateResV2Graph() []Event {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IPOWER:example.com",
@@ -132,6 +135,7 @@ func getBaseStateResV2Graph() []Event {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IJR:example.com",
@@ -153,6 +157,7 @@ func getBaseStateResV2Graph() []Event {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IMB:example.com",
@@ -174,6 +179,7 @@ func getBaseStateResV2Graph() []Event {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IMC:example.com",
@@ -215,6 +221,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 
 	runStateResolutionV2(t, []Event{
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$PA:example.com",
@@ -239,6 +246,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$PB:example.com",
@@ -263,6 +271,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$MB:example.com",
@@ -284,6 +293,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IME:example.com",
@@ -316,6 +326,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 
 	runStateResolutionV2(t, []Event{
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$JR:example.com",
@@ -337,6 +348,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 			},
 		},
 		{
+			roomVersion: RoomVersionV2,
 			fields: eventFieldsRoomV1{
 				eventFields: eventFields{
 					EventID:        "$IMZ:example.com",

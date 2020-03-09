@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -97,7 +96,7 @@ type Event struct {
 	redacted    bool
 	eventJSON   []byte
 	fields      interface{}
-	roomVersion roomVersion
+	roomVersion RoomVersion
 }
 
 type eventFields struct {
@@ -133,7 +132,10 @@ var emptyEventReferenceList = []EventReference{}
 // Call this after filling out the necessary fields.
 // This can be called multiple times on the same builder.
 // A different event ID must be supplied each time this is called.
-func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, keyID KeyID, privateKey ed25519.PrivateKey) (result Event, err error) {
+func (eb *EventBuilder) Build(
+	eventID string, now time.Time, origin ServerName, keyID KeyID,
+	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
+) (result Event, err error) {
 	var event struct {
 		EventBuilder
 		EventID        string     `json:"event_id"`
@@ -183,6 +185,7 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, 
 		return
 	}
 
+	result.roomVersion = roomVersion
 	result.eventJSON = eventJSON
 	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
 		return
@@ -200,14 +203,11 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, 
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
 func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result Event, err error) {
-	versionMeta, versionSupported := roomVersionMeta[roomVersion]
-	if !versionSupported {
-		return Event{}, errors.New("room version not supported")
-	}
+	result.roomVersion = roomVersion
 
 	// We parse the JSON early on so that we don't have to check if the JSON
 	// is valid
-	switch versionMeta.eventIDFormat {
+	switch roomVersion.EventIDFormat() {
 	case EventIDFormatV1:
 		var fields eventFieldsRoomV1
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
@@ -235,7 +235,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	// If the event ID format is for room versions 1 or 2 then we keep the event
 	// ID, otherwise strip it and generate a new one from the reference hash
 	var eventID string
-	if versionMeta.eventIDFormat == EventIDFormatV1 {
+	if roomVersion.EventIDFormat() == EventIDFormatV1 {
 		// Room version 1 or 2 - just preserve the event ID from the event
 		eventID = result.fields.(eventFieldsRoomV1).EventID
 	} else {
@@ -245,7 +245,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		}
 		// Select the algorithm
 		var encoder *base64.Encoding
-		switch versionMeta.eventIDFormat {
+		switch roomVersion.EventIDFormat() {
 		case EventIDFormatV2:
 			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
 		case EventIDFormatV3:
@@ -307,15 +307,12 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
-	versionMeta, versionSupported := roomVersionMeta[roomVersion]
-	if !versionSupported {
-		return Event{}, errors.New("room version not supported")
-	}
+	result.roomVersion = roomVersion
 
 	result.redacted = redacted
 	result.eventJSON = eventJSON
 
-	switch versionMeta.eventIDFormat {
+	switch roomVersion.EventIDFormat() {
 	case EventIDFormatV1:
 		var fields eventFieldsRoomV1
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
@@ -388,7 +385,7 @@ func (e Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	}
 	result := e
 	result.eventJSON = eventJSON
-	if e.roomVersion.eventIDFormat == EventIDFormatV1 {
+	if e.roomVersion.EventIDFormat() == EventIDFormatV1 {
 		result.fields.(*eventFieldsRoomV1).Unsigned = unsignedJSON
 	} else {
 		result.fields.(*eventFieldsRoomV3).Unsigned = unsignedJSON
@@ -563,7 +560,7 @@ func (e Event) CheckFields() error { // nolint: gocyclo
 		return err
 	}
 
-	if e.roomVersion.eventIDFormat == EventIDFormatV1 {
+	if e.roomVersion.EventIDFormat() == EventIDFormatV1 {
 		eventDomain, err := checkID(e.fields.(eventFieldsRoomV1).EventID, "event", '$')
 		if err != nil {
 			return err
@@ -646,13 +643,13 @@ func (e Event) Origin() ServerName {
 
 // EventID returns the event ID of the event.
 func (e Event) EventID() string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.EventID
-	case eventFieldsRoomV3:
-		return e.EventID()
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).EventID
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).EventID
 	default:
-		panic("unexpected field type")
+		panic("unexpected room version")
 	}
 }
 

@@ -39,6 +39,31 @@ type roomVersion struct {
 	enforceSignatureChecks bool
 }
 
+// StateResAlgorithm returns the state resolution for the given room version.
+func (v RoomVersion) StateResAlgorithm() StateResAlgorithm {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.stateResAlgorithm
+	}
+	return StateResV1
+}
+
+// EventIDFormat returns the event ID format for the given room version.
+func (v RoomVersion) EventIDFormat() EventIDFormat {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.eventIDFormat
+	}
+	return EventIDFormatV1
+}
+
+// EnforceSignatureChecks returns true if the given room version calls for
+// strict signature checking (room version 5 and onward) or false otherwise.
+func (v RoomVersion) EnforceSignatureChecks() bool {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.enforceSignatureChecks
+	}
+	return false
+}
+
 var roomVersionMeta = map[RoomVersion]roomVersion{
 	1: roomVersion{
 		stateResAlgorithm:      StateResV1,
