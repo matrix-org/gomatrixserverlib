@@ -17,7 +17,10 @@ package gomatrixserverlib
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -91,25 +94,36 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 // If the event content hash is invalid then the event is redacted.
 // Redacted events contain only the fields covered by the event signature.
 type Event struct {
-	redacted  bool
-	eventJSON []byte
-	fields    eventFields
+	redacted    bool
+	eventJSON   []byte
+	fields      interface{}
+	roomVersion roomVersion
 }
 
 type eventFields struct {
-	RoomID         string           `json:"room_id"`
-	EventID        string           `json:"event_id"`
-	Sender         string           `json:"sender"`
-	Type           string           `json:"type"`
-	StateKey       *string          `json:"state_key"`
-	Content        RawJSON          `json:"content"`
-	PrevEvents     []EventReference `json:"prev_events"`
-	AuthEvents     []EventReference `json:"auth_events"`
-	Redacts        string           `json:"redacts"`
-	Depth          int64            `json:"depth"`
-	Unsigned       RawJSON          `json:"unsigned"`
-	OriginServerTS Timestamp        `json:"origin_server_ts"`
-	Origin         ServerName       `json:"origin"`
+	EventID        string     `json:"event_id,omitempty"`
+	RoomID         string     `json:"room_id"`
+	Sender         string     `json:"sender"`
+	Type           string     `json:"type"`
+	StateKey       *string    `json:"state_key"`
+	Content        RawJSON    `json:"content"`
+	Redacts        string     `json:"redacts"`
+	Depth          int64      `json:"depth"`
+	Unsigned       RawJSON    `json:"unsigned"`
+	OriginServerTS Timestamp  `json:"origin_server_ts"`
+	Origin         ServerName `json:"origin"`
+}
+
+type eventFieldsRoomV1 struct {
+	eventFields
+	PrevEvents []EventReference `json:"prev_events"`
+	AuthEvents []EventReference `json:"auth_events"`
+}
+
+type eventFieldsRoomV3 struct {
+	eventFields
+	PrevEvents []string `json:"prev_events"`
+	AuthEvents []string `json:"auth_events"`
 }
 
 var emptyEventReferenceList = []EventReference{}
@@ -185,11 +199,29 @@ func (eb *EventBuilder) Build(eventID string, now time.Time, origin ServerName, 
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func NewEventFromUntrustedJSON(eventJSON []byte) (result Event, err error) {
+func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result Event, err error) {
+	versionMeta, versionSupported := roomVersionMeta[roomVersion]
+	if !versionSupported {
+		return Event{}, errors.New("room version not supported")
+	}
+
 	// We parse the JSON early on so that we don't have to check if the JSON
 	// is valid
-	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
-		return
+	switch versionMeta.eventIDFormat {
+	case EventIDFormatV1:
+		var fields eventFieldsRoomV1
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
+	case EventIDFormatV2, EventIDFormatV3:
+		var fields eventFieldsRoomV3
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
+	default:
+		panic("event ID format not supported")
 	}
 
 	// Synapse removes these keys from events in case a server accidentally added them.
@@ -197,6 +229,32 @@ func NewEventFromUntrustedJSON(eventJSON []byte) (result Event, err error) {
 	for _, key := range []string{"outlier", "destinations", "age_ts"} {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
 			return
+		}
+	}
+
+	// If the event ID format is for room versions 1 or 2 then we keep the event
+	// ID, otherwise strip it and generate a new one from the reference hash
+	var eventID string
+	if versionMeta.eventIDFormat == EventIDFormatV1 {
+		// Room version 1 or 2 - just preserve the event ID from the event
+		eventID = result.fields.(eventFieldsRoomV1).EventID
+	} else {
+		// Room versions 3, 4 or 5 - scrap the event ID in the event, if it is there
+		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return
+		}
+		// Select the algorithm
+		var encoder *base64.Encoding
+		switch versionMeta.eventIDFormat {
+		case EventIDFormatV2:
+			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
+		case EventIDFormatV3:
+			encoder = base64.RawURLEncoding.WithPadding(base64.NoPadding)
+		}
+		// Generate the new event ID from the reference hash
+		if encoder != nil {
+			sum := sha256.Sum256(eventJSON)
+			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sum[:]))
 		}
 	}
 
@@ -226,6 +284,11 @@ func NewEventFromUntrustedJSON(eventJSON []byte) (result Event, err error) {
 			if err = json.Unmarshal(redactedJSON, &result.fields); err != nil {
 				return
 			}
+			if roomVersion <= RoomVersionV2 {
+				result.fields.(*eventFieldsRoomV1).EventID = eventID
+			} else if roomVersion <= RoomVersionV5 {
+				result.fields.(*eventFieldsRoomV3).EventID = eventID
+			}
 		}
 
 		eventJSON = redactedJSON
@@ -243,10 +306,32 @@ func NewEventFromUntrustedJSON(eventJSON []byte) (result Event, err error) {
 // NewEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result Event, err error) {
+func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
+	versionMeta, versionSupported := roomVersionMeta[roomVersion]
+	if !versionSupported {
+		return Event{}, errors.New("room version not supported")
+	}
+
 	result.redacted = redacted
 	result.eventJSON = eventJSON
-	err = json.Unmarshal(eventJSON, &result.fields)
+
+	switch versionMeta.eventIDFormat {
+	case EventIDFormatV1:
+		var fields eventFieldsRoomV1
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
+	case EventIDFormatV2, EventIDFormatV3:
+		var fields eventFieldsRoomV3
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
+	default:
+		panic("event ID format not supported")
+	}
+
 	return
 }
 
@@ -303,7 +388,11 @@ func (e Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	}
 	result := e
 	result.eventJSON = eventJSON
-	result.fields.Unsigned = unsignedJSON
+	if e.roomVersion.eventIDFormat == EventIDFormatV1 {
+		result.fields.(*eventFieldsRoomV1).Unsigned = unsignedJSON
+	} else {
+		result.fields.(*eventFieldsRoomV3).Unsigned = unsignedJSON
+	}
 	return result, nil
 }
 
@@ -329,7 +418,14 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 	unsigned := RawJSONFromResult(res, eventJSON)
 
 	e.eventJSON = eventJSON
-	e.fields.Unsigned = unsigned
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		fields.Unsigned = unsigned
+	case eventFieldsRoomV3:
+		fields.Unsigned = unsigned
+	default:
+		panic("unexpected field type")
+	}
 
 	return nil
 }
@@ -381,15 +477,31 @@ func (e Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicK
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
 func (e Event) StateKey() *string {
-	return e.fields.StateKey
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.StateKey
+	case eventFieldsRoomV3:
+		return fields.StateKey
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // StateKeyEquals returns true if the event is a state event and the "state_key" matches.
 func (e Event) StateKeyEquals(stateKey string) bool {
-	if e.fields.StateKey == nil {
+	var sk *string
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		sk = fields.StateKey
+	case eventFieldsRoomV3:
+		sk = fields.StateKey
+	default:
+		panic("unexpected field type")
+	}
+	if sk == nil {
 		return false
 	}
-	return *e.fields.StateKey == stateKey
+	return *sk == stateKey
 }
 
 const (
@@ -408,6 +520,16 @@ const (
 // Returns an error if the event ID doesn't match the origin of the event.
 // https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
 func (e Event) CheckFields() error { // nolint: gocyclo
+	var fields eventFields
+	switch f := e.fields.(type) {
+	case eventFieldsRoomV1:
+		fields = f.eventFields
+	case eventFieldsRoomV3:
+		fields = f.eventFields
+	default:
+		panic("unexpected field type")
+	}
+
 	if len(e.eventJSON) > maxEventLength {
 		return fmt.Errorf(
 			"gomatrixserverlib: event is too long, length %d > maximum %d",
@@ -415,72 +537,73 @@ func (e Event) CheckFields() error { // nolint: gocyclo
 		)
 	}
 
-	if len(e.fields.Type) > maxIDLength {
+	if len(fields.Type) > maxIDLength {
 		return fmt.Errorf(
 			"gomatrixserverlib: event type is too long, length %d > maximum %d",
-			len(e.fields.Type), maxIDLength,
+			len(fields.Type), maxIDLength,
 		)
 	}
 
-	if e.fields.StateKey != nil && len(*e.fields.StateKey) > maxIDLength {
+	if fields.StateKey != nil && len(*fields.StateKey) > maxIDLength {
 		return fmt.Errorf(
 			"gomatrixserverlib: state key is too long, length %d > maximum %d",
-			len(*e.fields.StateKey), maxIDLength,
+			len(*fields.StateKey), maxIDLength,
 		)
 	}
 
-	_, err := checkID(e.fields.RoomID, "room", '!')
+	_, err := checkID(fields.RoomID, "room", '!')
 	if err != nil {
 		return err
 	}
 
-	origin := e.fields.Origin
+	origin := fields.Origin
 
-	senderDomain, err := checkID(e.fields.Sender, "user", '@')
+	senderDomain, err := checkID(fields.Sender, "user", '@')
 	if err != nil {
 		return err
 	}
 
-	eventDomain, err := checkID(e.fields.EventID, "event", '$')
-	if err != nil {
-		return err
-	}
-
-	// Synapse requires that the event ID domain has a valid signature.
-	// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L66-L68
-	// Synapse requires that the event origin has a valid signature.
-	// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/federation/federation_base.py#L133-L136
-	// Since both domains must be valid domains, and there is no good reason for them
-	// to be different we might as well ensure that they are the same since it
-	// makes the signature checks simpler.
-	if origin != ServerName(eventDomain) {
-		return fmt.Errorf(
-			"gomatrixserverlib: event ID domain doesn't match origin: %q != %q",
-			eventDomain, origin,
-		)
-	}
-
-	if origin != ServerName(senderDomain) {
-		// For the most part all events should be sent by a user on the
-		// originating server.
-		//
-		// However "m.room.member" events created from third-party invites
-		// are allowed to have a different sender because they have the same
-		// sender as the "m.room.third_party_invite" event they derived from.
-		// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L58-L64
-		//
-		// Also, some old versions of synapse had a bug wherein some
-		// joins/leaves used the origin and event id supplied by the helping
-		// server instead of the joining/leaving server.
-		//
-		// So in general we allow the sender to be different from the
-		// origin for m.room.member events. In any case, we check it was
-		// signed by both servers later.
-		if e.fields.Type != MRoomMember {
+	if e.roomVersion.eventIDFormat == EventIDFormatV1 {
+		eventDomain, err := checkID(e.fields.(eventFieldsRoomV1).EventID, "event", '$')
+		if err != nil {
+			return err
+		}
+		// Synapse requires that the event ID domain has a valid signature.
+		// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L66-L68
+		// Synapse requires that the event origin has a valid signature.
+		// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/federation/federation_base.py#L133-L136
+		// Since both domains must be valid domains, and there is no good reason for them
+		// to be different we might as well ensure that they are the same since it
+		// makes the signature checks simpler.
+		if origin != ServerName(eventDomain) {
 			return fmt.Errorf(
-				"gomatrixserverlib: sender domain doesn't match origin: %q != %q",
-				senderDomain, origin,
+				"gomatrixserverlib: event ID domain doesn't match origin: %q != %q",
+				eventDomain, origin,
 			)
+		}
+
+		if origin != ServerName(senderDomain) {
+			// For the most part all events should be sent by a user on the
+			// originating server.
+			//
+			// However "m.room.member" events created from third-party invites
+			// are allowed to have a different sender because they have the same
+			// sender as the "m.room.third_party_invite" event they derived from.
+			// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L58-L64
+			//
+			// Also, some old versions of synapse had a bug wherein some
+			// joins/leaves used the origin and event id supplied by the helping
+			// server instead of the joining/leaving server.
+			//
+			// So in general we allow the sender to be different from the
+			// origin for m.room.member events. In any case, we check it was
+			// signed by both servers later.
+			if fields.Type != MRoomMember {
+				return fmt.Errorf(
+					"gomatrixserverlib: sender domain doesn't match origin: %q != %q",
+					senderDomain, origin,
+				)
+			}
 		}
 	}
 
@@ -510,50 +633,115 @@ func checkID(id, kind string, sigil byte) (domain string, err error) {
 }
 
 // Origin returns the name of the server that sent the event
-func (e Event) Origin() ServerName { return e.fields.Origin }
+func (e Event) Origin() ServerName {
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.Origin
+	case eventFieldsRoomV3:
+		return fields.Origin
+	default:
+		panic("unexpected field type")
+	}
+}
 
 // EventID returns the event ID of the event.
 func (e Event) EventID() string {
-	return e.fields.EventID
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.EventID
+	case eventFieldsRoomV3:
+		return e.EventID()
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // Sender returns the user ID of the sender of the event.
 func (e Event) Sender() string {
-	return e.fields.Sender
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.Sender
+	case eventFieldsRoomV3:
+		return fields.Sender
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // Type returns the type of the event.
 func (e Event) Type() string {
-	return e.fields.Type
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.Type
+	case eventFieldsRoomV3:
+		return fields.Type
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // OriginServerTS returns the unix timestamp when this event was created on the origin server, with millisecond resolution.
 func (e Event) OriginServerTS() Timestamp {
-	return e.fields.OriginServerTS
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.OriginServerTS
+	case eventFieldsRoomV3:
+		return fields.OriginServerTS
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // Unsigned returns the object under the 'unsigned' key of the event.
 func (e Event) Unsigned() []byte {
-	return []byte(e.fields.Unsigned)
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return []byte(fields.Unsigned)
+	case eventFieldsRoomV3:
+		return []byte(fields.Unsigned)
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // Content returns the content JSON of the event.
 func (e Event) Content() []byte {
-	return []byte(e.fields.Content)
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return []byte(fields.Content)
+	case eventFieldsRoomV3:
+		return []byte(fields.Content)
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // PrevEvents returns references to the direct ancestors of the event.
 func (e Event) PrevEvents() []EventReference {
-	return e.fields.PrevEvents
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.PrevEvents
+	case eventFieldsRoomV3:
+		return []EventReference{}
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // PrevEventIDs returns the event IDs of the direct ancestors of the event.
 func (e Event) PrevEventIDs() []string {
-	result := make([]string, len(e.fields.PrevEvents))
-	for i := range e.fields.PrevEvents {
-		result[i] = e.fields.PrevEvents[i].EventID
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		result := make([]string, len(fields.PrevEvents))
+		for i := range fields.PrevEvents {
+			result[i] = fields.PrevEvents[i].EventID
+		}
+		return result
+	case eventFieldsRoomV3:
+		return fields.PrevEvents
+	default:
+		panic("unexpected field type")
 	}
-	return result
 }
 
 // Membership returns the value of the content.membership field if this event
@@ -561,11 +749,20 @@ func (e Event) PrevEventIDs() []string {
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
 func (e Event) Membership() (string, error) {
-	if e.fields.Type != MRoomMember {
+	var fields eventFields
+	switch f := e.fields.(type) {
+	case eventFieldsRoomV1:
+		fields = f.eventFields
+	case eventFieldsRoomV3:
+		fields = f.eventFields
+	default:
+		panic("unexpected field type")
+	}
+	if fields.Type != MRoomMember {
 		return "", fmt.Errorf("gomatrixserverlib: not an m.room.member event")
 	}
 	var content MemberContent
-	if err := json.Unmarshal(e.fields.Content, &content); err != nil {
+	if err := json.Unmarshal(fields.Content, &content); err != nil {
 		return "", err
 	}
 	return content.Membership, nil
@@ -573,38 +770,66 @@ func (e Event) Membership() (string, error) {
 
 // AuthEvents returns references to the events needed to auth the event.
 func (e Event) AuthEvents() []EventReference {
-	return e.fields.AuthEvents
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.AuthEvents
+	case eventFieldsRoomV3:
+		return []EventReference{}
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
 func (e Event) AuthEventIDs() []string {
-	result := make([]string, len(e.fields.AuthEvents))
-	for i := range e.fields.AuthEvents {
-		result[i] = e.fields.AuthEvents[i].EventID
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		result := make([]string, len(fields.AuthEvents))
+		for i := range fields.AuthEvents {
+			result[i] = fields.AuthEvents[i].EventID
+		}
+		return result
+	case eventFieldsRoomV3:
+		return fields.AuthEvents
+	default:
+		panic("unexpected field type")
 	}
-	return result
 }
 
 // Redacts returns the event ID of the event this event redacts.
 func (e Event) Redacts() string {
-	return e.fields.Redacts
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.Redacts
+	case eventFieldsRoomV3:
+		return fields.Redacts
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // RoomID returns the room ID of the room the event is in.
 func (e Event) RoomID() string {
-	return e.fields.RoomID
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.RoomID
+	case eventFieldsRoomV3:
+		return fields.RoomID
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // Depth returns the depth of the event.
 func (e Event) Depth() int64 {
-	return e.fields.Depth
-}
-
-// UnmarshalJSON implements json.Unmarshaller assuming the Event is from an untrusted source.
-// This will cause more checks than might be necessary but is probably better to be safe than sorry.
-func (e *Event) UnmarshalJSON(data []byte) (err error) {
-	*e, err = NewEventFromUntrustedJSON(data)
-	return
+	switch fields := e.fields.(type) {
+	case eventFieldsRoomV1:
+		return fields.Depth
+	case eventFieldsRoomV3:
+		return fields.Depth
+	default:
+		panic("unexpected field type")
+	}
 }
 
 // MarshalJSON implements json.Marshaller
@@ -654,7 +879,7 @@ func SplitID(sigil byte, id string) (local string, domain ServerName, err error)
 	// Split on the first ":" character since the domain can contain ":"
 	// characters.
 	if len(id) == 0 || id[0] != sigil {
-		return "", "", fmt.Errorf("gomatriserverlib: invalid ID %q doesn't start with %q", id, sigil)
+		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q doesn't start with %q", id, sigil)
 	}
 	parts := strings.SplitN(id, ":", 2)
 	if len(parts) != 2 {

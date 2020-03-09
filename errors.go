@@ -2,6 +2,8 @@ package gomatrixserverlib
 
 import "fmt"
 
+// MissingAuthEventError refers to a situation where one of the auth
+// event for a given event was not found.
 type MissingAuthEventError struct {
 	AuthEventID string
 	ForEventID  string
