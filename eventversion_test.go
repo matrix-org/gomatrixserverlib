@@ -18,11 +18,25 @@ func TestEventIDForRoomVersionV1(t *testing.T) {
 	}
 }
 
-func TestEventIDForRoomVersionV5(t *testing.T) {
-	initialEventJSON := `{"auth_events": ["$OKPes_DblGAyobzyE1URoHA2-3CIpX3uvjQYrZ5hejo", "$RrGxF28UrHLmoASHndYb9Jb_1SFww2ptmtur9INS438", "$5jwb0LeojBscEuVzdk-YBeuhiSa6ob6ygWA8EmXwfzg", "$eoyXjfFijYvWm3JZ5NQfPzrhiboPdvutpROmD9dYelg"], "content": {"avatar_url": "mxc://matrix.vgorcum.com/ZRlwJNjWFesIsuEjRevGtxkB", "displayname": "Mathijs", "membership": "join"}, "depth": 36, "hashes": {"sha256": "AAvLiR0HgSgxRfmRn+zy3nC4FK0pHo8YCd4yB2uwMM8"}, "origin": "matrix.vgorcum.com", "origin_server_ts": 1560285821015, "prev_events": ["$eoyXjfFijYvWm3JZ5NQfPzrhiboPdvutpROmD9dYelg"], "prev_state": [], "room_id": "!uXDCzlYgCTHtiWCkEx:jki.re", "sender": "@mathijs:matrix.vgorcum.com", "state_key": "@mathijs:matrix.vgorcum.com", "type": "m.room.member", "signatures": {"half-shot.uk": {"ed25519:a_fBAF": "H01dNRn4xNjxmJ+X/JDSPmryfBpmu5Ktacbmrnu32b32Skb+qwjBEee5o6DAUno3n/U6KCkI8JVRd7DxI/ZsBg"}, "matrix.vgorcum.com": {"ed25519:a_SAeW": "Wu8xCepoJ87RaO2H6DgRZK/go8j16ZbqbVbHfSvJF6zeykb6W1YyYLm6MXJcSQYgyhz/4KMdPLXxRImw2TWFCA"}}, "unsigned": {"age": 42, "replaces_state": "$eoyXjfFijYvWm3JZ5NQfPzrhiboPdvutpROmD9dYelg", "prev_content": {"avatar_url": "mxc://matrix.vgorcum.com/ZRlwJNjWFesIsuEjRevGtxkB", "displayname": "Mathijs", "membership": "invite"}, "prev_sender": "@Half-Shot:half-shot.uk"}}`
-	expectedEventID := "$tTPjEB-7HV7dpw4dbSAcW-zF9fgCmcBOvsS9X8DFEy4"
+func TestEventIDForRoomVersionV3(t *testing.T) {
+	initialEventJSON := `{"auth_events": [], "prev_events": [], "type": "m.room.create", "room_id": "!uXDCzlYgCTHtiWCkEx:jki.re", "sender": "@erikj:jki.re", "content": {"room_version": "5", "predecessor": {"room_id": "!gdRMqOrTFdOCYHNwOo:half-shot.uk", "event_id": "$LP7ROBc4b+cMc1UE9haIz8q5AK2AIW4eJ90FfKLvyZI"}, "creator": "@erikj:jki.re"}, "depth": 1, "prev_state": [], "state_key": "", "origin": "jki.re", "origin_server_ts": 1560284621137, "hashes": {"sha256": "IX6zuNiJpJPNf70BLleL3HSCpjKeq9Uhu7uUpyDjBmc"}, "signatures": {"jki.re": {"ed25519:auto": "O4IyFfF2PPtGp5uaDm8t57dZbdh8vc8Q64LgCwvzYRVItAMI0uisfiAFaxkVT7MRpzh6N2QNN5NMRXZKmgPYDA"}}, "unsigned": {"age": 1321650}}`
+	expectedEventID := "$RrGxF28UrHLmoASHndYb9Jb/1SFww2ptmtur9INS438"
 
-	event, err := NewEventFromUntrustedJSON([]byte(initialEventJSON), RoomVersionV5)
+	event, err := NewEventFromTrustedJSON([]byte(initialEventJSON), false, RoomVersionV3)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if event.EventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	}
+}
+
+func TestEventIDForRoomVersionV4(t *testing.T) {
+	initialEventJSON := `{"auth_events": [], "prev_events": [], "type": "m.room.create", "room_id": "!uXDCzlYgCTHtiWCkEx:jki.re", "sender": "@erikj:jki.re", "content": {"room_version": "5", "predecessor": {"room_id": "!gdRMqOrTFdOCYHNwOo:half-shot.uk", "event_id": "$LP7ROBc4b+cMc1UE9haIz8q5AK2AIW4eJ90FfKLvyZI"}, "creator": "@erikj:jki.re"}, "depth": 1, "prev_state": [], "state_key": "", "origin": "jki.re", "origin_server_ts": 1560284621137, "hashes": {"sha256": "IX6zuNiJpJPNf70BLleL3HSCpjKeq9Uhu7uUpyDjBmc"}, "signatures": {"jki.re": {"ed25519:auto": "O4IyFfF2PPtGp5uaDm8t57dZbdh8vc8Q64LgCwvzYRVItAMI0uisfiAFaxkVT7MRpzh6N2QNN5NMRXZKmgPYDA"}}, "unsigned": {"age": 1321650}}`
+	expectedEventID := "$RrGxF28UrHLmoASHndYb9Jb_1SFww2ptmtur9INS438"
+
+	event, err := NewEventFromTrustedJSON([]byte(initialEventJSON), false, RoomVersionV4)
 	if err != nil {
 		t.Error(err)
 	}

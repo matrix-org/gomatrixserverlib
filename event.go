@@ -17,8 +17,6 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -216,6 +214,9 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return
+		}
 		var fields eventFieldsRoomV3
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
@@ -231,32 +232,6 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	for _, key := range []string{"outlier", "destinations", "age_ts"} {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
 			return
-		}
-	}
-
-	// If the event ID format is for room versions 1 or 2 then we keep the event
-	// ID, otherwise strip it and generate a new one from the reference hash
-	var eventID string
-	if roomVersion.EventIDFormat() == EventIDFormatV1 {
-		// Room version 1 or 2 - just preserve the event ID from the event
-		eventID = result.fields.(eventFieldsRoomV1).EventID
-	} else {
-		// Room versions 3, 4 or 5 - scrap the event ID in the event, if it is there
-		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
-		}
-		// Select the algorithm
-		var encoder *base64.Encoding
-		switch roomVersion.EventIDFormat() {
-		case EventIDFormatV2:
-			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
-		case EventIDFormatV3:
-			encoder = base64.RawURLEncoding.WithPadding(base64.NoPadding)
-		}
-		// Generate the new event ID from the reference hash
-		if encoder != nil {
-			sum := sha256.Sum256(eventJSON)
-			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sum[:]))
 		}
 	}
 
@@ -291,16 +266,14 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		eventJSON = redactedJSON
 	}
 
-	// Finally populate the event ID if needed.
 	switch roomVersion {
-	case RoomVersionV2:
-		fields := result.fields.(eventFieldsRoomV1)
-		fields.EventID = eventID
-		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		fields := result.fields.(eventFieldsRoomV3)
-		fields.EventID = eventID
+		fields.EventID, err = result.generateEventID()
 		result.fields = fields
+	}
+	if err != nil {
+		return
 	}
 
 	result.eventJSON = eventJSON
@@ -317,11 +290,10 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // This can be used when loading matrix events from a local database.
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
 	result.roomVersion = roomVersion
-
 	result.redacted = redacted
 	result.eventJSON = eventJSON
 
-	switch roomVersion {
+	switch result.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
 		var fields eventFieldsRoomV1
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
@@ -331,6 +303,10 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		var fields eventFieldsRoomV3
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		fields.EventID, err = result.generateEventID()
+		if err != nil {
 			return
 		}
 		result.fields = fields
@@ -439,7 +415,7 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 // EventReference returns an EventReference for the event.
 // The reference can be used to refer to this event from other events.
 func (e Event) EventReference() EventReference {
-	reference, err := referenceOfEvent(e.eventJSON)
+	reference, err := referenceOfEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		// This can be reached if NewEventFromTrustedJSON is given JSON from an untrusted source.
@@ -650,8 +626,29 @@ func (e Event) Origin() ServerName {
 	}
 }
 
+func (e Event) generateEventID() (eventID string, err error) {
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		eventID = e.fields.(eventFieldsRoomV1).EventID
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		eventJSON := e.eventJSON
+		var reference EventReference
+		reference, err = referenceOfEvent(eventJSON, e.roomVersion)
+		if err != nil {
+			return
+		}
+		eventID = reference.EventID
+	default:
+		err = errors.New("gomatrixserverlib: unknown room version")
+	}
+	return
+}
+
 // EventID returns the event ID of the event.
 func (e Event) EventID() string {
+	if e.fields == nil {
+		panic("gomatrixserverlib: fields are not populated")
+	}
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
 		return e.fields.(eventFieldsRoomV1).EventID
