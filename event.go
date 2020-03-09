@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -206,22 +207,23 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	result.roomVersion = roomVersion
 
 	// We parse the JSON early on so that we don't have to check if the JSON
-	// is valid
-	switch roomVersion.EventIDFormat() {
-	case EventIDFormatV1:
+	// is valid.
+	switch roomVersion {
+	case RoomVersionV1, RoomVersionV2:
 		var fields eventFieldsRoomV1
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
-	case EventIDFormatV2, EventIDFormatV3:
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		var fields eventFieldsRoomV3
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	default:
-		panic("event ID format not supported")
+		err = errors.New("gomatrixserverlib: room version not supported")
+		return
 	}
 
 	// Synapse removes these keys from events in case a server accidentally added them.
@@ -284,14 +286,21 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 			if err = json.Unmarshal(redactedJSON, &result.fields); err != nil {
 				return
 			}
-			if roomVersion <= RoomVersionV2 {
-				result.fields.(*eventFieldsRoomV1).EventID = eventID
-			} else if roomVersion <= RoomVersionV5 {
-				result.fields.(*eventFieldsRoomV3).EventID = eventID
-			}
 		}
 
 		eventJSON = redactedJSON
+	}
+
+	// Finally populate the event ID if needed.
+	switch roomVersion {
+	case RoomVersionV2:
+		fields := result.fields.(eventFieldsRoomV1)
+		fields.EventID = eventID
+		result.fields = fields
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		fields := result.fields.(eventFieldsRoomV3)
+		fields.EventID = eventID
+		result.fields = fields
 	}
 
 	result.eventJSON = eventJSON
@@ -312,21 +321,21 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 	result.redacted = redacted
 	result.eventJSON = eventJSON
 
-	switch roomVersion.EventIDFormat() {
-	case EventIDFormatV1:
+	switch roomVersion {
+	case RoomVersionV1, RoomVersionV2:
 		var fields eventFieldsRoomV1
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
-	case EventIDFormatV2, EventIDFormatV3:
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		var fields eventFieldsRoomV3
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	default:
-		panic("event ID format not supported")
+		err = errors.New("gomatrixserverlib: room version not supported")
 	}
 
 	return
@@ -421,7 +430,7 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 	case eventFieldsRoomV3:
 		fields.Unsigned = unsigned
 	default:
-		panic("unexpected field type")
+		return errors.New("gomatrixserverlib: fields don't match known version")
 	}
 
 	return nil
@@ -480,7 +489,7 @@ func (e Event) StateKey() *string {
 	case eventFieldsRoomV3:
 		return fields.StateKey
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -493,7 +502,7 @@ func (e Event) StateKeyEquals(stateKey string) bool {
 	case eventFieldsRoomV3:
 		sk = fields.StateKey
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 	if sk == nil {
 		return false
@@ -524,7 +533,7 @@ func (e Event) CheckFields() error { // nolint: gocyclo
 	case eventFieldsRoomV3:
 		fields = f.eventFields
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 
 	if len(e.eventJSON) > maxEventLength {
@@ -637,7 +646,7 @@ func (e Event) Origin() ServerName {
 	case eventFieldsRoomV3:
 		return fields.Origin
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -649,7 +658,7 @@ func (e Event) EventID() string {
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		return e.fields.(eventFieldsRoomV3).EventID
 	default:
-		panic("unexpected room version")
+		panic("gomatrixserverlib: unexpected room version")
 	}
 }
 
@@ -661,7 +670,7 @@ func (e Event) Sender() string {
 	case eventFieldsRoomV3:
 		return fields.Sender
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -673,7 +682,7 @@ func (e Event) Type() string {
 	case eventFieldsRoomV3:
 		return fields.Type
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -685,7 +694,7 @@ func (e Event) OriginServerTS() Timestamp {
 	case eventFieldsRoomV3:
 		return fields.OriginServerTS
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -697,7 +706,7 @@ func (e Event) Unsigned() []byte {
 	case eventFieldsRoomV3:
 		return []byte(fields.Unsigned)
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -709,7 +718,7 @@ func (e Event) Content() []byte {
 	case eventFieldsRoomV3:
 		return []byte(fields.Content)
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -719,9 +728,10 @@ func (e Event) PrevEvents() []EventReference {
 	case eventFieldsRoomV1:
 		return fields.PrevEvents
 	case eventFieldsRoomV3:
+		// TODO: populate properly
 		return []EventReference{}
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -737,7 +747,7 @@ func (e Event) PrevEventIDs() []string {
 	case eventFieldsRoomV3:
 		return fields.PrevEvents
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -753,7 +763,7 @@ func (e Event) Membership() (string, error) {
 	case eventFieldsRoomV3:
 		fields = f.eventFields
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 	if fields.Type != MRoomMember {
 		return "", fmt.Errorf("gomatrixserverlib: not an m.room.member event")
@@ -771,9 +781,10 @@ func (e Event) AuthEvents() []EventReference {
 	case eventFieldsRoomV1:
 		return fields.AuthEvents
 	case eventFieldsRoomV3:
+		// TODO: populate properly
 		return []EventReference{}
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -789,7 +800,7 @@ func (e Event) AuthEventIDs() []string {
 	case eventFieldsRoomV3:
 		return fields.AuthEvents
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -801,7 +812,7 @@ func (e Event) Redacts() string {
 	case eventFieldsRoomV3:
 		return fields.Redacts
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -813,7 +824,7 @@ func (e Event) RoomID() string {
 	case eventFieldsRoomV3:
 		return fields.RoomID
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
@@ -825,7 +836,7 @@ func (e Event) Depth() int64 {
 	case eventFieldsRoomV3:
 		return fields.Depth
 	default:
-		panic("unexpected field type")
+		panic("gomatrixserverlib: fields don't match known version")
 	}
 }
 
