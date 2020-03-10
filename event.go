@@ -61,9 +61,9 @@ type EventBuilder struct {
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
 	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceded this event in the room history.
-	PrevEvents []EventReference `json:"prev_events"`
+	PrevEvents interface{} `json:"prev_events"`
 	// The events needed to authenticate this event.
-	AuthEvents []EventReference `json:"auth_events"`
+	AuthEvents interface{} `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
@@ -146,11 +146,21 @@ func (eb *EventBuilder) Build(
 		PrevState *[]EventReference `json:"prev_state,omitempty"`
 	}
 	event.EventBuilder = *eb
-	if event.PrevEvents == nil {
-		event.PrevEvents = emptyEventReferenceList
-	}
-	if event.AuthEvents == nil {
-		event.AuthEvents = emptyEventReferenceList
+	switch roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		if event.PrevEvents == nil {
+			event.PrevEvents = emptyEventReferenceList
+		}
+		if event.AuthEvents == nil {
+			event.AuthEvents = emptyEventReferenceList
+		}
+	default:
+		if event.PrevEvents == nil {
+			event.PrevEvents = []string{}
+		}
+		if event.AuthEvents == nil {
+			event.AuthEvents = []string{}
+		}
 	}
 	event.OriginServerTS = AsTimestamp(now)
 	event.Origin = origin
