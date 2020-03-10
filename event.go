@@ -196,7 +196,26 @@ func (eb *EventBuilder) Build(
 
 	result.roomVersion = roomVersion
 	result.eventJSON = eventJSON
-	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
+
+	switch roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		var fields eventFieldsRoomV1
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		var fields eventFieldsRoomV3
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		fields.EventID, err = result.generateEventID()
+		if err != nil {
+			return
+		}
+		result.fields = fields
+	default:
+		err = errors.New("gomatrixserverlib: room version not supported")
 		return
 	}
 
