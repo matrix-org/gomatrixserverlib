@@ -84,13 +84,14 @@ func (ac *FederationClient) SendTransaction(
 // server's key and pass it to SendJoin.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) MakeJoin(
-	ctx context.Context, s ServerName, roomID, userID string, roomVersions []int,
+	ctx context.Context, s ServerName, roomID, userID string,
+	roomVersions []RoomVersion,
 ) (res RespMakeJoin, err error) {
 	versionQueryString := ""
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			vqs = append(vqs, fmt.Sprintf("ver=%d", v))
+			vqs = append(vqs, fmt.Sprintf("ver=%s", v))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
