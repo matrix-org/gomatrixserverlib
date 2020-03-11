@@ -358,7 +358,10 @@ func (e *Event) PrepareAs(roomVersion RoomVersion) error {
 		e.fields = eventFieldsRoomV1{}
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		e.fields = eventFieldsRoomV3{}
+	default:
+		return errors.New("gomatrixserverlib: unexpected room version")
 	}
+	e.roomVersion = roomVersion
 	return nil
 }
 
