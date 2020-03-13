@@ -343,15 +343,15 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 }
 
 // Redacted returns whether the event is redacted.
-func (e Event) Redacted() bool { return e.redacted }
+func (e *Event) Redacted() bool { return e.redacted }
 
 // JSON returns the JSON bytes for the event.
-func (e Event) JSON() []byte { return e.eventJSON }
+func (e *Event) JSON() []byte { return e.eventJSON }
 
 // Redact returns a redacted copy of the event.
-func (e Event) Redact() Event {
+func (e *Event) Redact() Event {
 	if e.redacted {
-		return e
+		return *e
 	}
 	eventJSON, err := redactEvent(e.eventJSON)
 	if err != nil {
@@ -375,7 +375,7 @@ func (e Event) Redact() Event {
 
 // SetUnsigned sets the unsigned key of the event.
 // Returns a copy of the event with the "unsigned" key set.
-func (e Event) SetUnsigned(unsigned interface{}) (Event, error) {
+func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	var eventAsMap map[string]RawJSON
 	var err error
 	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
@@ -393,7 +393,7 @@ func (e Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
 		return Event{}, err
 	}
-	result := e
+	result := *e
 	result.eventJSON = eventJSON
 	if e.roomVersion.EventIDFormat() == EventIDFormatV1 {
 		result.fields.(*eventFieldsRoomV1).Unsigned = unsignedJSON
@@ -428,8 +428,10 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		fields.Unsigned = unsigned
+		e.fields = fields
 	case eventFieldsRoomV3:
 		fields.Unsigned = unsigned
+		e.fields = fields
 	default:
 		return errors.New("gomatrixserverlib: fields don't match known version")
 	}
@@ -439,7 +441,7 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 
 // EventReference returns an EventReference for the event.
 // The reference can be used to refer to this event from other events.
-func (e Event) EventReference() EventReference {
+func (e *Event) EventReference() EventReference {
 	reference, err := referenceOfEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -450,7 +452,7 @@ func (e Event) EventReference() EventReference {
 }
 
 // Sign returns a copy of the event with an additional signature.
-func (e Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
+func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -468,7 +470,7 @@ func (e Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateK
 }
 
 // KeyIDs returns a list of key IDs that the named entity has signed the event with.
-func (e Event) KeyIDs(signingName string) []KeyID {
+func (e *Event) KeyIDs(signingName string) []KeyID {
 	keyIDs, err := ListKeyIDs(signingName, e.eventJSON)
 	if err != nil {
 		// This should unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -478,12 +480,12 @@ func (e Event) KeyIDs(signingName string) []KeyID {
 }
 
 // Verify checks a ed25519 signature
-func (e Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
+func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
 	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON)
 }
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
-func (e Event) StateKey() *string {
+func (e *Event) StateKey() *string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.StateKey
@@ -495,7 +497,7 @@ func (e Event) StateKey() *string {
 }
 
 // StateKeyEquals returns true if the event is a state event and the "state_key" matches.
-func (e Event) StateKeyEquals(stateKey string) bool {
+func (e *Event) StateKeyEquals(stateKey string) bool {
 	var sk *string
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
@@ -526,7 +528,7 @@ const (
 // Returns an error if the total length of the event JSON is too long.
 // Returns an error if the event ID doesn't match the origin of the event.
 // https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
-func (e Event) CheckFields() error { // nolint: gocyclo
+func (e *Event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
 	switch f := e.fields.(type) {
 	case eventFieldsRoomV1:
@@ -640,7 +642,7 @@ func checkID(id, kind string, sigil byte) (domain string, err error) {
 }
 
 // Origin returns the name of the server that sent the event
-func (e Event) Origin() ServerName {
+func (e *Event) Origin() ServerName {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.Origin
@@ -651,7 +653,7 @@ func (e Event) Origin() ServerName {
 	}
 }
 
-func (e Event) generateEventID() (eventID string, err error) {
+func (e *Event) generateEventID() (eventID string, err error) {
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
 		eventID = e.fields.(eventFieldsRoomV1).EventID
@@ -670,7 +672,7 @@ func (e Event) generateEventID() (eventID string, err error) {
 }
 
 // EventID returns the event ID of the event.
-func (e Event) EventID() string {
+func (e *Event) EventID() string {
 	if e.fields == nil {
 		panic("gomatrixserverlib: fields are not populated")
 	}
@@ -685,7 +687,7 @@ func (e Event) EventID() string {
 }
 
 // Sender returns the user ID of the sender of the event.
-func (e Event) Sender() string {
+func (e *Event) Sender() string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.Sender
@@ -697,7 +699,7 @@ func (e Event) Sender() string {
 }
 
 // Type returns the type of the event.
-func (e Event) Type() string {
+func (e *Event) Type() string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.Type
@@ -709,7 +711,7 @@ func (e Event) Type() string {
 }
 
 // OriginServerTS returns the unix timestamp when this event was created on the origin server, with millisecond resolution.
-func (e Event) OriginServerTS() Timestamp {
+func (e *Event) OriginServerTS() Timestamp {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.OriginServerTS
@@ -721,7 +723,7 @@ func (e Event) OriginServerTS() Timestamp {
 }
 
 // Unsigned returns the object under the 'unsigned' key of the event.
-func (e Event) Unsigned() []byte {
+func (e *Event) Unsigned() []byte {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return []byte(fields.Unsigned)
@@ -733,7 +735,7 @@ func (e Event) Unsigned() []byte {
 }
 
 // Content returns the content JSON of the event.
-func (e Event) Content() []byte {
+func (e *Event) Content() []byte {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return []byte(fields.Content)
@@ -745,7 +747,7 @@ func (e Event) Content() []byte {
 }
 
 // PrevEvents returns references to the direct ancestors of the event.
-func (e Event) PrevEvents() []EventReference {
+func (e *Event) PrevEvents() []EventReference {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.PrevEvents
@@ -758,7 +760,7 @@ func (e Event) PrevEvents() []EventReference {
 }
 
 // PrevEventIDs returns the event IDs of the direct ancestors of the event.
-func (e Event) PrevEventIDs() []string {
+func (e *Event) PrevEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		result := make([]string, len(fields.PrevEvents))
@@ -777,7 +779,7 @@ func (e Event) PrevEventIDs() []string {
 // is an "m.room.member" event.
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
-func (e Event) Membership() (string, error) {
+func (e *Event) Membership() (string, error) {
 	var fields eventFields
 	switch f := e.fields.(type) {
 	case eventFieldsRoomV1:
@@ -798,7 +800,7 @@ func (e Event) Membership() (string, error) {
 }
 
 // AuthEvents returns references to the events needed to auth the event.
-func (e Event) AuthEvents() []EventReference {
+func (e *Event) AuthEvents() []EventReference {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.AuthEvents
@@ -811,7 +813,7 @@ func (e Event) AuthEvents() []EventReference {
 }
 
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
-func (e Event) AuthEventIDs() []string {
+func (e *Event) AuthEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		result := make([]string, len(fields.AuthEvents))
@@ -827,7 +829,7 @@ func (e Event) AuthEventIDs() []string {
 }
 
 // Redacts returns the event ID of the event this event redacts.
-func (e Event) Redacts() string {
+func (e *Event) Redacts() string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.Redacts
@@ -839,7 +841,7 @@ func (e Event) Redacts() string {
 }
 
 // RoomID returns the room ID of the room the event is in.
-func (e Event) RoomID() string {
+func (e *Event) RoomID() string {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.RoomID
@@ -851,7 +853,7 @@ func (e Event) RoomID() string {
 }
 
 // Depth returns the depth of the event.
-func (e Event) Depth() int64 {
+func (e *Event) Depth() int64 {
 	switch fields := e.fields.(type) {
 	case eventFieldsRoomV1:
 		return fields.Depth
@@ -863,7 +865,7 @@ func (e Event) Depth() int64 {
 }
 
 // MarshalJSON implements json.Marshaller
-func (e Event) MarshalJSON() ([]byte, error) {
+func (e *Event) MarshalJSON() ([]byte, error) {
 	if e.eventJSON == nil {
 		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
 	}

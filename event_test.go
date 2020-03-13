@@ -70,12 +70,7 @@ func TestAddUnsignedField(t *testing.T) {
 		t.Error("Failed to insert x")
 	}
 
-	bytes, err := json.Marshal(event)
-	if err != nil {
-		t.Error("Failed to marshal x")
-	}
-
-	if expectedEventJSON != string(bytes) {
-		t.Fatalf("Serialized event does not match expected: %s != %s", string(bytes), initialEventJSON)
+	if expectedEventJSON != string(event.JSON()) {
+		t.Fatalf("Serialized event does not match expected: %s != %s", string(event.JSON()), initialEventJSON)
 	}
 }
