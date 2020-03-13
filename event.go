@@ -486,13 +486,13 @@ func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.Public
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
 func (e *Event) StateKey() *string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.StateKey
-	case eventFieldsRoomV3:
-		return fields.StateKey
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).StateKey
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).StateKey
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
@@ -530,11 +530,11 @@ const (
 // https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
 func (e *Event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
-	switch f := e.fields.(type) {
-	case eventFieldsRoomV1:
-		fields = f.eventFields
-	case eventFieldsRoomV3:
-		fields = f.eventFields
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		fields = e.fields.(eventFieldsRoomV1).eventFields
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		fields = e.fields.(eventFieldsRoomV3).eventFields
 	default:
 		panic("gomatrixserverlib: fields don't match known version")
 	}
@@ -643,13 +643,13 @@ func checkID(id, kind string, sigil byte) (domain string, err error) {
 
 // Origin returns the name of the server that sent the event
 func (e *Event) Origin() ServerName {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.Origin
-	case eventFieldsRoomV3:
-		return fields.Origin
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).Origin
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).Origin
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
@@ -673,105 +673,108 @@ func (e *Event) generateEventID() (eventID string, err error) {
 
 // EventID returns the event ID of the event.
 func (e *Event) EventID() string {
-	if e.fields == nil {
-		panic("gomatrixserverlib: fields are not populated")
-	}
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
 		return e.fields.(eventFieldsRoomV1).EventID
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		return e.fields.(eventFieldsRoomV3).EventID
 	default:
-		panic("gomatrixserverlib: unexpected room version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // Sender returns the user ID of the sender of the event.
 func (e *Event) Sender() string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.Sender
-	case eventFieldsRoomV3:
-		return fields.Sender
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).Sender
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).Sender
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // Type returns the type of the event.
 func (e *Event) Type() string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.Type
-	case eventFieldsRoomV3:
-		return fields.Type
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).Type
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).Type
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // OriginServerTS returns the unix timestamp when this event was created on the origin server, with millisecond resolution.
 func (e *Event) OriginServerTS() Timestamp {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.OriginServerTS
-	case eventFieldsRoomV3:
-		return fields.OriginServerTS
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).OriginServerTS
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).OriginServerTS
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // Unsigned returns the object under the 'unsigned' key of the event.
 func (e *Event) Unsigned() []byte {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return []byte(fields.Unsigned)
-	case eventFieldsRoomV3:
-		return []byte(fields.Unsigned)
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).Unsigned
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).Unsigned
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // Content returns the content JSON of the event.
 func (e *Event) Content() []byte {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return []byte(fields.Content)
-	case eventFieldsRoomV3:
-		return []byte(fields.Content)
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return []byte(e.fields.(eventFieldsRoomV1).Content)
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return []byte(e.fields.(eventFieldsRoomV3).Content)
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // PrevEvents returns references to the direct ancestors of the event.
 func (e *Event) PrevEvents() []EventReference {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.PrevEvents
-	case eventFieldsRoomV3:
-		// TODO: populate properly
-		return []EventReference{}
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).PrevEvents
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		var result []EventReference
+		for _, id := range e.fields.(eventFieldsRoomV3).PrevEvents {
+			result = append(result, EventReference{
+				EventID:     fmt.Sprintf("$%s", id),
+				EventSHA256: Base64String(id),
+			})
+		}
+		return result
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // PrevEventIDs returns the event IDs of the direct ancestors of the event.
 func (e *Event) PrevEventIDs() []string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		result := make([]string, len(fields.PrevEvents))
-		for i := range fields.PrevEvents {
-			result[i] = fields.PrevEvents[i].EventID
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		var result []string
+		for _, id := range e.fields.(eventFieldsRoomV1).PrevEvents {
+			result = append(result, id.EventID)
 		}
 		return result
-	case eventFieldsRoomV3:
-		return fields.PrevEvents
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).PrevEvents
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
@@ -801,66 +804,72 @@ func (e *Event) Membership() (string, error) {
 
 // AuthEvents returns references to the events needed to auth the event.
 func (e *Event) AuthEvents() []EventReference {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.AuthEvents
-	case eventFieldsRoomV3:
-		// TODO: populate properly
-		return []EventReference{}
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).AuthEvents
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		var result []EventReference
+		for _, id := range e.fields.(eventFieldsRoomV3).AuthEvents {
+			result = append(result, EventReference{
+				EventID:     fmt.Sprintf("$%s", id),
+				EventSHA256: Base64String(id),
+			})
+		}
+		return result
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
 func (e *Event) AuthEventIDs() []string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		result := make([]string, len(fields.AuthEvents))
-		for i := range fields.AuthEvents {
-			result[i] = fields.AuthEvents[i].EventID
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		var result []string
+		for _, id := range e.fields.(eventFieldsRoomV1).AuthEvents {
+			result = append(result, id.EventID)
 		}
 		return result
-	case eventFieldsRoomV3:
-		return fields.AuthEvents
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).AuthEvents
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // Redacts returns the event ID of the event this event redacts.
 func (e *Event) Redacts() string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.Redacts
-	case eventFieldsRoomV3:
-		return fields.Redacts
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).Redacts
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).Redacts
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // RoomID returns the room ID of the room the event is in.
 func (e *Event) RoomID() string {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.RoomID
-	case eventFieldsRoomV3:
-		return fields.RoomID
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).RoomID
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).RoomID
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
 // Depth returns the depth of the event.
 func (e *Event) Depth() int64 {
-	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
-		return fields.Depth
-	case eventFieldsRoomV3:
-		return fields.Depth
+	switch e.roomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		return e.fields.(eventFieldsRoomV1).Depth
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		return e.fields.(eventFieldsRoomV3).Depth
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 }
 
