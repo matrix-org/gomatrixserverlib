@@ -237,22 +237,18 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	// is valid.
 	switch roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		var fields eventFieldsRoomV1
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
-		}
-		result.fields = fields
+		result.fields = eventFieldsRoomV1{}
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		result.fields = eventFieldsRoomV3{}
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
-		var fields eventFieldsRoomV3
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
-		}
-		result.fields = fields
 	default:
 		err = errors.New("gomatrixserverlib: room version not supported")
+		return
+	}
+
+	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
 		return
 	}
 
@@ -344,25 +340,6 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 	}
 
 	return
-}
-
-// PrepareAs populates the event fields struct for a specific room
-// version. This should only be used in cases where unmarshalling a parent
-// object results in an unmarshalled event.
-func (e *Event) PrepareAs(roomVersion RoomVersion) error {
-	if e.fields != nil {
-		return errors.New("gomatrixserverlib: can't prepare once populated")
-	}
-	switch roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		e.fields = eventFieldsRoomV1{}
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		e.fields = eventFieldsRoomV3{}
-	default:
-		return errors.New("gomatrixserverlib: unexpected room version")
-	}
-	e.roomVersion = roomVersion
-	return nil
 }
 
 // Redacted returns whether the event is redacted.
