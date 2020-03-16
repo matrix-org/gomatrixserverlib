@@ -237,18 +237,22 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	// is valid.
 	switch roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		result.fields = eventFieldsRoomV1{}
+		fields := eventFieldsRoomV1{}
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		result.fields = eventFieldsRoomV3{}
+		fields := eventFieldsRoomV3{}
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
+		if err = json.Unmarshal(eventJSON, &fields); err != nil {
+			return
+		}
+		result.fields = fields
 	default:
 		err = errors.New("gomatrixserverlib: room version not supported")
-		return
-	}
-
-	if err = json.Unmarshal(eventJSON, result.fields); err != nil {
 		return
 	}
 
