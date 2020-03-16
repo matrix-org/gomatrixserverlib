@@ -622,6 +622,17 @@ func (e Event) MarshalJSON() ([]byte, error) {
 	return e.eventJSON, nil
 }
 
+// Headered returns a HeaderedEvent encapsulating the original event, with the
+// supplied headers.
+func (e Event) Headered(roomVersion RoomVersion) HeaderedEvent {
+	return HeaderedEvent{
+		EventHeader: EventHeader{
+			RoomVersion: roomVersion,
+		},
+		Event: e,
+	}
+}
+
 // UnmarshalJSON implements json.Unmarshaller
 func (er *EventReference) UnmarshalJSON(data []byte) error {
 	var tuple []RawJSON
