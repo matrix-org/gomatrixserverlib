@@ -89,7 +89,7 @@ func (v RoomVersion) StateResAlgorithm() StateResAlgorithm {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.stateResAlgorithm
 	}
-	return StateResV1
+	panic("gomatrixserverlib: unsupported room version")
 }
 
 // EventFormat returns the event format for the given room version.
@@ -97,7 +97,7 @@ func (v RoomVersion) EventFormat() EventFormat {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.eventFormat
 	}
-	return EventFormatV1
+	panic("gomatrixserverlib: unsupported room version")
 }
 
 // EventIDFormat returns the event ID format for the given room version.
@@ -105,7 +105,7 @@ func (v RoomVersion) EventIDFormat() EventIDFormat {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.eventIDFormat
 	}
-	return EventIDFormatV1
+	panic("gomatrixserverlib: unsupported room version")
 }
 
 // EnforceSignatureChecks returns true if the given room version calls for
@@ -114,5 +114,5 @@ func (v RoomVersion) EnforceSignatureChecks() bool {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.enforceSignatureChecks
 	}
-	return false
+	panic("gomatrixserverlib: unsupported room version")
 }
