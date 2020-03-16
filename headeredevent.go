@@ -3,6 +3,9 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+
+	"github.com/tidwall/sjson"
 )
 
 // HeaderedEventHeader contains header fields for an event that contains
@@ -36,4 +39,24 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return nil
+}
+
+// MarshalJSON implements json.Marshaller
+func (e HeaderedEvent) MarshalJSON() ([]byte, error) {
+	content, err := json.Marshal(e.Event)
+	if err != nil {
+		return []byte{}, err
+	}
+	fields := reflect.TypeOf(e.EventHeader)
+	values := reflect.ValueOf(e.EventHeader)
+	for i := 0; i < fields.NumField(); i++ {
+		if content, err = sjson.SetBytes(
+			content,
+			fields.Field(i).Tag.Get("json"),
+			values.Field(i).Interface(),
+		); err != nil {
+			return []byte{}, err
+		}
+	}
+	return content, nil
 }
