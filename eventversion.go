@@ -75,7 +75,7 @@ var roomVersionMeta = map[RoomVersion]roomVersion{
 	},
 }
 
-// RoomVersionMeta contains information about a given room version, e.g. which
+// roomVersion contains information about a given room version, e.g. which
 // state resolution algorithm or event ID format to use.
 type roomVersion struct {
 	stateResAlgorithm      StateResAlgorithm
