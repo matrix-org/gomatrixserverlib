@@ -248,7 +248,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		return
 	}
 
-	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
+	if err = json.Unmarshal(eventJSON, result.fields); err != nil {
 		return
 	}
 
