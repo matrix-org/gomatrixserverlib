@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 
 	"github.com/tidwall/sjson"
@@ -23,15 +22,23 @@ type HeaderedEvent struct {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
+	var err error
 	var m EventHeader
-	if err := json.Unmarshal(data, &m); err != nil {
+	if err = json.Unmarshal(data, &m); err != nil {
 		return err
+	}
+	fields := reflect.TypeOf(e.EventHeader)
+	for i := 0; i < fields.NumField(); i++ {
+		if data, err = sjson.DeleteBytes(
+			data,
+			fields.Field(i).Tag.Get("json"),
+		); err != nil {
+			return err
+		}
 	}
 	switch m.RoomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		fmt.Println("room v1 or v2")
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		fmt.Println("room v3 or v4 or v5")
 	default:
 		return UnsupportedRoomVersionError{m.RoomVersion}
 	}
