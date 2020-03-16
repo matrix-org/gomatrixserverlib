@@ -1,5 +1,7 @@
 package gomatrixserverlib
 
+import "fmt"
+
 // RoomVersion refers to the room version for a specific room.
 type RoomVersion string
 
@@ -85,34 +87,44 @@ type roomVersion struct {
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
-func (v RoomVersion) StateResAlgorithm() StateResAlgorithm {
+func (v RoomVersion) StateResAlgorithm() (StateResAlgorithm, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.stateResAlgorithm
+		return r.stateResAlgorithm, nil
 	}
-	panic("gomatrixserverlib: unsupported room version")
+	return 0, UnsupportedRoomVersionError{v}
 }
 
 // EventFormat returns the event format for the given room version.
-func (v RoomVersion) EventFormat() EventFormat {
+func (v RoomVersion) EventFormat() (EventFormat, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.eventFormat
+		return r.eventFormat, nil
 	}
-	panic("gomatrixserverlib: unsupported room version")
+	return 0, UnsupportedRoomVersionError{v}
 }
 
 // EventIDFormat returns the event ID format for the given room version.
-func (v RoomVersion) EventIDFormat() EventIDFormat {
+func (v RoomVersion) EventIDFormat() (EventIDFormat, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.eventIDFormat
+		return r.eventIDFormat, nil
 	}
-	panic("gomatrixserverlib: unsupported room version")
+	return 0, UnsupportedRoomVersionError{v}
 }
 
 // EnforceSignatureChecks returns true if the given room version calls for
 // strict signature checking (room version 5 and onward) or false otherwise.
-func (v RoomVersion) EnforceSignatureChecks() bool {
+func (v RoomVersion) EnforceSignatureChecks() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.enforceSignatureChecks
+		return r.enforceSignatureChecks, nil
 	}
-	panic("gomatrixserverlib: unsupported room version")
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// UnsupportedRoomVersionError occurs when a call has been made with a room
+// version that is not supported by this version of gomatrixserverlib.
+type UnsupportedRoomVersionError struct {
+	Version RoomVersion
+}
+
+func (e UnsupportedRoomVersionError) Error() string {
+	return fmt.Sprintf("gomatrixserverlib: unsupported version '%s'", e.Version)
 }
