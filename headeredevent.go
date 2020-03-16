@@ -27,8 +27,12 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	switch m.RoomVersion {
 	case RoomVersionV1, RoomVersionV2:
 		fmt.Println("room v1 or v2")
+	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		fmt.Println("room v3 or v4 or v5")
+	default:
+		return UnsupportedRoomVersionError{m.RoomVersion}
 	}
-	if err := json.Unmarshal(data, e); err != nil {
+	if err := json.Unmarshal(data, &e.Event); err != nil {
 		return err
 	}
 	return nil
