@@ -12,9 +12,10 @@ import (
 // this struct must have a "json:" name tag or otherwise the reflection
 // code for marshalling and unmarshalling headered events will not work.
 // They must be unique and not overlap with a name tag from the Event
-// struct or otherwise panics may occur.
+// struct or otherwise panics may occur, so header  name tags are instead
+// prefixed with an underscore.
 type EventHeader struct {
-	RoomVersion RoomVersion `json:"room_version"`
+	RoomVersion RoomVersion `json:"_room_version"`
 }
 
 // HeaderedEvent is a wrapper around an Event that contains information
