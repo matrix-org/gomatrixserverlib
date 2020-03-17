@@ -11,6 +11,8 @@ import (
 // additional metadata, e.g. room version. IMPORTANT NOTE: All fields in
 // this struct must have a "json:" name tag or otherwise the reflection
 // code for marshalling and unmarshalling headered events will not work.
+// They must be unique and not overlap with a name tag from the Event
+// struct or otherwise panics may occur.
 type EventHeader struct {
 	RoomVersion RoomVersion `json:"room_version"`
 }
@@ -66,8 +68,10 @@ func (e HeaderedEvent) MarshalJSON() ([]byte, error) {
 	}
 	// Now jump through the fields of the header struct and add them
 	// in separately. This is needed because of the way that Go handles
-	// function overloading on embedded types. Doing this ensures the
-	// least number of changes to event references elsewhere.
+	// function overloading on embedded types, since Event also
+	// implements custom marshalling and unmarshalling functions.
+	// Doing this also ensures the least number of changes to Event
+	// references elsewhere.
 	fields := reflect.TypeOf(e.EventHeader)
 	values := reflect.ValueOf(e.EventHeader)
 	for i := 0; i < fields.NumField(); i++ {
