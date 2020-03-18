@@ -45,6 +45,15 @@ func ToClientEvents(serverEvs []Event, format EventFormat) []ClientEvent {
 	return evs
 }
 
+// ToClientEvents converts server events to client events.
+func HeaderedToClientEvents(serverEvs []HeaderedEvent, format EventFormat) []ClientEvent {
+	evs := make([]ClientEvent, len(serverEvs))
+	for i, se := range serverEvs {
+		evs[i] = ToClientEvent(se.Event, format)
+	}
+	return evs
+}
+
 // ToClientEvent converts a single server event to a client event.
 func ToClientEvent(se Event, format EventFormat) ClientEvent {
 	ce := ClientEvent{
