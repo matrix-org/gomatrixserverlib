@@ -81,7 +81,7 @@ func getBaseStateResV2Graph() []Event {
 	return []Event{
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$CREATE:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -95,7 +95,7 @@ func getBaseStateResV2Graph() []Event {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IMA:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -115,7 +115,7 @@ func getBaseStateResV2Graph() []Event {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IPOWER:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -136,7 +136,7 @@ func getBaseStateResV2Graph() []Event {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IJR:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -158,7 +158,7 @@ func getBaseStateResV2Graph() []Event {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IMB:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -180,7 +180,7 @@ func getBaseStateResV2Graph() []Event {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IMC:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -222,7 +222,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 	runStateResolutionV2(t, []Event{
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$PA:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -247,7 +247,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$PB:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -272,7 +272,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$MB:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -294,7 +294,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IME:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -327,7 +327,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 	runStateResolutionV2(t, []Event{
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$JR:example.com",
 					RoomID:         "!ROOM:example.com",
@@ -349,7 +349,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 		},
 		{
 			roomVersion: RoomVersionV2,
-			fields: eventFieldsRoomV1{
+			fields: eventFormatV1Fields{
 				eventFields: eventFields{
 					EventID:        "$IMZ:example.com",
 					RoomID:         "!ROOM:example.com",

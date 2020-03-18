@@ -11,7 +11,7 @@ const (
 )
 
 func TestConflictEventSorter(t *testing.T) {
-	var f1, f2, f3 eventFieldsRoomV1
+	var f1, f2, f3 eventFormatV1Fields
 	f1.EventID = "@1:a"
 	f2.EventID = "@2:a"
 	f3.EventID = "@3:b"

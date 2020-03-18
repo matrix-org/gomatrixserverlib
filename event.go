@@ -112,13 +112,13 @@ type eventFields struct {
 	Origin         ServerName `json:"origin"`
 }
 
-type eventFieldsRoomV1 struct {
+type eventFormatV1Fields struct {
 	eventFields
 	PrevEvents []EventReference `json:"prev_events"`
 	AuthEvents []EventReference `json:"auth_events"`
 }
 
-type eventFieldsRoomV3 struct {
+type eventFormatV3Fields struct {
 	eventFields
 	PrevEvents []string `json:"prev_events"`
 	AuthEvents []string `json:"auth_events"`
@@ -199,13 +199,13 @@ func (eb *EventBuilder) Build(
 
 	switch roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		var fields eventFieldsRoomV1
+		var fields eventFormatV1Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		var fields eventFieldsRoomV3
+		var fields eventFormatV3Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
@@ -237,13 +237,13 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	// is valid.
 	switch roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		fields := eventFieldsRoomV1{}
+		fields := eventFormatV1Fields{}
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		fields := eventFieldsRoomV3{}
+		fields := eventFormatV3Fields{}
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
@@ -286,8 +286,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		// Yes, this means that for some events we parse twice (which is slow),
 		// but means that parsing unredacted events is fast.
 		if !bytes.Equal(redactedJSON, eventJSON) {
-			result = Event{redacted: true}
-			if err = json.Unmarshal(redactedJSON, &result.fields); err != nil {
+			if result, err = NewEventFromTrustedJSON(redactedJSON, true, roomVersion); err != nil {
 				return
 			}
 		}
@@ -297,7 +296,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 
 	switch roomVersion {
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		fields := result.fields.(eventFieldsRoomV3)
+		fields := result.fields.(eventFormatV3Fields)
 		fields.EventID, err = result.generateEventID()
 		result.fields = fields
 	}
@@ -324,13 +323,13 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 
 	switch result.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		var fields eventFieldsRoomV1
+		var fields eventFormatV1Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		var fields eventFieldsRoomV3
+		var fields eventFormatV3Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
@@ -399,10 +398,14 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	}
 	result := *e
 	result.eventJSON = eventJSON
-	if e.roomVersion.EventIDFormat() == EventIDFormatV1 {
-		result.fields.(*eventFieldsRoomV1).Unsigned = unsignedJSON
+	eventIDFormat, err := e.roomVersion.EventIDFormat()
+	if err != nil {
+		return Event{}, err
+	}
+	if eventIDFormat == EventIDFormatV1 {
+		result.fields.(*eventFormatV1Fields).Unsigned = unsignedJSON
 	} else {
-		result.fields.(*eventFieldsRoomV3).Unsigned = unsignedJSON
+		result.fields.(*eventFormatV3Fields).Unsigned = unsignedJSON
 	}
 	return result, nil
 }
@@ -430,10 +433,10 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 
 	e.eventJSON = eventJSON
 	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
+	case eventFormatV1Fields:
 		fields.Unsigned = unsigned
 		e.fields = fields
-	case eventFieldsRoomV3:
+	case eventFormatV3Fields:
 		fields.Unsigned = unsigned
 		e.fields = fields
 	default:
@@ -492,9 +495,9 @@ func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.Public
 func (e *Event) StateKey() *string {
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).StateKey
+		return e.fields.(eventFormatV1Fields).StateKey
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).StateKey
+		return e.fields.(eventFormatV3Fields).StateKey
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -504,9 +507,9 @@ func (e *Event) StateKey() *string {
 func (e *Event) StateKeyEquals(stateKey string) bool {
 	var sk *string
 	switch fields := e.fields.(type) {
-	case eventFieldsRoomV1:
+	case eventFormatV1Fields:
 		sk = fields.StateKey
-	case eventFieldsRoomV3:
+	case eventFormatV3Fields:
 		sk = fields.StateKey
 	default:
 		panic("gomatrixserverlib: fields don't match known version")
@@ -536,9 +539,9 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		fields = e.fields.(eventFieldsRoomV1).eventFields
+		fields = e.fields.(eventFormatV1Fields).eventFields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		fields = e.fields.(eventFieldsRoomV3).eventFields
+		fields = e.fields.(eventFormatV3Fields).eventFields
 	default:
 		panic("gomatrixserverlib: fields don't match known version")
 	}
@@ -576,8 +579,13 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		return err
 	}
 
-	if e.roomVersion.EventIDFormat() == EventIDFormatV1 {
-		eventDomain, err := checkID(e.fields.(eventFieldsRoomV1).EventID, "event", '$')
+	eventIDFormat, err := e.roomVersion.EventIDFormat()
+	if err != nil {
+		panic(err)
+	}
+
+	if eventIDFormat == EventIDFormatV1 {
+		eventDomain, err := checkID(e.fields.(eventFormatV1Fields).EventID, "event", '$')
 		if err != nil {
 			return err
 		}
@@ -647,11 +655,15 @@ func checkID(id, kind string, sigil byte) (domain string, err error) {
 
 // Origin returns the name of the server that sent the event
 func (e *Event) Origin() ServerName {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).Origin
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).Origin
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).Origin
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).Origin
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -660,7 +672,7 @@ func (e *Event) Origin() ServerName {
 func (e *Event) generateEventID() (eventID string, err error) {
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		eventID = e.fields.(eventFieldsRoomV1).EventID
+		eventID = e.fields.(eventFormatV1Fields).EventID
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		eventJSON := e.eventJSON
 		var reference EventReference
@@ -677,11 +689,15 @@ func (e *Event) generateEventID() (eventID string, err error) {
 
 // EventID returns the event ID of the event.
 func (e *Event) EventID() string {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).EventID
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).EventID
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).EventID
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).EventID
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -689,11 +705,15 @@ func (e *Event) EventID() string {
 
 // Sender returns the user ID of the sender of the event.
 func (e *Event) Sender() string {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).Sender
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).Sender
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).Sender
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).Sender
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -701,11 +721,15 @@ func (e *Event) Sender() string {
 
 // Type returns the type of the event.
 func (e *Event) Type() string {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).Type
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).Type
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).Type
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).Type
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -713,11 +737,15 @@ func (e *Event) Type() string {
 
 // OriginServerTS returns the unix timestamp when this event was created on the origin server, with millisecond resolution.
 func (e *Event) OriginServerTS() Timestamp {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).OriginServerTS
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).OriginServerTS
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).OriginServerTS
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).OriginServerTS
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -725,11 +753,15 @@ func (e *Event) OriginServerTS() Timestamp {
 
 // Unsigned returns the object under the 'unsigned' key of the event.
 func (e *Event) Unsigned() []byte {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).Unsigned
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).Unsigned
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).Unsigned
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).Unsigned
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -737,11 +769,15 @@ func (e *Event) Unsigned() []byte {
 
 // Content returns the content JSON of the event.
 func (e *Event) Content() []byte {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return []byte(e.fields.(eventFieldsRoomV1).Content)
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return []byte(e.fields.(eventFieldsRoomV3).Content)
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return []byte(e.fields.(eventFormatV1Fields).Content)
+	case EventFormatV2:
+		return []byte(e.fields.(eventFormatV3Fields).Content)
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -749,12 +785,16 @@ func (e *Event) Content() []byte {
 
 // PrevEvents returns references to the direct ancestors of the event.
 func (e *Event) PrevEvents() []EventReference {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).PrevEvents
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).PrevEvents
+	case EventFormatV2:
 		var result []EventReference
-		for _, id := range e.fields.(eventFieldsRoomV3).PrevEvents {
+		for _, id := range e.fields.(eventFormatV3Fields).PrevEvents {
 			result = append(result, EventReference{
 				EventID:     fmt.Sprintf("$%s", id),
 				EventSHA256: Base64String(id),
@@ -768,15 +808,19 @@ func (e *Event) PrevEvents() []EventReference {
 
 // PrevEventIDs returns the event IDs of the direct ancestors of the event.
 func (e *Event) PrevEventIDs() []string {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
 		var result []string
-		for _, id := range e.fields.(eventFieldsRoomV1).PrevEvents {
+		for _, id := range e.fields.(eventFormatV1Fields).PrevEvents {
 			result = append(result, id.EventID)
 		}
 		return result
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).PrevEvents
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).PrevEvents
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -787,12 +831,16 @@ func (e *Event) PrevEventIDs() []string {
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
 func (e *Event) Membership() (string, error) {
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
 	var fields eventFields
-	switch f := e.fields.(type) {
-	case eventFieldsRoomV1:
-		fields = f.eventFields
-	case eventFieldsRoomV3:
-		fields = f.eventFields
+	switch eventFormat {
+	case EventFormatV1:
+		fields = e.fields.(eventFormatV1Fields).eventFields
+	case EventFormatV2:
+		fields = e.fields.(eventFormatV3Fields).eventFields
 	default:
 		panic("gomatrixserverlib: fields don't match known version")
 	}
@@ -808,12 +856,16 @@ func (e *Event) Membership() (string, error) {
 
 // AuthEvents returns references to the events needed to auth the event.
 func (e *Event) AuthEvents() []EventReference {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).AuthEvents
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).AuthEvents
+	case EventFormatV2:
 		var result []EventReference
-		for _, id := range e.fields.(eventFieldsRoomV3).AuthEvents {
+		for _, id := range e.fields.(eventFormatV3Fields).AuthEvents {
 			result = append(result, EventReference{
 				EventID:     fmt.Sprintf("$%s", id),
 				EventSHA256: Base64String(id),
@@ -827,15 +879,19 @@ func (e *Event) AuthEvents() []EventReference {
 
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
 func (e *Event) AuthEventIDs() []string {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
 		var result []string
-		for _, id := range e.fields.(eventFieldsRoomV1).AuthEvents {
+		for _, id := range e.fields.(eventFormatV1Fields).AuthEvents {
 			result = append(result, id.EventID)
 		}
 		return result
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).AuthEvents
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).AuthEvents
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -843,11 +899,15 @@ func (e *Event) AuthEventIDs() []string {
 
 // Redacts returns the event ID of the event this event redacts.
 func (e *Event) Redacts() string {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).Redacts
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).Redacts
+	eventFormat, err := e.roomVersion.EventFormat()
+	if err != nil {
+		panic(err)
+	}
+	switch eventFormat {
+	case EventFormatV1:
+		return e.fields.(eventFormatV1Fields).Redacts
+	case EventFormatV2:
+		return e.fields.(eventFormatV3Fields).Redacts
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -857,9 +917,9 @@ func (e *Event) Redacts() string {
 func (e *Event) RoomID() string {
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).RoomID
+		return e.fields.(eventFormatV1Fields).RoomID
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).RoomID
+		return e.fields.(eventFormatV3Fields).RoomID
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -869,9 +929,9 @@ func (e *Event) RoomID() string {
 func (e *Event) Depth() int64 {
 	switch e.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		return e.fields.(eventFieldsRoomV1).Depth
+		return e.fields.(eventFormatV1Fields).Depth
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		return e.fields.(eventFieldsRoomV3).Depth
+		return e.fields.(eventFormatV3Fields).Depth
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -883,6 +943,17 @@ func (e *Event) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
 	}
 	return e.eventJSON, nil
+}
+
+// Headered returns a HeaderedEvent encapsulating the original event, with the
+// supplied headers.
+func (e Event) Headered(roomVersion RoomVersion) HeaderedEvent {
+	return HeaderedEvent{
+		EventHeader: EventHeader{
+			RoomVersion: roomVersion,
+		},
+		Event: e,
+	}
 }
 
 // UnmarshalJSON implements json.Unmarshaller

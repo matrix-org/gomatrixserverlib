@@ -129,14 +129,23 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 	var eventID string
 
-	switch roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	eventFormat, err := roomVersion.EventFormat()
+	if err != nil {
+		return EventReference{}, err
+	}
+	eventIDFormat, err := roomVersion.EventIDFormat()
+	if err != nil {
+		return EventReference{}, err
+	}
+
+	switch eventFormat {
+	case EventFormatV1:
 		if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
 			return EventReference{}, err
 		}
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	case EventFormatV2:
 		var encoder *base64.Encoding
-		switch roomVersion.EventIDFormat() {
+		switch eventIDFormat {
 		case EventIDFormatV2:
 			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
 		case EventIDFormatV3:

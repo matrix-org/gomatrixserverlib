@@ -15,9 +15,6 @@
 
 package gomatrixserverlib
 
-// EventFormat specifies the format of a client event
-type EventFormat int
-
 const (
 	// FormatAll will include all client event keys
 	FormatAll EventFormat = iota
@@ -31,13 +28,12 @@ type ClientEvent struct {
 	Content        RawJSON   `json:"content"`
 	EventID        string    `json:"event_id"`
 	OriginServerTS Timestamp `json:"origin_server_ts"`
-	// RoomID is omitted on /sync responses
-	RoomID   string  `json:"room_id,omitempty"`
-	Sender   string  `json:"sender"`
-	StateKey *string `json:"state_key,omitempty"`
-	Type     string  `json:"type"`
-	Unsigned RawJSON `json:"unsigned,omitempty"`
-	Redacts  string  `json:"redacts,omitempty"`
+	RoomID         string    `json:"room_id,omitempty"` // RoomID is omitted on /sync responses
+	Sender         string    `json:"sender"`
+	StateKey       *string   `json:"state_key,omitempty"`
+	Type           string    `json:"type"`
+	Unsigned       RawJSON   `json:"unsigned,omitempty"`
+	Redacts        string    `json:"redacts,omitempty"`
 }
 
 // ToClientEvents converts server events to client events.
