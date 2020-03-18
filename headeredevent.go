@@ -34,6 +34,7 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	if err = json.Unmarshal(data, &m); err != nil {
 		return err
 	}
+	e.EventHeader = m
 	// Now strip any of the header fields from the JSON input data.
 	fields := reflect.TypeOf(e.EventHeader)
 	for i := 0; i < fields.NumField(); i++ {
