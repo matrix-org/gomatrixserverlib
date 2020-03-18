@@ -49,13 +49,31 @@ func ToClientEvents(serverEvs []Event, format EventFormat) []ClientEvent {
 func HeaderedToClientEvents(serverEvs []HeaderedEvent, format EventFormat) []ClientEvent {
 	evs := make([]ClientEvent, len(serverEvs))
 	for i, se := range serverEvs {
-		evs[i] = ToClientEvent(se.Event, format)
+		evs[i] = HeaderedToClientEvent(se, format)
 	}
 	return evs
 }
 
 // ToClientEvent converts a single server event to a client event.
 func ToClientEvent(se Event, format EventFormat) ClientEvent {
+	ce := ClientEvent{
+		Content:        RawJSON(se.Content()),
+		Sender:         se.Sender(),
+		Type:           se.Type(),
+		StateKey:       se.StateKey(),
+		Unsigned:       RawJSON(se.Unsigned()),
+		OriginServerTS: se.OriginServerTS(),
+		EventID:        se.EventID(),
+		Redacts:        se.Redacts(),
+	}
+	if format == FormatAll {
+		ce.RoomID = se.RoomID()
+	}
+	return ce
+}
+
+// ToClientEvent converts a single server event to a client event.
+func HeaderedToClientEvent(se HeaderedEvent, format EventFormat) ClientEvent {
 	ce := ClientEvent{
 		Content:        RawJSON(se.Content()),
 		Sender:         se.Sender(),
