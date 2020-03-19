@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/tidwall/sjson"
 )
@@ -16,7 +17,7 @@ import (
 // struct or otherwise panics may occur, so header  name tags are instead
 // prefixed with an underscore.
 type EventHeader struct {
-	RoomVersion RoomVersion `json:"_room_version"`
+	RoomVersion RoomVersion `json:"_room_version,omitempty"`
 }
 
 // HeaderedEvent is a wrapper around an Event that contains information
@@ -39,9 +40,8 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	// Now strip any of the header fields from the JSON input data.
 	fields := reflect.TypeOf(e.EventHeader)
 	for i := 0; i < fields.NumField(); i++ {
-		if data, err = sjson.DeleteBytes(
-			data, fields.Field(i).Tag.Get("json"),
-		); err != nil {
+		tag := strings.Split(fields.Field(i).Tag.Get("json"), ",")[0]
+		if data, err = sjson.DeleteBytes(data, tag); err != nil {
 			return err
 		}
 	}
@@ -84,9 +84,9 @@ func (e HeaderedEvent) MarshalJSON() ([]byte, error) {
 	fields := reflect.TypeOf(e.EventHeader)
 	values := reflect.ValueOf(e.EventHeader)
 	for i := 0; i < fields.NumField(); i++ {
+		tag := strings.Split(fields.Field(i).Tag.Get("json"), ",")[0]
 		if content, err = sjson.SetBytes(
-			content,
-			fields.Field(i).Tag.Get("json"),
+			content, tag,
 			values.Field(i).Interface(),
 		); err != nil {
 			return []byte{}, err

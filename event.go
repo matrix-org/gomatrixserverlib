@@ -294,6 +294,8 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		eventJSON = redactedJSON
 	}
 
+	result.eventJSON = eventJSON
+
 	switch roomVersion {
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
 		fields := result.fields.(eventFormatV3Fields)
@@ -303,8 +305,6 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	if err != nil {
 		return
 	}
-
-	result.eventJSON = eventJSON
 
 	if err = result.CheckFields(); err != nil {
 		return
