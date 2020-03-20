@@ -135,6 +135,7 @@ func (eb *EventBuilder) Build(
 	eventID string, now time.Time, origin ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result Event, err error) {
+	var eventFormat EventFormat
 	var event struct {
 		EventBuilder
 		EventID        string     `json:"event_id"`
@@ -146,36 +147,41 @@ func (eb *EventBuilder) Build(
 		PrevState *[]EventReference `json:"prev_state,omitempty"`
 	}
 	event.EventBuilder = *eb
-	switch roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	eventFormat, err = roomVersion.EventFormat()
+	if err != nil {
+		return result, err
+	}
+	switch eventFormat {
+	case EventFormatV1:
 		if event.PrevEvents == nil {
 			event.PrevEvents = emptyEventReferenceList
 		}
 		if event.AuthEvents == nil {
 			event.AuthEvents = emptyEventReferenceList
 		}
-	default:
+	case EventFormatV2:
 		switch prevEvents := event.PrevEvents.(type) {
+		case nil:
+			event.PrevEvents = []string{}
 		case []EventReference:
 			var references []string
 			for _, prevEvent := range prevEvents {
 				references = append(references, prevEvent.EventID)
 			}
 			event.PrevEvents = references
-		case nil:
-			event.PrevEvents = []string{}
 		}
 		switch authEvents := event.AuthEvents.(type) {
+		case nil:
+			event.AuthEvents = []string{}
 		case []EventReference:
 			var references []string
 			for _, authEvent := range authEvents {
 				references = append(references, authEvent.EventID)
 			}
 			event.AuthEvents = references
-		case nil:
-			event.AuthEvents = []string{}
 		}
 	}
+
 	event.OriginServerTS = AsTimestamp(now)
 	event.Origin = origin
 	event.EventID = eventID
@@ -809,7 +815,10 @@ func (e *Event) PrevEvents() []EventReference {
 	}
 	switch eventFormat {
 	case EventFormatV1:
-		return e.fields.(eventFormatV1Fields).PrevEvents
+		if fields, ok := e.fields.(eventFormatV1Fields); ok {
+			return fields.PrevEvents
+		}
+		return []EventReference{}
 	case EventFormatV2:
 		var result []EventReference
 		for _, id := range e.fields.(eventFormatV2Fields).PrevEvents {
@@ -838,7 +847,10 @@ func (e *Event) PrevEventIDs() []string {
 		}
 		return result
 	case EventFormatV2:
-		return e.fields.(eventFormatV2Fields).PrevEvents
+		if fields, ok := e.fields.(eventFormatV2Fields); ok {
+			return fields.PrevEvents
+		}
+		return []string{}
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
@@ -880,7 +892,10 @@ func (e *Event) AuthEvents() []EventReference {
 	}
 	switch eventFormat {
 	case EventFormatV1:
-		return e.fields.(eventFormatV1Fields).AuthEvents
+		if fields, ok := e.fields.(eventFormatV1Fields); ok {
+			return fields.AuthEvents
+		}
+		return []EventReference{}
 	case EventFormatV2:
 		var result []EventReference
 		for _, id := range e.fields.(eventFormatV2Fields).AuthEvents {
@@ -909,7 +924,10 @@ func (e *Event) AuthEventIDs() []string {
 		}
 		return result
 	case EventFormatV2:
-		return e.fields.(eventFormatV2Fields).AuthEvents
+		if fields, ok := e.fields.(eventFormatV2Fields); ok {
+			return fields.AuthEvents
+		}
+		return []string{}
 	default:
 		panic("gomatrixserverlib: unsupported room version")
 	}
