@@ -155,11 +155,25 @@ func (eb *EventBuilder) Build(
 			event.AuthEvents = emptyEventReferenceList
 		}
 	default:
-		if event.PrevEvents == nil {
+		switch prevEvents := event.PrevEvents.(type) {
+		case nil:
 			event.PrevEvents = []string{}
+		case []EventReference:
+			var references []string
+			for _, prevEvent := range prevEvents {
+				references = append(references, prevEvent.EventID)
+			}
+			event.PrevEvents = references
 		}
-		if event.AuthEvents == nil {
+		switch authEvents := event.AuthEvents.(type) {
+		case nil:
 			event.AuthEvents = []string{}
+		case []EventReference:
+			var references []string
+			for _, authEvent := range authEvents {
+				references = append(references, authEvent.EventID)
+			}
+			event.AuthEvents = references
 		}
 	}
 	event.OriginServerTS = AsTimestamp(now)
