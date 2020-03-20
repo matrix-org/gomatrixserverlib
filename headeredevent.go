@@ -55,7 +55,7 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	case EventFormatV1:
 		e.fields = eventFormatV1Fields{}
 	case EventFormatV2:
-		e.fields = eventFormatV3Fields{}
+		e.fields = eventFormatV2Fields{}
 	default:
 		return UnsupportedRoomVersionError{m.RoomVersion}
 	}

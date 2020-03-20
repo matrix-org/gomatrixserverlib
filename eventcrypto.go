@@ -154,7 +154,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 		if encoder != nil {
 			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
 		} else {
-			err = errors.New("gomatrixserverlib: this should not happen")
+			return EventReference{}, errors.New("gomatrixserverlib: this should not happen")
 		}
 	}
 
