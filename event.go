@@ -164,7 +164,7 @@ func (eb *EventBuilder) Build(
 		case nil:
 			event.PrevEvents = []string{}
 		case []EventReference:
-			var references []string
+			references := []string{}
 			for _, prevEvent := range prevEvents {
 				references = append(references, prevEvent.EventID)
 			}
@@ -174,7 +174,7 @@ func (eb *EventBuilder) Build(
 		case nil:
 			event.AuthEvents = []string{}
 		case []EventReference:
-			var references []string
+			references := []string{}
 			for _, authEvent := range authEvents {
 				references = append(references, authEvent.EventID)
 			}
