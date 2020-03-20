@@ -814,8 +814,8 @@ func (e *Event) PrevEvents() []EventReference {
 		var result []EventReference
 		for _, id := range e.fields.(eventFormatV2Fields).PrevEvents {
 			result = append(result, EventReference{
-				EventID:     fmt.Sprintf("$%s", id),
-				EventSHA256: Base64String(id),
+				EventID:     id,
+				EventSHA256: Base64String(id[1:]),
 			})
 		}
 		return result
@@ -885,8 +885,8 @@ func (e *Event) AuthEvents() []EventReference {
 		var result []EventReference
 		for _, id := range e.fields.(eventFormatV2Fields).AuthEvents {
 			result = append(result, EventReference{
-				EventID:     fmt.Sprintf("$%s", id),
-				EventSHA256: Base64String(id),
+				EventID:     id,
+				EventSHA256: Base64String(id[1:]),
 			})
 		}
 		return result
