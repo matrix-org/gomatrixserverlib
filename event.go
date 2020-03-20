@@ -403,9 +403,13 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 		return Event{}, err
 	}
 	if eventIDFormat == EventIDFormatV1 {
-		result.fields.(*eventFormatV1Fields).Unsigned = unsignedJSON
+		fields := result.fields.(eventFormatV1Fields)
+		fields.Unsigned = unsignedJSON
+		result.fields = fields
 	} else {
-		result.fields.(*eventFormatV3Fields).Unsigned = unsignedJSON
+		fields := result.fields.(eventFormatV3Fields)
+		fields.Unsigned = unsignedJSON
+		result.fields = fields
 	}
 	return result, nil
 }

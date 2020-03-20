@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -65,7 +64,6 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	if e.Event, err = NewEventFromUntrustedJSON(data, m.RoomVersion); err != nil {
 		return err
 	}
-	fmt.Println(e.AuthEventIDs())
 	// At this point unmarshalling is complete.
 	return nil
 }
