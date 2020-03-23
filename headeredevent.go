@@ -61,7 +61,7 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	}
 	// Finally, unmarshal the remaining event JSON (less the headers)
 	// into the event struct.
-	if e.Event, err = NewEventFromUntrustedJSON(data, m.RoomVersion); err != nil {
+	if e.Event, err = NewEventFromTrustedJSON(data, true, m.RoomVersion); err != nil {
 		return err
 	}
 	// At this point unmarshalling is complete.
