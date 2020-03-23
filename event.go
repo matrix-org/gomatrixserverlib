@@ -339,16 +339,19 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
 	result.roomVersion = roomVersion
 	result.redacted = redacted
-	result.eventJSON = eventJSON
 
 	switch result.roomVersion {
 	case RoomVersionV1, RoomVersionV2:
+		result.eventJSON = eventJSON
 		var fields eventFormatV1Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return
+		}
 		var fields eventFormatV2Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
