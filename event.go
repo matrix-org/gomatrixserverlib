@@ -215,16 +215,19 @@ func (eb *EventBuilder) Build(
 	}
 
 	result.roomVersion = roomVersion
-	result.eventJSON = eventJSON
 
 	switch roomVersion {
 	case RoomVersionV1, RoomVersionV2:
+		result.eventJSON = eventJSON
 		var fields eventFormatV1Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return
+		}
 		var fields eventFormatV2Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
@@ -263,10 +266,10 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		}
 		result.fields = fields
 	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		fields := eventFormatV2Fields{}
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
+		fields := eventFormatV2Fields{}
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
