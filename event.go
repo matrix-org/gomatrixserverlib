@@ -579,13 +579,13 @@ const (
 // https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
 func (e *Event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
-		fields = e.fields.(eventFormatV1Fields).eventFields
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
-		fields = e.fields.(eventFormatV2Fields).eventFields
+	switch f := e.fields.(type) {
+	case eventFormatV1Fields:
+		fields = f.eventFields
+	case eventFormatV2Fields:
+		fields = f.eventFields
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic("gomatrixserverlib: unsupported room version")
 	}
 
 	if len(e.eventJSON) > maxEventLength {
