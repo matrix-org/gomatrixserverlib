@@ -588,6 +588,9 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		panic("gomatrixserverlib: unsupported room version")
 	}
 
+	j, _ := json.MarshalIndent(fields, "", "  ")
+	fmt.Println("FIELDS:", string(j))
+
 	if len(e.eventJSON) > maxEventLength {
 		return fmt.Errorf(
 			"gomatrixserverlib: event is too long, length %d > maximum %d",
