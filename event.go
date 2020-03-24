@@ -216,15 +216,15 @@ func (eb *EventBuilder) Build(
 
 	result.roomVersion = roomVersion
 
-	switch roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	switch eventFormat {
+	case EventFormatV1:
 		result.eventJSON = eventJSON
 		var fields eventFormatV1Fields
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
 		result.fields = fields
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	case EventFormatV2:
 		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
@@ -611,6 +611,7 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 
 	_, err := checkID(fields.RoomID, "room", '!')
 	if err != nil {
+		fmt.Println("checkID fields.RoomID:", err)
 		return err
 	}
 
@@ -618,6 +619,7 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 
 	senderDomain, err := checkID(fields.Sender, "user", '@')
 	if err != nil {
+		fmt.Println("checkID fields.Sender:", err)
 		return err
 	}
 
@@ -627,8 +629,10 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	}
 
 	if eventIDFormat == EventIDFormatV1 {
+		fmt.Println("FOLLOWING V1 PATH")
 		eventDomain, err := checkID(e.fields.(eventFormatV1Fields).EventID, "event", '$')
 		if err != nil {
+			fmt.Println("eventDomain:", err)
 			return err
 		}
 		// Synapse requires that the event ID domain has a valid signature.
@@ -932,7 +936,7 @@ func (e *Event) Depth() int64 {
 }
 
 // MarshalJSON implements json.Marshaller
-func (e *Event) MarshalJSON() ([]byte, error) {
+func (e Event) MarshalJSON() ([]byte, error) {
 	if e.eventJSON == nil {
 		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
 	}
