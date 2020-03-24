@@ -45,3 +45,17 @@ func TestEventIDForRoomVersionV4(t *testing.T) {
 		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
 	}
 }
+
+func TestEventIDForRoomVersionV4FromDendrite(t *testing.T) {
+	initialEventJSON := `{"auth_events":[],"content":{"creator":"@test:monolith-2","room_version":"4"},"depth":1,"event_id":"$I4Y9nsrIxkuXX2CP:monolith-2","hashes":{"sha256":"et/AORThP89uTCVqSJlmiatMI9tuzCDhxxKjGLlwdjI"},"origin":"monolith-2","origin_server_ts":1584726345131,"prev_events":[],"prev_state":[],"room_id":"!jC4Ix7xV70H8dwea:monolith-2","sender":"@test:monolith-2","signatures":{"monolith-2":{"ed25519:Nqch":"GRpfEi9TGqbdEay5cLNinFc9rKGk1ewFmH4erBGjAnI+rwW3qASErGg+8exAUmRUUxcL9NXgHNzuhKudNkxhAQ"}},"state_key":"","type":"m.room.create"}`
+	expectedEventID := "$eE0_A68q6UvbIR7eM5oiqQIxvh5OwERSBzPsO6hE06c"
+
+	event, err := NewEventFromTrustedJSON([]byte(initialEventJSON), false, RoomVersionV4)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if event.EventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	}
+}

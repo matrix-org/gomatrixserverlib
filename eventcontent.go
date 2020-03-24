@@ -17,6 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"runtime/debug"
 	"strconv"
 	"strings"
 )
@@ -106,6 +107,7 @@ func domainFromID(id string) (string, error) {
 	parts := strings.SplitN(id, ":", 2)
 	if len(parts) != 2 {
 		// The ID must have a ":" character.
+		debug.PrintStack()
 		return "", errorf("invalid ID: %q", id)
 	}
 	// Return everything after the first ":" character.

@@ -611,6 +611,7 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 
 	_, err := checkID(fields.RoomID, "room", '!')
 	if err != nil {
+		fmt.Println("checkID fields.RoomID:", err)
 		return err
 	}
 
@@ -618,6 +619,7 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 
 	senderDomain, err := checkID(fields.Sender, "user", '@')
 	if err != nil {
+		fmt.Println("checkID fields.Sender:", err)
 		return err
 	}
 
@@ -627,8 +629,10 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	}
 
 	if eventIDFormat == EventIDFormatV1 {
+		fmt.Println("FOLLOWING V1 PATH")
 		eventDomain, err := checkID(e.fields.(eventFormatV1Fields).EventID, "event", '$')
 		if err != nil {
+			fmt.Println("eventDomain:", err)
 			return err
 		}
 		// Synapse requires that the event ID domain has a valid signature.
