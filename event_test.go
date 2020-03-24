@@ -16,16 +16,13 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"testing"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
-	var event Event
-
 	// run the Unparse function b.N times
 	for n := 0; n < b.N; n++ {
-		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
+		if _, err := NewEventFromUntrustedJSON([]byte(eventJSON), RoomVersionV1); err != nil {
 			b.Error("Failed to parse event")
 		}
 	}
