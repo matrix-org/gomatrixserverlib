@@ -210,6 +210,8 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
+	fmt.Println(len(intermediate.StateEvents), "intermediate state events")
+	fmt.Println(len(intermediate.AuthEvents), "intermediate auth events")
 	for _, raw := range intermediate.AuthEvents {
 		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
 		if err != nil {
@@ -224,6 +226,8 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 		}
 		r.StateEvents = append(r.StateEvents, event)
 	}
+	fmt.Println(len(r.StateEvents), "final state events")
+	fmt.Println(len(r.AuthEvents), "final auth events")
 
 	return nil
 }

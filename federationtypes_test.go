@@ -92,3 +92,45 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 }
+
+func TestRespSendJoinUnmarshalRealJSON(t *testing.T) {
+	inputData := `
+	{
+		"origin": "matrix.org",
+		"auth_chain": [
+		  {
+			"type": "m.room.minimal_pdu",
+			"room_id": "!somewhere:example.org",
+			"content": {
+			  "room_version": "4"
+			}
+		  }
+		],
+		"state": [
+		  {
+			"type": "m.room.minimal_pdu",
+			"room_id": "!somewhere:example.org",
+			"content": {
+			  "room_version": "4"
+			}
+		  }
+		]
+	}
+	`
+
+	var input RespSendJoin
+	input.RespState.roomVersion = RoomVersionV4
+	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+		t.Fatal(err)
+	}
+
+	gotBytes, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(gotBytes)
+
+	if emptyRespStateResponse != got {
+		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+	}
+}
