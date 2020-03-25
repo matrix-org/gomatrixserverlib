@@ -216,12 +216,7 @@ func (eb *EventBuilder) Build(
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
-		if fields.AuthEvents == nil {
-			fields.AuthEvents = []EventReference{}
-		}
-		if fields.PrevEvents == nil {
-			fields.PrevEvents = []EventReference{}
-		}
+		fields.fixNilSlices()
 		result.fields = fields
 	case EventFormatV2:
 		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
@@ -235,12 +230,7 @@ func (eb *EventBuilder) Build(
 		if err != nil {
 			return
 		}
-		if fields.AuthEvents == nil {
-			fields.AuthEvents = []string{}
-		}
-		if fields.PrevEvents == nil {
-			fields.PrevEvents = []string{}
-		}
+		fields.fixNilSlices()
 		result.fields = fields
 	default:
 		err = errors.New("gomatrixserverlib: room version not supported")
@@ -275,6 +265,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
+		fields.fixNilSlices()
 		result.fields = fields
 	case EventFormatV2:
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
@@ -284,6 +275,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
+		fields.fixNilSlices()
 		result.fields = fields
 	default:
 		err = errors.New("gomatrixserverlib: room version not supported")
@@ -333,22 +325,12 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	switch eventFormat {
 	case EventFormatV1:
 		fields := result.fields.(eventFormatV1Fields)
-		if fields.AuthEvents == nil {
-			fields.AuthEvents = []EventReference{}
-		}
-		if fields.PrevEvents == nil {
-			fields.PrevEvents = []EventReference{}
-		}
+		fields.fixNilSlices()
 		result.fields = fields
 	case EventFormatV2:
 		fields := result.fields.(eventFormatV2Fields)
 		fields.EventID, err = result.generateEventID()
-		if fields.AuthEvents == nil {
-			fields.AuthEvents = []string{}
-		}
-		if fields.PrevEvents == nil {
-			fields.PrevEvents = []string{}
-		}
+		fields.fixNilSlices()
 		result.fields = fields
 	}
 	if err != nil {
@@ -382,12 +364,7 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
-		if fields.AuthEvents == nil {
-			fields.AuthEvents = []EventReference{}
-		}
-		if fields.PrevEvents == nil {
-			fields.PrevEvents = []EventReference{}
-		}
+		fields.fixNilSlices()
 		result.fields = fields
 	case EventFormatV2:
 		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
@@ -401,12 +378,7 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 		if err != nil {
 			return
 		}
-		if fields.AuthEvents == nil {
-			fields.AuthEvents = []string{}
-		}
-		if fields.PrevEvents == nil {
-			fields.PrevEvents = []string{}
-		}
+		fields.fixNilSlices()
 		result.fields = fields
 	default:
 		err = errors.New("gomatrixserverlib: room version not supported")
@@ -613,19 +585,13 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
 	switch f := e.fields.(type) {
 	case eventFormatV1Fields:
-		if f.AuthEvents == nil {
-			panic("gomatrixserverlib: auth events cannot be nil")
-		}
-		if f.PrevEvents == nil {
-			panic("gomatrixserverlib: prev events cannot be nil")
+		if f.AuthEvents == nil || f.PrevEvents == nil {
+			return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
 		}
 		fields = f.eventFields
 	case eventFormatV2Fields:
-		if f.AuthEvents == nil {
-			panic("gomatrixserverlib: auth events cannot be nil")
-		}
-		if f.PrevEvents == nil {
-			panic("gomatrixserverlib: prev events cannot be nil")
+		if f.AuthEvents == nil || f.PrevEvents == nil {
+			return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
 		}
 		fields = f.eventFields
 	default:
@@ -1041,4 +1007,28 @@ func SplitID(sigil byte, id string) (local string, domain ServerName, err error)
 		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q missing ':'", id)
 	}
 	return parts[0][1:], ServerName(parts[1]), nil
+}
+
+// fixNilSlices corrects cases where nil slices end up with "null" in the
+// marshalled JSON because Go stupidly doesn't care about the type in this
+// situation.
+func (f *eventFormatV1Fields) fixNilSlices() {
+	if f.AuthEvents == nil {
+		f.AuthEvents = []EventReference{}
+	}
+	if f.PrevEvents == nil {
+		f.PrevEvents = []EventReference{}
+	}
+}
+
+// fixNilSlices corrects cases where nil slices end up with "null" in the
+// marshalled JSON because Go stupidly doesn't care about the type in this
+// situation.
+func (f *eventFormatV2Fields) fixNilSlices() {
+	if f.AuthEvents == nil {
+		f.AuthEvents = []string{}
+	}
+	if f.PrevEvents == nil {
+		f.PrevEvents = []string{}
+	}
 }
