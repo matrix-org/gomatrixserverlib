@@ -197,7 +197,6 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespState) UnmarshalJSON(data []byte) error {
-	fmt.Println("RespState.UnmarshalJSON:", string(data))
 	r.AuthEvents = []Event{}
 	r.StateEvents = []Event{}
 	if _, err := r.roomVersion.EventFormat(); err != nil {
@@ -210,8 +209,6 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
-	fmt.Println(len(intermediate.StateEvents), "intermediate state events")
-	fmt.Println(len(intermediate.AuthEvents), "intermediate auth events")
 	for _, raw := range intermediate.AuthEvents {
 		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
 		if err != nil {
@@ -226,9 +223,6 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 		}
 		r.StateEvents = append(r.StateEvents, event)
 	}
-	fmt.Println(len(r.StateEvents), "final state events")
-	fmt.Println(len(r.AuthEvents), "final auth events")
-
 	return nil
 }
 
@@ -383,7 +377,6 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	fmt.Println("RespSendJoin.UnmarshalJSON:", string(data))
 	var fields struct {
 		Origin ServerName `json:"origin"`
 	}
