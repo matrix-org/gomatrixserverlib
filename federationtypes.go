@@ -196,7 +196,7 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaller
-func (r RespState) UnmarshalJSON(data []byte) error {
+func (r *RespState) UnmarshalJSON(data []byte) error {
 	fmt.Println("RespState.UnmarshalJSON:", string(data))
 	r.AuthEvents = []Event{}
 	r.StateEvents = []Event{}
