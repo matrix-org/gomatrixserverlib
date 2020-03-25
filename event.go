@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -177,9 +176,6 @@ func (eb *EventBuilder) Build(
 		event.PrevEvents, event.AuthEvents = resPrevEvents, resAuthEvents
 	}
 
-	fmt.Println("event.PrevEvents:", event.PrevEvents, reflect.TypeOf(event.PrevEvents))
-	fmt.Println("event.AuthEvents:", event.AuthEvents, reflect.ValueOf(event.AuthEvents).IsNil())
-
 	event.OriginServerTS = AsTimestamp(now)
 	event.Origin = origin
 	event.EventID = eventID
@@ -192,14 +188,6 @@ func (eb *EventBuilder) Build(
 		// Synapse ignores the contents of the key but still expects
 		// the key to be present in state events.
 		event.PrevState = &emptyEventReferenceList
-	}
-
-	if event.AuthEvents == nil {
-		panic("event.AuthEvents is nil")
-	}
-
-	if event.PrevEvents == nil {
-		panic("event.PrevEvents is nil")
 	}
 
 	var eventJSON []byte
@@ -342,10 +330,25 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 
 	result.eventJSON = eventJSON
 
-	switch roomVersion {
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	switch eventFormat {
+	case EventFormatV1:
+		fields := result.fields.(eventFormatV1Fields)
+		if fields.AuthEvents == nil {
+			fields.AuthEvents = []EventReference{}
+		}
+		if fields.PrevEvents == nil {
+			fields.PrevEvents = []EventReference{}
+		}
+		result.fields = fields
+	case EventFormatV2:
 		fields := result.fields.(eventFormatV2Fields)
 		fields.EventID, err = result.generateEventID()
+		if fields.AuthEvents == nil {
+			fields.AuthEvents = []string{}
+		}
+		if fields.PrevEvents == nil {
+			fields.PrevEvents = []string{}
+		}
 		result.fields = fields
 	}
 	if err != nil {
@@ -379,6 +382,12 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
+		if fields.AuthEvents == nil {
+			fields.AuthEvents = []EventReference{}
+		}
+		if fields.PrevEvents == nil {
+			fields.PrevEvents = []EventReference{}
+		}
 		result.fields = fields
 	case EventFormatV2:
 		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
@@ -391,6 +400,12 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 		fields.EventID, err = result.generateEventID()
 		if err != nil {
 			return
+		}
+		if fields.AuthEvents == nil {
+			fields.AuthEvents = []string{}
+		}
+		if fields.PrevEvents == nil {
+			fields.PrevEvents = []string{}
 		}
 		result.fields = fields
 	default:
