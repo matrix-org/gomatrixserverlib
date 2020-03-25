@@ -180,6 +180,7 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 	if _, err := r.roomVersion.EventFormat(); err != nil {
 		return err
 	}
+	fmt.Println("RespState using room version", r.roomVersion)
 	var intermediate struct {
 		StateEvents []json.RawMessage `json:"pdus"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
@@ -187,6 +188,8 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
+	fmt.Println(len(intermediate.StateEvents), "intermediate state events")
+	fmt.Println(len(intermediate.AuthEvents), "intermediate auth events")
 	for _, raw := range intermediate.AuthEvents {
 		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
 		if err != nil {
@@ -199,8 +202,10 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		r.AuthEvents = append(r.AuthEvents, event)
+		r.StateEvents = append(r.StateEvents, event)
 	}
+	fmt.Println(len(r.StateEvents), "final state events")
+	fmt.Println(len(r.AuthEvents), "final auth events")
 	return nil
 }
 
