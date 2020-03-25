@@ -127,6 +127,7 @@ type RespStateIDs struct {
 
 // A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
 type RespState struct {
+	roomVersion RoomVersion
 	// A list of events giving the state of the room before the request event.
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
@@ -172,6 +173,35 @@ type PublicRoom struct {
 type RespEventAuth struct {
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r RespState) UnmarshalJSON(data []byte) error {
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		StateEvents []json.RawMessage `json:"pdus"`
+		AuthEvents  []json.RawMessage `json:"auth_chain"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	for _, raw := range intermediate.AuthEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	for _, raw := range intermediate.StateEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	return nil
 }
 
 // Events combines the auth events and the state events and returns
