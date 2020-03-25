@@ -216,6 +216,12 @@ func (eb *EventBuilder) Build(
 		if err = json.Unmarshal(eventJSON, &fields); err != nil {
 			return
 		}
+		if fields.AuthEvents == nil {
+			fields.AuthEvents = []EventReference{}
+		}
+		if fields.PrevEvents == nil {
+			fields.PrevEvents = []EventReference{}
+		}
 		result.fields = fields
 	case EventFormatV2:
 		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
@@ -228,6 +234,12 @@ func (eb *EventBuilder) Build(
 		fields.EventID, err = result.generateEventID()
 		if err != nil {
 			return
+		}
+		if fields.AuthEvents == nil {
+			fields.AuthEvents = []string{}
+		}
+		if fields.PrevEvents == nil {
+			fields.PrevEvents = []string{}
 		}
 		result.fields = fields
 	default:
