@@ -197,6 +197,7 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r RespState) UnmarshalJSON(data []byte) error {
+	fmt.Println("RespState.UnmarshalJSON:", string(data))
 	r.AuthEvents = []Event{}
 	r.StateEvents = []Event{}
 	if _, err := r.roomVersion.EventFormat(); err != nil {
@@ -374,6 +375,22 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 		fields.StateEvents = []Event{}
 	}
 	return json.Marshal(fields)
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
+	fmt.Println("RespSendJoin.UnmarshalJSON:", string(data))
+	var fields struct {
+		Origin ServerName `json:"origin"`
+	}
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	r.Origin = fields.Origin
+	if err := json.Unmarshal(data, &r.RespState); err != nil {
+		return err
+	}
+	return nil
 }
 
 type respSendJoinFields struct {
