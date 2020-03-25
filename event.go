@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -154,10 +155,10 @@ func (eb *EventBuilder) Build(
 	switch eventFormat {
 	case EventFormatV1:
 		if event.PrevEvents == nil {
-			event.PrevEvents = emptyEventReferenceList
+			event.PrevEvents = []EventReference{}
 		}
 		if event.AuthEvents == nil {
-			event.AuthEvents = emptyEventReferenceList
+			event.AuthEvents = []EventReference{}
 		}
 	case EventFormatV2:
 		resPrevEvents, resAuthEvents := []string{}, []string{}
@@ -176,6 +177,9 @@ func (eb *EventBuilder) Build(
 		event.PrevEvents, event.AuthEvents = resPrevEvents, resAuthEvents
 	}
 
+	fmt.Println("event.PrevEvents:", event.PrevEvents, reflect.TypeOf(event.PrevEvents))
+	fmt.Println("event.AuthEvents:", event.AuthEvents, reflect.ValueOf(event.AuthEvents).IsNil())
+
 	event.OriginServerTS = AsTimestamp(now)
 	event.Origin = origin
 	event.EventID = eventID
@@ -188,6 +192,14 @@ func (eb *EventBuilder) Build(
 		// Synapse ignores the contents of the key but still expects
 		// the key to be present in state events.
 		event.PrevState = &emptyEventReferenceList
+	}
+
+	if event.AuthEvents == nil {
+		panic("event.AuthEvents is nil")
+	}
+
+	if event.PrevEvents == nil {
+		panic("event.PrevEvents is nil")
 	}
 
 	var eventJSON []byte
