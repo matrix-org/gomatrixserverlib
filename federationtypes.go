@@ -128,10 +128,7 @@ type RespStateIDs struct {
 // A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
 type RespState struct {
 	roomVersion RoomVersion
-	// A list of events giving the state of the room before the request event.
-	StateEvents []Event `json:"pdus"`
-	// A list of events needed to authenticate the state events.
-	AuthEvents []Event `json:"auth_chain"`
+	respStateFields
 }
 
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
@@ -175,12 +172,32 @@ type RespEventAuth struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+type respStateFields struct {
+	StateEvents []Event `json:"state"`
+	AuthEvents  []Event `json:"auth_chain"`
+}
+
+// MarshalJSON implements json.Marshaller
+func (r RespState) MarshalJSON() ([]byte, error) {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
+	return json.Marshal(respStateFields{
+		StateEvents: r.StateEvents,
+		AuthEvents:  r.AuthEvents,
+	})
+}
+
 // UnmarshalJSON implements json.Unmarshaller
 func (r RespState) UnmarshalJSON(data []byte) error {
+	r.AuthEvents = []Event{}
+	r.StateEvents = []Event{}
 	if _, err := r.roomVersion.EventFormat(); err != nil {
 		return err
 	}
-	fmt.Println("RespState using room version", r.roomVersion)
 	var intermediate struct {
 		StateEvents []json.RawMessage `json:"pdus"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
@@ -188,8 +205,6 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
-	fmt.Println(len(intermediate.StateEvents), "intermediate state events")
-	fmt.Println(len(intermediate.AuthEvents), "intermediate auth events")
 	for _, raw := range intermediate.AuthEvents {
 		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
 		if err != nil {
@@ -204,8 +219,6 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 		}
 		r.StateEvents = append(r.StateEvents, event)
 	}
-	fmt.Println(len(r.StateEvents), "final state events")
-	fmt.Println(len(r.AuthEvents), "final auth events")
 	return nil
 }
 
@@ -344,27 +357,18 @@ type RespSendJoin struct {
 
 // MarshalJSON implements json.Marshaller
 func (r RespSendJoin) MarshalJSON() ([]byte, error) {
-	return json.Marshal(respSendJoinFields{
+	fields := respSendJoinFields{
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
 		Origin:      r.Origin,
-	})
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	var fields respSendJoinFields
-	if err := json.Unmarshal(data, &fields); err != nil {
-		return err
 	}
-	*r = RespSendJoin{
-		Origin: fields.Origin,
-		RespState: RespState{
-			StateEvents: fields.StateEvents,
-			AuthEvents:  fields.AuthEvents,
-		},
+	if len(fields.AuthEvents) == 0 {
+		fields.AuthEvents = []Event{}
 	}
-	return nil
+	if len(fields.StateEvents) == 0 {
+		fields.StateEvents = []Event{}
+	}
+	return json.Marshal(fields)
 }
 
 type respSendJoinFields struct {
@@ -376,8 +380,10 @@ type respSendJoinFields struct {
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
 func (r RespSendJoin) ToRespState() RespState {
 	return RespState{
-		StateEvents: r.StateEvents,
-		AuthEvents:  r.AuthEvents,
+		respStateFields: respStateFields{
+			StateEvents: r.StateEvents,
+			AuthEvents:  r.AuthEvents,
+		},
 	}
 }
 
