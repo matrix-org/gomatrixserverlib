@@ -160,26 +160,20 @@ func (eb *EventBuilder) Build(
 			event.AuthEvents = emptyEventReferenceList
 		}
 	case EventFormatV2:
+		resPrevEvents, resAuthEvents := []string{}, []string{}
 		switch prevEvents := event.PrevEvents.(type) {
-		case nil:
-			event.PrevEvents = []string{}
 		case []EventReference:
-			references := []string{}
 			for _, prevEvent := range prevEvents {
-				references = append(references, prevEvent.EventID)
+				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
 			}
-			event.PrevEvents = references
 		}
 		switch authEvents := event.AuthEvents.(type) {
-		case nil:
-			event.AuthEvents = []string{}
 		case []EventReference:
-			references := []string{}
 			for _, authEvent := range authEvents {
-				references = append(references, authEvent.EventID)
+				resAuthEvents = append(resPrevEvents, authEvent.EventID)
 			}
-			event.AuthEvents = references
 		}
+		event.PrevEvents, event.AuthEvents = resPrevEvents, resAuthEvents
 	}
 
 	event.OriginServerTS = AsTimestamp(now)
@@ -197,7 +191,6 @@ func (eb *EventBuilder) Build(
 	}
 
 	var eventJSON []byte
-
 	if eventJSON, err = json.Marshal(&event); err != nil {
 		return
 	}
@@ -581,8 +574,20 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
 	switch f := e.fields.(type) {
 	case eventFormatV1Fields:
+		if f.AuthEvents == nil {
+			panic("gomatrixserverlib: auth events cannot be nil")
+		}
+		if f.PrevEvents == nil {
+			panic("gomatrixserverlib: prev events cannot be nil")
+		}
 		fields = f.eventFields
 	case eventFormatV2Fields:
+		if f.AuthEvents == nil {
+			panic("gomatrixserverlib: auth events cannot be nil")
+		}
+		if f.PrevEvents == nil {
+			panic("gomatrixserverlib: prev events cannot be nil")
+		}
 		fields = f.eventFields
 	default:
 		panic("gomatrixserverlib: unsupported room version")

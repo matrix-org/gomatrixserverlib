@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 )
 
@@ -79,8 +78,6 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println(input)
 
 	gotBytes, err := json.Marshal(input)
 	if err != nil {
