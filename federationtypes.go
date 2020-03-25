@@ -127,8 +127,12 @@ type RespStateIDs struct {
 
 // A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
 type RespState struct {
+	// The room version that dictates the format of the state events.
 	roomVersion RoomVersion
-	respStateFields
+	// A list of events giving the state of the room before the request event.
+	StateEvents []Event `json:"pdus"`
+	// A list of events needed to authenticate the state events.
+	AuthEvents []Event `json:"auth_chain"`
 }
 
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
@@ -380,10 +384,8 @@ type respSendJoinFields struct {
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
 func (r RespSendJoin) ToRespState() RespState {
 	return RespState{
-		respStateFields: respStateFields{
-			StateEvents: r.StateEvents,
-			AuthEvents:  r.AuthEvents,
-		},
+		StateEvents: r.StateEvents,
+		AuthEvents:  r.AuthEvents,
 	}
 }
 
