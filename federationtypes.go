@@ -203,7 +203,7 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		StateEvents []json.RawMessage `json:"pdus"`
+		StateEvents []json.RawMessage `json:"state"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
@@ -223,6 +223,7 @@ func (r RespState) UnmarshalJSON(data []byte) error {
 		}
 		r.StateEvents = append(r.StateEvents, event)
 	}
+
 	return nil
 }
 
