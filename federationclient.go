@@ -193,8 +193,9 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 // LookupState retrieves the room state for a room at an event from a
 // remote matrix server as full matrix events.
 func (ac *FederationClient) LookupState(
-	ctx context.Context, s ServerName, roomID, eventID string,
+	ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 ) (res RespState, err error) {
+	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/state/" +
 		url.PathEscape(roomID) +
 		"?event_id=" +
