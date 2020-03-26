@@ -232,6 +232,12 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 // Returns an error if there are missing auth events or if there is
 // a cycle in the auth events.
 func (r RespState) Events() ([]Event, error) {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
 	eventsByID := map[string]*Event{}
 	// Collect a map of event reference to event
 	for i := range r.StateEvents {
@@ -398,6 +404,12 @@ type respSendJoinFields struct {
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
 func (r RespSendJoin) ToRespState() RespState {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
 	return RespState{
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
