@@ -1040,5 +1040,11 @@ func (f *eventFormatV2Fields) fixNilSlices() {
 
 // invalidFieldType is used to generate something semi-helpful when panicing.
 func (e *Event) invalidFieldType() string {
+	if e == nil {
+		return "gomatrixserverlib: attempt to call function on nil event"
+	}
+	if e.fields == nil {
+		return "gomatrixserverlib: event has no fields"
+	}
 	return "gomatrixserverlib: field type " + reflect.TypeOf(e.fields).Name() + " invalid"
 }
