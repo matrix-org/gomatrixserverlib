@@ -157,6 +157,15 @@ func ResolveStateConflictsV2(
 	return r.result
 }
 
+// ReverseTopologicalOrdering takes a set of input events and sorts them
+// using Kahn's algorithm in order to topologically order them. The
+// result array of events will be sorted so that "earlier" events appear
+// first.
+func ReverseTopologicalOrdering(events []Event) (result []Event) {
+	r := stateResolverV2{}
+	return r.reverseTopologicalOrdering(events)
+}
+
 // isControlEvent returns true if the event meets the criteria for being classed
 // as a "control" event for reverse topological sorting. If not then the event
 // will be mainline sorted.
