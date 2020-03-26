@@ -447,10 +447,12 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	if eventIDFormat == EventIDFormatV1 {
 		fields := result.fields.(eventFormatV1Fields)
 		fields.Unsigned = unsignedJSON
+		fields.fixNilSlices()
 		result.fields = fields
 	} else {
 		fields := result.fields.(eventFormatV2Fields)
 		fields.Unsigned = unsignedJSON
+		fields.fixNilSlices()
 		result.fields = fields
 	}
 	return result, nil
@@ -481,9 +483,11 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		fields.Unsigned = unsigned
+		fields.fixNilSlices()
 		e.fields = fields
 	case eventFormatV2Fields:
 		fields.Unsigned = unsigned
+		fields.fixNilSlices()
 		e.fields = fields
 	default:
 		return errors.New("gomatrixserverlib: fields don't match known version")
