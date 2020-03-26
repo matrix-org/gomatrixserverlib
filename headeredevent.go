@@ -27,6 +27,12 @@ type HeaderedEvent struct {
 	Event
 }
 
+// Unwrap extracts the event object from the headered event.
+func (e *HeaderedEvent) Unwrap() *Event {
+	e.Event.roomVersion = e.RoomVersion
+	return &e.Event
+}
+
 // UnmarshalJSON implements json.Unmarshaller
 func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	var err error
