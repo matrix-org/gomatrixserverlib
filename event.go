@@ -88,13 +88,6 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 	return
 }
 
-// A VersionedEvent is a wrapper around an Event that contains information
-// about the room version.
-type VersionedEvent struct {
-	RoomVersion RoomVersion
-	Event
-}
-
 // An Event is a matrix event.
 // The event should always contain valid JSON.
 // If the event content hash is invalid then the event is redacted.
