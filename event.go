@@ -1044,7 +1044,7 @@ func (e *Event) invalidFieldType() string {
 		return "gomatrixserverlib: attempt to call function on nil event"
 	}
 	if e.fields == nil {
-		return "gomatrixserverlib: event has no fields"
+		return fmt.Sprintf("gomatrixserverlib: event has no fields (room version %q)", e.roomVersion)
 	}
-	return "gomatrixserverlib: field type " + reflect.TypeOf(e.fields).Name() + " invalid"
+	return fmt.Sprintf("gomatrixserverlib: field type %q invalid", reflect.TypeOf(e.fields).Name())
 }
