@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -490,7 +491,7 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 		fields.fixNilSlices()
 		e.fields = fields
 	default:
-		return errors.New("gomatrixserverlib: fields don't match known version")
+		panic(e.invalidFieldType())
 	}
 
 	return nil
@@ -549,7 +550,7 @@ func (e *Event) StateKey() *string {
 	case eventFormatV2Fields:
 		return fields.StateKey
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -562,7 +563,7 @@ func (e *Event) StateKeyEquals(stateKey string) bool {
 	case eventFormatV2Fields:
 		sk = fields.StateKey
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic(e.invalidFieldType())
 	}
 	if sk == nil {
 		return false
@@ -717,7 +718,7 @@ func (e *Event) Origin() ServerName {
 	case eventFormatV2Fields:
 		return fields.Origin
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -747,7 +748,7 @@ func (e *Event) EventID() string {
 	case eventFormatV2Fields:
 		return fields.EventID
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -759,7 +760,7 @@ func (e *Event) Sender() string {
 	case eventFormatV2Fields:
 		return fields.Sender
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -771,7 +772,7 @@ func (e *Event) Type() string {
 	case eventFormatV2Fields:
 		return fields.Type
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -783,7 +784,7 @@ func (e *Event) OriginServerTS() Timestamp {
 	case eventFormatV2Fields:
 		return fields.OriginServerTS
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -795,7 +796,7 @@ func (e *Event) Unsigned() []byte {
 	case eventFormatV2Fields:
 		return fields.Unsigned
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -807,7 +808,7 @@ func (e *Event) Content() []byte {
 	case eventFormatV2Fields:
 		return []byte(fields.Content)
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -826,7 +827,7 @@ func (e *Event) PrevEvents() []EventReference {
 		}
 		return result
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -842,7 +843,7 @@ func (e *Event) PrevEventIDs() []string {
 	case eventFormatV2Fields:
 		return fields.PrevEvents
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -862,7 +863,7 @@ func (e *Event) Membership() (string, error) {
 	case EventFormatV2:
 		fields = e.fields.(eventFormatV2Fields).eventFields
 	default:
-		panic("gomatrixserverlib: fields don't match known version")
+		panic(e.invalidFieldType())
 	}
 	if fields.Type != MRoomMember {
 		return "", fmt.Errorf("gomatrixserverlib: not an m.room.member event")
@@ -889,7 +890,7 @@ func (e *Event) AuthEvents() []EventReference {
 		}
 		return result
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -905,7 +906,7 @@ func (e *Event) AuthEventIDs() []string {
 	case eventFormatV2Fields:
 		return fields.AuthEvents
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -917,7 +918,7 @@ func (e *Event) Redacts() string {
 	case eventFormatV2Fields:
 		return fields.Redacts
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -929,7 +930,7 @@ func (e *Event) RoomID() string {
 	case eventFormatV2Fields:
 		return fields.RoomID
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -941,7 +942,7 @@ func (e *Event) Depth() int64 {
 	case eventFormatV2Fields:
 		return fields.Depth
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 }
 
@@ -1035,4 +1036,8 @@ func (f *eventFormatV2Fields) fixNilSlices() {
 	if f.PrevEvents == nil {
 		f.PrevEvents = []string{}
 	}
+}
+
+func (e *Event) invalidFieldType() string {
+	return "gomatrixserverlib: field type " + reflect.TypeOf(e.fields).Name() + " invalid"
 }
