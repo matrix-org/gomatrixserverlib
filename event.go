@@ -600,7 +600,7 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		}
 		fields = f.eventFields
 	default:
-		panic("gomatrixserverlib: unsupported room version")
+		panic(e.invalidFieldType())
 	}
 
 	if len(e.eventJSON) > maxEventLength {
