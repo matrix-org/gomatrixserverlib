@@ -28,9 +28,10 @@ type HeaderedEvent struct {
 }
 
 // Unwrap extracts the event object from the headered event.
-func (e *HeaderedEvent) Unwrap() *Event {
-	e.Event.roomVersion = e.RoomVersion
-	return &e.Event
+func (e *HeaderedEvent) Unwrap() Event {
+	event := e.Event
+	event.roomVersion = e.RoomVersion
+	return event
 }
 
 // UnmarshalJSON implements json.Unmarshaller
