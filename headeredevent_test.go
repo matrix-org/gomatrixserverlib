@@ -25,3 +25,17 @@ func TestUnmarshalMarshalHeaderedEvent(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 }
+
+func TestUnmarshalHeaderedV4AndVerifyEventID(t *testing.T) {
+	initialEventJSON := `{"_room_version":"4","auth_events":[],"prev_events":[],"type":"m.room.create","room_id":"!uXDCzlYgCTHtiWCkEx:jki.re","sender":"@erikj:jki.re","content":{"room_version":"5","predecessor":{"room_id":"!gdRMqOrTFdOCYHNwOo:half-shot.uk","event_id":"$LP7ROBc4b+cMc1UE9haIz8q5AK2AIW4eJ90FfKLvyZI"},"creator":"@erikj:jki.re"},"depth":1,"prev_state":[],"state_key":"","origin":"jki.re","origin_server_ts":1560284621137,"hashes":{"sha256":"IX6zuNiJpJPNf70BLleL3HSCpjKeq9Uhu7uUpyDjBmc"},"signatures":{"jki.re":{"ed25519:auto":"O4IyFfF2PPtGp5uaDm8t57dZbdh8vc8Q64LgCwvzYRVItAMI0uisfiAFaxkVT7MRpzh6N2QNN5NMRXZKmgPYDA"}},"unsigned":{"age":1321650}}`
+	expectedEventID := "$RrGxF28UrHLmoASHndYb9Jb_1SFww2ptmtur9INS438"
+
+	event := HeaderedEvent{}
+	if err := json.Unmarshal([]byte(initialEventJSON), &event); err != nil {
+		t.Fatal(err)
+	}
+
+	if event.EventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	}
+}

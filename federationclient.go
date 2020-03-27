@@ -84,13 +84,14 @@ func (ac *FederationClient) SendTransaction(
 // server's key and pass it to SendJoin.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) MakeJoin(
-	ctx context.Context, s ServerName, roomID, userID string, roomVersions []int,
+	ctx context.Context, s ServerName, roomID, userID string,
+	roomVersions []RoomVersion,
 ) (res RespMakeJoin, err error) {
 	versionQueryString := ""
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			vqs = append(vqs, fmt.Sprintf("ver=%d", v))
+			vqs = append(vqs, fmt.Sprintf("ver=%s", v))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
@@ -107,8 +108,9 @@ func (ac *FederationClient) MakeJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) SendJoin(
-	ctx context.Context, s ServerName, event Event,
+	ctx context.Context, s ServerName, event Event, roomVersion RoomVersion,
 ) (res RespSendJoin, err error) {
+	res.RespState.roomVersion = roomVersion
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
@@ -191,8 +193,9 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 // LookupState retrieves the room state for a room at an event from a
 // remote matrix server as full matrix events.
 func (ac *FederationClient) LookupState(
-	ctx context.Context, s ServerName, roomID, eventID string,
+	ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 ) (res RespState, err error) {
+	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/state/" +
 		url.PathEscape(roomID) +
 		"?event_id=" +

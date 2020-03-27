@@ -53,7 +53,8 @@ func TestParseServerName(t *testing.T) {
 
 func TestRespSendJoinMarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
-	var input respSendJoinFields
+	var input RespSendJoin
+	input.RespState.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +74,7 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
+	input.RespState.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -86,5 +88,4 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	if emptyRespStateResponse != got {
 		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
-
 }

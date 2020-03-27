@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -100,7 +101,7 @@ func checkEventContentHash(eventJSON []byte) error {
 
 // ReferenceSha256HashOfEvent returns the SHA-256 hash of the redacted event content.
 // This is used when referring to this event from other events.
-func referenceOfEvent(eventJSON []byte) (EventReference, error) {
+func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference, error) {
 	redactedJSON, err := redactEvent(eventJSON)
 	if err != nil {
 		return EventReference{}, err
@@ -125,10 +126,37 @@ func referenceOfEvent(eventJSON []byte) (EventReference, error) {
 	}
 
 	sha256Hash := sha256.Sum256(hashableEventJSON)
-
 	var eventID string
-	if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
+
+	eventFormat, err := roomVersion.EventFormat()
+	if err != nil {
 		return EventReference{}, err
+	}
+	eventIDFormat, err := roomVersion.EventIDFormat()
+	if err != nil {
+		return EventReference{}, err
+	}
+
+	switch eventFormat {
+	case EventFormatV1:
+		if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
+			return EventReference{}, err
+		}
+	case EventFormatV2:
+		var encoder *base64.Encoding
+		switch eventIDFormat {
+		case EventIDFormatV2:
+			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
+		case EventIDFormatV3:
+			encoder = base64.RawURLEncoding.WithPadding(base64.NoPadding)
+		default:
+			return EventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
+		}
+		if encoder != nil {
+			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
+		}
+	default:
+		return EventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 	}
 
 	return EventReference{eventID, sha256Hash[:]}, nil

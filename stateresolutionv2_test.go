@@ -80,41 +80,51 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 func getBaseStateResV2Graph() []Event {
 	return []Event{
 		{
-			fields: eventFields{
-				EventID:        "$CREATE:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomCreate,
-				OriginServerTS: 1,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
-				Content:        []byte(`{"creator": "` + ALICE + `"}`),
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$CREATE:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomCreate,
+					OriginServerTS: 1,
+					Sender:         ALICE,
+					StateKey:       &emptyStateKey,
+					Content:        []byte(`{"creator": "` + ALICE + `"}`),
+				},
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IMA:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 2,
-				Sender:         ALICE,
-				StateKey:       &ALICE,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IMA:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomMember,
+					OriginServerTS: 2,
+					Sender:         ALICE,
+					StateKey:       &ALICE,
+					Content:        []byte(`{"membership": "join"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
 				},
 				AuthEvents: []EventReference{
 					EventReference{EventID: "$CREATE:example.com"},
 				},
-				Content: []byte(`{"membership": "join"}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IPOWER:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomPowerLevels,
-				OriginServerTS: 3,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IPOWER:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomPowerLevels,
+					OriginServerTS: 3,
+					Sender:         ALICE,
+					StateKey:       &emptyStateKey,
+					Content:        []byte(`{"users": {"` + ALICE + `": 100}}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IMA:example.com"},
 				},
@@ -122,17 +132,20 @@ func getBaseStateResV2Graph() []Event {
 					EventReference{EventID: "$CREATE:example.com"},
 					EventReference{EventID: "$IMA:example.com"},
 				},
-				Content: []byte(`{"users": {"` + ALICE + `": 100}}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IJR:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomJoinRules,
-				OriginServerTS: 4,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IJR:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomJoinRules,
+					OriginServerTS: 4,
+					Sender:         ALICE,
+					StateKey:       &emptyStateKey,
+					Content:        []byte(`{"join_rule": "public"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
@@ -141,17 +154,20 @@ func getBaseStateResV2Graph() []Event {
 					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"join_rule": "public"}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IMB:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 5,
-				Sender:         BOB,
-				StateKey:       &BOB,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IMB:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomMember,
+					OriginServerTS: 5,
+					Sender:         BOB,
+					StateKey:       &BOB,
+					Content:        []byte(`{"membership": "join"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IJR:example.com"},
 				},
@@ -160,17 +176,20 @@ func getBaseStateResV2Graph() []Event {
 					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"membership": "join"}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IMC:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 6,
-				Sender:         CHARLIE,
-				StateKey:       &CHARLIE,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IMC:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomMember,
+					OriginServerTS: 6,
+					Sender:         CHARLIE,
+					StateKey:       &CHARLIE,
+					Content:        []byte(`{"membership": "join"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IMB:example.com"},
 				},
@@ -179,7 +198,6 @@ func getBaseStateResV2Graph() []Event {
 					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"membership": "join"}`),
 			},
 		},
 	}
@@ -203,13 +221,20 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 
 	runStateResolutionV2(t, []Event{
 		{
-			fields: eventFields{
-				EventID:        "$PA:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomPowerLevels,
-				OriginServerTS: 7,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$PA:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomPowerLevels,
+					OriginServerTS: 7,
+					Sender:         ALICE,
+					StateKey:       &emptyStateKey,
+					Content: []byte(`{"users": {
+					"` + ALICE + `": 100,
+					"` + BOB + `": 50
+				}}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IMZJOIN:example.com"},
 				},
@@ -218,20 +243,23 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"users": {
-					"` + ALICE + `": 100,
-					"` + BOB + `": 50
-				}}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$PB:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomPowerLevels,
-				OriginServerTS: 8,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$PB:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomPowerLevels,
+					OriginServerTS: 8,
+					Sender:         ALICE,
+					StateKey:       &emptyStateKey,
+					Content: []byte(`{"users": {
+					"` + ALICE + `": 100,
+					"` + BOB + `": 50
+				}}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IMC:example.com"},
 				},
@@ -240,20 +268,20 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"users": {
-					"` + ALICE + `": 100,
-					"` + BOB + `": 50
-				}}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$MB:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 9,
-				Sender:         ALICE,
-				StateKey:       &EVELYN,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$MB:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomMember,
+					OriginServerTS: 9,
+					Sender:         ALICE,
+					StateKey:       &EVELYN,
+					Content:        []byte(`{"membership": "ban"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$PA:example.com"},
 				},
@@ -262,17 +290,20 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$PB:example.com"},
 				},
-				Content: []byte(`{"membership": "ban"}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IME:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 10,
-				Sender:         EVELYN,
-				StateKey:       &EVELYN,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IME:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomMember,
+					OriginServerTS: 10,
+					Sender:         EVELYN,
+					StateKey:       &EVELYN,
+					Content:        []byte(`{"membership": "join"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$MB:example.com"},
 				},
@@ -281,7 +312,6 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					EventReference{EventID: "$IJR:example.com"},
 					EventReference{EventID: "$PA:example.com"},
 				},
-				Content: []byte(`{"membership": "join"}`),
 			},
 		},
 	}, expected)
@@ -296,13 +326,17 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 
 	runStateResolutionV2(t, []Event{
 		{
-			fields: eventFields{
-				EventID:        "$JR:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomJoinRules,
-				OriginServerTS: 8,
-				Sender:         ALICE,
-				StateKey:       &emptyStateKey,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$JR:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomJoinRules,
+					OriginServerTS: 8,
+					Sender:         ALICE,
+					StateKey:       &emptyStateKey,
+					Content:        []byte(`{"join_rule": "invite"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$IMZ:example.com"},
 				},
@@ -311,17 +345,20 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 					EventReference{EventID: "$IMA:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"join_rule": "invite"}`),
 			},
 		},
 		{
-			fields: eventFields{
-				EventID:        "$IMZ:example.com",
-				RoomID:         "!ROOM:example.com",
-				Type:           MRoomMember,
-				OriginServerTS: 9,
-				Sender:         ZARA,
-				StateKey:       &ZARA,
+			roomVersion: RoomVersionV2,
+			fields: eventFormatV1Fields{
+				eventFields: eventFields{
+					EventID:        "$IMZ:example.com",
+					RoomID:         "!ROOM:example.com",
+					Type:           MRoomMember,
+					OriginServerTS: 9,
+					Sender:         ZARA,
+					StateKey:       &ZARA,
+					Content:        []byte(`{"membership": "join"}`),
+				},
 				PrevEvents: []EventReference{
 					EventReference{EventID: "$JR:example.com"},
 				},
@@ -330,7 +367,6 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 					EventReference{EventID: "$JR:example.com"},
 					EventReference{EventID: "$IPOWER:example.com"},
 				},
-				Content: []byte(`{"membership": "join"}`),
 			},
 		},
 	}, expected)

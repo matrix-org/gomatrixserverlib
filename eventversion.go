@@ -126,5 +126,5 @@ type UnsupportedRoomVersionError struct {
 }
 
 func (e UnsupportedRoomVersionError) Error() string {
-	return fmt.Sprintf("gomatrixserverlib: unsupported version '%s'", e.Version)
+	return fmt.Sprintf("gomatrixserverlib: unsupported room version '%s'", e.Version)
 }

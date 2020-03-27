@@ -11,11 +11,19 @@ const (
 )
 
 func TestConflictEventSorter(t *testing.T) {
+	var f1, f2, f3 eventFormatV1Fields
+	f1.EventID = "@1:a"
+	f2.EventID = "@2:a"
+	f3.EventID = "@3:b"
+	f1.Depth = 1
+	f2.Depth = 2
+	f3.Depth = 2
 	input := []Event{
-		{fields: eventFields{Depth: 1, EventID: "@1:a"}},
-		{fields: eventFields{Depth: 2, EventID: "@2:a"}},
-		{fields: eventFields{Depth: 2, EventID: "@3:b"}},
+		{roomVersion: RoomVersionV1, fields: f1},
+		{roomVersion: RoomVersionV1, fields: f2},
+		{roomVersion: RoomVersionV1, fields: f3},
 	}
+
 	got := sortConflictedEventsByDepthAndSHA1(input)
 	want := []conflictedEvent{
 		{depth: 1, event: &input[0]},

@@ -37,7 +37,7 @@ func TestToClientEvent(t *testing.T) { // nolint: gocyclo
 				"name": "Goodbye World"
 			}
 		}
-	}`), false)
+	}`), false, RoomVersionV1)
 	if err != nil {
 		t.Fatalf("failed to create Event: %s", err)
 	}
@@ -92,7 +92,7 @@ func TestToClientFormatSync(t *testing.T) {
 				"name": "Goodbye World"
 			}
 		}
-	}`), false)
+	}`), false, RoomVersionV1)
 	if err != nil {
 		t.Fatalf("failed to create Event: %s", err)
 	}

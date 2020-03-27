@@ -94,6 +94,7 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 // provider returns an error. If an event is missing from the provider but is required in StateNeeded, it
 // is skipped over: no error is returned.
 func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) { // nolint: gocyclo
+	refs = []EventReference{}
 	var e *Event
 	if s.Create {
 		if e, err = provider.Create(); err != nil {
