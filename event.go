@@ -160,6 +160,10 @@ func (eb *EventBuilder) Build(
 	}
 	switch eventFormat {
 	case EventFormatV1:
+		// If either prev_events or auth_events are nil slices then Go will
+		// marshal them into 'null' instead of '[]', which is bad. Since the
+		// EventBuilder struct is instantiated outside of gomatrixserverlib
+		// let's just make sure that they haven't been left as nil slices.
 		if event.PrevEvents == nil {
 			event.PrevEvents = []EventReference{}
 		}
@@ -167,6 +171,11 @@ func (eb *EventBuilder) Build(
 			event.AuthEvents = []EventReference{}
 		}
 	case EventFormatV2:
+		// In this event format, prev_events and auth_events are lists of
+		// event IDs as a []string, rather than full-blown []EventReference.
+		// Since gomatrixserverlib otherwise deals with EventReferences,
+		// take the event IDs out of these and replace the prev_events and
+		// auth_events with those new arrays.
 		resPrevEvents, resAuthEvents := []string{}, []string{}
 		switch prevEvents := event.PrevEvents.(type) {
 		case []EventReference:
@@ -202,6 +211,12 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
+	if eventFormat == EventFormatV2 {
+		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return
+		}
+	}
+
 	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {
 		return
 	}
@@ -215,32 +230,9 @@ func (eb *EventBuilder) Build(
 	}
 
 	result.roomVersion = roomVersion
+	result.eventJSON = eventJSON
 
-	switch eventFormat {
-	case EventFormatV1:
-		result.eventJSON = eventJSON
-		var fields eventFormatV1Fields
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
-		}
-		fields.fixNilSlices()
-		result.fields = fields
-	case EventFormatV2:
-		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
-		}
-		var fields eventFormatV2Fields
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
-		}
-		fields.EventID, err = result.generateEventID()
-		if err != nil {
-			return
-		}
-		fields.fixNilSlices()
-		result.fields = fields
-	default:
-		err = errors.New("gomatrixserverlib: room version not supported")
+	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
 		return
 	}
 
@@ -264,28 +256,13 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		return
 	}
 
-	// We parse the JSON early on so that we don't have to check if the JSON
-	// is valid.
-	switch eventFormat {
-	case EventFormatV1:
-		fields := eventFormatV1Fields{}
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
-		}
-		fields.fixNilSlices()
-		result.fields = fields
-	case EventFormatV2:
+	if eventFormat == EventFormatV2 {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
-		fields := eventFormatV2Fields{}
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
-		}
-		fields.fixNilSlices()
-		result.fields = fields
-	default:
-		err = errors.New("gomatrixserverlib: room version not supported")
+	}
+
+	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
 		return
 	}
 
@@ -329,25 +306,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 
 	result.eventJSON = eventJSON
 
-	switch eventFormat {
-	case EventFormatV1:
-		fields := result.fields.(eventFormatV1Fields)
-		fields.fixNilSlices()
-		result.fields = fields
-	case EventFormatV2:
-		fields := result.fields.(eventFormatV2Fields)
-		fields.EventID, err = result.generateEventID()
-		fields.fixNilSlices()
-		result.fields = fields
-	}
-	if err != nil {
-		return
-	}
-
-	if err = result.CheckFields(); err != nil {
-		return
-	}
-
+	err = result.CheckFields()
 	return
 }
 
@@ -357,41 +316,54 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
 	result.roomVersion = roomVersion
 	result.redacted = redacted
+	result.eventJSON = eventJSON
+	err = result.populateFieldsFromJSON(eventJSON)
+	return
+}
 
+// populateFieldsFromJSON takes the
+func (e *Event) populateFieldsFromJSON(eventJSON []byte) error {
+	// Work out the format of the event from the room version.
 	var eventFormat EventFormat
-	eventFormat, err = result.roomVersion.EventFormat()
+	eventFormat, err := e.roomVersion.EventFormat()
 	if err != nil {
-		return
+		return err
 	}
 
 	switch eventFormat {
 	case EventFormatV1:
-		result.eventJSON = eventJSON
-		var fields eventFormatV1Fields
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
+		// Unmarshal the event fields.
+		fields := eventFormatV1Fields{}
+		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+			return err
 		}
+		// Populate the fields of the received object.
 		fields.fixNilSlices()
-		result.fields = fields
+		e.fields = fields
 	case EventFormatV2:
-		if result.eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
+		// Later room versions don't have the event_id field so if it is
+		// present, remove it.
+		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return err
 		}
-		var fields eventFormatV2Fields
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			return
+		// Unmarshal the event fields.
+		fields := eventFormatV2Fields{}
+		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+			return err
 		}
-		fields.EventID, err = result.generateEventID()
+		// Generate a hash of the event which forms the event ID.
+		fields.EventID, err = e.generateEventID()
 		if err != nil {
-			return
+			return err
 		}
+		// Populate the fields of the received object.
 		fields.fixNilSlices()
-		result.fields = fields
+		e.fields = fields
 	default:
-		err = errors.New("gomatrixserverlib: room version not supported")
+		return errors.New("gomatrixserverlib: room version not supported")
 	}
 
-	return
+	return nil
 }
 
 // Redacted returns whether the event is redacted.
@@ -447,20 +419,17 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	}
 	result := *e
 	result.eventJSON = eventJSON
-	eventIDFormat, err := e.roomVersion.EventIDFormat()
-	if err != nil {
-		return Event{}, err
-	}
-	if eventIDFormat == EventIDFormatV1 {
-		fields := result.fields.(eventFormatV1Fields)
+	switch fields := result.fields.(type) {
+	case eventFormatV1Fields:
 		fields.Unsigned = unsignedJSON
 		fields.fixNilSlices()
 		result.fields = fields
-	} else {
-		fields := result.fields.(eventFormatV2Fields)
+	case eventFormatV2Fields:
 		fields.Unsigned = unsignedJSON
 		fields.fixNilSlices()
 		result.fields = fields
+	default:
+		return Event{}, UnsupportedRoomVersionError{Version: e.roomVersion}
 	}
 	return result, nil
 }

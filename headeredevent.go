@@ -30,6 +30,7 @@ type HeaderedEvent struct {
 // Unwrap extracts the event object from the headered event.
 func (e *HeaderedEvent) Unwrap() Event {
 	if e.RoomVersion == "" {
+		// TODO: Perhaps return an error here instead of panicing
 		panic("gomatrixserverlib: malformed HeaderedEvent doesn't contain room version")
 	}
 	event := e.Event
