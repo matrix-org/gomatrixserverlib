@@ -54,7 +54,7 @@ func TestParseServerName(t *testing.T) {
 func TestRespSendJoinMarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
-	input.RespState.roomVersion = RoomVersionV4
+	input.RespState.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}

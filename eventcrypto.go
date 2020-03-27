@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -150,12 +149,14 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
 		case EventIDFormatV3:
 			encoder = base64.RawURLEncoding.WithPadding(base64.NoPadding)
+		default:
+			return EventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 		}
 		if encoder != nil {
 			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
-		} else {
-			return EventReference{}, errors.New("gomatrixserverlib: this should not happen")
 		}
+	default:
+		return EventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 	}
 
 	return EventReference{eventID, sha256Hash[:]}, nil

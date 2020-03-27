@@ -61,9 +61,11 @@ type EventBuilder struct {
 	Type string `json:"type"`
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
 	StateKey *string `json:"state_key,omitempty"`
-	// The events that immediately preceded this event in the room history.
+	// The events that immediately preceded this event in the room history. This can be
+	// either []EventReference for room v1/v2, and []string for room v3 onwards.
 	PrevEvents interface{} `json:"prev_events"`
-	// The events needed to authenticate this event.
+	// The events needed to authenticate this event. This can be
+	// either []EventReference for room v1/v2, and []string for room v3 onwards.
 	AuthEvents interface{} `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
@@ -92,6 +94,8 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 // The event should always contain valid JSON.
 // If the event content hash is invalid then the event is redacted.
 // Redacted events contain only the fields covered by the event signature.
+// The fields have different formats depending on the room version - see
+// eventFormatV1Fields, eventFormatV2Fields.
 type Event struct {
 	redacted    bool
 	eventJSON   []byte
@@ -113,12 +117,14 @@ type eventFields struct {
 	Origin         ServerName `json:"origin"`
 }
 
+// Fields for room versions 1, 2.
 type eventFormatV1Fields struct {
 	eventFields
 	PrevEvents []EventReference `json:"prev_events"`
 	AuthEvents []EventReference `json:"auth_events"`
 }
 
+// Fields for room versions 3, 4, 5.
 type eventFormatV2Fields struct {
 	eventFields
 	PrevEvents []string `json:"prev_events"`
@@ -171,7 +177,7 @@ func (eb *EventBuilder) Build(
 		switch authEvents := event.AuthEvents.(type) {
 		case []EventReference:
 			for _, authEvent := range authEvents {
-				resAuthEvents = append(resPrevEvents, authEvent.EventID)
+				resAuthEvents = append(resAuthEvents, authEvent.EventID)
 			}
 		}
 		event.PrevEvents, event.AuthEvents = resPrevEvents, resAuthEvents
