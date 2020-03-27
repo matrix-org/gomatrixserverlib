@@ -38,6 +38,15 @@ func (e *HeaderedEvent) Unwrap() Event {
 	return event
 }
 
+// UnwrapEventHeaders unwraps an array of headered events.
+func UnwrapEventHeaders(in []HeaderedEvent) []Event {
+	result := make([]Event, len(in))
+	for i := range in {
+		result[i] = in[i].Event
+	}
+	return result
+}
+
 // UnmarshalJSON implements json.Unmarshaller
 func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	var err error
