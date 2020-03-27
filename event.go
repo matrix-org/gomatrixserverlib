@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
@@ -139,10 +140,17 @@ var emptyEventReferenceList = []EventReference{}
 // This can be called multiple times on the same builder.
 // A different event ID must be supplied each time this is called.
 func (eb *EventBuilder) Build(
-	eventID string, now time.Time, origin ServerName, keyID KeyID,
+	now time.Time, origin ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result Event, err error) {
-	var eventFormat EventFormat
+	eventFormat, err := roomVersion.EventFormat()
+	if err != nil {
+		return result, err
+	}
+	eventIDFormat, err := roomVersion.EventIDFormat()
+	if err != nil {
+		return result, err
+	}
 	var event struct {
 		EventBuilder
 		EventID        string     `json:"event_id"`
@@ -154,10 +162,11 @@ func (eb *EventBuilder) Build(
 		PrevState *[]EventReference `json:"prev_state,omitempty"`
 	}
 	event.EventBuilder = *eb
-	eventFormat, err = roomVersion.EventFormat()
-	if err != nil {
-		return result, err
+	if eventIDFormat == EventIDFormatV1 {
+		event.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
 	}
+	event.OriginServerTS = AsTimestamp(now)
+	event.Origin = origin
 	switch eventFormat {
 	case EventFormatV1:
 		// If either prev_events or auth_events are nil slices then Go will
@@ -191,10 +200,6 @@ func (eb *EventBuilder) Build(
 		}
 		event.PrevEvents, event.AuthEvents = resPrevEvents, resAuthEvents
 	}
-
-	event.OriginServerTS = AsTimestamp(now)
-	event.Origin = origin
-	event.EventID = eventID
 
 	if event.StateKey != nil {
 		// In early versions of the matrix protocol state events
