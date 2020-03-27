@@ -800,6 +800,10 @@ func (e *Event) PrevEvents() []EventReference {
 	case eventFormatV2Fields:
 		var result []EventReference
 		for _, id := range fields.PrevEvents {
+			// In the new event format, the event ID is already the hash of
+			// the event. Since we will have generated the event ID before
+			// now, we can just knock the sigil $ off the front and use that
+			// as the event SHA256.
 			result = append(result, EventReference{
 				EventID:     id,
 				EventSHA256: Base64String(id[1:]),
