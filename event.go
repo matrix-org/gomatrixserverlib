@@ -417,20 +417,11 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
 		return Event{}, err
 	}
+	if err = e.updateUnsignedFields(unsignedJSON); err != nil {
+		return Event{}, err
+	}
 	result := *e
 	result.eventJSON = eventJSON
-	switch fields := result.fields.(type) {
-	case eventFormatV1Fields:
-		fields.Unsigned = unsignedJSON
-		fields.fixNilSlices()
-		result.fields = fields
-	case eventFormatV2Fields:
-		fields.Unsigned = unsignedJSON
-		fields.fixNilSlices()
-		result.fields = fields
-	default:
-		return Event{}, UnsupportedRoomVersionError{Version: e.roomVersion}
-	}
 	return result, nil
 }
 
@@ -454,8 +445,18 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 
 	res := gjson.GetBytes(eventJSON, "unsigned")
 	unsigned := RawJSONFromResult(res, eventJSON)
+	if err = e.updateUnsignedFields(unsigned); err != nil {
+		return err
+	}
 
 	e.eventJSON = eventJSON
+
+	return nil
+}
+
+// updateUnsignedFields sets the value of the unsigned field and then
+// fixes nil slices if needed.
+func (e *Event) updateUnsignedFields(unsigned []byte) error {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		fields.Unsigned = unsigned
@@ -466,9 +467,8 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 		fields.fixNilSlices()
 		e.fields = fields
 	default:
-		panic(e.invalidFieldType())
+		return UnsupportedRoomVersionError{Version: e.roomVersion}
 	}
-
 	return nil
 }
 
