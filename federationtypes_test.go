@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const emptyRespStateResponse = `{"state":[],"auth_chain":[],"origin":""}`
+const emptyRespStateResponse = `{"origin":"","auth_chain":[],"state":[]}`
 
 func TestParseServerName(t *testing.T) {
 	validTests := map[string][]interface{}{
@@ -52,10 +52,9 @@ func TestParseServerName(t *testing.T) {
 }
 
 func TestRespSendJoinMarshalJSON(t *testing.T) {
-	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
-	input.RespState.roomVersion = RoomVersionV1
-	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+	input.roomVersion = RoomVersionV1
+	if err := json.Unmarshal([]byte(emptyRespStateResponse), &input); err != nil {
 		t.Fatal(err)
 	}
 
@@ -67,15 +66,14 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 	got := string(gotBytes)
 
 	if emptyRespStateResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", emptyRespStateResponse, emptyRespStateResponse, got)
 	}
 }
 
 func TestRespSendJoinUnmarshalJSON(t *testing.T) {
-	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
-	input.RespState.roomVersion = RoomVersionV1
-	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+	input.roomVersion = RoomVersionV1
+	if err := json.Unmarshal([]byte(emptyRespStateResponse), &input); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,6 +84,6 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	got := string(gotBytes)
 
 	if emptyRespStateResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", emptyRespStateResponse, emptyRespStateResponse, got)
 	}
 }

@@ -177,7 +177,7 @@ type RespEventAuth struct {
 }
 
 type respStateFields struct {
-	StateEvents []Event `json:"state"`
+	StateEvents []Event `json:"pdus"`
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
@@ -203,7 +203,7 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		StateEvents []json.RawMessage `json:"state"`
+		StateEvents []json.RawMessage `json:"pdus"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
@@ -361,16 +361,24 @@ type RespMakeJoin struct {
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v2/send_join/{roomID}/{eventID}
 type RespSendJoin struct {
-	RespState
-	Origin ServerName
+	roomVersion RoomVersion `json:"-"`
+	Origin      ServerName  `json:"origin"`
+	AuthEvents  []Event     `json:"auth_chain"`
+	StateEvents []Event     `json:"state"`
+}
+
+type respSendJoinFields struct {
+	Origin      ServerName `json:"origin"`
+	AuthEvents  []Event    `json:"auth_chain"`
+	StateEvents []Event    `json:"state"`
 }
 
 // MarshalJSON implements json.Marshaller
 func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	fields := respSendJoinFields{
-		StateEvents: r.StateEvents,
-		AuthEvents:  r.AuthEvents,
 		Origin:      r.Origin,
+		AuthEvents:  r.AuthEvents,
+		StateEvents: r.StateEvents,
 	}
 	if len(fields.AuthEvents) == 0 {
 		fields.AuthEvents = []Event{}
@@ -383,23 +391,35 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	var fields struct {
-		Origin ServerName `json:"origin"`
-	}
-	if err := json.Unmarshal(data, &fields); err != nil {
+	r.AuthEvents = []Event{}
+	r.StateEvents = []Event{}
+	if _, err := r.roomVersion.EventFormat(); err != nil {
 		return err
 	}
-	r.Origin = fields.Origin
-	if err := json.Unmarshal(data, &r.RespState); err != nil {
+	var intermediate struct {
+		Origin      ServerName        `json:"origin"`
+		AuthEvents  []json.RawMessage `json:"auth_chain"`
+		StateEvents []json.RawMessage `json:"state"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
+	}
+	r.Origin = intermediate.Origin
+	for _, raw := range intermediate.AuthEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	for _, raw := range intermediate.StateEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.StateEvents = append(r.StateEvents, event)
 	}
 	return nil
-}
-
-type respSendJoinFields struct {
-	StateEvents []Event    `json:"state"`
-	AuthEvents  []Event    `json:"auth_chain"`
-	Origin      ServerName `json:"origin"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin

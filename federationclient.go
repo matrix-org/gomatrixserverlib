@@ -110,7 +110,7 @@ func (ac *FederationClient) MakeJoin(
 func (ac *FederationClient) SendJoin(
 	ctx context.Context, s ServerName, event Event, roomVersion RoomVersion,
 ) (res RespSendJoin, err error) {
-	res.RespState.roomVersion = roomVersion
+	res.roomVersion = roomVersion
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
