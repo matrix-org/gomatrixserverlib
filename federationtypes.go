@@ -361,10 +361,10 @@ type RespMakeJoin struct {
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v2/send_join/{roomID}/{eventID}
 type RespSendJoin struct {
-	roomVersion RoomVersion `json:"-"`
-	Origin      ServerName  `json:"origin"`
-	AuthEvents  []Event     `json:"auth_chain"`
-	StateEvents []Event     `json:"state"`
+	roomVersion RoomVersion
+	Origin      ServerName `json:"origin"`
+	AuthEvents  []Event    `json:"auth_chain"`
+	StateEvents []Event    `json:"state"`
 }
 
 type respSendJoinFields struct {
