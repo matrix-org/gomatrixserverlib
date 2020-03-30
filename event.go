@@ -185,20 +185,26 @@ func (eb *EventBuilder) Build(
 		// Since gomatrixserverlib otherwise deals with EventReferences,
 		// take the event IDs out of these and replace the prev_events and
 		// auth_events with those new arrays.
-		resPrevEvents, resAuthEvents := []string{}, []string{}
 		switch prevEvents := event.PrevEvents.(type) {
+		case []string:
+			event.PrevEvents = prevEvents
 		case []EventReference:
+			resPrevEvents := []string{}
 			for _, prevEvent := range prevEvents {
 				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
 			}
+			event.PrevEvents = resPrevEvents
 		}
 		switch authEvents := event.AuthEvents.(type) {
+		case []string:
+			event.AuthEvents = authEvents
 		case []EventReference:
+			resAuthEvents := []string{}
 			for _, authEvent := range authEvents {
 				resAuthEvents = append(resAuthEvents, authEvent.EventID)
 			}
+			event.AuthEvents = resAuthEvents
 		}
-		event.PrevEvents, event.AuthEvents = resPrevEvents, resAuthEvents
 	}
 
 	if event.StateKey != nil {
