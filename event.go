@@ -241,7 +241,6 @@ func (eb *EventBuilder) Build(
 	}
 
 	result.roomVersion = roomVersion
-	result.eventJSON = eventJSON
 
 	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
 		return
@@ -311,11 +310,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 				return
 			}
 		}
-
-		eventJSON = redactedJSON
 	}
-
-	result.eventJSON = eventJSON
 
 	err = result.CheckFields()
 	return
@@ -327,7 +322,6 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
 	result.roomVersion = roomVersion
 	result.redacted = redacted
-	result.eventJSON = eventJSON
 	err = result.populateFieldsFromJSON(eventJSON)
 	return
 }
@@ -343,6 +337,7 @@ func (e *Event) populateFieldsFromJSON(eventJSON []byte) error {
 
 	switch eventFormat {
 	case EventFormatV1:
+		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV1Fields{}
 		if err := json.Unmarshal(eventJSON, &fields); err != nil {
@@ -357,6 +352,7 @@ func (e *Event) populateFieldsFromJSON(eventJSON []byte) error {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return err
 		}
+		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
 		if err := json.Unmarshal(eventJSON, &fields); err != nil {
