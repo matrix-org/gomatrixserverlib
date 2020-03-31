@@ -231,7 +231,7 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 // Each event will only appear once in the output list.
 // Returns an error if there are missing auth events or if there is
 // a cycle in the auth events.
-func (r RespState) Events() ([]Event, error) {
+func (r RespState) Events() ([]*Event, error) {
 	if len(r.StateEvents) == 0 {
 		r.StateEvents = []*Event{}
 	}
@@ -249,7 +249,7 @@ func (r RespState) Events() ([]Event, error) {
 
 	queued := map[*Event]bool{}
 	outputted := map[*Event]bool{}
-	var result []Event
+	var result []*Event
 	for _, event := range eventsByID {
 		if outputted[event] {
 			// If we've already written the event then we can skip it.
@@ -292,7 +292,7 @@ func (r RespState) Events() ([]Event, error) {
 			// If we've processed all the auth events for the event on top of
 			// the stack then we can append it to the result and try processing
 			// the item below it in the stack.
-			result = append(result, *top)
+			result = append(result, top)
 			outputted[top] = true
 			stack = stack[:len(stack)-1]
 		}
@@ -504,7 +504,7 @@ func checkAllowedByAuthEvents(event *Event, eventsByID map[string]*Event) error 
 // RespInvite is the content of a response to PUT /_matrix/federation/v1/invite/{roomID}/{eventID}
 type RespInvite struct {
 	// The invite event signed by recipient server.
-	Event Event
+	Event *Event
 }
 
 // MarshalJSON implements json.Marshaller
@@ -534,5 +534,5 @@ func (r *RespInvite) UnmarshalJSON(data []byte) error {
 }
 
 type respInviteFields struct {
-	Event Event `json:"event"`
+	Event *Event `json:"event"`
 }

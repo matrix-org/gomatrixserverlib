@@ -108,7 +108,7 @@ func (ac *FederationClient) MakeJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) SendJoin(
-	ctx context.Context, s ServerName, event Event, roomVersion RoomVersion,
+	ctx context.Context, s ServerName, event *Event, roomVersion RoomVersion,
 ) (res RespSendJoin, err error) {
 	res.RespState.roomVersion = roomVersion
 	path := federationPathPrefixV2 + "/send_join/" +
@@ -143,7 +143,7 @@ func (ac *FederationClient) MakeLeave(
 // This is used to reject a remote invite.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#put-matrix-federation-v1-send-leave-roomid-eventid
 func (ac *FederationClient) SendLeave(
-	ctx context.Context, s ServerName, event Event,
+	ctx context.Context, s ServerName, event *Event,
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
 		url.PathEscape(event.RoomID()) + "/" +
@@ -159,7 +159,7 @@ func (ac *FederationClient) SendLeave(
 // SendInvite sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *FederationClient) SendInvite(
-	ctx context.Context, s ServerName, event Event,
+	ctx context.Context, s ServerName, event *Event,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
