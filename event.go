@@ -415,30 +415,30 @@ func (e *Event) Redact() Event {
 
 // SetUnsigned sets the unsigned key of the event.
 // Returns a copy of the event with the "unsigned" key set.
-func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
+func (e *Event) SetUnsigned(unsigned interface{}) (*Event, error) {
+	result := *e
 	var eventAsMap map[string]RawJSON
 	var err error
 	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	unsignedJSON, err := json.Marshal(unsigned)
 	if err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	eventAsMap["unsigned"] = unsignedJSON
 	eventJSON, err := json.Marshal(eventAsMap)
 	if err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	if err = e.updateUnsignedFields(unsignedJSON); err != nil {
-		return Event{}, err
+		return nil, err
 	}
-	result := *e
 	result.eventJSON = eventJSON
-	return result, nil
+	return &result, nil
 }
 
 // SetUnsignedField takes a path and value to insert into the unsigned dict of
