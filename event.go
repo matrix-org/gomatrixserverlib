@@ -313,8 +313,6 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 				return
 			}
 		}
-
-		eventJSON = redactedJSON
 	}
 
 	err = result.CheckFields()
