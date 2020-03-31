@@ -22,8 +22,8 @@ import (
 )
 
 type stateResolverV2 struct {
-	authEventMap              map[string]Event             // Map of all provided auth events
-	powerLevelMainline        []Event                      // Power level events in mainline ordering
+	authEventMap              map[string]*Event            // Map of all provided auth events
+	powerLevelMainline        []*Event                     // Power level events in mainline ordering
 	powerLevelMainlinePos     map[string]int               // Power level event positions in mainline
 	resolvedCreate            *Event                       // Resolved create event
 	resolvedPowerLevels       *Event                       // Resolved power level event
@@ -31,7 +31,7 @@ type stateResolverV2 struct {
 	resolvedThirdPartyInvites map[string]*Event            // Resolved third party invite events
 	resolvedMembers           map[string]*Event            // Resolved member events
 	resolvedOthers            map[string]map[string]*Event // Resolved other events
-	result                    []Event                      // Final list of resolved events
+	result                    []*Event                     // Final list of resolved events
 }
 
 // Create implements AuthEventProvider
@@ -63,11 +63,11 @@ func (r *stateResolverV2) Member(key string) (*Event, error) {
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
 func ResolveStateConflictsV2(
-	conflicted, unconflicted []Event,
-	authEvents, authDifference []Event,
-) []Event {
-	var conflictedControlEvents []Event
-	var conflictedOthers []Event
+	conflicted, unconflicted []*Event,
+	authEvents, authDifference []*Event,
+) []*Event {
+	var conflictedControlEvents []*Event
+	var conflictedOthers []*Event
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		powerLevelMainlinePos:     make(map[string]int),
@@ -79,7 +79,7 @@ func ResolveStateConflictsV2(
 	// This is a quick helper function to determine if an event already belongs to
 	// the unconflicted set. If it does then we shouldn't add it back into the
 	// conflicted set later.
-	isUnconflicted := func(event Event) bool {
+	isUnconflicted := func(event *Event) bool {
 		for _, v := range unconflicted {
 			if event.EventID() == v.EventID() {
 				return true
@@ -134,23 +134,23 @@ func ResolveStateConflictsV2(
 	// Now that we have our final state, populate the result array with the
 	// resolved state and return it.
 	if r.resolvedCreate != nil {
-		r.result = append(r.result, *r.resolvedCreate)
+		r.result = append(r.result, r.resolvedCreate)
 	}
 	if r.resolvedJoinRules != nil {
-		r.result = append(r.result, *r.resolvedJoinRules)
+		r.result = append(r.result, r.resolvedJoinRules)
 	}
 	if r.resolvedPowerLevels != nil {
-		r.result = append(r.result, *r.resolvedPowerLevels)
+		r.result = append(r.result, r.resolvedPowerLevels)
 	}
 	for _, member := range r.resolvedMembers {
-		r.result = append(r.result, *member)
+		r.result = append(r.result, member)
 	}
 	for _, invite := range r.resolvedThirdPartyInvites {
-		r.result = append(r.result, *invite)
+		r.result = append(r.result, invite)
 	}
 	for _, other := range r.resolvedOthers {
 		for _, event := range other {
-			r.result = append(r.result, *event)
+			r.result = append(r.result, event)
 		}
 	}
 
@@ -161,7 +161,7 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func ReverseTopologicalOrdering(events []Event) (result []Event) {
+func ReverseTopologicalOrdering(events []*Event) (result []*Event) {
 	r := stateResolverV2{}
 	return r.reverseTopologicalOrdering(events)
 }
@@ -169,7 +169,7 @@ func ReverseTopologicalOrdering(events []Event) (result []Event) {
 // isControlEvent returns true if the event meets the criteria for being classed
 // as a "control" event for reverse topological sorting. If not then the event
 // will be mainline sorted.
-func isControlEvent(e Event) bool {
+func isControlEvent(e *Event) bool {
 	switch e.Type() {
 	case MRoomPowerLevels:
 		// Power level events are control events.
@@ -210,14 +210,14 @@ func isControlEvent(e Event) bool {
 // ordering and working our way back to the room creation. Note that we populate
 // the result here in reverse, so that the room creation is at the beginning of
 // the list, rather than the end.
-func (r *stateResolverV2) createPowerLevelMainline() []Event {
-	var mainline []Event
+func (r *stateResolverV2) createPowerLevelMainline() []*Event {
+	var mainline []*Event
 
 	// Define our iterator function.
-	var iter func(event Event)
-	iter = func(event Event) {
+	var iter func(event *Event)
+	iter = func(event *Event) {
 		// Append this event to the beginning of the mainline.
-		mainline = append([]Event{event}, mainline...)
+		mainline = append([]*Event{event}, mainline...)
 		// Work through all of the auth event IDs that this event refers to.
 		for _, authEventID := range event.AuthEventIDs() {
 			// Check that we actually have the auth event in our map - we need this so
@@ -236,7 +236,7 @@ func (r *stateResolverV2) createPowerLevelMainline() []Event {
 	// Begin the sequence from the currently resolved power level event from the
 	// topological ordering.
 	if r.resolvedPowerLevels != nil {
-		iter(*r.resolvedPowerLevels)
+		iter(r.resolvedPowerLevels)
 	}
 
 	return mainline
@@ -248,12 +248,12 @@ func (r *stateResolverV2) createPowerLevelMainline() []Event {
 // createPowerLevelMainline. This function returns three things: the event that
 // was found in the mainline, the position in the mainline of the found event
 // and the number of steps it took to reach the mainline.
-func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
-	mainlineEvent Event, mainlinePosition int, steps int,
+func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
+	mainlineEvent *Event, mainlinePosition int, steps int,
 ) {
 	// Define a function that the iterator can use to determine whether the event
 	// is in the mainline set or not.
-	isInMainline := func(searchEvent Event) (bool, int) {
+	isInMainline := func(searchEvent *Event) (bool, int) {
 		// If we already know the mainline position then return it.
 		if pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]; ok {
 			return true, pos
@@ -263,8 +263,8 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 	}
 
 	// Define our iterator function.
-	var iter func(event Event)
-	iter = func(event Event) {
+	var iter func(event *Event)
+	iter = func(event *Event) {
 		// In much the same way as we do in createPowerLevelMainline, we loop
 		// through the event's auth events, checking that it exists in our supplied
 		// auth event map and finding power level events.
@@ -305,7 +305,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event Event) (
 // also apply them on top of the partial state. If they fail auth checks then
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
-func (r *stateResolverV2) authAndApplyEvents(events []Event) {
+func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
@@ -314,39 +314,39 @@ func (r *stateResolverV2) authAndApplyEvents(events []Event) {
 		}
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
-		r.applyEvents([]Event{event})
+		r.applyEvents([]*Event{event})
 	}
 }
 
 // applyEvents applies the events on top of the partial state.
-func (r *stateResolverV2) applyEvents(events []Event) {
+func (r *stateResolverV2) applyEvents(events []*Event) {
 	for _, e := range events {
 		event := e
 		switch event.Type() {
 		case MRoomCreate:
 			// Room creation events are only valid with an empty state key.
 			if event.StateKey() == nil || *event.StateKey() == "" {
-				r.resolvedCreate = &event
+				r.resolvedCreate = event
 			}
 		case MRoomPowerLevels:
 			// Power level events are only valid with an empty state key.
 			if event.StateKey() == nil || *event.StateKey() == "" {
-				r.resolvedPowerLevels = &event
+				r.resolvedPowerLevels = event
 			}
 		case MRoomJoinRules:
 			// Join rule events are only valid with an empty state key.
 			if event.StateKey() == nil || *event.StateKey() == "" {
-				r.resolvedJoinRules = &event
+				r.resolvedJoinRules = event
 			}
 		case MRoomThirdPartyInvite:
 			// Third party invite events are only valid with a non-empty state key.
 			if event.StateKey() != nil && *event.StateKey() != "" {
-				r.resolvedThirdPartyInvites[*event.StateKey()] = &event
+				r.resolvedThirdPartyInvites[*event.StateKey()] = event
 			}
 		case MRoomMember:
 			// Membership events are only valid with a non-empty state key.
 			if event.StateKey() != nil && *event.StateKey() != "" {
-				r.resolvedMembers[*event.StateKey()] = &event
+				r.resolvedMembers[*event.StateKey()] = event
 			}
 		default:
 			// Doesn't match one of the core state types so store it by type and state
@@ -354,15 +354,15 @@ func (r *stateResolverV2) applyEvents(events []Event) {
 			if _, ok := r.resolvedOthers[event.Type()]; !ok {
 				r.resolvedOthers[event.Type()] = make(map[string]*Event)
 			}
-			r.resolvedOthers[event.Type()][*event.StateKey()] = &event
+			r.resolvedOthers[event.Type()][*event.StateKey()] = event
 		}
 	}
 }
 
 // eventMapFromEvents takes a list of events and returns a map, where the key
 // for each value is the event ID.
-func eventMapFromEvents(events []Event) map[string]Event {
-	r := make(map[string]Event)
+func eventMapFromEvents(events []*Event) map[string]*Event {
+	r := make(map[string]*Event)
 	for _, e := range events {
 		if _, ok := r[e.EventID()]; !ok {
 			r[e.EventID()] = e
@@ -374,7 +374,7 @@ func eventMapFromEvents(events []Event) map[string]Event {
 // wrapPowerLevelEventsForSort takes the input power level events and wraps them
 // in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []Event) []stateResV2ConflictedPowerLevel {
+func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []*Event) []stateResV2ConflictedPowerLevel {
 	block := make([]stateResV2ConflictedPowerLevel, len(events))
 	for i, event := range events {
 		block[i] = stateResV2ConflictedPowerLevel{
@@ -390,7 +390,7 @@ func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []Event) []stateRes
 // wrapOtherEventsForSort takes the input non-power level events and wraps them
 // in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) wrapOtherEventsForSort(events []Event) []stateResV2ConflictedOther {
+func (r *stateResolverV2) wrapOtherEventsForSort(events []*Event) []stateResV2ConflictedOther {
 	block := make([]stateResV2ConflictedOther, len(events))
 	for i, event := range events {
 		_, pos, _ := r.getFirstPowerLevelMainlineEvent(event)
@@ -407,7 +407,7 @@ func (r *stateResolverV2) wrapOtherEventsForSort(events []Event) []stateResV2Con
 // reverseTopologicalOrdering takes a set of input events, prepares them using
 // wrapPowerLevelEventsForSort and then starts the Kahn's algorithm in order to
 // topologically sort them. The result that is returned is correctly ordered.
-func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []Event) {
+func (r *stateResolverV2) reverseTopologicalOrdering(events []*Event) (result []*Event) {
 	block := r.wrapPowerLevelEventsForSort(events)
 	for _, s := range kahnsAlgorithmUsingAuthEvents(block) {
 		result = append(result, s.event)
@@ -418,7 +418,7 @@ func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []E
 // mainlineOrdering takes a set of input events, prepares them using
 // wrapOtherEventsForSort and then sorts them based on mainline ordering. The
 // result that is returned is correctly ordered.
-func (r *stateResolverV2) mainlineOrdering(events []Event) (result []Event) {
+func (r *stateResolverV2) mainlineOrdering(events []*Event) (result []*Event) {
 	block := r.wrapOtherEventsForSort(events)
 	sort.Sort(stateResV2ConflictedOtherHeap(block))
 	for _, s := range block {
@@ -430,7 +430,7 @@ func (r *stateResolverV2) mainlineOrdering(events []Event) (result []Event) {
 // getPowerLevelFromAuthEvents tries to determine the effective power level of
 // the sender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
-func (r *stateResolverV2) getPowerLevelFromAuthEvents(event Event) (pl int) {
+func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 	for _, authID := range event.AuthEventIDs() {
 		// First check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.

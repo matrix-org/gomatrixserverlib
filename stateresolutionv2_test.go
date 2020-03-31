@@ -31,14 +31,14 @@ var emptyStateKey = ""
 
 // separate takes a list of events and works out which events are conflicted and
 // which are unconflicted.
-func separate(events []Event) (conflicted, unconflicted []Event) {
+func separate(events []*Event) (conflicted, unconflicted []*Event) {
 	// The stack maps event type -> event state key -> list of state events.
-	stack := make(map[string]map[string][]Event)
+	stack := make(map[string]map[string][]*Event)
 	// Prepare the map.
 	for _, event := range events {
 		// If we haven't encountered an entry of this type yet, create an entry.
 		if _, ok := stack[event.Type()]; !ok {
-			stack[event.Type()] = make(map[string][]Event)
+			stack[event.Type()] = make(map[string][]*Event)
 		}
 		// Work out the state key in a crash-proof manner.
 		statekey := ""
@@ -77,9 +77,9 @@ func separate(events []Event) (conflicted, unconflicted []Event) {
 	return
 }
 
-func getBaseStateResV2Graph() []Event {
-	return []Event{
-		{
+func getBaseStateResV2Graph() []*Event {
+	return []*Event{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -93,7 +93,7 @@ func getBaseStateResV2Graph() []Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -113,7 +113,7 @@ func getBaseStateResV2Graph() []Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -134,7 +134,7 @@ func getBaseStateResV2Graph() []Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -156,7 +156,7 @@ func getBaseStateResV2Graph() []Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -178,7 +178,7 @@ func getBaseStateResV2Graph() []Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -209,7 +209,7 @@ func TestStateResolutionBase(t *testing.T) {
 		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
 	}
 
-	runStateResolutionV2(t, []Event{}, expected)
+	runStateResolutionV2(t, []*Event{}, expected)
 }
 
 func TestStateResolutionBanVsPowerLevel(t *testing.T) {
@@ -219,8 +219,8 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		"$MB:example.com",
 	}
 
-	runStateResolutionV2(t, []Event{
-		{
+	runStateResolutionV2(t, []*Event{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -245,7 +245,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -270,7 +270,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -292,7 +292,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -324,8 +324,8 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 		"$IMZ:example.com",
 	}
 
-	runStateResolutionV2(t, []Event{
-		{
+	runStateResolutionV2(t, []*Event{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -347,7 +347,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				eventFields: eventFields{
@@ -439,7 +439,7 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
-func runStateResolutionV2(t *testing.T, additional []Event, expected []string) {
+func runStateResolutionV2(t *testing.T, additional []*Event, expected []string) {
 	input := append(getBaseStateResV2Graph(), additional...)
 	conflicted, unconflicted := separate(input)
 

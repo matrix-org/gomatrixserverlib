@@ -24,7 +24,7 @@ import (
 
 // ResolveStateConflicts takes a list of state events with conflicting state keys
 // and works out which event should be used for each state event.
-func ResolveStateConflicts(conflicted []Event, authEvents []Event) []Event {
+func ResolveStateConflicts(conflicted []*Event, authEvents []*Event) []*Event {
 	var r stateResolver
 	r.resolvedThirdPartyInvites = map[string]*Event{}
 	r.resolvedMembers = map[string]*Event{}
@@ -32,18 +32,18 @@ func ResolveStateConflicts(conflicted []Event, authEvents []Event) []Event {
 	r.addConflicted(conflicted)
 	// Add the unconflicted auth events needed for auth checks.
 	for i := range authEvents {
-		r.addAuthEvent(&authEvents[i])
+		r.addAuthEvent(authEvents[i])
 	}
 	// Resolve the conflicted auth events.
-	r.resolveAndAddAuthBlocks([][]Event{r.creates})
-	r.resolveAndAddAuthBlocks([][]Event{r.powerLevels})
-	r.resolveAndAddAuthBlocks([][]Event{r.joinRules})
+	r.resolveAndAddAuthBlocks([][]*Event{r.creates})
+	r.resolveAndAddAuthBlocks([][]*Event{r.powerLevels})
+	r.resolveAndAddAuthBlocks([][]*Event{r.joinRules})
 	r.resolveAndAddAuthBlocks(r.thirdPartyInvites)
 	r.resolveAndAddAuthBlocks(r.members)
 	// Resolve any other conflicted state events.
 	for _, block := range r.others {
 		if event := r.resolveNormalBlock(block); event != nil {
-			r.result = append(r.result, *event)
+			r.result = append(r.result, event)
 		}
 	}
 	return r.result
@@ -62,12 +62,12 @@ type stateResolver struct {
 	//   * creates, powerLevels, joinRules have empty state keys.
 	//   * members and thirdPartyInvites are grouped by state key.
 	//   * the others are grouped by the pair of type and state key.
-	creates           []Event
-	powerLevels       []Event
-	joinRules         []Event
-	thirdPartyInvites [][]Event
-	members           [][]Event
-	others            [][]Event
+	creates           []*Event
+	powerLevels       []*Event
+	joinRules         []*Event
+	thirdPartyInvites [][]*Event
+	members           [][]*Event
+	others            [][]*Event
 	// The resolved auth events grouped by type and state key.
 	resolvedCreate            *Event
 	resolvedPowerLevels       *Event
@@ -76,7 +76,7 @@ type stateResolver struct {
 	resolvedMembers           map[string]*Event
 	// The list of resolved events.
 	// This will contain one entry for each conflicted event type and state key.
-	result []Event
+	result []*Event
 }
 
 func (r *stateResolver) Create() (*Event, error) {
@@ -99,7 +99,7 @@ func (r *stateResolver) Member(key string) (*Event, error) {
 	return r.resolvedMembers[key], nil
 }
 
-func (r *stateResolver) addConflicted(events []Event) { // nolint: gocyclo
+func (r *stateResolver) addConflicted(events []*Event) { // nolint: gocyclo
 	type conflictKey struct {
 		eventType string
 		stateKey  string
@@ -202,25 +202,25 @@ func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 // where all the blocks have the same event type.
 // Once every block has been resolved the resulting events are added to the events used for auth checks.
 // This is called once per auth event type and state key pair.
-func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]Event) {
+func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]*Event) {
 	start := len(r.result)
 	for _, block := range blocks {
 		if len(block) == 0 {
 			continue
 		}
 		if event := r.resolveAuthBlock(block); event != nil {
-			r.result = append(r.result, *event)
+			r.result = append(r.result, event)
 		}
 	}
 	// Only add the events to the auth events once all of the events with that type have been resolved.
 	// (SPEC: This is done to avoid the result of state resolution depending on the iteration order)
 	for i := start; i < len(r.result); i++ {
-		r.addAuthEvent(&r.result[i])
+		r.addAuthEvent(r.result[i])
 	}
 }
 
 // resolveAuthBlock resolves a block of auth events with the same state key to a single event.
-func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
+func (r *stateResolver) resolveAuthBlock(events []*Event) *Event {
 	// Sort the events by depth and sha1 of event ID
 	block := sortConflictedEventsByDepthAndSHA1(events)
 
@@ -235,7 +235,7 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 		event := block[i].event
 		// Check if the next event passes authentication checks against the current candidate.
 		// (SPEC: This ensures that "ban" events cannot be replaced by "join" events through a conflict)
-		if Allowed(*event, r) == nil {
+		if Allowed(event, r) == nil {
 			// If the event passes authentication checks pick it as the current candidate.
 			// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 			result = event
@@ -253,7 +253,7 @@ func (r *stateResolver) resolveAuthBlock(events []Event) *Event {
 }
 
 // resolveNormalBlock resolves a block of normal state events with the same state key to a single event.
-func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
+func (r *stateResolver) resolveNormalBlock(events []*Event) *Event {
 	// Sort the events by depth and sha1 of event ID
 	block := sortConflictedEventsByDepthAndSHA1(events)
 	// Start at the "newest" event, that is the one with the highest depth, and go
@@ -261,7 +261,7 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 	// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 	for i := len(block) - 1; i > 0; i-- {
 		event := block[i].event
-		if Allowed(*event, r) == nil {
+		if Allowed(event, r) == nil {
 			return event
 		}
 	}
@@ -272,14 +272,13 @@ func (r *stateResolver) resolveNormalBlock(events []Event) *Event {
 }
 
 // sortConflictedEventsByDepthAndSHA1 sorts by ascending depth and descending sha1 of event ID.
-func sortConflictedEventsByDepthAndSHA1(events []Event) []conflictedEvent {
+func sortConflictedEventsByDepthAndSHA1(events []*Event) []conflictedEvent {
 	block := make([]conflictedEvent, len(events))
 	for i := range events {
-		event := &events[i]
 		block[i] = conflictedEvent{
-			depth:       event.Depth(),
-			eventIDSHA1: sha1.Sum([]byte(event.EventID())),
-			event:       event,
+			depth:       events[i].Depth(),
+			eventIDSHA1: sha1.Sum([]byte(events[i].EventID())),
+			event:       events[i],
 		}
 	}
 	sort.Sort(conflictedEventSorter(block))

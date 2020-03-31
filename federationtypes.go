@@ -130,9 +130,9 @@ type RespState struct {
 	// The room version that dictates the format of the state events.
 	roomVersion RoomVersion
 	// A list of events giving the state of the room before the request event.
-	StateEvents []Event `json:"pdus"`
+	StateEvents []*Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
-	AuthEvents []Event `json:"auth_chain"`
+	AuthEvents []*Event `json:"auth_chain"`
 }
 
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
@@ -173,21 +173,21 @@ type PublicRoom struct {
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
 type RespEventAuth struct {
 	// A list of events needed to authenticate the state events.
-	AuthEvents []Event `json:"auth_chain"`
+	AuthEvents []*Event `json:"auth_chain"`
 }
 
 type respStateFields struct {
-	StateEvents []Event `json:"state"`
-	AuthEvents  []Event `json:"auth_chain"`
+	StateEvents []*Event `json:"state"`
+	AuthEvents  []*Event `json:"auth_chain"`
 }
 
 // MarshalJSON implements json.Marshaller
 func (r RespState) MarshalJSON() ([]byte, error) {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []Event{}
+		r.StateEvents = []*Event{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []Event{}
+		r.AuthEvents = []*Event{}
 	}
 	return json.Marshal(respStateFields{
 		StateEvents: r.StateEvents,
@@ -197,8 +197,8 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespState) UnmarshalJSON(data []byte) error {
-	r.AuthEvents = []Event{}
-	r.StateEvents = []Event{}
+	r.AuthEvents = []*Event{}
+	r.StateEvents = []*Event{}
 	if _, err := r.roomVersion.EventFormat(); err != nil {
 		return err
 	}
@@ -233,18 +233,18 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 // a cycle in the auth events.
 func (r RespState) Events() ([]Event, error) {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []Event{}
+		r.StateEvents = []*Event{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []Event{}
+		r.AuthEvents = []*Event{}
 	}
 	eventsByID := map[string]*Event{}
 	// Collect a map of event reference to event
 	for i := range r.StateEvents {
-		eventsByID[r.StateEvents[i].EventID()] = &r.StateEvents[i]
+		eventsByID[r.StateEvents[i].EventID()] = r.StateEvents[i]
 	}
 	for i := range r.AuthEvents {
-		eventsByID[r.AuthEvents[i].EventID()] = &r.AuthEvents[i]
+		eventsByID[r.AuthEvents[i].EventID()] = r.AuthEvents[i]
 	}
 
 	queued := map[*Event]bool{}
@@ -304,7 +304,7 @@ func (r RespState) Events() ([]Event, error) {
 // Check that a response to /state is valid.
 func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
 	logger := util.GetLogger(ctx)
-	var allEvents []Event
+	var allEvents []*Event
 	for _, event := range r.AuthEvents {
 		if event.StateKey() == nil {
 			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
@@ -337,7 +337,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
 	eventsByID := map[string]*Event{}
 	// Collect a map of event reference to event
 	for i := range allEvents {
-		eventsByID[allEvents[i].EventID()] = &allEvents[i]
+		eventsByID[allEvents[i].EventID()] = allEvents[i]
 	}
 
 	// Check whether the events are allowed by the auth rules.
@@ -373,10 +373,10 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 		Origin:      r.Origin,
 	}
 	if len(fields.AuthEvents) == 0 {
-		fields.AuthEvents = []Event{}
+		fields.AuthEvents = []*Event{}
 	}
 	if len(fields.StateEvents) == 0 {
-		fields.StateEvents = []Event{}
+		fields.StateEvents = []*Event{}
 	}
 	return json.Marshal(fields)
 }
@@ -397,18 +397,18 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 }
 
 type respSendJoinFields struct {
-	StateEvents []Event    `json:"state"`
-	AuthEvents  []Event    `json:"auth_chain"`
+	StateEvents []*Event   `json:"state"`
+	AuthEvents  []*Event   `json:"auth_chain"`
 	Origin      ServerName `json:"origin"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
 func (r RespSendJoin) ToRespState() RespState {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []Event{}
+		r.StateEvents = []*Event{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []Event{}
+		r.AuthEvents = []*Event{}
 	}
 	return RespState{
 		StateEvents: r.StateEvents,
@@ -419,7 +419,7 @@ func (r RespSendJoin) ToRespState() RespState {
 // Check that a response to /send_join is valid.
 // This checks that it would be valid as a response to /state
 // This also checks that the join event is allowed by the state.
-func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event) error {
+func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent *Event) error {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
@@ -432,8 +432,8 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	stateEventsByID := map[string]*Event{}
 	authEvents := NewAuthEvents(nil)
 	for i, event := range r.StateEvents {
-		stateEventsByID[event.EventID()] = &r.StateEvents[i]
-		if err := authEvents.AddEvent(&r.StateEvents[i]); err != nil {
+		stateEventsByID[event.EventID()] = r.StateEvents[i]
+		if err := authEvents.AddEvent(r.StateEvents[i]); err != nil {
 			return err
 		}
 	}
@@ -481,7 +481,7 @@ type RespProfile struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 }
 
-func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
+func checkAllowedByAuthEvents(event *Event, eventsByID map[string]*Event) error {
 	authEvents := NewAuthEvents(nil)
 	for _, authRef := range event.AuthEvents() {
 		authEvent := eventsByID[authRef.EventID]

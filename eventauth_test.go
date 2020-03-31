@@ -49,11 +49,11 @@ func stateNeededEquals(a, b StateNeeded) bool {
 	return true
 }
 
-type testEventList []Event
+type testEventList []*Event
 
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
 	var eventJSONs []RawJSON
-	var events []Event
+	var events []*Event
 	if err := json.Unmarshal(data, &eventJSONs); err != nil {
 		return err
 	}
@@ -213,12 +213,11 @@ func (tae *testAuthEvents) Create() (*Event, error) {
 	if len(tae.CreateJSON) == 0 {
 		return nil, nil
 	}
-	var event Event
 	event, err := NewEventFromTrustedJSON(tae.CreateJSON, false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}
-	return &event, nil
+	return event, nil
 }
 
 func (tae *testAuthEvents) JoinRules() (*Event, error) {
@@ -229,7 +228,7 @@ func (tae *testAuthEvents) JoinRules() (*Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &event, nil
+	return event, nil
 }
 
 func (tae *testAuthEvents) PowerLevels() (*Event, error) {
@@ -240,7 +239,7 @@ func (tae *testAuthEvents) PowerLevels() (*Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &event, nil
+	return event, nil
 }
 
 func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
@@ -251,7 +250,7 @@ func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &event, nil
+	return event, nil
 }
 
 func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
@@ -262,7 +261,7 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &event, nil
+	return event, nil
 }
 
 type testCase struct {
@@ -1013,9 +1012,9 @@ func TestAuthEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
-	a := NewAuthEvents([]*Event{&power})
+	a := NewAuthEvents([]*Event{power})
 	var e *Event
-	if e, err = a.PowerLevels(); err != nil || e != &power {
+	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
 	}
 	create, err := NewEventFromTrustedJSON(RawJSON(`{
@@ -1031,10 +1030,10 @@ func TestAuthEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create create event: %s", err)
 	}
-	if err = a.AddEvent(&create); err != nil {
+	if err = a.AddEvent(create); err != nil {
 		t.Errorf("TestAuthEvents: Failed to AddEvent: %s", err)
 	}
-	if e, err = a.Create(); err != nil || e != &create {
+	if e, err = a.Create(); err != nil || e != create {
 		t.Errorf("TestAuthEvents: failed to get same create event")
 	}
 }

@@ -142,14 +142,15 @@ var emptyEventReferenceList = []EventReference{}
 func (eb *EventBuilder) Build(
 	now time.Time, origin ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
-) (result Event, err error) {
+) (result *Event, err error) {
+	result = &Event{}
 	eventFormat, err := roomVersion.EventFormat()
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	eventIDFormat, err := roomVersion.EventIDFormat()
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	var event struct {
 		EventBuilder
@@ -219,36 +220,36 @@ func (eb *EventBuilder) Build(
 
 	var eventJSON []byte
 	if eventJSON, err = json.Marshal(&event); err != nil {
-		return
+		return nil, err
 	}
 
 	if eventFormat == EventFormatV2 {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
+			return nil, err
 		}
 	}
 
 	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {
-		return
+		return nil, err
 	}
 
 	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON); err != nil {
-		return
+		return nil, err
 	}
 
 	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
-		return
+		return nil, err
 	}
 
 	result.roomVersion = roomVersion
 	result.eventJSON = eventJSON
 
 	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
-		return
+		return nil, err
 	}
 
 	if err = result.CheckFields(); err != nil {
-		return
+		return nil, err
 	}
 
 	return
@@ -258,30 +259,31 @@ func (eb *EventBuilder) Build(
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result Event, err error) {
+func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
+	result = &Event{}
 	result.roomVersion = roomVersion
 
 	var eventFormat EventFormat
 	eventFormat, err = result.roomVersion.EventFormat()
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if eventFormat == EventFormatV2 {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
+			return nil, err
 		}
 	}
 
 	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
-		return
+		return nil, err
 	}
 
 	// Synapse removes these keys from events in case a server accidentally added them.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/crypto/event_signing.py#L57-L62
 	for _, key := range []string{"outlier", "destinations", "age_ts"} {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
-			return
+			return nil, err
 		}
 	}
 
@@ -324,11 +326,14 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // NewEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
+func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
 	result.eventJSON = eventJSON
-	err = result.populateFieldsFromJSON(eventJSON)
+	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
+		return nil, err
+	}
 	return
 }
 
@@ -937,7 +942,7 @@ func (e *Event) Depth() int64 {
 }
 
 // MarshalJSON implements json.Marshaller
-func (e Event) MarshalJSON() ([]byte, error) {
+func (e *Event) MarshalJSON() ([]byte, error) {
 	if e.eventJSON == nil {
 		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
 	}
@@ -946,7 +951,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 
 // Headered returns a HeaderedEvent encapsulating the original event, with the
 // supplied headers.
-func (e Event) Headered(roomVersion RoomVersion) HeaderedEvent {
+func (e *Event) Headered(roomVersion RoomVersion) HeaderedEvent {
 	return HeaderedEvent{
 		EventHeader: EventHeader{
 			RoomVersion: roomVersion,

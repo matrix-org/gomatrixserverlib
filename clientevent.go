@@ -37,7 +37,7 @@ type ClientEvent struct {
 }
 
 // ToClientEvents converts server events to client events.
-func ToClientEvents(serverEvs []Event, format EventFormat) []ClientEvent {
+func ToClientEvents(serverEvs []*Event, format EventFormat) []ClientEvent {
 	evs := make([]ClientEvent, len(serverEvs))
 	for i, se := range serverEvs {
 		evs[i] = ToClientEvent(se, format)
@@ -55,7 +55,7 @@ func HeaderedToClientEvents(serverEvs []HeaderedEvent, format EventFormat) []Cli
 }
 
 // ToClientEvent converts a single server event to a client event.
-func ToClientEvent(se Event, format EventFormat) ClientEvent {
+func ToClientEvent(se *Event, format EventFormat) ClientEvent {
 	ce := ClientEvent{
 		Content:        RawJSON(se.Content()),
 		Sender:         se.Sender(),
