@@ -194,6 +194,8 @@ func (eb *EventBuilder) Build(
 				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
 			}
 			event.PrevEvents = resPrevEvents
+		case nil:
+			event.PrevEvents = []string{}
 		}
 		switch authEvents := event.AuthEvents.(type) {
 		case []string:
@@ -204,6 +206,8 @@ func (eb *EventBuilder) Build(
 				resAuthEvents = append(resAuthEvents, authEvent.EventID)
 			}
 			event.AuthEvents = resAuthEvents
+		case nil:
+			event.AuthEvents = []string{}
 		}
 	}
 
