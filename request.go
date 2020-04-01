@@ -27,6 +27,7 @@ type FederationRequest struct {
 		Origin      ServerName                      `json:"origin"`
 		RequestURI  string                          `json:"uri"`
 		Signatures  map[ServerName]map[KeyID]string `json:"signatures,omitempty"`
+		RoomVersion RoomVersion                     `json:"room_version,omitempty"`
 	}
 }
 
