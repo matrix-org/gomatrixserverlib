@@ -6,14 +6,14 @@ package gomatrixserverlib
 // InviteV2Request is used in a /_matrix/federation/v2/invite request.
 type InviteV2Request struct {
 	fields struct {
-		Event           Event                   `json:"event"`
+		Event           RawJSON                 `json:"event"`
 		RoomVersion     RoomVersion             `json:"room_version"`
 		InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
 	}
 }
 
 // Event returns the invite event.
-func (i *InviteV2Request) Event() Event {
+func (i *InviteV2Request) Event() RawJSON {
 	return i.fields.Event
 }
 
