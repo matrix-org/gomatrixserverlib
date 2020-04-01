@@ -1,5 +1,9 @@
 package gomatrixserverlib
 
+import (
+	"encoding/json"
+)
+
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
@@ -10,6 +14,12 @@ type InviteV2Request struct {
 		RoomVersion     RoomVersion             `json:"room_version"`
 		InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
 	}
+}
+
+// SetContent sets the JSON content for the request.
+// Returns an error if there already is JSON content present on the request.
+func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &i.fields)
 }
 
 // Event returns the invite event.
@@ -26,18 +36,6 @@ func (i *InviteV2Request) RoomVersion() RoomVersion {
 // enough information for the client to identify the room.
 func (i *InviteV2Request) InviteRoomState() []InviteV2StrippedState {
 	return i.fields.InviteRoomState
-}
-
-// InviteV2Request is used in a /_matrix/federation/v2/invite response.
-type InviteV2Response struct {
-	fields struct {
-		Event Event `json:"event"`
-	}
-}
-
-// Event returns the invite event.
-func (i *InviteV2Response) Event() Event {
-	return i.fields.Event
 }
 
 // InviteV2StrippedState is a cut-down set of fields from room state
