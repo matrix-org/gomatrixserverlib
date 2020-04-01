@@ -81,6 +81,11 @@ func (r *FederationRequest) RequestURI() string {
 	return r.fields.RequestURI
 }
 
+// RoomVersion returns the room version from the request, if set.
+func (r *FederationRequest) RoomVersion() RoomVersion {
+	return r.fields.RoomVersion
+}
+
 // Sign the matrix request with an ed25519 key.
 // Uses the algorithm specified https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 // Updates the request with the signature in place.
