@@ -161,7 +161,7 @@ func (ac *FederationClient) SendLeave(
 func (ac *FederationClient) SendInvite(
 	ctx context.Context, s ServerName, event Event,
 ) (res RespInvite, err error) {
-	path := federationPathPrefixV1 + "/invite/" +
+	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
