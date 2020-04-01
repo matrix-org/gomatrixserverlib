@@ -27,7 +27,6 @@ type FederationRequest struct {
 		Origin      ServerName                      `json:"origin"`
 		RequestURI  string                          `json:"uri"`
 		Signatures  map[ServerName]map[KeyID]string `json:"signatures,omitempty"`
-		RoomVersion RoomVersion                     `json:"room_version,omitempty"`
 	}
 }
 
@@ -79,11 +78,6 @@ func (r *FederationRequest) Origin() ServerName {
 // RequestURI returns the path and query sections of the HTTP request URL.
 func (r *FederationRequest) RequestURI() string {
 	return r.fields.RequestURI
-}
-
-// RoomVersion returns the room version from the request, if set.
-func (r *FederationRequest) RoomVersion() RoomVersion {
-	return r.fields.RoomVersion
 }
 
 // Sign the matrix request with an ed25519 key.
