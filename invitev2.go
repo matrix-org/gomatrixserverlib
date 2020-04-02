@@ -38,8 +38,12 @@ type InviteV2Request struct {
 	}
 }
 
-// SetContent sets the JSON content for the request.
-// Returns an error if there already is JSON content present on the request.
+// MarshalJSON implements json.Marshaller
+func (i InviteV2Request) MarshalJSON() ([]byte, error) {
+	return json.Marshal(i.fields)
+}
+
+// // MarshalJSON implements json.Unmarshaller
 func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 	err := json.Unmarshal(data, &i.fields.inviteV2RequestHeaders)
 	if err != nil {
