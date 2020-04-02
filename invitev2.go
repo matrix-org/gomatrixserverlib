@@ -14,7 +14,7 @@ func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
 	if event.RoomVersion == "" {
-		err = errors.New("gomatrixserverlib: malformed headered event")
+		err = errors.New("gomatrixserverlib: missing room version from event header")
 		return
 	}
 	request.fields.inviteV2RequestHeaders = inviteV2RequestHeaders{
@@ -52,6 +52,9 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 	eventJSON := gjson.GetBytes(data, "event")
 	if !eventJSON.Exists() {
 		return errors.New("gomatrixserverlib: request doesn't contain event")
+	}
+	if i.fields.RoomVersion == "" {
+		return errors.New("gomatrixserverlib: missing room version from event header")
 	}
 	i.fields.Event, err = NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion)
 	return err
