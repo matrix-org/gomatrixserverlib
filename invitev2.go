@@ -2,28 +2,44 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"errors"
+
+	"github.com/tidwall/gjson"
 )
 
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
+type inviteV2RequestHeaders struct {
+	RoomVersion     RoomVersion             `json:"room_version"`
+	InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
+}
+
 // InviteV2Request is used in a /_matrix/federation/v2/invite request.
 type InviteV2Request struct {
 	fields struct {
-		Event           RawJSON                 `json:"event"`
-		RoomVersion     RoomVersion             `json:"room_version"`
-		InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
+		inviteV2RequestHeaders
+		Event Event `json:"event"`
 	}
 }
 
 // SetContent sets the JSON content for the request.
 // Returns an error if there already is JSON content present on the request.
 func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &i.fields)
+	err := json.Unmarshal(data, &i.fields.inviteV2RequestHeaders)
+	if err != nil {
+		return err
+	}
+	eventJSON := gjson.GetBytes(data, "event")
+	if !eventJSON.Exists() {
+		return errors.New("gomatrixserverlib: request doesn't contain event")
+	}
+	i.fields.Event, err = NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion)
+	return err
 }
 
 // Event returns the invite event.
-func (i *InviteV2Request) Event() RawJSON {
+func (i *InviteV2Request) Event() Event {
 	return i.fields.Event
 }
 
