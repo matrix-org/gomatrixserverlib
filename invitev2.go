@@ -30,7 +30,7 @@ type inviteV2RequestHeaders struct {
 	InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
 }
 
-// InviteV2Request is used in a /_matrix/federation/v2/invite request.
+// InviteV2Request is used in the body of a /_matrix/federation/v2/invite request.
 type InviteV2Request struct {
 	fields struct {
 		inviteV2RequestHeaders
