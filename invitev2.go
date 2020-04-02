@@ -84,6 +84,16 @@ type InviteV2StrippedState struct {
 	}
 }
 
+// NewInviteV2StrippedState creates a stripped state event from a
+// regular state event.
+func NewInviteV2StrippedState(event *Event) (ss InviteV2StrippedState) {
+	ss.fields.Content = event.Content()
+	ss.fields.StateKey = event.StateKey()
+	ss.fields.Type = event.Type()
+	ss.fields.Sender = event.Sender()
+	return
+}
+
 // Content returns the content of the stripped state.
 func (i *InviteV2StrippedState) Content() RawJSON {
 	return i.fields.Content
