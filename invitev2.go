@@ -94,6 +94,11 @@ func NewInviteV2StrippedState(event *Event) (ss InviteV2StrippedState) {
 	return
 }
 
+// MarshalJSON implements json.Marshaller
+func (i InviteV2StrippedState) MarshalJSON() ([]byte, error) {
+	return json.Marshal(i.fields)
+}
+
 // Content returns the content of the stripped state.
 func (i *InviteV2StrippedState) Content() RawJSON {
 	return i.fields.Content
