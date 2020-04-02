@@ -10,6 +10,21 @@ import (
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
+func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState) (
+	request InviteV2Request, err error,
+) {
+	if event.RoomVersion == "" {
+		err = errors.New("gomatrixserverlib: malformed headered event")
+		return
+	}
+	request.fields.inviteV2RequestHeaders = inviteV2RequestHeaders{
+		RoomVersion:     event.RoomVersion,
+		InviteRoomState: state,
+	}
+	request.fields.Event = event.Unwrap()
+	return
+}
+
 type inviteV2RequestHeaders struct {
 	RoomVersion     RoomVersion             `json:"room_version"`
 	InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
