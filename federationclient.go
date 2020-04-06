@@ -113,7 +113,7 @@ func (ac *FederationClient) SendJoin(
 	res.RespState.roomVersion = roomVersion
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(event); err != nil {
 		return
@@ -147,7 +147,7 @@ func (ac *FederationClient) SendLeave(
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
 		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(event); err != nil {
 		return
