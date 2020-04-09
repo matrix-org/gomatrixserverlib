@@ -344,9 +344,9 @@ func (fc *Client) DoRequestAndParseResponse(
 
 		// If we failed to decode as RespError, don't just drop the HTTP body, include it in the
 		// HTTP error instead (e.g proxy errors which return HTML).
-		msg := "Failed to " + req.Method + " JSON to " + req.RequestURI
+		msg := fmt.Sprintf("Failed to %s JSON (hostname %q path %q)", req.Method, req.Host, req.URL.Path)
 		if wrap == nil {
-			msg = msg + ": " + string(contents)
+			msg += ": " + string(contents)
 		}
 
 		return gomatrix.HTTPError{
