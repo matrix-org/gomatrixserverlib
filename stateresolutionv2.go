@@ -166,6 +166,23 @@ func ReverseTopologicalOrdering(events []Event) (result []Event) {
 	return r.reverseTopologicalOrdering(events)
 }
 
+// HeaderedReverseTopologicalOrdering takes a set of input events and sorts
+// them using Kahn's algorithm in order to topologically order them. The
+// result array of events will be sorted so that "earlier" events appear
+// first.
+func HeaderedReverseTopologicalOrdering(events []HeaderedEvent) (result []HeaderedEvent) {
+	r := stateResolverV2{}
+	var evs []Event
+	for _, e := range events {
+		evs = append(evs, e.Unwrap())
+	}
+	evs = r.reverseTopologicalOrdering(evs)
+	for _, e := range evs {
+		result = append(result, e.Headered(e.roomVersion))
+	}
+	return
+}
+
 // isControlEvent returns true if the event meets the criteria for being classed
 // as a "control" event for reverse topological sorting. If not then the event
 // will be mainline sorted.
