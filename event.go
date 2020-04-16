@@ -810,9 +810,13 @@ func (e *Event) PrevEvents() []EventReference {
 			// the event. Since we will have generated the event ID before
 			// now, we can just knock the sigil $ off the front and use that
 			// as the event SHA256.
+			var sha Base64String
+			if err := sha.Decode(id[1:]); err != nil {
+				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
+			}
 			result = append(result, EventReference{
 				EventID:     id,
-				EventSHA256: Base64String(id[1:]),
+				EventSHA256: sha,
 			})
 		}
 		return result
@@ -873,9 +877,13 @@ func (e *Event) AuthEvents() []EventReference {
 	case eventFormatV2Fields:
 		var result []EventReference
 		for _, id := range fields.AuthEvents {
+			var sha Base64String
+			if err := sha.Decode(id[1:]); err != nil {
+				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
+			}
 			result = append(result, EventReference{
 				EventID:     id,
-				EventSHA256: Base64String(id[1:]),
+				EventSHA256: sha,
 			})
 		}
 		return result
