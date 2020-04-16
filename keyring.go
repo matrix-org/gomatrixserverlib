@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matrix-org/util"
@@ -371,18 +372,55 @@ func (d *DirectKeyFetcher) FetchKeys(
 		server[req] = ts
 	}
 
+	// Work out the number of workers that we want to start. If the
+	// number of outstanding requests is less than the current max
+	// then reduce it so we don't start workers unnecessarily.
+	numWorkers := 64
+	if len(byServer) < numWorkers {
+		numWorkers = len(byServer)
+	}
+
+	// Prepare somewhere to put the results. This map is protected
+	// by the below mutex.
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
-	for server := range byServer {
-		// TODO: make these requests in parallel
-		serverResults, err := d.fetchKeysForServer(ctx, server)
-		if err != nil {
-			// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-			return nil, err
-		}
-		for req, keys := range serverResults {
-			results[req] = keys
+	var resultsMutex sync.Mutex
+
+	// Populate the wait group with the number of workers.
+	var wait sync.WaitGroup
+	wait.Add(numWorkers)
+
+	// Populate the jobs queue.
+	pending := make(chan ServerName, len(byServer))
+	for serverName := range byServer {
+		pending <- serverName
+	}
+	close(pending)
+
+	// Define our worker.
+	worker := func(ch <-chan ServerName) {
+		defer wait.Done()
+		for server := range ch {
+			serverResults, err := d.fetchKeysForServer(ctx, server)
+			if err != nil {
+				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+				continue
+			}
+			resultsMutex.Lock()
+			for req, keys := range serverResults {
+				results[req] = keys
+			}
+			resultsMutex.Unlock()
 		}
 	}
+
+	// Start the workers.
+	for i := 0; i < numWorkers; i++ {
+		go worker(pending)
+	}
+
+	// Wait for the workers to finish before returning
+	// the results.
+	wait.Wait()
 	return results, nil
 }
 
