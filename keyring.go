@@ -403,7 +403,7 @@ func (d *DirectKeyFetcher) FetchKeys(
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
 				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-				return
+				continue
 			}
 			resultsMutex.Lock()
 			for req, keys := range serverResults {
