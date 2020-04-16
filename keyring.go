@@ -396,14 +396,14 @@ func (d *DirectKeyFetcher) FetchKeys(
 	}
 
 	// Define our worker.
-	worker := func(server ServerName) {
+	worker := func() {
 		defer wait.Done()
 		for {
 			if len(pending) == 0 {
 				// There are no more jobs left, so stop the worker.
 				return
 			}
-			serverResults, err := d.fetchKeysForServer(ctx, server)
+			serverResults, err := d.fetchKeysForServer(ctx, <-pending)
 			if err != nil {
 				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
 				return
@@ -418,12 +418,13 @@ func (d *DirectKeyFetcher) FetchKeys(
 
 	// Start the workers.
 	for i := 0; i < numWorkers; i++ {
-		go worker(<-pending)
+		go worker()
 	}
 
 	// Wait for the workers to finish before returning
 	// the results.
 	wait.Wait()
+	close(pending)
 	return results, nil
 }
 
