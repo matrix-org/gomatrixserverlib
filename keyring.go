@@ -372,14 +372,37 @@ func (d *DirectKeyFetcher) FetchKeys(
 		server[req] = ts
 	}
 
+	// Work out the number of workers that we want to start. If the
+	// number of outstanding requests is less than the current max
+	// then reduce it so we don't start workers unnecessarily.
+	numWorkers := 64
+	if len(byServer) < numWorkers {
+		numWorkers = len(byServer)
+	}
+
+	// Prepare somewhere to put the results. This map is protected
+	// by the below mutex.
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	var resultsMutex sync.Mutex
-	var wait sync.WaitGroup
-	wait.Add(len(byServer))
 
-	for s := range byServer {
-		go func(server ServerName) {
-			defer wait.Done()
+	// Populate the wait group with the number of workers.
+	var wait sync.WaitGroup
+	wait.Add(numWorkers)
+
+	// Populate the jobs queue.
+	pending := make(chan ServerName, len(byServer))
+	for serverName := range byServer {
+		pending <- serverName
+	}
+
+	// Define our worker.
+	worker := func(server ServerName) {
+		defer wait.Done()
+		for {
+			if len(pending) == 0 {
+				// There are no more jobs left, so stop the worker.
+				return
+			}
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
 				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
@@ -390,11 +413,17 @@ func (d *DirectKeyFetcher) FetchKeys(
 			for req, keys := range serverResults {
 				results[req] = keys
 			}
-		}(s)
+		}
 	}
 
+	// Start the workers.
+	for i := 0; i < numWorkers; i++ {
+		go worker(<-pending)
+	}
+
+	// Wait for the workers to finish before returning
+	// the results.
 	wait.Wait()
-	resultsMutex.Lock()
 	return results, nil
 }
 
