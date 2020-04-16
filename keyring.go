@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matrix-org/util"
@@ -172,39 +173,46 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		return results, nil
 	}
 
-	for _, fetcher := range k.KeyFetchers {
-		// TODO: we should distinguish here between expired keys, and those we don't have.
-		// If the key has expired, it's no use re-requesting it.
-		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
-		if len(keyRequests) == 0 {
-			// There aren't any keys to fetch so we can stop here.
-			// This means that we've checked every JSON object we can check.
-			return results, nil
-		}
-		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
+	var wait sync.WaitGroup
+	wait.Add(len(k.KeyFetchers))
 
-		// TODO: Coalesce in-flight requests for the same keys.
-		// Otherwise we risk spamming the servers we query the keys from.
+	for _, f := range k.KeyFetchers {
+		go func(fetcher KeyFetcher) {
+			defer wait.Done()
+			// TODO: we should distinguish here between expired keys, and those we don't have.
+			// If the key has expired, it's no use re-requesting it.
+			keyRequests := k.publicKeyRequests(requests, results, keyIDs)
+			if len(keyRequests) == 0 {
+				// There aren't any keys to fetch so we can stop here.
+				// This means that we've checked every JSON object we can check.
+				return //results, nil
+			}
+			fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
 
-		fetcherLogger.WithField("num_key_requests", len(keyRequests)).
-			Info("Requesting keys from fetcher")
+			// TODO: Coalesce in-flight requests for the same keys.
+			// Otherwise we risk spamming the servers we query the keys from.
 
-		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
-		if err != nil {
-			return nil, err
-		}
+			fetcherLogger.WithField("num_key_requests", len(keyRequests)).
+				Info("Requesting keys from fetcher")
 
-		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
-			Info("Got keys from fetcher")
+			keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
+			if err != nil {
+				return //nil, err
+			}
 
-		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+			fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
+				Info("Got keys from fetcher")
 
-		// Add the keys to the database so that we won't need to fetch them again.
-		if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
-			return nil, err
-		}
+			k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+
+			// Add the keys to the database so that we won't need to fetch them again.
+			if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
+				return //nil, err
+			}
+		}(f)
 	}
 
+	wait.Wait()
 	return results, nil
 }
 
@@ -372,17 +380,28 @@ func (d *DirectKeyFetcher) FetchKeys(
 	}
 
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
-	for server := range byServer {
-		// TODO: make these requests in parallel
-		serverResults, err := d.fetchKeysForServer(ctx, server)
-		if err != nil {
-			// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-			return nil, err
-		}
-		for req, keys := range serverResults {
-			results[req] = keys
-		}
+	var resultsMutex sync.Mutex
+	var wait sync.WaitGroup
+	wait.Add(len(byServer))
+
+	for s := range byServer {
+		go func(server ServerName) {
+			defer wait.Done()
+			serverResults, err := d.fetchKeysForServer(ctx, server)
+			if err != nil {
+				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+				return //nil, err
+			}
+			resultsMutex.Lock()
+			defer resultsMutex.Unlock()
+			for req, keys := range serverResults {
+				results[req] = keys
+			}
+		}(s)
 	}
+
+	wait.Wait()
+	resultsMutex.Lock()
 	return results, nil
 }
 
