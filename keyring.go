@@ -397,9 +397,9 @@ func (d *DirectKeyFetcher) FetchKeys(
 	close(pending)
 
 	// Define our worker.
-	worker := func() {
+	worker := func(ch <-chan ServerName) {
 		defer wait.Done()
-		for server := range pending {
+		for server := range ch {
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
 				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
@@ -415,7 +415,7 @@ func (d *DirectKeyFetcher) FetchKeys(
 
 	// Start the workers.
 	for i := 0; i < numWorkers; i++ {
-		go worker()
+		go worker(pending)
 	}
 
 	// Wait for the workers to finish before returning
