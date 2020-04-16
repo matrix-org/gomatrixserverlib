@@ -409,10 +409,10 @@ func (d *DirectKeyFetcher) FetchKeys(
 				return
 			}
 			resultsMutex.Lock()
-			defer resultsMutex.Unlock()
 			for req, keys := range serverResults {
 				results[req] = keys
 			}
+			resultsMutex.Unlock()
 		}
 	}
 
