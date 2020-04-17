@@ -110,9 +110,9 @@ func (v RoomVersion) EventIDFormat() (EventIDFormat, error) {
 	return 0, UnsupportedRoomVersionError{v}
 }
 
-// EnforceSignatureChecks returns true if the given room version calls for
+// StrictValidityChecking returns true if the given room version calls for
 // strict signature checking (room version 5 and onward) or false otherwise.
-func (v RoomVersion) EnforceSignatureChecks() (bool, error) {
+func (v RoomVersion) StrictValidityChecking() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.enforceSignatureChecks, nil
 	}

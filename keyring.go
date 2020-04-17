@@ -41,11 +41,11 @@ type PublicKeyLookupResult struct {
 
 // WasValidAt checks if this signing key is valid for an event signed at the
 // given timestamp.
-func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp) bool {
-	if r.ValidUntilTS != PublicKeyNotValid && atTs <= r.ValidUntilTS {
+func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking bool) bool {
+	if r.ExpiredTS != PublicKeyNotExpired && atTs < r.ExpiredTS {
 		return true
 	}
-	if r.ExpiredTS != PublicKeyNotExpired && atTs < r.ExpiredTS {
+	if strictValidityChecking && r.ValidUntilTS != PublicKeyNotValid && atTs <= r.ValidUntilTS {
 		return true
 	}
 	return false
@@ -97,6 +97,8 @@ type VerifyJSONRequest struct {
 	AtTS Timestamp
 	// The JSON bytes.
 	Message []byte
+	// Should validity signature checking be enabled? (Room version >= 5)
+	StrictValidityChecking bool
 }
 
 // A VerifyJSONResult is the result of checking the signature of a JSON message.
@@ -255,7 +257,7 @@ func (k *KeyRing) checkUsingKeys(
 				// No key for this key ID so we continue onto the next key ID.
 				continue
 			}
-			if !serverKey.WasValidAt(requests[i].AtTS) {
+			if !serverKey.WasValidAt(requests[i].AtTS, requests[i].StrictValidityChecking) {
 				// The key wasn't valid at the timestamp we needed it to be valid at.
 				// So skip onto the next key.
 				results[i].Error = fmt.Errorf(

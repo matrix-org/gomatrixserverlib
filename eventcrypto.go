@@ -263,11 +263,17 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 			}
 		}
 
+		strictValidityChecking, err := event.roomVersion.StrictValidityChecking()
+		if err != nil {
+			return nil, err
+		}
+
 		for domain := range domains {
 			v := VerifyJSONRequest{
-				Message:    redactedJSON,
-				AtTS:       event.OriginServerTS(),
-				ServerName: domain,
+				Message:                redactedJSON,
+				AtTS:                   event.OriginServerTS(),
+				ServerName:             domain,
+				StrictValidityChecking: strictValidityChecking,
 			}
 			verificationMap[evtIdx] = append(verificationMap[evtIdx], len(toVerify))
 			toVerify = append(toVerify, v)
