@@ -487,24 +487,14 @@ type RespProfile struct {
 func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
 	authEvents := NewAuthEvents(nil)
 
-	var addAuthEvents func(e *Event) error
-	addAuthEvents = func(e *Event) error {
-		for _, ae := range e.AuthEventIDs() {
-			authEvent, ok := eventsByID[ae]
-			if !ok {
-				return MissingAuthEventError{ae, event.EventID()}
-			}
-			if err := authEvents.AddEvent(authEvent); err != nil {
-				return err
-			}
-			//		if err := addAuthEvents(authEvent); err != nil {
-			//			return err
-			//		}
+	for _, ae := range event.AuthEventIDs() {
+		authEvent, ok := eventsByID[ae]
+		if !ok {
+			return MissingAuthEventError{ae, event.EventID()}
 		}
-		return nil
-	}
-	if err := addAuthEvents(&event); err != nil {
-		return err
+		if err := authEvents.AddEvent(authEvent); err != nil {
+			return err
+		}
 	}
 
 	if err := Allowed(event, &authEvents); err != nil {
