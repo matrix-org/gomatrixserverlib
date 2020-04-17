@@ -216,9 +216,10 @@ func VerifyHTTPRequest(
 	}
 
 	results, err := keys.VerifyJSONs(req.Context(), []VerifyJSONRequest{{
-		ServerName: request.Origin(),
-		AtTS:       AsTimestamp(now),
-		Message:    toVerify,
+		ServerName:             request.Origin(),
+		AtTS:                   AsTimestamp(now),
+		Message:                toVerify,
+		StrictValidityChecking: true,
 	}})
 	if err != nil {
 		message := "Error authenticating request"
