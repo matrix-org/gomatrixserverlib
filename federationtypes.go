@@ -432,13 +432,6 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	eventsByID := map[string]*Event{}
 	authEvents := NewAuthEvents(nil)
 
-	for i, event := range ReverseTopologicalOrdering(r.AuthEvents) {
-		eventsByID[event.EventID()] = &r.AuthEvents[i]
-		if err := authEvents.AddEvent(&r.AuthEvents[i]); err != nil {
-			return err
-		}
-	}
-
 	for i, event := range ReverseTopologicalOrdering(r.StateEvents) {
 		eventsByID[event.EventID()] = &r.StateEvents[i]
 		if err := authEvents.AddEvent(&r.StateEvents[i]); err != nil {
