@@ -429,17 +429,25 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 		return err
 	}
 
-	stateEventsByID := map[string]*Event{}
+	eventsByID := map[string]*Event{}
 	authEvents := NewAuthEvents(nil)
+
 	for i, event := range r.StateEvents {
-		stateEventsByID[event.EventID()] = &r.StateEvents[i]
+		eventsByID[event.EventID()] = &r.StateEvents[i]
 		if err := authEvents.AddEvent(&r.StateEvents[i]); err != nil {
 			return err
 		}
 	}
 
+	for i, event := range r.AuthEvents {
+		eventsByID[event.EventID()] = &r.AuthEvents[i]
+		if err := authEvents.AddEvent(&r.AuthEvents[i]); err != nil {
+			return err
+		}
+	}
+
 	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, stateEventsByID); err != nil {
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID); err != nil {
 		return err
 	}
 
