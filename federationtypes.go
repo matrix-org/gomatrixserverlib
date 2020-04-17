@@ -429,28 +429,30 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 		return err
 	}
 
-	eventsByID := map[string]*Event{}
-	authEvents := NewAuthEvents(nil)
+	authEventsByID := map[string]*Event{}
+	stateEvents := NewAuthEvents(nil)
 
 	for i, event := range r.StateEvents {
-		eventsByID[event.EventID()] = &r.StateEvents[i]
-		if err := authEvents.AddEvent(&r.StateEvents[i]); err != nil {
+		authEventsByID[event.EventID()] = &r.StateEvents[i]
+	}
+
+	for i := range r.StateEvents {
+		if err := stateEvents.AddEvent(&r.StateEvents[i]); err != nil {
 			return err
 		}
 	}
 
 	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, eventsByID); err != nil {
+	if err := checkAllowedByAuthEvents(joinEvent, authEventsByID); err != nil {
 		return err
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &authEvents); err != nil {
+	if err := Allowed(joinEvent, &stateEvents); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
 			joinEvent.EventID(), err.Error(),
 		)
-
 	}
 
 	return nil
