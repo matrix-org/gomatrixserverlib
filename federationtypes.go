@@ -495,9 +495,9 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
 			if err := authEvents.AddEvent(authEvent); err != nil {
 				return err
 			}
-			if err := addAuthEvents(authEvent); err != nil {
-				return err
-			}
+			//		if err := addAuthEvents(authEvent); err != nil {
+			//			return err
+			//		}
 		}
 		return nil
 	}
