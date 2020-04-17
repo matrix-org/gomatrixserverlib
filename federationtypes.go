@@ -491,15 +491,27 @@ type RespProfile struct {
 
 func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
 	authEvents := NewAuthEvents(nil)
-	for _, authRef := range event.AuthEvents() {
-		authEvent := eventsByID[authRef.EventID]
-		if authEvent == nil {
-			return MissingAuthEventError{authRef.EventID, event.EventID()}
+
+	var addAuthEvents func(e *Event) error
+	addAuthEvents = func(e *Event) error {
+		for _, ae := range e.AuthEventIDs() {
+			authEvent, ok := eventsByID[ae]
+			if !ok {
+				return MissingAuthEventError{ae, event.EventID()}
+			}
+			if err := authEvents.AddEvent(authEvent); err != nil {
+				return err
+			}
+			if err := addAuthEvents(authEvent); err != nil {
+				return err
+			}
 		}
-		if err := authEvents.AddEvent(authEvent); err != nil {
-			return err
-		}
+		return nil
 	}
+	if err := addAuthEvents(&event); err != nil {
+		return err
+	}
+
 	if err := Allowed(event, &authEvents); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
