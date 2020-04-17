@@ -42,13 +42,13 @@ type PublicKeyLookupResult struct {
 // WasValidAt checks if this signing key is valid for an event signed at the
 // given timestamp.
 func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp) bool {
-	if r.ExpiredTS != PublicKeyNotExpired && atTs >= r.ExpiredTS {
-		return false
+	if r.ValidUntilTS != PublicKeyNotValid && atTs < r.ValidUntilTS {
+		return true
 	}
-	if r.ValidUntilTS == PublicKeyNotValid || atTs > r.ValidUntilTS {
-		return false
+	if r.ExpiredTS != PublicKeyNotExpired && atTs < r.ExpiredTS {
+		return true
 	}
-	return true
+	return false
 }
 
 // A KeyFetcher is a way of fetching public keys in bulk.
