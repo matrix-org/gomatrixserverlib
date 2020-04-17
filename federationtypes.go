@@ -432,6 +432,10 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	authEventsByID := map[string]*Event{}
 	stateEvents := NewAuthEvents(nil)
 
+	for i, event := range r.AuthEvents {
+		authEventsByID[event.EventID()] = &r.AuthEvents[i]
+	}
+
 	for i, event := range r.StateEvents {
 		authEventsByID[event.EventID()] = &r.StateEvents[i]
 	}
