@@ -42,7 +42,7 @@ type PublicKeyLookupResult struct {
 // WasValidAt checks if this signing key is valid for an event signed at the
 // given timestamp.
 func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp) bool {
-	if r.ValidUntilTS != PublicKeyNotValid && atTs < r.ValidUntilTS {
+	if r.ValidUntilTS != PublicKeyNotValid && atTs <= r.ValidUntilTS {
 		return true
 	}
 	if r.ExpiredTS != PublicKeyNotExpired && atTs < r.ExpiredTS {
