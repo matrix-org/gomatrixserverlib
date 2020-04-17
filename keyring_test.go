@@ -101,6 +101,40 @@ func TestVerifyJSONsSuccess(t *testing.T) {
 	}
 }
 
+func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
+	// Check that trying to verify the server key JSON works.
+	k := KeyRing{nil, &testKeyDatabase{}}
+	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
+		ServerName:             "localhost:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142433964,
+		StrictValidityChecking: true,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) == 1 && results[0].Error == nil {
+		t.Fatal("VerifyJSON() should have failed but didn't")
+	}
+}
+
+func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
+	// Check that trying to verify the server key JSON works.
+	k := KeyRing{nil, &testKeyDatabase{}}
+	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
+		ServerName:             "localhost:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142433964,
+		StrictValidityChecking: false,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Error != nil {
+		t.Fatalf("VerifyJSON(): Wanted [{Error: nil}] got %#v", results)
+	}
+}
+
 func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 	// Check that trying to verify JSON for an unknown server fails.
 	k := KeyRing{nil, &testKeyDatabase{}}
