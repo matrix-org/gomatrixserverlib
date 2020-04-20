@@ -204,9 +204,14 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
 			Info("Got keys from fetcher")
 
+		// For the keys that we successfully fetched, don't try again
+		for resp := range keysFetched {
+			delete(keyRequests, resp)
+		}
+
+		// If we didn't receive back the number of keys we expected,
+		// give the remaining keys another go with the next key fetcher
 		if len(keyRequests) != len(keysFetched) {
-			// We didn't receive back the number of keys we expected so
-			// give it another go with the next key fetcher
 			continue
 		}
 
