@@ -177,6 +177,8 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		return results, nil
 	}
 
+	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+
 	for _, fetcher := range k.KeyFetchers {
 		// TODO: we should distinguish here between expired keys, and those we don't have.
 		// If the key has expired, it's no use re-requesting it.
@@ -194,19 +196,19 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		fetcherLogger.WithField("num_key_requests", len(keyRequests)).
 			Info("Requesting keys from fetcher")
 
-		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
+		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
 			fetcherLogger.WithError(err).WithField("fetcher", fetcher.FetcherName()).
 				Warn("Failed to request keys from fetcher")
 			continue
 		}
 
-		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
+		fetcherLogger.WithField("num_keys_fetched", len(fetched)).
 			Info("Got keys from fetcher")
 
-		// For the keys that we successfully fetched, don't try again
-		for resp := range keysFetched {
-			delete(keyRequests, resp)
+		for req, res := range fetched {
+			keysFetched[req] = res
+			delete(keyRequests, req)
 		}
 
 		// If we still have outstanding requests that weren't satisfied
