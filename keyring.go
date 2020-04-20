@@ -196,11 +196,19 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
-			return nil, err
+			fetcherLogger.WithError(err).WithField("fetcher", fetcher.FetcherName()).
+				Warn("Failed to request keys from fetcher")
+			continue
 		}
 
 		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
 			Info("Got keys from fetcher")
+
+		if len(keyRequests) != len(keysFetched) {
+			// We didn't receive back the number of keys we expected so
+			// give it another go with the next key fetcher
+			continue
+		}
 
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
