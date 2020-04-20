@@ -430,7 +430,7 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	}
 
 	eventsByID := map[string]*Event{}
-	stateEvents := NewAuthEvents(nil)
+	authEventProvider := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references
@@ -449,7 +449,7 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
 	for i := range r.StateEvents {
-		if err := stateEvents.AddEvent(&r.StateEvents[i]); err != nil {
+		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
 			return err
 		}
 	}
@@ -460,7 +460,7 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &stateEvents); err != nil {
+	if err := Allowed(joinEvent, &authEventProvider); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
 			joinEvent.EventID(), err.Error(),
