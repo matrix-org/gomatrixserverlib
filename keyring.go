@@ -209,9 +209,9 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			delete(keyRequests, resp)
 		}
 
-		// If we didn't receive back the number of keys we expected,
-		// give the remaining keys another go with the next key fetcher
-		if len(keyRequests) != len(keysFetched) {
+		// If we still have outstanding requests that weren't satisfied
+		// then try them with the next key fetcher
+		if len(keyRequests) > 0 {
 			continue
 		}
 
