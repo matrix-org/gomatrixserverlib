@@ -238,7 +238,67 @@ func (r RespState) Events() ([]Event, error) {
 	if len(r.AuthEvents) == 0 {
 		r.AuthEvents = []Event{}
 	}
-	return ReverseTopologicalOrdering(append(r.StateEvents, r.AuthEvents...)), nil
+	eventsByID := map[string]*Event{}
+	// Collect a map of event reference to event
+	for i := range r.StateEvents {
+		eventsByID[r.StateEvents[i].EventID()] = &r.StateEvents[i]
+	}
+	for i := range r.AuthEvents {
+		eventsByID[r.AuthEvents[i].EventID()] = &r.AuthEvents[i]
+	}
+
+	queued := map[*Event]bool{}
+	outputted := map[*Event]bool{}
+	var result []Event
+	for _, event := range eventsByID {
+		if outputted[event] {
+			// If we've already written the event then we can skip it.
+			continue
+		}
+
+		// The code below does a depth first scan through the auth events
+		// looking for events that can be appended to the output.
+
+		// We use an explicit stack rather than using recursion so
+		// that we can check we aren't creating cycles.
+		stack := []*Event{event}
+
+	LoopProcessTopOfStack:
+		for len(stack) > 0 {
+			top := stack[len(stack)-1]
+			// Check if we can output the top of the stack.
+			// We can output it if we have outputted all of its auth_events.
+			for _, ref := range top.AuthEvents() {
+				authEvent := eventsByID[ref.EventID]
+				if authEvent == nil {
+					return nil, MissingAuthEventError{ref.EventID, top.EventID()}
+				}
+				if outputted[authEvent] {
+					continue
+				}
+				if queued[authEvent] {
+					return nil, fmt.Errorf(
+						"gomatrixserverlib: auth event cycle for ID %q",
+						ref.EventID,
+					)
+				}
+				// If we haven't visited the auth event yet then we need to
+				// process it before processing the event currently on top of
+				// the stack.
+				stack = append(stack, authEvent)
+				queued[authEvent] = true
+				continue LoopProcessTopOfStack
+			}
+			// If we've processed all the auth events for the event on top of
+			// the stack then we can append it to the result and try processing
+			// the item below it in the stack.
+			result = append(result, *top)
+			outputted[top] = true
+			stack = stack[:len(stack)-1]
+		}
+	}
+
+	return result, nil
 }
 
 // Check that a response to /state is valid.
