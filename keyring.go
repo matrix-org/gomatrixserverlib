@@ -163,6 +163,15 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: we should distinguish here between expired keys, and those we don't have.
+	// If the key has expired, it's no use re-requesting it.
+	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+	for req, res := range keysFromDatabase {
+		keysFetched[req] = res
+		delete(keyRequests, req)
+	}
+
 	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
 
 	// If we can verify using the keys from the database, don't make a federation call.
@@ -177,17 +186,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		return results, nil
 	}
 
-	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
-
 	for _, fetcher := range k.KeyFetchers {
-		// TODO: we should distinguish here between expired keys, and those we don't have.
-		// If the key has expired, it's no use re-requesting it.
-		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
-		if len(keyRequests) == 0 {
-			// There aren't any keys to fetch so we can stop here.
-			// This means that we've checked every JSON object we can check.
-			return results, nil
-		}
 		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
 
 		// TODO: Coalesce in-flight requests for the same keys.
@@ -214,6 +213,8 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// If we still have outstanding requests that weren't satisfied
 		// then try them with the next key fetcher
 		if len(keyRequests) > 0 {
+			fetcherLogger.WithField("num_keys_remaining", len(keyRequests)).
+				Info("There are unfetched keys remaining")
 			continue
 		}
 
