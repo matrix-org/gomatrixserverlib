@@ -103,7 +103,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 	sortedGot := sortByteSlices(got)
 	sort.Sort(sortedGot)
 	for i := range sortedWant {
-		if bytes.Compare(sortedGot[i], sortedWant[i]) != 0 {
+		if !bytes.Equal(sortedGot[i], sortedWant[i]) {
 			t.Errorf("RequestBackfill got:\n%s\nwant:\n%s", string(sortedGot[i]), string(sortedWant[i]))
 		}
 	}

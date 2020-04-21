@@ -108,6 +108,7 @@ func verifiedEventsFromTransaction(ctx context.Context, txn *Transaction, ver Ro
 	return headered, nil
 }
 
+/*
 // BackfillResponder contains the necessary functions to handle backfill requests.
 type backfillResponder interface {
 	// TODO, unexported for now.
@@ -119,3 +120,4 @@ type backfillResponder interface {
 func receiveBackfill(b backfillResponder, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 	return nil, nil // TODO, unexported for now.
 }
+*/
