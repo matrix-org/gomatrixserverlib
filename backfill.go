@@ -54,6 +54,9 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 		if len(result) >= limit {
 			break
 		}
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("gomatrixserverlib: RequestBackfill context cancelled %w", ctx.Err())
+		}
 		// fetch some events, and try a different server if it fails
 		txn, err := b.Backfill(ctx, s, roomID, fromEventIDs, limit)
 		if err != nil {

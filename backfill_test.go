@@ -46,6 +46,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 	testRoomID := "!roomid:baba.is.you"
 	serverA := ServerName("wall.is.stop")
 	serverB := ServerName("baba.is.you")
+	// currently we have no way of checking that the events returned link back to the from event, so anything works here.
 	testFromEventIDs := []string{"foo"}
 	testLimit := 3
 	// To regenerate from Dendrite: $ ./create-room-events -Format Event -server-name baba.is.you
