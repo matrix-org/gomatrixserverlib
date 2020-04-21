@@ -43,7 +43,7 @@ func (t *testNopJSONVerifier) VerifyJSONs(ctx context.Context, requests []Verify
 // Together, the events from server A and server B exceed the `limit` criteria which then gets returned to the caller.
 func TestRequestBackfillMultipleServers(t *testing.T) {
 	ctx := context.Background()
-	testRoomID := "!keke:baba.is.you"
+	testRoomID := "!roomid:baba.is.you"
 	serverA := ServerName("wall.is.stop")
 	serverB := ServerName("baba.is.you")
 	testFromEventIDs := []string{"foo"}
