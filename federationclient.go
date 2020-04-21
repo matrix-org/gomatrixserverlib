@@ -310,6 +310,17 @@ func (ac *FederationClient) GetEvent(
 	return
 }
 
+// GetEventAuth gets an event auth chain from a remote server.
+// See https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-event-auth-roomid-eventid
+func (ac *FederationClient) GetEventAuth(
+	ctx context.Context, s ServerName, roomID, eventID string,
+) (res RespEventAuth, err error) {
+	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // Backfill asks a homeserver for events early enough for them to not be in the
 // local database.
 // See https://matrix.org/docs/spec/server_server/unstable.html#get-matrix-federation-v1-backfill-roomid
