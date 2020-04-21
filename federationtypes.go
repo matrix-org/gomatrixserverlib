@@ -201,6 +201,28 @@ type respStateFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
+	r.Events = []Event{}
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		Events []json.RawMessage `json:"events"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	for _, raw := range intermediate.Events {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.Events = append(r.Events, event)
+	}
+	return nil
+}
+
 // MarshalJSON implements json.Marshaller
 func (r RespState) MarshalJSON() ([]byte, error) {
 	if len(r.StateEvents) == 0 {
