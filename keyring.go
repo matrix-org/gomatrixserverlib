@@ -163,7 +163,15 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	if err != nil {
 		return nil, err
 	}
-	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
+
+	// TODO: we should distinguish here between expired keys, and those we don't have.
+	// If the key has expired, it's no use re-requesting it.
+	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+	for req, res := range keysFromDatabase {
+		keysFetched[req] = res
+	}
+
+	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 	// If we can verify using the keys from the database, don't make a federation call.
 	doFederationHit := false
@@ -178,14 +186,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 
 	for _, fetcher := range k.KeyFetchers {
-		// TODO: we should distinguish here between expired keys, and those we don't have.
-		// If the key has expired, it's no use re-requesting it.
-		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
-		if len(keyRequests) == 0 {
-			// There aren't any keys to fetch so we can stop here.
-			// This means that we've checked every JSON object we can check.
-			return results, nil
-		}
 		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
 
 		// TODO: Coalesce in-flight requests for the same keys.
@@ -194,20 +194,36 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		fetcherLogger.WithField("num_key_requests", len(keyRequests)).
 			Info("Requesting keys from fetcher")
 
-		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
+		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
-			return nil, err
+			fetcherLogger.WithError(err).WithField("fetcher", fetcher.FetcherName()).
+				Warn("Failed to request keys from fetcher")
+			continue
 		}
 
-		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
+		fetcherLogger.WithField("num_keys_fetched", len(fetched)).
 			Info("Got keys from fetcher")
 
-		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
-
-		// Add the keys to the database so that we won't need to fetch them again.
-		if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
-			return nil, err
+		// Hold the new keys and remove them from the request queue.
+		for req, res := range fetched {
+			keysFetched[req] = res
+			delete(keyRequests, req)
 		}
+
+		// If we have all of the keys that we need now then we can
+		// break the loop.
+		if len(keyRequests) == 0 {
+			break
+		}
+	}
+
+	// Now that we've fetched all of the keys we need, try to check
+	// if the requests are valid.
+	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+
+	// Add the keys to the database so that we won't need to fetch them again.
+	if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
+		return nil, err
 	}
 
 	return results, nil

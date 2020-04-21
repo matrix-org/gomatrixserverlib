@@ -429,27 +429,42 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 		return err
 	}
 
-	stateEventsByID := map[string]*Event{}
-	authEvents := NewAuthEvents(nil)
+	eventsByID := map[string]*Event{}
+	authEventProvider := NewAuthEvents(nil)
+
+	// Since checkAllowedByAuthEvents needs to be able to look up any of the
+	// auth events by ID only, we will build a map which contains references
+	// to all of the auth events.
+	for i, event := range r.AuthEvents {
+		eventsByID[event.EventID()] = &r.AuthEvents[i]
+	}
+
+	// Then we add the current state events too, since our newly formed
+	// membership event will likely refer to these as auth events too.
 	for i, event := range r.StateEvents {
-		stateEventsByID[event.EventID()] = &r.StateEvents[i]
-		if err := authEvents.AddEvent(&r.StateEvents[i]); err != nil {
+		eventsByID[event.EventID()] = &r.StateEvents[i]
+	}
+
+	// Add all of the current state events to an auth provider, allowing us
+	// to check specifically that the join event is allowed by the supplied
+	// state (and not by former auth events).
+	for i := range r.StateEvents {
+		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
 			return err
 		}
 	}
 
 	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, stateEventsByID); err != nil {
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID); err != nil {
 		return err
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &authEvents); err != nil {
+	if err := Allowed(joinEvent, &authEventProvider); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
 			joinEvent.EventID(), err.Error(),
 		)
-
 	}
 
 	return nil
@@ -483,15 +498,17 @@ type RespProfile struct {
 
 func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
 	authEvents := NewAuthEvents(nil)
-	for _, authRef := range event.AuthEvents() {
-		authEvent := eventsByID[authRef.EventID]
-		if authEvent == nil {
-			return MissingAuthEventError{authRef.EventID, event.EventID()}
+
+	for _, ae := range event.AuthEventIDs() {
+		authEvent, ok := eventsByID[ae]
+		if !ok {
+			return MissingAuthEventError{ae, event.EventID()}
 		}
 		if err := authEvents.AddEvent(authEvent); err != nil {
 			return err
 		}
 	}
+
 	if err := Allowed(event, &authEvents); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
