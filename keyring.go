@@ -169,7 +169,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	for req, res := range keysFromDatabase {
 		keysFetched[req] = res
-		delete(keyRequests, req)
 	}
 
 	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
@@ -211,18 +210,16 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			delete(keyRequests, req)
 		}
 
-		// If we still have outstanding requests that weren't satisfied
-		// then try them with the next key fetcher
-		if len(keyRequests) > 0 {
-			fetcherLogger.WithField("num_keys_remaining", len(keyRequests)).
-				Info("There are unfetched keys remaining")
-			continue
+		// If we have all of the keys that we need now then we can
+		// break the loop.
+		if len(keyRequests) == 0 {
+			break
 		}
-
-		// Now that we've fetched all of the keys we need, try to check
-		// if the requests are valid.
-		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 	}
+
+	// Now that we've fetched all of the keys we need, try to check
+	// if the requests are valid.
+	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 	// Add the keys to the database so that we won't need to fetch them again.
 	if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
