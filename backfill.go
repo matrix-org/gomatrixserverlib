@@ -24,12 +24,19 @@ type BackfillRequester interface {
 }
 
 // RequestBackfill implements the server logic for making backfill requests to other servers.
-// This handles server selection, fetching up to the request limit and validating the received events.
+// This handles server selection, fetching up to the request limit and verifying the received events.
 // Event validation also includes authorisation checks, which may require additional state to be fetched.
 //
-// The returned events are safe to be inserted into a database for later retrieval. Returns an error if
-// it was impossible to backfill any events. It's possible for the number of returned events to be less than
-// the limit, even if there exists more events.
+// The returned events are safe to be inserted into a database for later retrieval. It's possible for the
+// number of returned events to be less than the limit, even if there exists more events. It's also possible
+// for the number of returned events to be greater than the limit, if fromEventIDs > 1 and we need to ask
+// multiple servers. We don't drop events greater than the limit because we've already done all the work to
+// verify them, so it's up to the caller to decide what to do with them.
+//
+// TODO: We should be able to make some guarantees for the caller about the returned events position in the DAG,
+// but to verify it we need to know the prev_events of fromEventIDs.
+//
+// TODO: When does it make sense to return errors?
 func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerifier,
 	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]HeaderedEvent, error) {
 
@@ -102,12 +109,13 @@ func verifiedEventsFromTransaction(ctx context.Context, txn *Transaction, ver Ro
 }
 
 // BackfillResponder contains the necessary functions to handle backfill requests.
-type BackfillResponder interface {
+type backfillResponder interface {
+	// TODO, unexported for now.
 }
 
 // ReceiveBackfill implements the server logic for processing backfill requests sent by a server.
 // This handles event selection via breadth-first search, as well as history visibility rules depending
 // on the state of the room at that point in time.
-func ReceiveBackfill(b BackfillResponder, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
-	return nil, nil // TODO
+func receiveBackfill(b backfillResponder, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+	return nil, nil // TODO, unexported for now.
 }
