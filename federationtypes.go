@@ -135,6 +135,26 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// MissingEvents represents a set of missing events.
+type MissingEvents struct {
+	// The maximum number of events to retrieve.
+	Limit int `json:"limit"`
+	// The minimum depth of events to retrieve.
+	MinDepth int `json:"min_depth"`
+	// The latest event IDs that the sender already has.
+	EarliestEvents []string `json:"earliest_events"`
+	// The event IDs to retrieve the previous events for.
+	LatestEvents []string `json:"latest_events"`
+}
+
+// A RespMissingEvents is the content of a response to GET /_matrix/federation/v1/get_missing_events/{roomID}
+type RespMissingEvents struct {
+	// The room version that dictates the format of the missing events.
+	roomVersion RoomVersion
+	// The returned set of missing events.
+	Events []Event `json:"events"`
+}
+
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
 type RespPublicRooms struct {
 	// A paginated chunk of public rooms.
