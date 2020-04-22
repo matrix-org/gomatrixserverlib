@@ -11,8 +11,9 @@ import (
 )
 
 type testBackfillRequester struct {
-	servers    []ServerName
-	backfillFn func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
+	servers             []ServerName
+	backfillFn          func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
+	authEventsToProvide [][]byte
 }
 
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
@@ -26,6 +27,22 @@ func (t *testBackfillRequester) StateIDs(ctx context.Context, server ServerName,
 }
 func (t *testBackfillRequester) EventAuth(ctx context.Context, server ServerName, roomID, eventID string) (*RespEventAuth, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []Event, err error) {
+	eventMap := make(map[string]Event)
+	for _, eventBytes := range t.authEventsToProvide {
+		ev, err := NewEventFromTrustedJSON(eventBytes, false, RoomVersionV1)
+		if err != nil {
+			panic("Failed to load event: " + err.Error())
+		}
+		eventMap[ev.EventID()] = ev
+	}
+	for _, id := range eventIDs {
+		if ev, ok := eventMap[id]; ok {
+			result = append(result, ev)
+		}
+	}
+	return
 }
 
 type testNopJSONVerifier struct {
@@ -60,7 +77,8 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 	}
 	keyRing := &testNopJSONVerifier{}
 	tbr := &testBackfillRequester{
-		servers: []ServerName{serverA, serverB},
+		servers:             []ServerName{serverA, serverB},
+		authEventsToProvide: testBackfillEvents,
 		backfillFn: func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)

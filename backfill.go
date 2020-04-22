@@ -15,6 +15,8 @@ type BackfillRequester interface {
 	// Backfill performs a backfill request to the given server.
 	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-backfill-roomid
 	Backfill(ctx context.Context, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
+
+	ProvideEvents(roomVer RoomVersion, eventIDs []string) ([]Event, error)
 	// StateIDs performs a state IDs request to the given server.
 	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-state-ids-roomid
 	StateIDs(ctx context.Context, server ServerName, roomID, eventID string) (*RespStateIDs, error)
@@ -67,6 +69,9 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 			continue // try the next server
 		}
 		for _, h := range headered {
+			if err := VerifyEventAuthChain(ctx, h, b.ProvideEvents); err != nil {
+				continue // skip event
+			}
 			if haveEventIDs[h.EventID()] {
 				continue // we got this event from a different server
 			}
@@ -90,6 +95,7 @@ func verifiedEventsFromTransaction(ctx context.Context, txn *Transaction, ver Ro
 		}
 		events = append(events, event)
 	}
+	// verify signatures
 	failures, err := VerifyEventSignatures(ctx, events, keyRing)
 	if err != nil {
 		return nil, err
@@ -103,10 +109,9 @@ func verifiedEventsFromTransaction(ctx context.Context, txn *Transaction, ver Ro
 			// skip over bad events, we'll fetch them from somewhere else
 			continue
 		}
+
 		headered = append(headered, events[i].Headered(ver))
 	}
-
-	// TODO: check auth and recurse through auth_events, calling /state_ids for missing events
 
 	return headered, nil
 }
