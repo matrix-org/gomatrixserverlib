@@ -135,7 +135,8 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
-// MissingEvents represents a set of missing events.
+// MissingEvents represents a request for missing events.
+// https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
 type MissingEvents struct {
 	// The maximum number of events to retrieve.
 	Limit int `json:"limit"`
