@@ -17,12 +17,6 @@ type BackfillRequester interface {
 	Backfill(ctx context.Context, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
 
 	ProvideEvents(roomVer RoomVersion, eventIDs []string) ([]Event, error)
-	// StateIDs performs a state IDs request to the given server.
-	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-state-ids-roomid
-	StateIDs(ctx context.Context, server ServerName, roomID, eventID string) (*RespStateIDs, error)
-	// EventAuth performs an event auth request to the given server.
-	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-event-auth-roomid-eventid
-	EventAuth(ctx context.Context, server ServerName, roomID, eventID string) (*RespEventAuth, error)
 }
 
 // RequestBackfill implements the server logic for making backfill requests to other servers.
@@ -47,6 +41,7 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 	}
 	haveEventIDs := make(map[string]bool)
 	var result []HeaderedEvent
+	loader := NewEventsLoader(ver, keyRing, b.ProvideEvents)
 	// pick a server to backfill from
 	// TODO: use other event IDs and make a set out of all the returned servers?
 	servers := b.ServersAtEvent(ctx, roomID, fromEventIDs[0])
@@ -64,56 +59,23 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 		if err != nil {
 			continue // try the next server
 		}
-		headered, err := verifiedEventsFromTransaction(ctx, txn, ver, keyRing)
+		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs)
 		if err != nil {
 			continue // try the next server
 		}
-		for _, h := range headered {
-			if err := VerifyEventAuthChain(ctx, h, b.ProvideEvents); err != nil {
-				continue // skip event
+		for _, res := range loadResults {
+			if res.Error != nil {
+				continue // skip this event
 			}
-			if haveEventIDs[h.EventID()] {
+			if haveEventIDs[res.Event.EventID()] {
 				continue // we got this event from a different server
 			}
-			haveEventIDs[h.EventID()] = true
-			result = append(result, h)
+			haveEventIDs[res.Event.EventID()] = true
+			result = append(result, *res.Event)
 		}
 	}
 
 	return result, nil
-}
-
-// verifiedEventsFromTransaction returns only the verified events from the provided transaction, dropping the rest.
-func verifiedEventsFromTransaction(ctx context.Context, txn *Transaction, ver RoomVersion, keyRing JSONVerifier) ([]HeaderedEvent, error) {
-	// validate the content hashes
-	var events []Event
-	for _, p := range txn.PDUs {
-		event, err := NewEventFromUntrustedJSON(p, ver)
-		if err != nil {
-			// skip over bad events
-			continue
-		}
-		events = append(events, event)
-	}
-	// verify signatures
-	failures, err := VerifyEventSignatures(ctx, events, keyRing)
-	if err != nil {
-		return nil, err
-	}
-	if len(failures) != len(events) {
-		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
-	}
-	var headered []HeaderedEvent
-	for i := range events {
-		if eventErr := failures[i]; eventErr != nil {
-			// skip over bad events, we'll fetch them from somewhere else
-			continue
-		}
-
-		headered = append(headered, events[i].Headered(ver))
-	}
-
-	return headered, nil
 }
 
 /*

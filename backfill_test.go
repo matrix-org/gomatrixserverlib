@@ -22,12 +22,6 @@ func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, even
 func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 	return t.backfillFn(server, roomID, fromEventIDs, limit)
 }
-func (t *testBackfillRequester) StateIDs(ctx context.Context, server ServerName, roomID, eventID string) (*RespStateIDs, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (t *testBackfillRequester) EventAuth(ctx context.Context, server ServerName, roomID, eventID string) (*RespEventAuth, error) {
-	return nil, fmt.Errorf("not implemented")
-}
 func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []Event, err error) {
 	eventMap := make(map[string]Event)
 	for _, eventBytes := range t.authEventsToProvide {
