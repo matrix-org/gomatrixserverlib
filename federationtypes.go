@@ -135,6 +135,27 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// MissingEvents represents a request for missing events.
+// https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
+type MissingEvents struct {
+	// The maximum number of events to retrieve.
+	Limit int `json:"limit"`
+	// The minimum depth of events to retrieve.
+	MinDepth int `json:"min_depth"`
+	// The latest event IDs that the sender already has.
+	EarliestEvents []string `json:"earliest_events"`
+	// The event IDs to retrieve the previous events for.
+	LatestEvents []string `json:"latest_events"`
+}
+
+// A RespMissingEvents is the content of a response to GET /_matrix/federation/v1/get_missing_events/{roomID}
+type RespMissingEvents struct {
+	// The room version that dictates the format of the missing events.
+	roomVersion RoomVersion
+	// The returned set of missing events.
+	Events []Event `json:"events"`
+}
+
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
 type RespPublicRooms struct {
 	// A paginated chunk of public rooms.
@@ -179,6 +200,28 @@ type RespEventAuth struct {
 type respStateFields struct {
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
+	r.Events = []Event{}
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		Events []json.RawMessage `json:"events"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	for _, raw := range intermediate.Events {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.Events = append(r.Events, event)
+	}
+	return nil
 }
 
 // MarshalJSON implements json.Marshaller
