@@ -236,6 +236,24 @@ func (ac *FederationClient) LookupStateIDs(
 	return
 }
 
+// LookupMissingEvents asks a remote server for missing events within a
+// given bracket.
+// https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
+func (ac *FederationClient) LookupMissingEvents(
+	ctx context.Context, s ServerName, roomID string,
+	missing MissingEvents, roomVersion RoomVersion,
+) (res RespMissingEvents, err error) {
+	res.roomVersion = roomVersion
+	path := federationPathPrefixV1 + "/get_missing_events/" +
+		url.PathEscape(roomID)
+	req := NewFederationRequest("POST", s, path)
+	if err = req.SetContent(missing); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // LookupRoomAlias looks up a room alias hosted on the remote server.
 // The domain part of the roomAlias must match the name of the server it is
 // being looked up on.
