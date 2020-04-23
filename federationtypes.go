@@ -600,5 +600,5 @@ type respInviteFields struct {
 // RespInvite is the content of a response to PUT /_matrix/federation/v2/invite/{roomID}/{eventID}
 type RespInviteV2 struct {
 	// The invite event signed by recipient server.
-	Event Event
+	Event Event `json:"event"`
 }
