@@ -596,3 +596,9 @@ func (r *RespInvite) UnmarshalJSON(data []byte) error {
 type respInviteFields struct {
 	Event Event `json:"event"`
 }
+
+// RespInvite is the content of a response to PUT /_matrix/federation/v2/invite/{roomID}/{eventID}
+type RespInviteV2 struct {
+	// The invite event signed by recipient server.
+	Event Event `json:"event"`
+}
