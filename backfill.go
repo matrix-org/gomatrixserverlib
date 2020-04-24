@@ -7,6 +7,7 @@ import (
 
 // BackfillRequester contains the necessary functions to perform backfill requests from one server to another.
 type BackfillRequester interface {
+	StateProvider
 	// ServersAtEvent is called when trying to determine which server to request from.
 	// It returns a list of servers which can be queried for backfill requests. These servers
 	// will be servers that are in the room already. The entries at the beginning are preferred servers
@@ -41,7 +42,7 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 	}
 	haveEventIDs := make(map[string]bool)
 	var result []HeaderedEvent
-	loader := NewEventsLoader(ver, keyRing, b.ProvideEvents)
+	loader := NewEventsLoader(ver, keyRing, b, b.ProvideEvents, false)
 	// pick a server to backfill from
 	// TODO: use other event IDs and make a set out of all the returned servers?
 	servers := b.ServersAtEvent(ctx, roomID, fromEventIDs[0])

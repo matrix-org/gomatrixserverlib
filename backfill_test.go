@@ -14,8 +14,15 @@ type testBackfillRequester struct {
 	servers             []ServerName
 	backfillFn          func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
 	authEventsToProvide [][]byte
+	stateIDsAtEvent     map[string][]string
 }
 
+func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
+	return t.stateIDsAtEvent[atEventID], nil
+}
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
+	return nil, fmt.Errorf("not implemented")
+}
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
 	return t.servers
 }
@@ -73,6 +80,12 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 	tbr := &testBackfillRequester{
 		servers:             []ServerName{serverA, serverB},
 		authEventsToProvide: testBackfillEvents,
+		stateIDsAtEvent: map[string][]string{
+			"$4Kp0G1yWZ6tNpeI7:baba.is.you": {"$fnwGrQEpiOIUoDU2:baba.is.you", "$WCraVpPZe5TtHAqs:baba.is.you"},
+			"$xOJZshi3NeKKJiCf:baba.is.you": {"$fnwGrQEpiOIUoDU2:baba.is.you", "$WCraVpPZe5TtHAqs:baba.is.you"},
+			"$fnwGrQEpiOIUoDU2:baba.is.you": {"$WCraVpPZe5TtHAqs:baba.is.you"},
+			"$WCraVpPZe5TtHAqs:baba.is.you": nil,
+		},
 		backfillFn: func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)

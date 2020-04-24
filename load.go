@@ -15,17 +15,24 @@ type EventLoadResult struct {
 
 // EventsLoader loads untrusted events and verifies them.
 type EventsLoader struct {
-	ver      RoomVersion
-	keyRing  JSONVerifier
-	provider AuthChainProvider
+	roomVer       RoomVersion
+	keyRing       JSONVerifier
+	provider      AuthChainProvider
+	stateProvider StateProvider
+	// Set to true to do:
+	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
+	// This is only desirable for live events, not backfilled events hence the flag.
+	performSoftFailCheck bool
 }
 
 // NewEventsLoader returns a new events loader
-func NewEventsLoader(ver RoomVersion, keyRing JSONVerifier, provider AuthChainProvider) *EventsLoader {
+func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
 	return &EventsLoader{
-		ver:      ver,
-		keyRing:  keyRing,
-		provider: provider,
+		roomVer:              roomVer,
+		keyRing:              keyRing,
+		provider:             provider,
+		stateProvider:        stateProvider,
+		performSoftFailCheck: performSoftFailCheck,
 	}
 }
 
@@ -39,7 +46,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
 	events := make([]Event, len(rawEvents))
 	for i, rawEv := range rawEvents {
-		event, err := NewEventFromUntrustedJSON(rawEv, l.ver)
+		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer)
 		if err != nil {
 			results[i] = EventLoadResult{
 				Error: err,
@@ -66,9 +73,19 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 				continue
 			}
 		}
-		h := events[i].Headered(l.ver)
+		h := events[i].Headered(l.roomVer)
 		// 4. Passes authorization rules based on the event's auth events, otherwise it is rejected.
 		if err := VerifyEventAuthChain(ctx, h, l.provider); err != nil {
+			if results[i].Error == nil { // could have failed earlier
+				results[i] = EventLoadResult{
+					Error: err,
+				}
+				continue
+			}
+		}
+
+		// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
+		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, h.EventID(), true); err != nil {
 			if results[i].Error == nil { // could have failed earlier
 				results[i] = EventLoadResult{
 					Error: err,
@@ -80,9 +97,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 			Event: &h,
 		}
 	}
-	return results, nil
 
-	// TODO:
-	// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
-	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
+	// TODO: performSoftFailCheck, needs forward extremity
+	return results, nil
 }
