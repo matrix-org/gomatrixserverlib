@@ -15,9 +15,10 @@ type EventLoadResult struct {
 
 // EventsLoader loads untrusted events and verifies them.
 type EventsLoader struct {
-	ver      RoomVersion
-	keyRing  JSONVerifier
-	provider AuthChainProvider
+	ver           RoomVersion
+	keyRing       JSONVerifier
+	provider      AuthChainProvider
+	stateProvider StateProvider
 	// Set to true to do:
 	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
 	// This is only desirable for live events, not backfilled events hence the flag.
@@ -25,11 +26,12 @@ type EventsLoader struct {
 }
 
 // NewEventsLoader returns a new events loader
-func NewEventsLoader(ver RoomVersion, keyRing JSONVerifier, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
+func NewEventsLoader(ver RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
 	return &EventsLoader{
 		ver:                  ver,
 		keyRing:              keyRing,
 		provider:             provider,
+		stateProvider:        stateProvider,
 		performSoftFailCheck: performSoftFailCheck,
 	}
 }
@@ -81,21 +83,21 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 				continue
 			}
 		}
-		/*
-			// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
-			if err := VerifyAuthRulesAtState(ctx, h, h.EventID()); err != nil {
-				if results[i].Error == nil { // could have failed earlier
-					results[i] = EventLoadResult{
-						Error: err,
-					}
-					continue
+
+		// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
+		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, h.EventID(), true); err != nil {
+			if results[i].Error == nil { // could have failed earlier
+				results[i] = EventLoadResult{
+					Error: err,
 				}
-			} */
+				continue
+			}
+		}
 		results[i] = EventLoadResult{
 			Event: &h,
 		}
 	}
 
-	// TODO: performSoftFailCheck
+	// TODO: performSoftFailCheck, needs forward extremity
 	return results, nil
 }

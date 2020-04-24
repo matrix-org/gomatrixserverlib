@@ -10,7 +10,7 @@ import (
 // StateProvider is capable of returning the room state at any point in time.
 type StateProvider interface {
 	// StateIDsAtEvent returns a list of state event IDs for the event ID provided, which represent the entire
-	// room state at that event. An empty `atEventID` means "the current room state".
+	// room state at that event.
 	StateIDsAtEvent(ctx context.Context, roomID, atEventID string) ([]string, error)
 	// StateAtEvent returns the state of the room at the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
@@ -58,7 +58,6 @@ func (p *FederatedStateProvider) StateAtEvent(ctx context.Context, roomVer RoomV
 }
 
 // VerifyAuthRulesAtState will check that the auth_events in the given event are valid at the state provided by another event.
-// Passing the empty string for `stateAtEvent` indicates "the current state".
 //
 // This implements Step 5 and 6 of https://matrix.org/docs/spec/server_server/latest#checks-performed-on-receipt-of-a-pdu
 // depending on what the value of `stateAtEvent` is.
