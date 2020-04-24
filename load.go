@@ -18,14 +18,19 @@ type EventsLoader struct {
 	ver      RoomVersion
 	keyRing  JSONVerifier
 	provider AuthChainProvider
+	// Set to true to do:
+	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
+	// This is only desirable for live events, not backfilled events hence the flag.
+	performSoftFailCheck bool
 }
 
 // NewEventsLoader returns a new events loader
-func NewEventsLoader(ver RoomVersion, keyRing JSONVerifier, provider AuthChainProvider) *EventsLoader {
+func NewEventsLoader(ver RoomVersion, keyRing JSONVerifier, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
 	return &EventsLoader{
-		ver:      ver,
-		keyRing:  keyRing,
-		provider: provider,
+		ver:                  ver,
+		keyRing:              keyRing,
+		provider:             provider,
+		performSoftFailCheck: performSoftFailCheck,
 	}
 }
 
@@ -76,13 +81,21 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 				continue
 			}
 		}
+		/*
+			// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
+			if err := VerifyAuthRulesAtState(ctx, h, h.EventID()); err != nil {
+				if results[i].Error == nil { // could have failed earlier
+					results[i] = EventLoadResult{
+						Error: err,
+					}
+					continue
+				}
+			} */
 		results[i] = EventLoadResult{
 			Event: &h,
 		}
 	}
-	return results, nil
 
-	// TODO:
-	// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
-	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
+	// TODO: performSoftFailCheck
+	return results, nil
 }

@@ -41,7 +41,7 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 	}
 	haveEventIDs := make(map[string]bool)
 	var result []HeaderedEvent
-	loader := NewEventsLoader(ver, keyRing, b.ProvideEvents)
+	loader := NewEventsLoader(ver, keyRing, b.ProvideEvents, false)
 	// pick a server to backfill from
 	// TODO: use other event IDs and make a set out of all the returned servers?
 	servers := b.ServersAtEvent(ctx, roomID, fromEventIDs[0])
