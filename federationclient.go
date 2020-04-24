@@ -176,7 +176,7 @@ func (ac *FederationClient) SendInvite(
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *FederationClient) SendInviteV2(
 	ctx context.Context, s ServerName, request InviteV2Request,
-) (res RespInvite, err error) {
+) (res RespInviteV2, err error) {
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
