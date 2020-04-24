@@ -17,10 +17,10 @@ type testBackfillRequester struct {
 	stateIDsAtEvent     map[string][]string
 }
 
-func (t *testBackfillRequester) StateIDsAtEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
+func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
 	return t.stateIDsAtEvent[atEventID], nil
 }
-func (t *testBackfillRequester) StateAtEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {

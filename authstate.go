@@ -9,12 +9,12 @@ import (
 
 // StateProvider is capable of returning the room state at any point in time.
 type StateProvider interface {
-	// StateIDsAtEvent returns a list of state event IDs for the event ID provided, which represent the entire
-	// room state at that event.
-	StateIDsAtEvent(ctx context.Context, roomID, atEventID string) ([]string, error)
-	// StateAtEvent returns the state of the room at the given event. `eventIDs` will be populated with the output
+	// StateIDsBeforeEvent returns a list of state event IDs for the event ID provided, which represent the entire
+	// room state before that event.
+	StateIDsBeforeEvent(ctx context.Context, roomID, atEventID string) ([]string, error)
+	// StateBeforeEvent returns the state of the room before the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
-	StateAtEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error)
+	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error)
 }
 
 // FederatedStateProvider is an implementation of StateProvider which solely uses federation requests to retrieve events.
@@ -71,7 +71,7 @@ func (p *FederatedStateProvider) StateAtEvent(ctx context.Context, roomVer RoomV
 //
 //
 func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify HeaderedEvent, stateAtEvent string, allowValidation bool) error {
-	stateIDs, err := sp.StateIDsAtEvent(ctx, eventToVerify.RoomID(), stateAtEvent)
+	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify.RoomID(), stateAtEvent)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs at event %s: %w", stateAtEvent, err)
 	}
@@ -100,7 +100,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	}
 
 	// slow path: fetch the events at this state and check auth
-	roomState, err := sp.StateAtEvent(ctx, eventToVerify.roomVersion, eventToVerify.RoomID(), stateAtEvent, stateIDs)
+	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.roomVersion, eventToVerify.RoomID(), stateAtEvent, stateIDs)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", stateAtEvent, err)
 	}

@@ -10,10 +10,10 @@ type TestStateProvider struct {
 	Events   []Event
 }
 
-func (p *TestStateProvider) StateIDsAtEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
+func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
 	return p.StateIDs, nil
 }
-func (p *TestStateProvider) StateAtEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
+func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
 	result := make(map[string]*Event, len(p.Events))
 	for i := range p.Events {
 		result[p.Events[i].EventID()] = &p.Events[i]

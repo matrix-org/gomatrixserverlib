@@ -15,7 +15,7 @@ type EventLoadResult struct {
 
 // EventsLoader loads untrusted events and verifies them.
 type EventsLoader struct {
-	ver           RoomVersion
+	roomVer       RoomVersion
 	keyRing       JSONVerifier
 	provider      AuthChainProvider
 	stateProvider StateProvider
@@ -26,9 +26,9 @@ type EventsLoader struct {
 }
 
 // NewEventsLoader returns a new events loader
-func NewEventsLoader(ver RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
+func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
 	return &EventsLoader{
-		ver:                  ver,
+		roomVer:              roomVer,
 		keyRing:              keyRing,
 		provider:             provider,
 		stateProvider:        stateProvider,
@@ -46,7 +46,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
 	events := make([]Event, len(rawEvents))
 	for i, rawEv := range rawEvents {
-		event, err := NewEventFromUntrustedJSON(rawEv, l.ver)
+		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer)
 		if err != nil {
 			results[i] = EventLoadResult{
 				Error: err,
@@ -73,7 +73,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 				continue
 			}
 		}
-		h := events[i].Headered(l.ver)
+		h := events[i].Headered(l.roomVer)
 		// 4. Passes authorization rules based on the event's auth events, otherwise it is rejected.
 		if err := VerifyEventAuthChain(ctx, h, l.provider); err != nil {
 			if results[i].Error == nil { // could have failed earlier
