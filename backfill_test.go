@@ -18,11 +18,11 @@ type testBackfillRequester struct {
 	callOrderForStateIDsBeforeEvent []string // event IDs called
 }
 
-func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
-	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEventID)
-	return t.stateIDsAtEvent[atEventID], nil
+func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent HeaderedEvent) ([]string, error) {
+	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
+	return t.stateIDsAtEvent[atEvent.EventID()], nil
 }
-func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {

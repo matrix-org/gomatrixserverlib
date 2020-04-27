@@ -100,7 +100,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		}
 
 		// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
-		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, h.EventID(), true); err != nil {
+		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, true); err != nil {
 			if results[i].Error == nil { // could have failed earlier
 				results[i] = EventLoadResult{
 					Error: err,
