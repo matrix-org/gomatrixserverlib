@@ -13,7 +13,7 @@ type TestStateProvider struct {
 func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent HeaderedEvent) ([]string, error) {
 	return p.StateIDs, nil
 }
-func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID string, atEvent HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
 	result := make(map[string]*Event, len(p.Events))
 	for i := range p.Events {
 		result[p.Events[i].EventID()] = &p.Events[i]

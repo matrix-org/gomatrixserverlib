@@ -22,7 +22,7 @@ func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent
 	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
 	return t.stateIDsAtEvent[atEvent.EventID()], nil
 }
-func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID string, atEvent HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {

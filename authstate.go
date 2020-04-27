@@ -14,7 +14,7 @@ type StateProvider interface {
 	StateIDsBeforeEvent(ctx context.Context, event HeaderedEvent) ([]string, error)
 	// StateBeforeEvent returns the state of the room before the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
-	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID string, event HeaderedEvent, eventIDs []string) (map[string]*Event, error)
+	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error)
 }
 
 // FederatedStateProvider is an implementation of StateProvider which solely uses federation requests to retrieve events.
@@ -26,9 +26,9 @@ type FederatedStateProvider struct {
 	AuthEventsOnly bool
 }
 
-// StateIDsAtEvent implements StateProvider
-func (p *FederatedStateProvider) StateIDsAtEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
-	res, err := p.FedClient.LookupStateIDs(ctx, p.Server, roomID, atEventID)
+// StateIDsBeforeEvent implements StateProvider
+func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event HeaderedEvent) ([]string, error) {
+	res, err := p.FedClient.LookupStateIDs(ctx, p.Server, event.RoomID(), event.EventID())
 	if err != nil {
 		return nil, err
 	}
@@ -38,9 +38,9 @@ func (p *FederatedStateProvider) StateIDsAtEvent(ctx context.Context, roomID, at
 	return util.UniqueStrings(append(res.AuthEventIDs, res.StateEventIDs...)), nil
 }
 
-// StateAtEvent implements StateProvider
-func (p *FederatedStateProvider) StateAtEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
-	res, err := p.FedClient.LookupState(ctx, p.Server, roomID, atEventID, roomVer)
+// StateBeforeEvent implements StateProvider
+func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+	res, err := p.FedClient.LookupState(ctx, p.Server, event.RoomID(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	}
 
 	// slow path: fetch the events at this state and check auth
-	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.roomVersion, eventToVerify.RoomID(), eventToVerify, stateIDs)
+	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.roomVersion, eventToVerify, stateIDs)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", eventToVerify.EventID(), err)
 	}
