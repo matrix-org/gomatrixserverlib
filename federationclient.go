@@ -177,6 +177,7 @@ func (ac *FederationClient) SendInvite(
 func (ac *FederationClient) SendInviteV2(
 	ctx context.Context, s ServerName, request InviteV2Request,
 ) (res RespInviteV2, err error) {
+	res.roomVersion = request.RoomVersion()
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
