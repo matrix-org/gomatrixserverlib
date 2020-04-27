@@ -163,7 +163,7 @@ func (ac *FederationClient) SendInvite(
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(event); err != nil {
 		return
@@ -181,7 +181,7 @@ func (ac *FederationClient) SendInviteV2(
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(request); err != nil {
 		return
@@ -323,7 +323,7 @@ func (ac *FederationClient) LookupProfile(
 func (ac *FederationClient) GetEvent(
 	ctx context.Context, s ServerName, eventID string,
 ) (res Transaction, err error) {
-	path := federationPathPrefixV1 + "/event/" + url.PathEscape(eventID)
+	path := federationPathPrefixV1 + "/event/" + url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
@@ -334,7 +334,7 @@ func (ac *FederationClient) GetEvent(
 func (ac *FederationClient) GetEventAuth(
 	ctx context.Context, s ServerName, roomID, eventID string,
 ) (res RespEventAuth, err error) {
-	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
+	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
