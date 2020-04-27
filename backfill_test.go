@@ -158,7 +158,6 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 				return nil, fmt.Errorf("bad room id: %s", roomID)
 			}
 			if server == serverA {
-				// server A returns events 1 and 3.
 				return &Transaction{
 					Origin:         serverA,
 					OriginServerTS: AsTimestamp(time.Now()),
@@ -193,7 +192,6 @@ func assertUnsortedEqual(t *testing.T, result []HeaderedEvent, want [][]byte) {
 	if len(result) != len(want) {
 		t.Fatalf("RequestBackfill got %d events, want %d", len(result), len(want))
 	}
-	// We expect to see 0,1,2,3 in the response.
 	sortedWant := sortByteSlices(want)
 	sort.Sort(sortedWant)
 	var got [][]byte
