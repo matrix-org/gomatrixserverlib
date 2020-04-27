@@ -599,6 +599,27 @@ type respInviteFields struct {
 
 // RespInvite is the content of a response to PUT /_matrix/federation/v2/invite/{roomID}/{eventID}
 type RespInviteV2 struct {
+	// The room version that dictates the format of the state events.
+	roomVersion RoomVersion
 	// The invite event signed by recipient server.
 	Event Event `json:"event"`
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		Event json.RawMessage `json:"event"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	event, err := NewEventFromUntrustedJSON([]byte(intermediate.Event), r.roomVersion)
+	if err != nil {
+		return err
+	}
+	r.Event = event
+	return nil
 }
