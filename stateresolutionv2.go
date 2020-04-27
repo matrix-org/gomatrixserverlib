@@ -17,8 +17,18 @@ package gomatrixserverlib
 import (
 	"container/heap"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
+)
+
+// Ordering represents how to sort a list of events, used primarily in ReverseTopologicalOrdering
+type Ordering int
+
+// Sort events by prev_events or auth_events
+const (
+	OrderingPrevEvents Ordering = iota + 1
+	OrderingAuthEvents
 )
 
 type stateResolverV2 struct {
@@ -106,13 +116,13 @@ func ResolveStateConflictsV2(
 	// authing them. The successfully authed events will form the initial partial
 	// state. We will then keep the successfully authed unconflicted events so that
 	// they can be reapplied later.
-	unconflicted = r.reverseTopologicalOrdering(unconflicted)
+	unconflicted = r.reverseTopologicalOrdering(unconflicted, OrderingAuthEvents)
 	r.applyEvents(unconflicted)
 
 	// Then order the conflicted power level events topologically and then also
 	// auth those too. The successfully authed events will be layered on top of
 	// the partial state.
-	conflictedControlEvents = r.reverseTopologicalOrdering(conflictedControlEvents)
+	conflictedControlEvents = r.reverseTopologicalOrdering(conflictedControlEvents, OrderingAuthEvents)
 	r.authAndApplyEvents(conflictedControlEvents)
 
 	// Then generate the mainline of power level events, order the remaining state
@@ -161,22 +171,22 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func ReverseTopologicalOrdering(events []Event) (result []Event) {
+func ReverseTopologicalOrdering(events []Event, order Ordering) (result []Event) {
 	r := stateResolverV2{}
-	return r.reverseTopologicalOrdering(events)
+	return r.reverseTopologicalOrdering(events, order)
 }
 
 // HeaderedReverseTopologicalOrdering takes a set of input events and sorts
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func HeaderedReverseTopologicalOrdering(events []HeaderedEvent) (result []HeaderedEvent) {
+func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order Ordering) (result []HeaderedEvent) {
 	r := stateResolverV2{}
 	var evs []Event
 	for _, e := range events {
 		evs = append(evs, e.Unwrap())
 	}
-	evs = r.reverseTopologicalOrdering(evs)
+	evs = r.reverseTopologicalOrdering(evs, order)
 	for _, e := range evs {
 		result = append(result, e.Headered(e.roomVersion))
 	}
@@ -424,10 +434,20 @@ func (r *stateResolverV2) wrapOtherEventsForSort(events []Event) []stateResV2Con
 // reverseTopologicalOrdering takes a set of input events, prepares them using
 // wrapPowerLevelEventsForSort and then starts the Kahn's algorithm in order to
 // topologically sort them. The result that is returned is correctly ordered.
-func (r *stateResolverV2) reverseTopologicalOrdering(events []Event) (result []Event) {
-	block := r.wrapPowerLevelEventsForSort(events)
-	for _, s := range kahnsAlgorithmUsingAuthEvents(block) {
-		result = append(result, s.event)
+func (r *stateResolverV2) reverseTopologicalOrdering(events []Event, order Ordering) (result []Event) {
+	switch order {
+	case OrderingAuthEvents:
+		block := r.wrapPowerLevelEventsForSort(events)
+		for _, s := range kahnsAlgorithmUsingAuthEvents(block) {
+			result = append(result, s.event)
+		}
+	case OrderingPrevEvents:
+		block := r.wrapOtherEventsForSort(events)
+		for _, s := range kahnsAlgorithmUsingPrevEvents(block) {
+			result = append(result, s.event)
+		}
+	default:
+		panic(fmt.Sprintf("gomatrixserverlib.reverseTopologicalOrdering unknown Ordering %d", order))
 	}
 	return
 }
@@ -572,6 +592,101 @@ resetNoIncoming:
 	// If we have stray events left over then add them into the result.
 	if len(eventMap) > 0 {
 		var remaining stateResV2ConflictedPowerLevelHeap
+		for _, event := range eventMap {
+			heap.Push(&remaining, event)
+		}
+		sort.Sort(sort.Reverse(remaining))
+		graph = append(remaining, graph...)
+	}
+
+	// The graph is complete at this point!
+	//sort.Sort(sort.Reverse(stateResV2ConflictedPowerLevelHeap(graph)))
+	return graph
+}
+
+// kahnsAlgorithmByAuthEvents is, predictably, an implementation of Kahn's
+// algorithm that uses auth events to topologically sort the input list of
+// events. This works through each event, counting how many incoming prev event
+// dependencies it has, and then adding them into the graph as the dependencies
+// are resolved.
+func kahnsAlgorithmUsingPrevEvents(events []stateResV2ConflictedOther) (
+	graph []stateResV2ConflictedOther,
+) {
+	eventMap := make(map[string]stateResV2ConflictedOther)
+	inDegree := make(map[string]int)
+
+	for _, event := range events {
+		// For each event that we have been given, add it to the event map so that
+		// we can easily refer back to it by event ID later.
+		eventMap[event.eventID] = event
+
+		// If we haven't encountered this event ID yet, also start with a zero count
+		// of incoming auth event dependencies.
+		if _, ok := inDegree[event.eventID]; !ok {
+			inDegree[event.eventID] = 0
+		}
+
+		// Find each of the auth events that this event depends on and make a note
+		// for each auth event that there's an additional incoming dependency.
+		for _, auth := range event.event.PrevEventIDs() {
+			if _, ok := inDegree[auth]; !ok {
+				// We don't know about this event yet - set an initial value.
+				inDegree[auth] = 1
+			} else {
+				// We've already encountered this event so increment instead.
+				inDegree[auth]++
+			}
+		}
+	}
+
+	// Now we need to work out which events don't have any incoming auth event
+	// dependencies. These will be placed into the graph first. Remove the event
+	// from the event map as this prevents us from processing it a second time.
+	var noIncoming stateResV2ConflictedOtherHeap
+	heap.Init(&noIncoming)
+	for eventID, count := range inDegree {
+		if count == 0 {
+			heap.Push(&noIncoming, eventMap[eventID])
+			delete(eventMap, eventID)
+		}
+	}
+
+	var event stateResV2ConflictedOther
+resetNoIncoming:
+	for noIncoming.Len() > 0 {
+		// Pop the first event ID off the list of events which have no incoming
+		// auth event dependencies.
+		event = heap.Pop(&noIncoming).(stateResV2ConflictedOther)
+
+		// Since there are no incoming dependencies to resolve, we can now add this
+		// event into the graph.
+		graph = append([]stateResV2ConflictedOther{event}, graph...)
+		//graph = append(graph, event)
+
+		// Now we should look at the outgoing auth dependencies that this event has.
+		// Since this event is now in the graph, the event's outgoing auth
+		// dependencies are no longer valid - those map to incoming dependencies on
+		// the auth events, so let's update those.
+		for _, auth := range event.event.PrevEventIDs() {
+			inDegree[auth]--
+
+			// If we see, by updating the incoming dependencies, that the auth event
+			// no longer has any incoming dependencies, then it should also be added
+			// into the graph on the next pass. In turn, this will also mean that we
+			// process the outgoing dependencies of this auth event.
+			if inDegree[auth] == 0 {
+				if _, ok := eventMap[auth]; ok {
+					heap.Push(&noIncoming, eventMap[auth])
+					delete(eventMap, auth)
+					goto resetNoIncoming
+				}
+			}
+		}
+	}
+
+	// If we have stray events left over then add them into the result.
+	if len(eventMap) > 0 {
+		var remaining stateResV2ConflictedOtherHeap
 		for _, event := range eventMap {
 			heap.Push(&remaining, event)
 		}
