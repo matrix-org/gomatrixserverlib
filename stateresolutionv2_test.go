@@ -409,7 +409,7 @@ func TestLexicographicalSorting(t *testing.T) {
 func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
 	base := getBaseStateResV2Graph()
-	input := r.reverseTopologicalOrdering(base)
+	input := r.reverseTopologicalOrdering(base, TopologicalOrderByAuthEvents)
 
 	expected := []string{
 		"$CREATE:example.com", "$IMA:example.com", "$IPOWER:example.com",

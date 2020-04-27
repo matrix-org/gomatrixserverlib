@@ -39,23 +39,38 @@ func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider St
 // LoadAndVerify loads untrusted events and verifies them.
 // Checks performed are outlined at https://matrix.org/docs/spec/server_server/latest#checks-performed-on-receipt-of-a-pdu
 // The length of the returned slice will always equal the length of rawEvents.
-func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage) ([]EventLoadResult, error) {
+// The order of the returned events depends on `sortOrder`. The events are reverse topologically sorted by the ordering specified. However
+// in order to sort the events the events must be loaded which could fail. For those events which fail to be loaded, they will
+// be put at the end of the returned slice.
+func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage, sortOrder TopologicalOrder) ([]EventLoadResult, error) {
 	results := make([]EventLoadResult, len(rawEvents))
 
 	// 1. Is a valid event, otherwise it is dropped.
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
-	events := make([]Event, len(rawEvents))
-	for i, rawEv := range rawEvents {
+	events := make([]Event, 0, len(rawEvents))
+	errs := make([]error, 0, len(rawEvents))
+	for _, rawEv := range rawEvents {
 		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer)
 		if err != nil {
-			results[i] = EventLoadResult{
-				Error: err,
-			}
+			errs = append(errs, err)
 			continue
 		}
-		// zero values are fine as VerifyEventSignatures will catch them, more important to keep the ordering
-		events[i] = event
+		events = append(events, event)
 	}
+
+	events = ReverseTopologicalOrdering(events, sortOrder)
+	// assign the errors to the end of the slice
+	for i := 0; i < len(errs); i++ {
+		results[len(results)-len(errs)+i] = EventLoadResult{
+			Error: errs[i],
+		}
+	}
+	// at this point, the three slices look something like:
+	// results: [ _ , _ , _ , err1 , err2 ]
+	// errs: [ err1, err2 ]
+	// events [ ev1, ev2, ev3 ]
+	// so we can directly index from events into results from now on.
+
 	// 2. Passes signature checks, otherwise it is dropped.
 	failures, err := VerifyEventSignatures(ctx, events, l.keyRing)
 	if err != nil {

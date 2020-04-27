@@ -6,6 +6,12 @@ import (
 )
 
 // BackfillRequester contains the necessary functions to perform backfill requests from one server to another.
+//
+// It requires a StateProvider in order to perform PDU checks on received events, notably the step
+// "Passes authorization rules based on the state at the event, otherwise it is rejected.". The BackfillRequester
+// will always call functions on the StateProvider in topological order, starting with the earliest event and
+// rolling forwards. This allows implementations to make optimisations for subsequent events, rather than
+// constantly deferring to federation requests.
 type BackfillRequester interface {
 	StateProvider
 	// ServersAtEvent is called when trying to determine which server to request from.
@@ -60,7 +66,8 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 		if err != nil {
 			continue // try the next server
 		}
-		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs)
+		// topologically sort the events so implementations of 'get state at event' can do optimisations
+		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs, TopologicalOrderByPrevEvents)
 		if err != nil {
 			continue // try the next server
 		}
