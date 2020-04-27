@@ -11,10 +11,10 @@ import (
 type StateProvider interface {
 	// StateIDsBeforeEvent returns a list of state event IDs for the event ID provided, which represent the entire
 	// room state before that event.
-	StateIDsBeforeEvent(ctx context.Context, roomID, atEventID string) ([]string, error)
+	StateIDsBeforeEvent(ctx context.Context, event HeaderedEvent) ([]string, error)
 	// StateBeforeEvent returns the state of the room before the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
-	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error)
+	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error)
 }
 
 // FederatedStateProvider is an implementation of StateProvider which solely uses federation requests to retrieve events.
@@ -26,9 +26,9 @@ type FederatedStateProvider struct {
 	AuthEventsOnly bool
 }
 
-// StateIDsAtEvent implements StateProvider
-func (p *FederatedStateProvider) StateIDsAtEvent(ctx context.Context, roomID, atEventID string) ([]string, error) {
-	res, err := p.FedClient.LookupStateIDs(ctx, p.Server, roomID, atEventID)
+// StateIDsBeforeEvent implements StateProvider
+func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event HeaderedEvent) ([]string, error) {
+	res, err := p.FedClient.LookupStateIDs(ctx, p.Server, event.RoomID(), event.EventID())
 	if err != nil {
 		return nil, err
 	}
@@ -38,9 +38,9 @@ func (p *FederatedStateProvider) StateIDsAtEvent(ctx context.Context, roomID, at
 	return util.UniqueStrings(append(res.AuthEventIDs, res.StateEventIDs...)), nil
 }
 
-// StateAtEvent implements StateProvider
-func (p *FederatedStateProvider) StateAtEvent(ctx context.Context, roomVer RoomVersion, roomID, atEventID string, eventIDs []string) (map[string]*Event, error) {
-	res, err := p.FedClient.LookupState(ctx, p.Server, roomID, atEventID, roomVer)
+// StateBeforeEvent implements StateProvider
+func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+	res, err := p.FedClient.LookupState(ctx, p.Server, event.RoomID(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}
@@ -57,12 +57,10 @@ func (p *FederatedStateProvider) StateAtEvent(ctx context.Context, roomVer RoomV
 	return result, nil
 }
 
-// VerifyAuthRulesAtState will check that the auth_events in the given event are valid at the state provided by another event.
+// VerifyAuthRulesAtState will check that the auth_events in the given event are valid at the state of the room before that event.
 //
-// This implements Step 5 and 6 of https://matrix.org/docs/spec/server_server/latest#checks-performed-on-receipt-of-a-pdu
-// depending on what the value of `stateAtEvent` is.
+// This implements Step 5 of https://matrix.org/docs/spec/server_server/latest#checks-performed-on-receipt-of-a-pdu
 // "Passes authorization rules based on the state at the event, otherwise it is rejected."
-// "Passes authorization rules based on the current state of the room, otherwise it is "soft failed"."
 //
 // If `allowValidation` is true:
 // This check initially attempts to validate that the auth_events are in the target room state, and if they are it will short-circuit
@@ -70,10 +68,10 @@ func (p *FederatedStateProvider) StateAtEvent(ctx context.Context, roomVer RoomV
 // no auth_events are required and this function will short-circuit and allow it.
 //
 //
-func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify HeaderedEvent, stateAtEvent string, allowValidation bool) error {
-	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify.RoomID(), stateAtEvent)
+func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify HeaderedEvent, allowValidation bool) error {
+	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify)
 	if err != nil {
-		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs at event %s: %w", stateAtEvent, err)
+		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs before event %s: %w", eventToVerify.EventID(), err)
 	}
 
 	if allowValidation {
@@ -100,9 +98,9 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	}
 
 	// slow path: fetch the events at this state and check auth
-	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.roomVersion, eventToVerify.RoomID(), stateAtEvent, stateIDs)
+	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.roomVersion, eventToVerify, stateIDs)
 	if err != nil {
-		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", stateAtEvent, err)
+		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", eventToVerify.EventID(), err)
 	}
 	if ctx.Err() != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: context cancelled: %w", ctx.Err())
@@ -110,7 +108,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	if err := checkAllowedByAuthEvents(eventToVerify.Unwrap(), roomState); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib.VerifyAuthRulesAtState: event %s is not allowed at state %s : %w",
-			eventToVerify.EventID(), stateAtEvent, err,
+			eventToVerify.EventID(), eventToVerify.EventID(), err,
 		)
 	}
 	return nil
