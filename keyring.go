@@ -128,7 +128,9 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	keyIDs := make([][]KeyID, len(requests))
 
 	for i := range requests {
+		fmt.Println("Message:", string(requests[i].Message))
 		ids, err := ListKeyIDs(string(requests[i].ServerName), requests[i].Message)
+		fmt.Println("Key IDs:", ids)
 		if err != nil {
 			results[i].Error = fmt.Errorf("gomatrixserverlib: error extracting key IDs")
 			continue
@@ -138,6 +140,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 				keyIDs[i] = append(keyIDs[i], keyID)
 			}
 		}
+		fmt.Println("Supported key IDs;", keyIDs[i])
 		if len(keyIDs[i]) == 0 {
 			results[i].Error = fmt.Errorf(
 				"gomatrixserverlib: not signed by %q with a supported algorithm", requests[i].ServerName,
