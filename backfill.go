@@ -67,7 +67,7 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 			continue // try the next server
 		}
 		// topologically sort the events so implementations of 'get state at event' can do optimisations
-		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs, OrderingPrevEvents)
+		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs, TopologicalOrderByPrevEvents)
 		if err != nil {
 			continue // try the next server
 		}
