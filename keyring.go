@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/matrix-org/util"
@@ -40,12 +41,14 @@ type PublicKeyLookupResult struct {
 
 // WasValidAt checks if this signing key is valid for an event signed at the
 // given timestamp.
-func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp) bool {
+func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking bool) bool {
 	if r.ExpiredTS != PublicKeyNotExpired && atTs >= r.ExpiredTS {
 		return false
 	}
-	if r.ValidUntilTS == PublicKeyNotValid || atTs > r.ValidUntilTS {
-		return false
+	if strictValidityChecking {
+		if r.ValidUntilTS == PublicKeyNotValid || atTs > r.ValidUntilTS {
+			return false
+		}
 	}
 	return true
 }
@@ -96,6 +99,8 @@ type VerifyJSONRequest struct {
 	AtTS Timestamp
 	// The JSON bytes.
 	Message []byte
+	// Should validity signature checking be enabled? (Room version >= 5)
+	StrictValidityChecking bool
 }
 
 // A VerifyJSONResult is the result of checking the signature of a JSON message.
@@ -158,17 +163,29 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	if err != nil {
 		return nil, err
 	}
-	k.checkUsingKeys(requests, results, keyIDs, keysFromDatabase)
+
+	// TODO: we should distinguish here between expired keys, and those we don't have.
+	// If the key has expired, it's no use re-requesting it.
+	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+	for req, res := range keysFromDatabase {
+		keysFetched[req] = res
+	}
+
+	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+
+	// If we can verify using the keys from the database, don't make a federation call.
+	doFederationHit := false
+	for _, r := range results {
+		if r.Error != nil {
+			doFederationHit = true
+			break
+		}
+	}
+	if !doFederationHit {
+		return results, nil
+	}
 
 	for _, fetcher := range k.KeyFetchers {
-		// TODO: we should distinguish here between expired keys, and those we don't have.
-		// If the key has expired, it's no use re-requesting it.
-		keyRequests := k.publicKeyRequests(requests, results, keyIDs)
-		if len(keyRequests) == 0 {
-			// There aren't any keys to fetch so we can stop here.
-			// This means that we've checked every JSON object we can check.
-			return results, nil
-		}
 		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
 
 		// TODO: Coalesce in-flight requests for the same keys.
@@ -177,20 +194,36 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		fetcherLogger.WithField("num_key_requests", len(keyRequests)).
 			Info("Requesting keys from fetcher")
 
-		keysFetched, err := fetcher.FetchKeys(ctx, keyRequests)
+		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
-			return nil, err
+			fetcherLogger.WithError(err).WithField("fetcher", fetcher.FetcherName()).
+				Warn("Failed to request keys from fetcher")
+			continue
 		}
 
-		fetcherLogger.WithField("num_keys_fetched", len(keysFetched)).
+		fetcherLogger.WithField("num_keys_fetched", len(fetched)).
 			Info("Got keys from fetcher")
 
-		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
-
-		// Add the keys to the database so that we won't need to fetch them again.
-		if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
-			return nil, err
+		// Hold the new keys and remove them from the request queue.
+		for req, res := range fetched {
+			keysFetched[req] = res
+			delete(keyRequests, req)
 		}
+
+		// If we have all of the keys that we need now then we can
+		// break the loop.
+		if len(keyRequests) == 0 {
+			break
+		}
+	}
+
+	// Now that we've fetched all of the keys we need, try to check
+	// if the requests are valid.
+	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+
+	// Add the keys to the database so that we won't need to fetch them again.
+	if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
+		return nil, err
 	}
 
 	return results, nil
@@ -242,7 +275,7 @@ func (k *KeyRing) checkUsingKeys(
 				// No key for this key ID so we continue onto the next key ID.
 				continue
 			}
-			if !serverKey.WasValidAt(requests[i].AtTS) {
+			if !serverKey.WasValidAt(requests[i].AtTS, requests[i].StrictValidityChecking) {
 				// The key wasn't valid at the timestamp we needed it to be valid at.
 				// So skip onto the next key.
 				results[i].Error = fmt.Errorf(
@@ -359,18 +392,55 @@ func (d *DirectKeyFetcher) FetchKeys(
 		server[req] = ts
 	}
 
+	// Work out the number of workers that we want to start. If the
+	// number of outstanding requests is less than the current max
+	// then reduce it so we don't start workers unnecessarily.
+	numWorkers := 64
+	if len(byServer) < numWorkers {
+		numWorkers = len(byServer)
+	}
+
+	// Prepare somewhere to put the results. This map is protected
+	// by the below mutex.
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
-	for server := range byServer {
-		// TODO: make these requests in parallel
-		serverResults, err := d.fetchKeysForServer(ctx, server)
-		if err != nil {
-			// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-			return nil, err
-		}
-		for req, keys := range serverResults {
-			results[req] = keys
+	var resultsMutex sync.Mutex
+
+	// Populate the wait group with the number of workers.
+	var wait sync.WaitGroup
+	wait.Add(numWorkers)
+
+	// Populate the jobs queue.
+	pending := make(chan ServerName, len(byServer))
+	for serverName := range byServer {
+		pending <- serverName
+	}
+	close(pending)
+
+	// Define our worker.
+	worker := func(ch <-chan ServerName) {
+		defer wait.Done()
+		for server := range ch {
+			serverResults, err := d.fetchKeysForServer(ctx, server)
+			if err != nil {
+				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+				continue
+			}
+			resultsMutex.Lock()
+			for req, keys := range serverResults {
+				results[req] = keys
+			}
+			resultsMutex.Unlock()
 		}
 	}
+
+	// Start the workers.
+	for i := 0; i < numWorkers; i++ {
+		go worker(pending)
+	}
+
+	// Wait for the workers to finish before returning
+	// the results.
+	wait.Wait()
 	return results, nil
 }
 

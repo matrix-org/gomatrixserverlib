@@ -88,9 +88,44 @@ func TestVerifyJSONsSuccess(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName: "localhost:8800",
-		Message:    []byte(testKeys),
-		AtTS:       1493142432964,
+		ServerName:             "localhost:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142432964,
+		StrictValidityChecking: true,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Error != nil {
+		t.Fatalf("VerifyJSON(): Wanted [{Error: nil}] got %#v", results)
+	}
+}
+
+func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
+	// Check that trying to verify the server key JSON works.
+	k := KeyRing{nil, &testKeyDatabase{}}
+	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
+		ServerName:             "localhost:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142433964,
+		StrictValidityChecking: true,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) == 1 && results[0].Error == nil {
+		t.Fatal("VerifyJSON() should have failed but didn't")
+	}
+}
+
+func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
+	// Check that trying to verify the server key JSON works.
+	k := KeyRing{nil, &testKeyDatabase{}}
+	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
+		ServerName:             "localhost:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142433964,
+		StrictValidityChecking: false,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -104,9 +139,10 @@ func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 	// Check that trying to verify JSON for an unknown server fails.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName: "unknown:8800",
-		Message:    []byte(testKeys),
-		AtTS:       1493142432964,
+		ServerName:             "unknown:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142432964,
+		StrictValidityChecking: true,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -121,9 +157,10 @@ func TestVerifyJSONsDistantFutureFails(t *testing.T) {
 	distantFuture := Timestamp(2000000000000)
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName: "unknown:8800",
-		Message:    []byte(testKeys),
-		AtTS:       distantFuture,
+		ServerName:             "unknown:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   distantFuture,
+		StrictValidityChecking: true,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -137,9 +174,10 @@ func TestVerifyJSONsFetcherError(t *testing.T) {
 	// Check that if the database errors then the attempt to verify JSON fails.
 	k := KeyRing{nil, &erroringKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName: "localhost:8800",
-		Message:    []byte(testKeys),
-		AtTS:       1493142432964,
+		ServerName:             "localhost:8800",
+		Message:                []byte(testKeys),
+		AtTS:                   1493142432964,
+		StrictValidityChecking: true,
 	}})
 	if err != error(&testErrorFetch) || results != nil {
 		t.Fatalf("VerifyJSONs(): Wanted (nil, <some error>) got (%#v, %q)", results, err)

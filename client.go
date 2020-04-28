@@ -49,14 +49,22 @@ type UserInfo struct {
 
 // NewClient makes a new Client (with default timeout)
 func NewClient() *Client {
-	return NewClientWithTimeout(requestTimeout)
+	return NewClientWithTimeout(requestTimeout, newFederationTripper())
+}
+
+// NewClientWithTransport makes a new Client with an existing transport
+func NewClientWithTransport(transport http.RoundTripper) *Client {
+	return NewClientWithTimeout(requestTimeout, transport)
 }
 
 // NewClientWithTimeout makes a new Client with a specified request timeout
-func NewClientWithTimeout(timeout time.Duration) *Client {
-	return &Client{client: http.Client{
-		Transport: newFederationTripper(),
-		Timeout:   timeout}}
+func NewClientWithTimeout(timeout time.Duration, transport http.RoundTripper) *Client {
+	return &Client{
+		client: http.Client{
+			Transport: transport,
+			Timeout:   timeout,
+		},
+	}
 }
 
 type federationTripper struct {
@@ -336,9 +344,9 @@ func (fc *Client) DoRequestAndParseResponse(
 
 		// If we failed to decode as RespError, don't just drop the HTTP body, include it in the
 		// HTTP error instead (e.g proxy errors which return HTML).
-		msg := "Failed to " + req.Method + " JSON to " + req.RequestURI
+		msg := fmt.Sprintf("Failed to %s JSON (hostname %q path %q)", req.Method, req.Host, req.URL.Path)
 		if wrap == nil {
-			msg = msg + ": " + string(contents)
+			msg += ": " + string(contents)
 		}
 
 		return gomatrix.HTTPError{

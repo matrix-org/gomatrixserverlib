@@ -27,13 +27,12 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"
-	strings.Trim(serverName, "/")
+	serverName = strings.TrimRight(serverName, "/")
 
 	wellKnownPath := "/.well-known/matrix/server"
-	wellKnown := "https://" + serverName + wellKnownPath
 
 	// Request server's well-known record
-	resp, err := http.Get(wellKnown)
+	resp, err := http.Get("https://" + serverName + wellKnownPath)
 	if err != nil {
 		return nil, err
 	}

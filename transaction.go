@@ -1,5 +1,7 @@
 package gomatrixserverlib
 
+import "encoding/json"
+
 // A Transaction is used to push data from one matrix server to another matrix
 // server.
 type Transaction struct {
@@ -20,7 +22,7 @@ type Transaction struct {
 	// The room events pushed from the origin server to the destination server
 	// by this transaction. The events should either be events that originate
 	// on the origin server or be join m.room.member events.
-	PDUs []Event `json:"pdus"`
+	PDUs []json.RawMessage `json:"pdus"`
 	// The ephemeral events pushed from origin server to destination server
 	// by this transaction. The events must orginate at the origin server.
 	EDUs []EDU `json:"edus,omitempty"`

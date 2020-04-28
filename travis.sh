@@ -8,7 +8,7 @@ cd `dirname $0`
 # we do on travis.
 
 go get -u \
-   github.com/alecthomas/gometalinter \
+   github.com/client9/misspell/cmd/misspell \
    golang.org/x/crypto/ed25519 \
    github.com/matrix-org/util \
    github.com/matrix-org/gomatrix \

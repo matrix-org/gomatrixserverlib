@@ -42,12 +42,16 @@ const (
 	MRoomJoinRules = "m.room.join_rules"
 	// MRoomPowerLevels https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-power-levels
 	MRoomPowerLevels = "m.room.power_levels"
+	// MRoomName https://matrix.org/docs/spec/client_server/r0.6.0#m-room-name
+	MRoomName = "m.room.name"
 	// MRoomMember https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
 	MRoomMember = "m.room.member"
 	// MRoomThirdPartyInvite https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-third-party-invite
 	MRoomThirdPartyInvite = "m.room.third_party_invite"
 	// MRoomAliases https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-aliases
 	MRoomAliases = "m.room.aliases"
+	// MRoomCanonicalAlias https://matrix.org/docs/spec/client_server/r0.6.0#m-room-canonical-alias
+	MRoomCanonicalAlias = "m.room.canonical_alias"
 	// MRoomHistoryVisibility https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-history-visibility
 	MRoomHistoryVisibility = "m.room.history_visibility"
 	// MRoomRedaction https://matrix.org/docs/spec/client_server/r0.2.0.html#id21
@@ -94,6 +98,7 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 // provider returns an error. If an event is missing from the provider but is required in StateNeeded, it
 // is skipped over: no error is returned.
 func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) { // nolint: gocyclo
+	refs = []EventReference{}
 	var e *Event
 	if s.Create {
 		if e, err = provider.Create(); err != nil {

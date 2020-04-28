@@ -54,17 +54,17 @@ type testEventList []Event
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
 	var eventJSONs []RawJSON
 	var events []Event
-	if err := json.Unmarshal([]byte(data), &eventJSONs); err != nil {
+	if err := json.Unmarshal(data, &eventJSONs); err != nil {
 		return err
 	}
 	for _, eventJSON := range eventJSONs {
-		event, err := NewEventFromTrustedJSON([]byte(eventJSON), false)
+		event, err := NewEventFromTrustedJSON(eventJSON, false, RoomVersionV1)
 		if err != nil {
 			return err
 		}
 		events = append(events, event)
 	}
-	*tel = testEventList(events)
+	*tel = events
 	return nil
 }
 
@@ -214,7 +214,7 @@ func (tae *testAuthEvents) Create() (*Event, error) {
 		return nil, nil
 	}
 	var event Event
-	event, err := NewEventFromTrustedJSON(tae.CreateJSON, false)
+	event, err := NewEventFromTrustedJSON(tae.CreateJSON, false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (tae *testAuthEvents) JoinRules() (*Event, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.JoinRulesJSON, false)
+	event, err := NewEventFromTrustedJSON(tae.JoinRulesJSON, false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func (tae *testAuthEvents) PowerLevels() (*Event, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.PowerLevelsJSON, false)
+	event, err := NewEventFromTrustedJSON(tae.PowerLevelsJSON, false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
 	if len(tae.MemberJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.MemberJSON[stateKey], false)
+	event, err := NewEventFromTrustedJSON(tae.MemberJSON[stateKey], false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +258,7 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false)
+	event, err := NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {
-		event, err := NewEventFromTrustedJSON(data, false)
+		event, err := NewEventFromTrustedJSON(data, false, RoomVersionV1)
 		if err != nil {
 			panic(err)
 		}
@@ -286,7 +286,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		}
 	}
 	for _, data := range tc.NotAllowed {
-		event, err := NewEventFromTrustedJSON(data, false)
+		event, err := NewEventFromTrustedJSON(data, false, RoomVersionV1)
 		if err != nil {
 			panic(err)
 		}
@@ -1009,7 +1009,7 @@ func TestAuthEvents(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false)
+	}`), false, RoomVersionV1)
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
@@ -1027,7 +1027,7 @@ func TestAuthEvents(t *testing.T) {
 		"content": {
 			"creator": "@u1:a"
 		}
-	}`), false)
+	}`), false, RoomVersionV1)
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create create event: %s", err)
 	}
