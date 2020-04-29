@@ -46,7 +46,18 @@ func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking
 		return false
 	}
 	if strictValidityChecking {
-		if r.ValidUntilTS == PublicKeyNotValid || atTs > r.ValidUntilTS {
+		if r.ValidUntilTS == PublicKeyNotValid {
+			return false
+		}
+		// Servers MUST use the lesser of valid_until_ts and 7 days into the
+		// future when determining if a key is valid.
+		// https://matrix.org/docs/spec/rooms/v5#signing-key-validity-period
+		sevenDaysFuture := time.Now().Add(time.Hour * 24 * 7)
+		validUntilTS := r.ValidUntilTS.Time()
+		if validUntilTS.After(sevenDaysFuture) {
+			validUntilTS = sevenDaysFuture
+		}
+		if atTs.Time().After(validUntilTS) {
 			return false
 		}
 	}
