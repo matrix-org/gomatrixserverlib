@@ -3,6 +3,7 @@ package gomatrixserverlib
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 var privateKeySeed1 = `QJvXAPj0D9MUb1exkD8pIWmCvT1xajlsB8jRYz/G5HE`
@@ -115,6 +116,31 @@ func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
 	}
 	if len(results) == 1 && results[0].Error == nil {
 		t.Fatal("VerifyJSON() should have failed but didn't")
+	}
+}
+
+func TestStrictCheckingKeyValidity(t *testing.T) {
+	// Check that we limit key validity to being no more
+	// than seven days in the future. Start by creating a
+	// key timestamp which is 14 days in the future.
+	// https://matrix.org/docs/spec/rooms/v5#signing-key-validity-period
+	publicKeyLookup := PublicKeyLookupResult{
+		ExpiredTS:    PublicKeyNotExpired,
+		ValidUntilTS: AsTimestamp(time.Now().Add(time.Hour * 24 * 14)),
+	}
+	shouldPass := AsTimestamp(time.Now().Add(time.Hour * 24 * 5))
+	shouldFail := AsTimestamp(time.Now().Add(time.Hour * 24 * 9))
+
+	// This test should pass because we are only looking
+	// 5 days in the future, which is less than 7 days.
+	if !publicKeyLookup.WasValidAt(shouldPass, true) {
+		t.Fatalf("valid test should have passed")
+	}
+
+	// This test should fail because we are looking 9 days
+	// in the future, which is more than 7 days.
+	if publicKeyLookup.WasValidAt(shouldFail, true) {
+		t.Fatalf("invalid test should have failed")
 	}
 }
 
