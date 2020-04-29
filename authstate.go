@@ -3,8 +3,6 @@ package gomatrixserverlib
 import (
 	"context"
 	"fmt"
-
-	"github.com/matrix-org/util"
 )
 
 // StateProvider is capable of returning the room state at any point in time.
@@ -22,8 +20,11 @@ type FederatedStateProvider struct {
 	FedClient *FederationClient
 	// The remote server to ask.
 	Server ServerName
-	// Set to true to only return auth events, else returns everything.
-	AuthEventsOnly bool
+	// Set to true to remember the auth event IDs for the room at various states
+	RememberAuthEvents bool
+	// Maps which are populated if AuthEvents is true, so you know which events are required to do PDU checks.
+	EventToAuthEventIDs map[string][]string
+	AuthEventMap        map[string]*Event
 }
 
 // StateIDsBeforeEvent implements StateProvider
@@ -32,10 +33,10 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 	if err != nil {
 		return nil, err
 	}
-	if p.AuthEventsOnly {
-		return res.AuthEventIDs, nil
+	if p.RememberAuthEvents {
+		p.EventToAuthEventIDs[event.EventID()] = res.AuthEventIDs
 	}
-	return util.UniqueStrings(append(res.AuthEventIDs, res.StateEventIDs...)), nil
+	return res.StateEventIDs, nil
 }
 
 // StateBeforeEvent implements StateProvider
@@ -44,13 +45,13 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 	if err != nil {
 		return nil, err
 	}
+	if p.RememberAuthEvents {
+		for i := range res.AuthEvents {
+			p.AuthEventMap[res.AuthEvents[i].EventID()] = &res.AuthEvents[i]
+		}
+	}
+
 	result := make(map[string]*Event)
-	for i := range res.AuthEvents {
-		result[res.AuthEvents[i].EventID()] = &res.AuthEvents[i]
-	}
-	if p.AuthEventsOnly {
-		return result, nil
-	}
 	for i := range res.StateEvents {
 		result[res.StateEvents[i].EventID()] = &res.StateEvents[i]
 	}
