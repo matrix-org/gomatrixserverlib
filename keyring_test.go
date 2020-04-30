@@ -147,17 +147,18 @@ func TestStrictCheckingKeyValidity(t *testing.T) {
 func TestExpiredTS(t *testing.T) {
 	// Check that we respect the ExpiredTS properly.
 	publicKeyLookup := PublicKeyLookupResult{
-		ExpiredTS: AsTimestamp(time.Now().Add(time.Hour * 24 * 5)),
+		ExpiredTS: 1000,
 	}
-	shouldPass := AsTimestamp(time.Now().Add(time.Hour * 24 * 1))
-	shouldFail := AsTimestamp(time.Now().Add(time.Hour * 24 * 10))
+	shouldPass := Timestamp(999)
+	shouldFail := Timestamp(1000)
 
 	// This test should pass because it is less than ExpiredTS.
 	if !publicKeyLookup.WasValidAt(shouldPass, true) {
 		t.Fatalf("valid test should have passed")
 	}
 
-	// This test should fail because it is greater than ExpiredTS.
+	// This test should fail because it is equal to or
+	// greater than ExpiredTS.
 	if publicKeyLookup.WasValidAt(shouldFail, true) {
 		t.Fatalf("invalid test should have failed")
 	}
