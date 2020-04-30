@@ -43,7 +43,7 @@ type PublicKeyLookupResult struct {
 // given timestamp.
 func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking bool) bool {
 	if r.ExpiredTS != PublicKeyNotExpired {
-		return atTs >= r.ExpiredTS
+		return atTs < r.ExpiredTS
 	}
 	if strictValidityChecking {
 		if r.ValidUntilTS == PublicKeyNotValid {
