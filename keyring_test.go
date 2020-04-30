@@ -144,6 +144,26 @@ func TestStrictCheckingKeyValidity(t *testing.T) {
 	}
 }
 
+func TestExpiredTS(t *testing.T) {
+	// Check that we respect the ExpiredTS properly.
+	publicKeyLookup := PublicKeyLookupResult{
+		ExpiredTS: 1000,
+	}
+	shouldPass := Timestamp(999)
+	shouldFail := Timestamp(1000)
+
+	// This test should pass because it is less than ExpiredTS.
+	if !publicKeyLookup.WasValidAt(shouldPass, true) {
+		t.Fatalf("valid test should have passed")
+	}
+
+	// This test should fail because it is equal to or
+	// greater than ExpiredTS.
+	if publicKeyLookup.WasValidAt(shouldFail, true) {
+		t.Fatalf("invalid test should have failed")
+	}
+}
+
 func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
