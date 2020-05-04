@@ -841,11 +841,7 @@ func (e *Event) PrevEventIDs() []string {
 	}
 }
 
-// Membership returns the value of the content.membership field if this event
-// is an "m.room.member" event.
-// Returns an error if the event is not a m.room.member event or if the content
-// is not valid m.room.member content.
-func (e *Event) Membership() (string, error) {
+func (e *Event) extractContent(eventType string, content interface{}) error {
 	eventFormat, err := e.roomVersion.EventFormat()
 	if err != nil {
 		panic(err)
@@ -859,14 +855,67 @@ func (e *Event) Membership() (string, error) {
 	default:
 		panic(e.invalidFieldType())
 	}
-	if fields.Type != MRoomMember {
-		return "", fmt.Errorf("gomatrixserverlib: not an m.room.member event")
+	if fields.Type != eventType {
+		return fmt.Errorf("gomatrixserverlib: not a %s event", eventType)
 	}
+	return json.Unmarshal(fields.Content, &content)
+}
+
+// Membership returns the value of the content.membership field if this event
+// is an "m.room.member" event.
+// Returns an error if the event is not a m.room.member event or if the content
+// is not valid m.room.member content.
+func (e *Event) Membership() (string, error) {
 	var content MemberContent
-	if err := json.Unmarshal(fields.Content, &content); err != nil {
+	if err := e.extractContent(MRoomMember, &content); err != nil {
 		return "", err
 	}
 	return content.Membership, nil
+}
+
+// JoinRule returns the value of the content.join_rule field if this event
+// is an "m.room.join_rules" event.
+// Returns an error if the event is not a m.room.join_rules event or if the content
+// is not valid m.room.join_rules content.
+func (e *Event) JoinRule() (string, error) {
+	if !e.StateKeyEquals("") {
+		return "", fmt.Errorf("gomatrixserverlib: JoinRule() event is not a m.room.join_rules event, bad state key")
+	}
+	var content JoinRuleContent
+	if err := e.extractContent(MRoomJoinRules, &content); err != nil {
+		return "", err
+	}
+	return content.JoinRule, nil
+}
+
+// HistoryVisibility returns the value of the content.history_visibility field if this event
+// is an "m.room.history_visibility" event.
+// Returns an error if the event is not a m.room.history_visibility event or if the content
+// is not valid m.room.history_visibility content.
+func (e *Event) HistoryVisibility() (string, error) {
+	if !e.StateKeyEquals("") {
+		return "", fmt.Errorf("gomatrixserverlib: JoinRule() event is not a m.room.history_visibility event, bad state key")
+	}
+	var content HistoryVisibilityContent
+	if err := e.extractContent(MRoomHistoryVisibility, &content); err != nil {
+		return "", err
+	}
+	return content.HistoryVisibility, nil
+}
+
+// PowerLevels returns the power levels content if this event
+// is an "m.room.power_levels" event.
+// Returns an error if the event is not a m.room.power_levels event or if the content
+// is not valid m.room.power_levels content.
+func (e *Event) PowerLevels() (*PowerLevelContent, error) {
+	if !e.StateKeyEquals("") {
+		return nil, fmt.Errorf("gomatrixserverlib: PowerLevels() event is not a m.room.power_levels event, bad state key")
+	}
+	var content PowerLevelContent
+	if err := e.extractContent(MRoomPowerLevels, &content); err != nil {
+		return nil, err
+	}
+	return &content, nil
 }
 
 // AuthEvents returns references to the events needed to auth the event.

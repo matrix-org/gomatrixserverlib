@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -69,5 +70,70 @@ func TestAddUnsignedField(t *testing.T) {
 
 	if expectedEventJSON != string(event.JSON()) {
 		t.Fatalf("Serialized event does not match expected: %s != %s", string(event.JSON()), initialEventJSON)
+	}
+}
+
+func TestEventMembership(t *testing.T) {
+	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}]],"content":{"membership":"join"},"depth":1,"event_id":"$9fmIxbx4IX8w1JVo:localhost","hashes":{"sha256":"mXgoJxvMyI8ZTdhUMYwWzi0F3M50tiAQkmk0F08tQl4"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"ndobFGFV9i2XExPHfYVI4rd10Vw6GKtmdz2Wv0WSFohtm/FqFNUnDYVTsY/qZ1vkuEjHqgb5nscKD/i7TyURBw"}},"state_key":"@userid:localhost","type":"m.room.member"}`
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := event.Membership()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "join"
+	if got != want {
+		t.Errorf("membership: got %s want %s", got, want)
+	}
+}
+
+func TestEventJoinRule(t *testing.T) {
+	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"join_rule":"public"},"depth":2,"event_id":"$5hL9YWgJCtDzjlAQ:localhost","hashes":{"sha256":"CetHe0Na5HKphg5iYmLThfwQyM19w3PMCrve3Bwv8rw"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"dxwQWiH6ppF+VVFQ8IEAWeB30hrYiZWLsWNTrE1B0/vUWMp+qLhU+My65XhmE5XreHvgY3fOh4Le6OYUcxNTAw"}},"state_key":"","type":"m.room.join_rules"}`
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := event.JoinRule()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "public"
+	if got != want {
+		t.Errorf("join rule: got %s want %s", got, want)
+	}
+}
+
+func TestEventHistoryVisibility(t *testing.T) {
+	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"history_visibility":"shared"},"depth":3,"event_id":"$QAhQsLNIMdumtpOi:localhost","hashes":{"sha256":"tssm21TZjY36w9ND9h50h5zL0vqJgz5U432l45WWGaI"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$5hL9YWgJCtDzjlAQ:localhost",{"sha256":"UztZf0/CBZ8UoCHuYdrxlfyUZ5nf5h8aKZkg5GVhWI0"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"FwBwMZnGjkZFt8aiWQODSmLmy1cxVZGOFkeu3JEUVEI5r4/2BMcwdYw6+am7ov4VfDRJ/ehp9wv3Bo93XLEJCQ"}},"state_key":"","type":"m.room.history_visibility"}`
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := event.HistoryVisibility()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "shared"
+	if got != want {
+		t.Errorf("history visibility: got %s want %s", got, want)
+	}
+}
+
+func TestEventPowerLevels(t *testing.T) {
+	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"ban":50,"events":null,"events_default":0,"invite":0,"kick":50,"redact":50,"state_default":50,"users":null,"users_default":0},"depth":4,"event_id":"$1570trwyGMovM5uU:localhost","hashes":{"sha256":"QvWo2OZufVTMUkPcYQinGVeeHEODWY6RUMaHRxdT31Y"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$QAhQsLNIMdumtpOi:localhost",{"sha256":"RqoKwu8u8qL+wDoka23xvd7t9UoOXLRQse/bK3o9qLE"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"0oPZsvPkbNNVwRrLAP+fEyxFRAIUh0Zn7NPH3LybNC8lMz0GyPtN1bKlTVQYMwZBTXCV795s+CEgoIX+M5gkAQ"}},"state_key":"","type":"m.room.power_levels"}`
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := event.PowerLevels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want PowerLevelContent
+	want.Defaults()
+	if !reflect.DeepEqual(*got, want) {
+		t.Errorf("power levels: got %+v want %+v", got, want)
 	}
 }
