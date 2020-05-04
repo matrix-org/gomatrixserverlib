@@ -870,6 +870,9 @@ func (e *Event) Membership() (string, error) {
 	if err := e.extractContent(MRoomMember, &content); err != nil {
 		return "", err
 	}
+	if e.StateKey() == nil {
+		return "", fmt.Errorf("gomatrixserverlib: Membersip() event is not a m.room.member event, missing state key")
+	}
 	return content.Membership, nil
 }
 
@@ -894,7 +897,7 @@ func (e *Event) JoinRule() (string, error) {
 // is not valid m.room.history_visibility content.
 func (e *Event) HistoryVisibility() (string, error) {
 	if !e.StateKeyEquals("") {
-		return "", fmt.Errorf("gomatrixserverlib: JoinRule() event is not a m.room.history_visibility event, bad state key")
+		return "", fmt.Errorf("gomatrixserverlib: HistoryVisibility() event is not a m.room.history_visibility event, bad state key")
 	}
 	var content HistoryVisibilityContent
 	if err := e.extractContent(MRoomHistoryVisibility, &content); err != nil {
