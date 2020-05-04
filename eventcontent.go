@@ -198,6 +198,12 @@ func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 	return
 }
 
+// HistoryVisibilityContent is the JSON content of a m.room.history_visibility event.
+// See https://matrix.org/docs/spec/client_server/r0.6.0#room-history-visibility for descriptions of the fields.
+type HistoryVisibilityContent struct {
+	HistoryVisibility string `json:"history_visibility"`
+}
+
 // JoinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.
 // See  https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules for descriptions of the fields.
 type JoinRuleContent struct {
