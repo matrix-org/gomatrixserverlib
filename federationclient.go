@@ -152,7 +152,8 @@ func (ac *FederationClient) SendLeave(
 	if err = req.SetContent(event); err != nil {
 		return
 	}
-	err = ac.doRequest(ctx, req, nil)
+	res := struct{}{}
+	err = ac.doRequest(ctx, req, &res)
 	return
 }
 
@@ -204,7 +205,8 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 	if err = req.SetContent(builder); err != nil {
 		return
 	}
-	err = ac.doRequest(ctx, req, nil)
+	res := struct{}{}
+	err = ac.doRequest(ctx, req, &res)
 	return
 }
 
