@@ -121,7 +121,7 @@ func DefaultEventFilter() EventFilter {
 // is provided in the request
 func DefaultStateFilter() StateFilter {
 	return StateFilter{
-		Limit:                   math.MaxUint32,
+		Limit:                   math.MaxInt32,
 		NotSenders:              nil,
 		NotTypes:                nil,
 		Senders:                 nil,
