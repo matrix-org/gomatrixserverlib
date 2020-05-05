@@ -328,13 +328,16 @@ func (fc *Client) DoRequestAndParseResponse(
 		return err
 	}
 
+	var contents []byte
+	contents, err = ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("RESPONSE:", string(contents))
+
 	if response.StatusCode/100 != 2 { // not 2xx
 		// Adapted from https://github.com/matrix-org/gomatrix/blob/master/client.go
-		var contents []byte
-		contents, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
 
 		var wrap error
 		var respErr gomatrix.RespError
@@ -356,7 +359,7 @@ func (fc *Client) DoRequestAndParseResponse(
 		}
 	}
 
-	if err = json.NewDecoder(response.Body).Decode(result); err != nil {
+	if err = json.Unmarshal(contents, result); err != nil {
 		return err
 	}
 
