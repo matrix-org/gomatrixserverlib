@@ -198,7 +198,7 @@ type RespEventAuth struct {
 }
 
 type respStateFields struct {
-	StateEvents []Event `json:"state"`
+	StateEvents []Event `json:"pdus"`
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
@@ -246,7 +246,7 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		StateEvents []json.RawMessage `json:"state"`
+		StateEvents []json.RawMessage `json:"pdus"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
@@ -404,8 +404,14 @@ type RespMakeJoin struct {
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v2/send_join/{roomID}/{eventID}
 type RespSendJoin struct {
-	RespState
-	Origin ServerName
+	// The room version that dictates the format of the state events.
+	roomVersion RoomVersion
+	// A list of events giving the state of the room before the request event.
+	StateEvents []Event `json:"state"`
+	// A list of events needed to authenticate the state events.
+	AuthEvents []Event `json:"auth_chain"`
+	// The server that originated the event.
+	Origin ServerName `json:"origin"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -426,15 +432,32 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	var fields struct {
-		Origin ServerName `json:"origin"`
-	}
-	if err := json.Unmarshal(data, &fields); err != nil {
+	r.AuthEvents = []Event{}
+	r.StateEvents = []Event{}
+	if _, err := r.roomVersion.EventFormat(); err != nil {
 		return err
 	}
-	r.Origin = fields.Origin
-	if err := json.Unmarshal(data, &r.RespState); err != nil {
+	var intermediate struct {
+		StateEvents []json.RawMessage `json:"state"`
+		AuthEvents  []json.RawMessage `json:"auth_chain"`
+		Origin      ServerName        `json:"origin"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
+	}
+	for _, raw := range intermediate.AuthEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	for _, raw := range intermediate.StateEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.StateEvents = append(r.StateEvents, event)
 	}
 	return nil
 }
