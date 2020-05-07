@@ -311,3 +311,79 @@ func (s conflictedEventSorter) Less(i, j int) bool {
 func (s conflictedEventSorter) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
+
+// ResolveConflicts performs state resolution on the input events, returning the
+// resolved state. It will automatically decide which state resolution algorithm
+// to use, depending on the room version. `events` should be all the state events
+// to resolve. `authEvents` should be the entire set of auth_events for these `events`.
+// Returns an error if the state resolution algorithm cannot be determined.
+func ResolveConflicts(
+	version RoomVersion,
+	events []Event,
+	authEvents []Event,
+) ([]Event, error) {
+	type stateKeyTuple struct {
+		Type     string
+		StateKey string
+	}
+
+	// Prepare our data structures.
+	eventMap := make(map[stateKeyTuple][]Event)
+	var conflicted, notConflicted, resolved []Event
+
+	// Run through all of the events that we were given and sort them
+	// into a map, sorted by (event_type, state_key) tuple. This means
+	// that we can easily spot events that are "conflicted", e.g.
+	// there are duplicate values for the same tuple key.
+	for _, event := range events {
+		if event.StateKey() == nil {
+			// Ignore events that are not state events.
+			continue
+		}
+		// Append the events if there is already a conflicted list for
+		// this tuple key, create it if not.
+		tuple := stateKeyTuple{event.Type(), *event.StateKey()}
+		if _, ok := eventMap[tuple]; ok {
+			eventMap[tuple] = append(eventMap[tuple], event)
+		} else {
+			eventMap[tuple] = []Event{event}
+		}
+	}
+
+	// Split out the events in the map into conflicted and unconflicted
+	// buckets. The conflicted events will be ran through state res,
+	// whereas unconfliced events will always going to appear in the
+	// final resolved state.
+	for _, list := range eventMap {
+		if len(list) > 1 {
+			conflicted = append(conflicted, list...)
+		} else {
+			notConflicted = append(notConflicted, list...)
+		}
+	}
+
+	// Work out which state resolution algorithm we want to run for
+	// the room version.
+	stateResAlgo, err := version.StateResAlgorithm()
+	if err != nil {
+		return nil, err
+	}
+	switch stateResAlgo {
+	case StateResV1:
+		// Currently state res v1 doesn't handle unconflicted events
+		// for us, like state res v2 does, so we will need to add the
+		// unconflicted events into the state ourselves.
+		// TODO: Fix state res v1 so this is handled for the caller.
+		resolved = ResolveStateConflicts(conflicted, authEvents)
+		resolved = append(resolved, notConflicted...)
+	case StateResV2:
+		// TODO: auth difference here?
+		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents, authEvents)
+	default:
+		return nil, fmt.Errorf("unsupported state resolution algorithm %v", stateResAlgo)
+	}
+
+	// Return the final resolved state events, including both the
+	// resolved set of conflicted events, and the unconflicted events.
+	return resolved, nil
+}
