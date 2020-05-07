@@ -120,6 +120,7 @@ type MemberContent struct {
 	DisplayName string `json:"displayname,omitempty"`
 	AvatarURL   string `json:"avatar_url,omitempty"`
 	Reason      string `json:"reason,omitempty"`
+	IsDirect    bool   `json:"is_direct,omitempty"`
 	// We use the third_party_invite key to special case thirdparty invites.
 	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
 }
