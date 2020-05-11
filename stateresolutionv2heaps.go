@@ -33,7 +33,7 @@ type stateResV2ConflictedPowerLevel struct {
 // A stateResV2ConflictedPowerLevelHeap is used to sort the events using
 // sort.Sort or by using the heap functions for further optimisation. Sorting
 // ensures that the results are deterministic.
-type stateResV2ConflictedPowerLevelHeap []stateResV2ConflictedPowerLevel
+type stateResV2ConflictedPowerLevelHeap []*stateResV2ConflictedPowerLevel
 
 // Len implements sort.Interface
 func (s stateResV2ConflictedPowerLevelHeap) Len() int {
@@ -69,7 +69,7 @@ func (s stateResV2ConflictedPowerLevelHeap) Swap(i, j int) {
 
 // Push implements heap.Interface
 func (s *stateResV2ConflictedPowerLevelHeap) Push(x interface{}) {
-	*s = append(*s, x.(stateResV2ConflictedPowerLevel))
+	*s = append(*s, x.(*stateResV2ConflictedPowerLevel))
 }
 
 // Pop implements heap.Interface
@@ -96,7 +96,7 @@ type stateResV2ConflictedOther struct {
 // A stateResV2ConflictedOtherHeap is used to sort the events using
 // sort.Sort or by using the heap functions for further optimisation. Sorting
 // ensures that the results are deterministic.
-type stateResV2ConflictedOtherHeap []stateResV2ConflictedOther
+type stateResV2ConflictedOtherHeap []*stateResV2ConflictedOther
 
 // Len implements sort.Interface
 func (s stateResV2ConflictedOtherHeap) Len() int {
@@ -132,7 +132,7 @@ func (s stateResV2ConflictedOtherHeap) Swap(i, j int) {
 
 // Push implements heap.Interface
 func (s *stateResV2ConflictedOtherHeap) Push(x interface{}) {
-	*s = append(*s, x.(stateResV2ConflictedOther))
+	*s = append(*s, x.(*stateResV2ConflictedOther))
 }
 
 // Pop implements heap.Interface
