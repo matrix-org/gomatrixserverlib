@@ -428,10 +428,10 @@ func eventMapFromEvents(events []*Event) map[string]*Event {
 // wrapPowerLevelEventsForSort takes the input power level events and wraps them
 // in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []*Event) []stateResV2ConflictedPowerLevel {
-	block := make([]stateResV2ConflictedPowerLevel, len(events))
+func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []*Event) []*stateResV2ConflictedPowerLevel {
+	block := make([]*stateResV2ConflictedPowerLevel, len(events))
 	for i, event := range events {
-		block[i] = stateResV2ConflictedPowerLevel{
+		block[i] = &stateResV2ConflictedPowerLevel{
 			powerLevel:     r.getPowerLevelFromAuthEvents(event),
 			originServerTS: int64(event.OriginServerTS()),
 			eventID:        event.EventID(),
@@ -444,11 +444,11 @@ func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []*Event) []stateRe
 // wrapOtherEventsForSort takes the input non-power level events and wraps them
 // in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) wrapOtherEventsForSort(events []*Event) []stateResV2ConflictedOther {
-	block := make([]stateResV2ConflictedOther, len(events))
+func (r *stateResolverV2) wrapOtherEventsForSort(events []*Event) []*stateResV2ConflictedOther {
+	block := make([]*stateResV2ConflictedOther, len(events))
 	for i, event := range events {
 		_, pos, _ := r.getFirstPowerLevelMainlineEvent(event)
-		block[i] = stateResV2ConflictedOther{
+		block[i] = &stateResV2ConflictedOther{
 			mainlinePosition: pos,
 			originServerTS:   int64(event.OriginServerTS()),
 			eventID:          event.EventID(),
@@ -541,10 +541,10 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 // events. This works through each event, counting how many incoming auth event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (
-	graph []stateResV2ConflictedPowerLevel,
+func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
+	graph []*stateResV2ConflictedPowerLevel,
 ) {
-	eventMap := make(map[string]stateResV2ConflictedPowerLevel)
+	eventMap := make(map[string]*stateResV2ConflictedPowerLevel)
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -583,16 +583,16 @@ func kahnsAlgorithmUsingAuthEvents(events []stateResV2ConflictedPowerLevel) (
 		}
 	}
 
-	var event stateResV2ConflictedPowerLevel
+	var event *stateResV2ConflictedPowerLevel
 resetNoIncoming:
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
-		event = heap.Pop(&noIncoming).(stateResV2ConflictedPowerLevel)
+		event = heap.Pop(&noIncoming).(*stateResV2ConflictedPowerLevel)
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append([]stateResV2ConflictedPowerLevel{event}, graph...)
+		graph = append([]*stateResV2ConflictedPowerLevel{event}, graph...)
 		//graph = append(graph, event)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
@@ -636,10 +636,10 @@ resetNoIncoming:
 // events. This works through each event, counting how many incoming prev event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingPrevEvents(events []stateResV2ConflictedOther) (
-	graph []stateResV2ConflictedOther,
+func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) (
+	graph []*stateResV2ConflictedOther,
 ) {
-	eventMap := make(map[string]stateResV2ConflictedOther)
+	eventMap := make(map[string]*stateResV2ConflictedOther)
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -678,16 +678,16 @@ func kahnsAlgorithmUsingPrevEvents(events []stateResV2ConflictedOther) (
 		}
 	}
 
-	var event stateResV2ConflictedOther
+	var event *stateResV2ConflictedOther
 resetNoIncoming:
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// prev event dependencies.
-		event = heap.Pop(&noIncoming).(stateResV2ConflictedOther)
+		event = heap.Pop(&noIncoming).(*stateResV2ConflictedOther)
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append([]stateResV2ConflictedOther{event}, graph...)
+		graph = append([]*stateResV2ConflictedOther{event}, graph...)
 		//graph = append(graph, event)
 
 		// Now we should look at the outgoing prev dependencies that this event has.

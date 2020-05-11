@@ -373,14 +373,14 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 }
 
 func TestLexicographicalSorting(t *testing.T) {
-	input := []stateResV2ConflictedPowerLevel{
-		stateResV2ConflictedPowerLevel{eventID: "a", powerLevel: 0, originServerTS: 1},
-		stateResV2ConflictedPowerLevel{eventID: "b", powerLevel: 0, originServerTS: 2},
-		stateResV2ConflictedPowerLevel{eventID: "c", powerLevel: 0, originServerTS: 2},
-		stateResV2ConflictedPowerLevel{eventID: "d", powerLevel: 25, originServerTS: 3},
-		stateResV2ConflictedPowerLevel{eventID: "e", powerLevel: 50, originServerTS: 4},
-		stateResV2ConflictedPowerLevel{eventID: "f", powerLevel: 75, originServerTS: 4},
-		stateResV2ConflictedPowerLevel{eventID: "g", powerLevel: 100, originServerTS: 5},
+	input := []*stateResV2ConflictedPowerLevel{
+		&stateResV2ConflictedPowerLevel{eventID: "a", powerLevel: 0, originServerTS: 1},
+		&stateResV2ConflictedPowerLevel{eventID: "b", powerLevel: 0, originServerTS: 2},
+		&stateResV2ConflictedPowerLevel{eventID: "c", powerLevel: 0, originServerTS: 2},
+		&stateResV2ConflictedPowerLevel{eventID: "d", powerLevel: 25, originServerTS: 3},
+		&stateResV2ConflictedPowerLevel{eventID: "e", powerLevel: 50, originServerTS: 4},
+		&stateResV2ConflictedPowerLevel{eventID: "f", powerLevel: 75, originServerTS: 4},
+		&stateResV2ConflictedPowerLevel{eventID: "g", powerLevel: 100, originServerTS: 5},
 	}
 	expected := []string{"g", "f", "e", "d", "c", "b", "a"}
 
