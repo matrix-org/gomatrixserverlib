@@ -408,7 +408,11 @@ func TestLexicographicalSorting(t *testing.T) {
 
 func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
-	base := getBaseStateResV2Graph()
+	graph := getBaseStateResV2Graph()
+	var base []*Event
+	for i := range graph {
+		base = append(base, &graph[i])
+	}
 	input := r.reverseTopologicalOrdering(base, TopologicalOrderByAuthEvents)
 
 	expected := []string{

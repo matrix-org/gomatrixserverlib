@@ -27,7 +27,7 @@ type stateResV2ConflictedPowerLevel struct {
 	powerLevel     int
 	originServerTS int64
 	eventID        string
-	event          Event
+	event          *Event
 }
 
 // A stateResV2ConflictedPowerLevelHeap is used to sort the events using
@@ -90,7 +90,7 @@ type stateResV2ConflictedOther struct {
 	mainlinePosition int
 	originServerTS   int64
 	eventID          string
-	event            Event
+	event            *Event
 }
 
 // A stateResV2ConflictedOtherHeap is used to sort the events using
