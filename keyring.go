@@ -94,10 +94,22 @@ type KeyDatabase interface {
 	StoreKeys(ctx context.Context, results map[PublicKeyLookupRequest]PublicKeyLookupResult) error
 }
 
+// A KeyCache is a store of public keys temporarily in memory. This
+// is optional but it helps us to respond to repeated key queries faster without
+// hitting the database so often.
+type KeyCache interface {
+	// Cache a result for a given server name and key ID.
+	StoreServerKey(request PublicKeyLookupRequest, result PublicKeyLookupResult)
+
+	// See whether we have a cached result for a given server name and key ID.
+	GetServerKey(request PublicKeyLookupRequest) (PublicKeyLookupResult, bool)
+}
+
 // A KeyRing stores keys for matrix servers and provides methods for verifying JSON messages.
 type KeyRing struct {
 	KeyFetchers []KeyFetcher
 	KeyDatabase KeyDatabase
+	KeyCache    KeyCache
 }
 
 // A VerifyJSONRequest is a request to check for a signature on a JSON message.
@@ -170,16 +182,35 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// This will happen if all the objects are missing supported signatures.
 		return results, nil
 	}
-	keysFromDatabase, err := k.KeyDatabase.FetchKeys(ctx, keyRequests)
-	if err != nil {
-		return nil, err
+
+	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+
+	// First of all see if any of the requested keys are cached.
+	if k.KeyCache != nil {
+		for req := range keyRequests {
+			if res, cached := k.KeyCache.GetServerKey(req); cached {
+				keysFetched[req] = res
+				delete(keyRequests, req)
+			}
+		}
 	}
 
-	// TODO: we should distinguish here between expired keys, and those we don't have.
-	// If the key has expired, it's no use re-requesting it.
-	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
-	for req, res := range keysFromDatabase {
-		keysFetched[req] = res
+	// For any remaining keys that we didn't have cached, request them from
+	// the fetcher.
+	if len(keyRequests) > 0 {
+		keysFromDatabase, err := k.KeyDatabase.FetchKeys(ctx, keyRequests)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: we should distinguish here between expired keys, and those we don't have.
+		// If the key has expired, it's no use re-requesting it.
+		for req, res := range keysFromDatabase {
+			keysFetched[req] = res
+			if k.KeyCache != nil {
+				k.KeyCache.StoreServerKey(req, res)
+			}
+		}
 	}
 
 	k.checkUsingKeys(requests, results, keyIDs, keysFetched)

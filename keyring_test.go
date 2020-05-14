@@ -87,7 +87,7 @@ func (db *testKeyDatabase) StoreKeys(
 
 func TestVerifyJSONsSuccess(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
-	k := KeyRing{nil, &testKeyDatabase{}}
+	k := KeyRing{nil, &testKeyDatabase{}, nil}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "localhost:8800",
 		Message:                []byte(testKeys),
@@ -104,7 +104,7 @@ func TestVerifyJSONsSuccess(t *testing.T) {
 
 func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
-	k := KeyRing{nil, &testKeyDatabase{}}
+	k := KeyRing{nil, &testKeyDatabase{}, nil}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "localhost:8800",
 		Message:                []byte(testKeys),
@@ -166,7 +166,7 @@ func TestExpiredTS(t *testing.T) {
 
 func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
-	k := KeyRing{nil, &testKeyDatabase{}}
+	k := KeyRing{nil, &testKeyDatabase{}, nil}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "localhost:8800",
 		Message:                []byte(testKeys),
@@ -183,7 +183,7 @@ func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
 
 func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 	// Check that trying to verify JSON for an unknown server fails.
-	k := KeyRing{nil, &testKeyDatabase{}}
+	k := KeyRing{nil, &testKeyDatabase{}, nil}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "unknown:8800",
 		Message:                []byte(testKeys),
@@ -201,7 +201,7 @@ func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 func TestVerifyJSONsDistantFutureFails(t *testing.T) {
 	// Check that trying to verify JSON from the distant future fails.
 	distantFuture := Timestamp(2000000000000)
-	k := KeyRing{nil, &testKeyDatabase{}}
+	k := KeyRing{nil, &testKeyDatabase{}, nil}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "unknown:8800",
 		Message:                []byte(testKeys),
@@ -218,7 +218,7 @@ func TestVerifyJSONsDistantFutureFails(t *testing.T) {
 
 func TestVerifyJSONsFetcherError(t *testing.T) {
 	// Check that if the database errors then the attempt to verify JSON fails.
-	k := KeyRing{nil, &erroringKeyDatabase{}}
+	k := KeyRing{nil, &erroringKeyDatabase{}, nil}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "localhost:8800",
 		Message:                []byte(testKeys),
