@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -17,6 +18,23 @@ type PublicKeyLookupRequest struct {
 	ServerName ServerName
 	// The ID of the key to fetch.
 	KeyID KeyID
+}
+
+// MarshalText turns the public key lookup request into a string format,
+// which allows us to use it as a JSON map key.
+func (r PublicKeyLookupRequest) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("%s/%s", r.ServerName, r.KeyID)), nil
+}
+
+// UnmarshalText turns the string format back into a public key lookup
+// request, from a JSON map key.
+func (r *PublicKeyLookupRequest) UnmarshalText(text []byte) error {
+	parts := strings.SplitN(string(text), "/", 2)
+	if len(parts) < 2 {
+		return errors.New("expected at least one / separator in " + string(text))
+	}
+	r.ServerName, r.KeyID = ServerName(parts[0]), KeyID(parts[1])
+	return nil
 }
 
 // PublicKeyNotExpired is a magic value for PublicKeyLookupResult.ExpiredTS:

@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -227,6 +228,37 @@ func TestVerifyJSONsFetcherError(t *testing.T) {
 	}})
 	if err != error(&testErrorFetch) || results != nil {
 		t.Fatalf("VerifyJSONs(): Wanted (nil, <some error>) got (%#v, %q)", results, err)
+	}
+}
+
+func TestPublicKeyRequestMarshalUnmarshalText(t *testing.T) {
+	// The test must only separate based on the first forward slash.
+	// The key ID therefore should remain intact even if it contains one.
+	expects := `{"servername/keyid/1234":{}}`
+	req := PublicKeyLookupRequest{
+		ServerName: "servername",
+		KeyID:      "keyid/1234",
+	}
+	// Start by creating a map with our struct key.
+	one := map[PublicKeyLookupRequest]struct{}{}
+	one[req] = struct{}{}
+	// Marshal the JSON.
+	j, err := json.Marshal(one)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The map key in the JSON should be marshalled.
+	if string(j) != expects {
+		t.Fatalf("expected %q, got %q", expects, string(j))
+	}
+	// Now let's unmarshal it into a new struct.
+	two := map[PublicKeyLookupRequest]struct{}{}
+	if err := json.Unmarshal(j, &two); err != nil {
+		t.Fatal(err)
+	}
+	// We should now have a map key that looks like the original request.
+	if _, ok := two[req]; !ok {
+		t.Fatal("expected struct key to exist")
 	}
 }
 
