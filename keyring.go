@@ -15,9 +15,9 @@ import (
 // A PublicKeyLookupRequest is a request for a public key with a particular key ID.
 type PublicKeyLookupRequest struct {
 	// The server to fetch a key for.
-	ServerName ServerName
+	ServerName ServerName `json:"server_name"`
 	// The ID of the key to fetch.
-	KeyID KeyID
+	KeyID KeyID `json:"key_id"`
 }
 
 // MarshalText turns the public key lookup request into a string format,
@@ -51,10 +51,10 @@ type PublicKeyLookupResult struct {
 	VerifyKey
 	// if this key has expired, the time it stopped being valid for event signing in milliseconds.
 	// if the key has not expired, the magic value PublicKeyNotExpired.
-	ExpiredTS Timestamp
+	ExpiredTS Timestamp `json:"expired_ts"`
 	// When this result is valid until in milliseconds.
 	// if the key has expired, the magic value PublicKeyNotValid.
-	ValidUntilTS Timestamp
+	ValidUntilTS Timestamp `json:"valid_until_ts"`
 }
 
 // WasValidAt checks if this signing key is valid for an event signed at the
