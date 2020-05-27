@@ -58,6 +58,8 @@ const (
 	MRoomRedaction = "m.room.redaction"
 	// MTyping https://matrix.org/docs/spec/client_server/r0.3.0.html#m-typing
 	MTyping = "m.typing"
+	// MDirectToDevice https://matrix.org/docs/spec/server_server/r0.1.3#send-to-device-messaging
+	MDirectToDevice = "m.direct_to_device"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.

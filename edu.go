@@ -18,6 +18,6 @@ package gomatrixserverlib
 type EDU struct {
 	Type        string  `json:"edu_type"`
 	Origin      string  `json:"origin"`
-	Destination string  `json:"destination"`
-	Content     RawJSON `json:"content"`
+	Destination string  `json:"destination,omitempty"`
+	Content     RawJSON `json:"content,omitempty"`
 }
