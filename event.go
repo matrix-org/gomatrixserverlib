@@ -263,7 +263,7 @@ func (eb *EventBuilder) Build(
 // This should be used when receiving new events from remote servers.
 func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result Event, err error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
-		err = UnexpectedHeaderedEvent{}
+		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
 	}
 
