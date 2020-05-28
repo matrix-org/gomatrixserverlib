@@ -16,6 +16,8 @@
 package gomatrixserverlib
 
 import (
+	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -135,5 +137,21 @@ func TestEventPowerLevels(t *testing.T) {
 	want.Defaults()
 	if !reflect.DeepEqual(*got, want) {
 		t.Errorf("power levels: got %+v want %+v", got, want)
+	}
+}
+
+func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
+	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"ban":50,"events":null,"events_default":0,"invite":0,"kick":50,"redact":50,"state_default":50,"users":null,"users_default":0},"depth":4,"event_id":"$1570trwyGMovM5uU:localhost","hashes":{"sha256":"QvWo2OZufVTMUkPcYQinGVeeHEODWY6RUMaHRxdT31Y"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$QAhQsLNIMdumtpOi:localhost",{"sha256":"RqoKwu8u8qL+wDoka23xvd7t9UoOXLRQse/bK3o9qLE"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"0oPZsvPkbNNVwRrLAP+fEyxFRAIUh0Zn7NPH3LybNC8lMz0GyPtN1bKlTVQYMwZBTXCV795s+CEgoIX+M5gkAQ"}},"state_key":"","type":"m.room.power_levels"}`
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, err := json.Marshal(event.Headered(RoomVersionV1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = NewEventFromUntrustedJSON(j, RoomVersionV1)
+	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
+		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
 	}
 }

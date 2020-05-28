@@ -113,3 +113,9 @@ func (e HeaderedEvent) MarshalJSON() ([]byte, error) {
 	// Return the newly marshalled JSON.
 	return content, nil
 }
+
+type UnexpectedHeaderedEvent struct{}
+
+func (u UnexpectedHeaderedEvent) Error() string {
+	return "unexpected headered event"
+}
