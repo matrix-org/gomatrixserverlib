@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -135,5 +136,17 @@ func TestEventPowerLevels(t *testing.T) {
 	want.Defaults()
 	if !reflect.DeepEqual(*got, want) {
 		t.Errorf("power levels: got %+v want %+v", got, want)
+	}
+}
+
+func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
+	var event Event
+	j, err := json.Marshal(event.Headered(RoomVersionV1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = NewEventFromUntrustedJSON(j, RoomVersionV1)
+	if _, ok := err.(UnexpectedHeaderedEvent); !ok {
+		t.Fatal("expected an UnexpectedHeaderedEvent error", err)
 	}
 }
