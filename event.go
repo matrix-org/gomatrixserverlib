@@ -262,7 +262,7 @@ func (eb *EventBuilder) Build(
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
 func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result Event, err error) {
-	if r := gjson.GetBytes(eventJSON, "L_*"); r.Exists() {
+	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = UnexpectedHeaderedEvent{}
 		return
 	}
