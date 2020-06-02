@@ -121,7 +121,7 @@ func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
 // state resolution algorithm or event ID format to use.
 // RoomVersionDescription contains information about a room version,
 // namely whether it is marked as supported or stable in this server
-// version, along with the state resolution algorith, event ID etc
+// version, along with the state resolution algorithm, event ID etc
 // formats used.
 //
 // A version is supported if the server has some support for rooms
