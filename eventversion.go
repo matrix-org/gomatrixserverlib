@@ -130,12 +130,12 @@ func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
 // calling the /capabilities endpoint.
 // https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-capabilities
 type RoomVersionDescription struct {
-	Supported              bool
-	Stable                 bool
 	stateResAlgorithm      StateResAlgorithm
 	eventFormat            EventFormat
 	eventIDFormat          EventIDFormat
 	enforceSignatureChecks bool
+	Supported              bool
+	Stable                 bool
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
