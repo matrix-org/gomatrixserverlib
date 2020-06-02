@@ -44,32 +44,42 @@ const (
 	StateResV2                              // state resolution v2
 )
 
-var roomVersionMeta = map[RoomVersion]roomVersion{
-	"1": roomVersion{
+var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
+	RoomVersionV1: {
+		Supported:              true,
+		Stable:                 true,
 		stateResAlgorithm:      StateResV1,
 		eventFormat:            EventFormatV1,
 		eventIDFormat:          EventIDFormatV1,
 		enforceSignatureChecks: false,
 	},
-	"2": roomVersion{
+	RoomVersionV2: {
+		Supported:              true,
+		Stable:                 true,
 		stateResAlgorithm:      StateResV2,
 		eventFormat:            EventFormatV1,
 		eventIDFormat:          EventIDFormatV1,
 		enforceSignatureChecks: false,
 	},
-	"3": roomVersion{
+	RoomVersionV3: {
+		Supported:              true,
+		Stable:                 true,
 		stateResAlgorithm:      StateResV2,
 		eventFormat:            EventFormatV2,
 		eventIDFormat:          EventIDFormatV2,
 		enforceSignatureChecks: false,
 	},
-	"4": roomVersion{
+	RoomVersionV4: {
+		Supported:              true,
+		Stable:                 true,
 		stateResAlgorithm:      StateResV2,
 		eventFormat:            EventFormatV2,
 		eventIDFormat:          EventIDFormatV3,
 		enforceSignatureChecks: false,
 	},
-	"5": roomVersion{
+	RoomVersionV5: {
+		Supported:              true,
+		Stable:                 true,
 		stateResAlgorithm:      StateResV2,
 		eventFormat:            EventFormatV2,
 		eventIDFormat:          EventIDFormatV3,
@@ -77,9 +87,51 @@ var roomVersionMeta = map[RoomVersion]roomVersion{
 	},
 }
 
-// roomVersion contains information about a given room version, e.g. which
+// RoomVersions returns information about room versions currently
+// implemented by this commit of gomatrixserverlib.
+func RoomVersions() map[RoomVersion]RoomVersionDescription {
+	return roomVersionMeta
+}
+
+// SupportedRoomVersions returns a map of descriptions for room
+// versions that are marked as supported.
+func SupportedRoomVersions() map[RoomVersion]RoomVersionDescription {
+	versions := make(map[RoomVersion]RoomVersionDescription)
+	for id, version := range RoomVersions() {
+		if version.Supported {
+			versions[id] = version
+		}
+	}
+	return versions
+}
+
+// StableRoomVersions returns a map of descriptions for room
+// versions that are marked as stable.
+func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
+	versions := make(map[RoomVersion]RoomVersionDescription)
+	for id, version := range RoomVersions() {
+		if version.Supported && version.Stable {
+			versions[id] = version
+		}
+	}
+	return versions
+}
+
+// RoomVersionDescription contains information about a given room version, e.g. which
 // state resolution algorithm or event ID format to use.
-type roomVersion struct {
+// RoomVersionDescription contains information about a room version,
+// namely whether it is marked as supported or stable in this server
+// version, along with the state resolution algorith, event ID etc
+// formats used.
+//
+// A version is supported if the server has some support for rooms
+// that are this version. A version is marked as stable or unstable
+// in order to hint whether the version should be used to clients
+// calling the /capabilities endpoint.
+// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-capabilities
+type RoomVersionDescription struct {
+	Supported              bool
+	Stable                 bool
 	stateResAlgorithm      StateResAlgorithm
 	eventFormat            EventFormat
 	eventIDFormat          EventIDFormat
