@@ -206,7 +206,7 @@ type respStateFields struct {
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevices struct {
 	UserID   string           `json:"user_id"`
-	StreamID string           `json:"stream_id"`
+	StreamID int              `json:"stream_id"`
 	Devices  []RespUserDevice `json:"devices"`
 }
 
