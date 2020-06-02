@@ -22,7 +22,7 @@ cd "$tmpdir"
 git checkout-index -a
 
 echo "Installing lint search engine..."
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.21.0
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
 
 echo "Testing..."
 go test ./...
