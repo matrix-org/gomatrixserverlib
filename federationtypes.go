@@ -202,6 +202,32 @@ type respStateFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
+// RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{id}
+// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
+type RespUserDevices struct {
+	UserID   string           `json:"user_id"`
+	StreamID string           `json:"stream_id"`
+	Devices  []RespUserDevice `json:"devices"`
+}
+
+// RespUserDevice are embedded in RespUserDevices
+// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
+type RespUserDevice struct {
+	DeviceID    string               `json:"device_id"`
+	DisplayName string               `json:"device_display_name"`
+	Keys        []RespUserDeviceKeys `json:"keys"`
+}
+
+// RespUserDeviceKeys are embedded in RespUserDevice
+// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
+type RespUserDeviceKeys struct {
+	UserID     string                       `json:"user_id"`
+	DeviceID   string                       `json:"device_id"`
+	Algorithms []string                     `json:"algorithms"`
+	Keys       map[string]string            `json:"keys"`
+	Signatures map[string]map[string]string `json:"signatures"`
+}
+
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
 	r.Events = []Event{}
