@@ -16,10 +16,10 @@ func (e MissingAuthEventError) Error() string {
 	)
 }
 
-type BadJSON struct {
+type BadJSONError struct {
 	err error
 }
 
-func (e BadJSON) Error() string {
+func (e BadJSONError) Error() string {
 	return fmt.Sprintf("gomatrixserverlib: bad JSON: %s", e.err.Error())
 }
