@@ -236,7 +236,7 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON); err != nil {
+	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {
 		return
 	}
 
@@ -302,7 +302,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		// If the content hash doesn't match then we have to discard all non-essential fields
 		// because they've been tampered with.
 		var redactedJSON []byte
-		if redactedJSON, err = redactEvent(eventJSON); err != nil {
+		if redactedJSON, err = redactEvent(eventJSON, roomVersion); err != nil {
 			return
 		}
 
@@ -393,7 +393,7 @@ func (e *Event) Redact() Event {
 	if e.redacted {
 		return *e
 	}
-	eventJSON, err := redactEvent(e.eventJSON)
+	eventJSON, err := redactEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
@@ -502,7 +502,7 @@ func (e *Event) EventReference() EventReference {
 
 // Sign returns a copy of the event with an additional signature.
 func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
-	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON)
+	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
@@ -530,7 +530,7 @@ func (e *Event) KeyIDs(signingName string) []KeyID {
 
 // Verify checks a ed25519 signature
 func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
-	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON)
+	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON, e.roomVersion)
 }
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.

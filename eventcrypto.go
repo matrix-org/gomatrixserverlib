@@ -102,7 +102,7 @@ func checkEventContentHash(eventJSON []byte) error {
 // ReferenceSha256HashOfEvent returns the SHA-256 hash of the redacted event content.
 // This is used when referring to this event from other events.
 func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference, error) {
-	redactedJSON, err := redactEvent(eventJSON)
+	redactedJSON, err := redactEvent(eventJSON, roomVersion)
 	if err != nil {
 		return EventReference{}, err
 	}
@@ -163,10 +163,10 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 }
 
 // SignEvent adds a ED25519 signature to the event for the given key.
-func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, eventJSON []byte) ([]byte, error) {
+func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 
 	// Redact the event before signing so signature that will remain valid even if the event is redacted.
-	redactedJSON, err := redactEvent(eventJSON)
+	redactedJSON, err := redactEvent(eventJSON, roomVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +197,8 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 }
 
 // VerifyEventSignature checks if the event has been signed by the given ED25519 key.
-func verifyEventSignature(signingName string, keyID KeyID, publicKey ed25519.PublicKey, eventJSON []byte) error {
-	redactedJSON, err := redactEvent(eventJSON)
+func verifyEventSignature(signingName string, keyID KeyID, publicKey ed25519.PublicKey, eventJSON []byte, roomVersion RoomVersion) error {
+	redactedJSON, err := redactEvent(eventJSON, roomVersion)
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 	verificationMap := make([][]int, len(events))
 
 	for evtIdx, event := range events {
-		redactedJSON, err := redactEvent(event.eventJSON)
+		redactedJSON, err := redactEvent(event.eventJSON, event.roomVersion)
 		if err != nil {
 			return nil, err
 		}

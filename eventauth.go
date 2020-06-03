@@ -465,6 +465,13 @@ func powerLevelsEventAllowed(event Event, authEvents AuthEventProvider) error {
 		return err
 	}
 
+	// Check that the changes in notification levels are allowed.
+	if notifs, err := event.roomVersion.PowerLevelsIncludeNotifications(); err == nil && notifs {
+		if err = checkNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
+			return err
+		}
+	}
+
 	// Check that the changes in user levels are allowed.
 	return checkUserLevels(senderLevel, event.Sender(), oldPowerLevels, newPowerLevels)
 }
@@ -621,6 +628,81 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		if senderLevel <= level.old {
 			return errorf(
 				"sender with level %d is not allowed to change user level from %d to %d"+
+					" because the old level is equal to or above the level of the sender",
+				senderLevel, level.old, level.new,
+			)
+		}
+	}
+
+	return nil
+}
+
+// checkUserLevels checks that the changes in user levels are allowed.
+func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+	type levelPair struct {
+		old    int64
+		new    int64
+		userID string
+	}
+
+	// Build a list of user levels to check.
+	// This differs slightly in behaviour from the code in synapse because it will use the
+	// default value if a level is not present in one of the old or new events.
+
+	// First add the user default level.
+	notificationLevelChecks := []levelPair{
+		//	{oldPowerLevels.UsersDefault, newPowerLevels.UsersDefault, ""},
+	}
+
+	// Then add checks for each user key in the new levels.
+	for notification := range newPowerLevels.Notifications {
+		notificationLevelChecks = append(notificationLevelChecks, levelPair{
+			oldPowerLevels.NotificationLevel(notification),
+			newPowerLevels.NotificationLevel(notification),
+			notification,
+		})
+	}
+
+	// Then add checks for each user key in the old levels.
+	// Some of these will be duplicates of the ones added using the keys from
+	// the new levels. But it doesn't hurt to run the checks twice for the same level.
+	for notification := range oldPowerLevels.Users {
+		notificationLevelChecks = append(notificationLevelChecks, levelPair{
+			oldPowerLevels.NotificationLevel(notification),
+			newPowerLevels.NotificationLevel(notification),
+			notification,
+		})
+	}
+
+	// Check each of the levels in the list.
+	for _, level := range notificationLevelChecks {
+		// Check if the level is being changed.
+		if level.old == level.new {
+			// Levels are always allowed to stay the same.
+			continue
+		}
+
+		// Users are allowed to change the level of other users if:
+		//   * the old level was less than their own
+		//   * the new level was less than or equal to their own
+		// They are allowed to change their own level if:
+		//   * the new level was less than or equal to their own
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1126-L1127
+		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
+
+		// Check if the user is trying to set any of the levels to above their own.
+		if senderLevel < level.new {
+			return errorf(
+				"sender with level %d is not allowed change notification level from %d to %d"+
+					" because the new level is above the level of the sender",
+				senderLevel, level.old, level.new,
+			)
+		}
+
+		// Check if the user is changing the level that was above or the same as their own.
+		if senderLevel <= level.old {
+			return errorf(
+				"sender with level %d is not allowed to change notification level from %d to %d"+
 					" because the old level is equal to or above the level of the sender",
 				senderLevel, level.old, level.new,
 			)

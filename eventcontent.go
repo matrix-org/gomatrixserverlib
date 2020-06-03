@@ -248,6 +248,7 @@ type PowerLevelContent struct {
 	Events        map[string]int64 `json:"events"`
 	EventsDefault int64            `json:"events_default"`
 	StateDefault  int64            `json:"state_default"`
+	Notifications map[string]int64 `json:"notifications"`
 }
 
 // UserLevel returns the power level a user has in the room.
@@ -275,6 +276,17 @@ func (c *PowerLevelContent) EventLevel(eventType string, isState bool) int64 {
 		return c.StateDefault
 	}
 	return c.EventsDefault
+}
+
+// UserLevel returns the power level a user has in the room.
+func (c *PowerLevelContent) NotificationLevel(notification string) int64 {
+	level, ok := c.Notifications[notification]
+	if ok {
+		return level
+	}
+	// https://matrix.org/docs/spec/client_server/r0.6.1#m-room-power-levels
+	// room	integer	The level required to trigger an @room notification. Defaults to 50 if unspecified.
+	return 50
 }
 
 // NewPowerLevelContentFromAuthEvents loads the power level content from the

@@ -41,14 +41,14 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyOK := func(input string) {
-		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input))
+		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input), RoomVersionV1)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	testVerifyNotOK := func(reason, input string) {
-		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input))
+		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input), RoomVersionV1)
 		if err == nil {
 			t.Fatalf("Expected VerifyJSON to fail for input %v because %v", input, reason)
 		}
@@ -188,7 +188,7 @@ func TestSignEventTestVectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		signed, err := signEvent(entityName, keyID, privateKey, hashed)
+		signed, err := signEvent(entityName, keyID, privateKey, hashed, RoomVersionV1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -379,7 +379,7 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 	if len(verifier.requests) != 2 {
 		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
 	}
-	wantContent, err := redactEvent(eventJSON)
+	wantContent, err := redactEvent(eventJSON, RoomVersionV1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -437,7 +437,7 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 	if len(verifier.requests) != 2 {
 		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
 	}
-	wantContent, err := redactEvent(eventJSON)
+	wantContent, err := redactEvent(eventJSON, RoomVersionV1)
 	if err != nil {
 		t.Fatal(err)
 	}
