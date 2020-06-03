@@ -637,7 +637,7 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 	return nil
 }
 
-// checkUserLevels checks that the changes in user levels are allowed.
+// checkNotificationLevels checks that the changes in notification levels are allowed.
 func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	type levelPair struct {
 		old    int64
@@ -645,16 +645,12 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 		userID string
 	}
 
-	// Build a list of user levels to check.
-	// This differs slightly in behaviour from the code in synapse because it will use the
-	// default value if a level is not present in one of the old or new events.
-
-	// First add the user default level.
+	// First add the notification default level.
 	notificationLevelChecks := []levelPair{
 		//	{oldPowerLevels.UsersDefault, newPowerLevels.UsersDefault, ""},
 	}
 
-	// Then add checks for each user key in the new levels.
+	// Then add checks for each notification key in the new levels.
 	for notification := range newPowerLevels.Notifications {
 		notificationLevelChecks = append(notificationLevelChecks, levelPair{
 			oldPowerLevels.NotificationLevel(notification),
@@ -663,10 +659,10 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 		})
 	}
 
-	// Then add checks for each user key in the old levels.
+	// Then add checks for each notification key in the old levels.
 	// Some of these will be duplicates of the ones added using the keys from
 	// the new levels. But it doesn't hurt to run the checks twice for the same level.
-	for notification := range oldPowerLevels.Users {
+	for notification := range oldPowerLevels.Notifications {
 		notificationLevelChecks = append(notificationLevelChecks, levelPair{
 			oldPowerLevels.NotificationLevel(notification),
 			newPowerLevels.NotificationLevel(notification),
@@ -682,13 +678,10 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 			continue
 		}
 
-		// Users are allowed to change the level of other users if:
-		//   * the old level was less than their own
-		//   * the new level was less than or equal to their own
-		// They are allowed to change their own level if:
-		//   * the new level was less than or equal to their own
-		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1126-L1127
-		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1134
+		// Users are allowed to change the notification level if:
+		//   * If the current value is less than or equal to the `sender`'s current power level
+		//   * If the new value is less than or equal to the `sender`'s current power level
+		// https://matrix.org/docs/spec/rooms/v6#authorization-rules-for-events
 
 		// Check if the user is trying to set any of the levels to above their own.
 		if senderLevel < level.new {
