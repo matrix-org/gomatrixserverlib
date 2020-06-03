@@ -18,6 +18,7 @@ package gomatrixserverlib
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -29,18 +30,21 @@ import (
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
 // https://matrix.org/docs/spec/server_server/unstable.html#canonical-json
+// Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func CanonicalJSON(input []byte) ([]byte, error) {
 	if !gjson.Valid(string(input)) {
-		return nil, fmt.Errorf("invalid json")
+		return nil, BadJSONError{errors.New("gjson validation failed")}
 	}
 
 	return CanonicalJSONAssumeValid(input), nil
 }
 
+// Returns a gomatrixserverlib.BadJSONError if the canonical JSON fails enforced
+// checks or if JSON validation fails.
 func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
 	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
 		if err = verifyEnforcedCanonicalJSON(input); err != nil {
-			return nil, err
+			return nil, BadJSONError{err}
 		}
 	}
 
