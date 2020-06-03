@@ -111,7 +111,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV6: {
-		Supported:                       false,
+		Supported:                       true,
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
