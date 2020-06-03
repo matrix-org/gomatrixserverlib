@@ -211,8 +211,8 @@ func (v RoomVersion) StrictValidityChecking() (bool, error) {
 	return false, UnsupportedRoomVersionError{v}
 }
 
-// StrictValidityChecking returns true if the given room version calls for
-// strict signature checking (room version 5 and onward) or false otherwise.
+// PowerLevelsIncludeNotifications returns true if the given room version calls
+// for the power level checks to cover the `notifications` key or false otherwise.
 func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.powerLevelsIncludeNotifications, nil
