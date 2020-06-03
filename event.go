@@ -724,10 +724,15 @@ func (e *Event) Origin() ServerName {
 }
 
 func (e *Event) generateEventID() (eventID string, err error) {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	var eventFormat EventFormat
+	eventFormat, err = e.roomVersion.EventFormat()
+	if err != nil {
+		return
+	}
+	switch eventFormat {
+	case EventFormatV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	case EventFormatV2:
 		eventJSON := e.eventJSON
 		var reference EventReference
 		reference, err = referenceOfEvent(eventJSON, e.roomVersion)
