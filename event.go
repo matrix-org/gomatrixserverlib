@@ -240,7 +240,7 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, roomVersion); err != nil {
 		return
 	}
 
@@ -265,6 +265,16 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
+	}
+
+	var enforceCanonicalJSON bool
+	if enforceCanonicalJSON, err = roomVersion.EnforceCanonicalJSON(); err != nil {
+		return
+	}
+	if enforceCanonicalJSON {
+		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
+			return
+		}
 	}
 
 	result.roomVersion = roomVersion
@@ -398,7 +408,7 @@ func (e *Event) Redact() Event {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
@@ -430,7 +440,7 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	if err != nil {
 		return Event{}, err
 	}
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		return Event{}, err
 	}
 	if err = e.updateUnsignedFields(unsignedJSON); err != nil {
@@ -507,7 +517,7 @@ func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}

@@ -17,7 +17,9 @@ package gomatrixserverlib
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"unicode/utf8"
 
@@ -33,6 +35,56 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 	}
 
 	return CanonicalJSONAssumeValid(input), nil
+}
+
+func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
+	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
+		if err = verifyEnforcedCanonicalJSON(input); err != nil {
+			return nil, err
+		}
+	}
+
+	return CanonicalJSON(input)
+}
+
+func verifyEnforcedCanonicalJSON(input []byte) error {
+	var j interface{}
+	if err := json.Unmarshal(input, &j); err != nil {
+		return err
+	}
+	var walk func(v reflect.Value) error
+	walk = func(v reflect.Value) error {
+		for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+			v = v.Elem()
+		}
+		switch v.Kind() {
+		case reflect.Array, reflect.Slice:
+			for i := 0; i < v.Len(); i++ {
+				if err := walk(v.Index(i)); err != nil {
+					return err
+				}
+			}
+		case reflect.Map:
+			for _, k := range v.MapKeys() {
+				if err := walk(v.MapIndex(k)); err != nil {
+					return err
+				}
+			}
+		case reflect.Int, reflect.Int64:
+			if v.Int() < -9007199254740991 || v.Int() > 9007199254740991 {
+				return fmt.Errorf("%d is outside of safe range", v.Int())
+			}
+		case reflect.Float64:
+			if v.Float() < -9007199254740991 || v.Float() > 9007199254740991 {
+				return fmt.Errorf("%f is outside of safe range", v.Float())
+			}
+		}
+		return nil
+	}
+	if err := walk(reflect.ValueOf(j)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // CanonicalJSONAssumeValid is the same as CanonicalJSON, but assumes the

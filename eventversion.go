@@ -63,6 +63,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventIDFormat:                   EventIDFormatV1,
 		redactionAlgorithm:              RedactionAlgorithmV1,
 		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV2: {
@@ -73,6 +74,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventIDFormat:                   EventIDFormatV1,
 		redactionAlgorithm:              RedactionAlgorithmV1,
 		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV3: {
@@ -83,6 +85,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventIDFormat:                   EventIDFormatV2,
 		redactionAlgorithm:              RedactionAlgorithmV1,
 		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV4: {
@@ -93,6 +96,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV1,
 		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV5: {
@@ -103,6 +107,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV1,
 		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV6: {
@@ -113,6 +118,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV2,
 		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 	},
 }
@@ -165,6 +171,7 @@ type RoomVersionDescription struct {
 	eventIDFormat                   EventIDFormat
 	redactionAlgorithm              RedactionAlgorithm
 	enforceSignatureChecks          bool
+	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
 	Supported                       bool
 	Stable                          bool
@@ -216,6 +223,15 @@ func (v RoomVersion) StrictValidityChecking() (bool, error) {
 func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.powerLevelsIncludeNotifications, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// PowerLevelsIncludeNotifications returns true if the given room version calls
+// for the power level checks to cover the `notifications` key or false otherwise.
+func (v RoomVersion) EnforceCanonicalJSON() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.enforceCanonicalJSON, nil
 	}
 	return false, UnsupportedRoomVersionError{v}
 }
