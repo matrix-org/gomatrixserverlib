@@ -72,7 +72,7 @@ func (db *testKeyDatabase) FetchKeys(
 			}
 			results[req] = PublicKeyLookupResult{
 				VerifyKey:    vk,
-				ValidUntilTS: 1493142432964,
+				ValidUntilTS: 22493142432964,
 				ExpiredTS:    PublicKeyNotExpired,
 			}
 		}
@@ -109,7 +109,7 @@ func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "localhost:8800",
 		Message:                []byte(testKeys),
-		AtTS:                   1493142433964,
+		AtTS:                   22493142433964,
 		StrictValidityChecking: true,
 	}})
 	if err != nil {
