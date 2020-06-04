@@ -49,6 +49,7 @@ func (db *testKeyDatabase) FetchKeys(
 
 	req1 := PublicKeyLookupRequest{"localhost:8800", "ed25519:old"}
 	req2 := PublicKeyLookupRequest{"localhost:8800", "ed25519:a_Obwu"}
+	req3 := PublicKeyLookupRequest{"localhost:8800", "ed25519:pastvalidity"}
 
 	for req := range requests {
 		if req == req1 {
@@ -72,7 +73,20 @@ func (db *testKeyDatabase) FetchKeys(
 			}
 			results[req] = PublicKeyLookupResult{
 				VerifyKey:    vk,
-				ValidUntilTS: 1493142432964,
+				ValidUntilTS: 22493142432964,
+				ExpiredTS:    PublicKeyNotExpired,
+			}
+		}
+
+		if req == req3 {
+			vk := VerifyKey{}
+			err := vk.Key.Decode("2UwTWD4+tgTgENV7znGGNqhAOGY+BW1mRAnC6W6FBQg")
+			if err != nil {
+				return nil, err
+			}
+			results[req] = PublicKeyLookupResult{
+				VerifyKey:    vk,
+				ValidUntilTS: 1591068446195,
 				ExpiredTS:    PublicKeyNotExpired,
 			}
 		}
@@ -109,7 +123,7 @@ func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "localhost:8800",
 		Message:                []byte(testKeys),
-		AtTS:                   1493142433964,
+		AtTS:                   22493142433964,
 		StrictValidityChecking: true,
 	}})
 	if err != nil {
@@ -228,6 +242,56 @@ func TestVerifyJSONsFetcherError(t *testing.T) {
 	}})
 	if err != error(&testErrorFetch) || results != nil {
 		t.Fatalf("VerifyJSONs(): Wanted (nil, <some error>) got (%#v, %q)", results, err)
+	}
+}
+
+// TestRequestKeyDummy is used as a dummy KeyFetcher to see if we
+// tried to trigger a key fetch operation in a test. didRequest
+// is false by default, but we'll set it to true in response to a
+// FetchKeys request. See TestRequestKeyAfterValidity.
+type TestRequestKeyDummy struct {
+	KeyFetcher
+	didRequest bool
+}
+
+func (d *TestRequestKeyDummy) FetchKeys(ctx context.Context, requests map[PublicKeyLookupRequest]Timestamp) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+	d.didRequest = true
+	return map[PublicKeyLookupRequest]PublicKeyLookupResult{}, nil
+}
+
+func (d *TestRequestKeyDummy) FetcherName() string {
+	return "TestRequestKeyDummy"
+}
+
+func TestRequestKeyAfterValidity(t *testing.T) {
+	// The request dummy will allow us to capture whether the fetcher was
+	// triggered - we'll use this to determine if we try to request a key
+	// that the database returns that is past its validity.
+	requestDummy := TestRequestKeyDummy{}
+	k := KeyRing{
+		[]KeyFetcher{&requestDummy},
+		&testKeyDatabase{},
+	}
+	// Create a message that uses the ed25519:pastvalidity key. The
+	// testKeyDatabase will return it but we're past the validity now.
+	message := `{
+		"signatures": {
+			"localhost:8800": {
+				"ed25519:pastvalidity": "signature_here"
+			}
+		}
+	}`
+	// Try verifying.
+	_, _ = k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
+		ServerName:             "localhost:8800",
+		Message:                []byte(message),
+		AtTS:                   1493142432964,
+		StrictValidityChecking: true,
+	}})
+	// At this point, the TestRequestKeyDummy should have been triggered.
+	// If not, then the test failed.
+	if !requestDummy.didRequest {
+		t.Fatalf("expected a key fetch request but got none")
 	}
 }
 
