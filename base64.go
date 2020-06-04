@@ -21,18 +21,20 @@ import (
 	"strings"
 )
 
-// A Base64String is a string of bytes that are base64 encoded when used in JSON.
+// A Base64Bytes is a string of bytes (not base64 encoded) that are
+// base64 encoded when used in JSON.
+//
 // The bytes encoded using base64 when marshalled as JSON.
 // When the bytes are unmarshalled from JSON they are decoded from base64.
-type Base64String []byte
+type Base64Bytes []byte
 
 // Encode encodes the bytes as base64
-func (b64 Base64String) Encode() string {
+func (b64 Base64Bytes) Encode() string {
 	return base64.RawStdEncoding.EncodeToString(b64)
 }
 
-// Decode decodes the given input into this Base64String
-func (b64 *Base64String) Decode(str string) error {
+// Decode decodes the given input into this Base64Bytes
+func (b64 *Base64Bytes) Decode(str string) error {
 	// We must check whether the string was encoded in a URL-safe way in order
 	// to use the appropriate encoding.
 	var err error
@@ -45,8 +47,8 @@ func (b64 *Base64String) Decode(str string) error {
 }
 
 // MarshalJSON encodes the bytes as base64 and then encodes the base64 as a JSON string.
-// This takes a value receiver so that maps and slices of Base64String encode correctly.
-func (b64 Base64String) MarshalJSON() ([]byte, error) {
+// This takes a value receiver so that maps and slices of Base64Bytes encode correctly.
+func (b64 Base64Bytes) MarshalJSON() ([]byte, error) {
 	// This could be made more efficient by using base64.RawStdEncoding.Encode
 	// to write the base64 directly to the JSON. We don't need to JSON escape
 	// any of the characters used in base64.
@@ -55,13 +57,13 @@ func (b64 Base64String) MarshalJSON() ([]byte, error) {
 
 // MarshalYAML implements yaml.Marshaller
 // It just encodes the bytes as base64, which is a valid YAML string
-func (b64 Base64String) MarshalYAML() (interface{}, error) {
+func (b64 Base64Bytes) MarshalYAML() (interface{}, error) {
 	return b64.Encode(), nil
 }
 
 // UnmarshalJSON decodes a JSON string and then decodes the resulting base64.
 // This takes a pointer receiver because it needs to write the result of decoding.
-func (b64 *Base64String) UnmarshalJSON(raw []byte) (err error) {
+func (b64 *Base64Bytes) UnmarshalJSON(raw []byte) (err error) {
 	// We could add a fast path that used base64.RawStdEncoding.Decode
 	// directly on the raw JSON if the JSON didn't contain any escapes.
 	var str string
@@ -74,7 +76,7 @@ func (b64 *Base64String) UnmarshalJSON(raw []byte) (err error) {
 
 // UnmarshalYAML implements yaml.Unmarshaller
 // it unmarshals the input as a yaml string and then base64-decodes the result
-func (b64 *Base64String) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
+func (b64 *Base64Bytes) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
 	var str string
 	if err = unmarshal(&str); err != nil {
 		return

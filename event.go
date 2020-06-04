@@ -47,7 +47,7 @@ type EventReference struct {
 	// The event ID of the event.
 	EventID string
 	// The sha256 of the redacted event.
-	EventSHA256 Base64String
+	EventSHA256 Base64Bytes
 }
 
 // An EventBuilder is used to build a new event.
@@ -830,7 +830,7 @@ func (e *Event) PrevEvents() []EventReference {
 			// the event. Since we will have generated the event ID before
 			// now, we can just knock the sigil $ off the front and use that
 			// as the event SHA256.
-			var sha Base64String
+			var sha Base64Bytes
 			if err := sha.Decode(id[1:]); err != nil {
 				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
 			}
@@ -949,7 +949,7 @@ func (e *Event) AuthEvents() []EventReference {
 	case eventFormatV2Fields:
 		var result []EventReference
 		for _, id := range fields.AuthEvents {
-			var sha Base64String
+			var sha Base64Bytes
 			if err := sha.Decode(id[1:]); err != nil {
 				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
 			}
@@ -1048,7 +1048,7 @@ func (er *EventReference) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, first element is invalid: %q %v", string(tuple[0]), err)
 	}
 	var hashes struct {
-		SHA256 Base64String `json:"sha256"`
+		SHA256 Base64Bytes `json:"sha256"`
 	}
 	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, second element is invalid: %q %v", string(tuple[1]), err)
@@ -1060,7 +1060,7 @@ func (er *EventReference) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements json.Marshaller
 func (er EventReference) MarshalJSON() ([]byte, error) {
 	hashes := struct {
-		SHA256 Base64String `json:"sha256"`
+		SHA256 Base64Bytes `json:"sha256"`
 	}{er.EventSHA256}
 
 	tuple := []interface{}{er.EventID, hashes}

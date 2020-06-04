@@ -35,7 +35,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	// This allows us to add and remove the top-level keys from the JSON object.
 	// It also ensures that the JSON is actually a valid JSON object.
 	var object map[string]*json.RawMessage
-	var signatures map[string]map[KeyID]Base64String
+	var signatures map[string]map[KeyID]Base64Bytes
 	if err := json.Unmarshal(message, &object); err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 		}
 		delete(object, "signatures")
 	} else {
-		signatures = map[string]map[KeyID]Base64String{}
+		signatures = map[string]map[KeyID]Base64Bytes{}
 	}
 
 	// Encode the JSON object without the "signatures" key or
@@ -68,14 +68,14 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	}
 
 	// Sign the canonical JSON with the ed25519 key.
-	signature := Base64String(ed25519.Sign(privateKey, canonical))
+	signature := Base64Bytes(ed25519.Sign(privateKey, canonical))
 
 	// Add the signature to the "signature" key.
 	signaturesForEntity := signatures[signingName]
 	if signaturesForEntity != nil {
 		signaturesForEntity[keyID] = signature
 	} else {
-		signatures[signingName] = map[KeyID]Base64String{keyID: signature}
+		signatures[signingName] = map[KeyID]Base64Bytes{keyID: signature}
 	}
 	var rawSignatures json.RawMessage
 	rawSignatures, err = json.Marshal(signatures)
@@ -113,7 +113,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	// This allows us to add and remove the top-level keys from the JSON object.
 	// It also ensures that the JSON is actually a valid JSON object.
 	var object map[string]*json.RawMessage
-	var signatures map[string]map[KeyID]Base64String
+	var signatures map[string]map[KeyID]Base64Bytes
 	if err := json.Unmarshal(message, &object); err != nil {
 		return err
 	}

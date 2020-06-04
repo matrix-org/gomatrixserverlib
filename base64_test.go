@@ -23,21 +23,21 @@ import (
 )
 
 func TestMarshalBase64(t *testing.T) {
-	input := Base64String("this\xffis\xffa\xfftest")
+	input := Base64Bytes("this\xffis\xffa\xfftest")
 	want := `"dGhpc/9pc/9h/3Rlc3Q"`
 	got, err := json.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Fatalf("json.Marshal(Base64String(%q)): wanted %q got %q", string(input), want, string(got))
+		t.Fatalf("json.Marshal(Base64Bytes(%q)): wanted %q got %q", string(input), want, string(got))
 	}
 }
 
 func TestUnmarshalBase64(t *testing.T) {
 	input := []byte(`"dGhpc/9pc/9h/3Rlc3Q"`)
 	want := "this\xffis\xffa\xfftest" // nolint:goconst
-	var got Base64String
+	var got Base64Bytes
 	err := json.Unmarshal(input, &got)
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestUnmarshalBase64(t *testing.T) {
 func TestUnmarshalUrlSafeBase64(t *testing.T) {
 	input := []byte(`"dGhpc_9pc_9h_3Rlc3Q"`)
 	want := "this\xffis\xffa\xfftest"
-	var got Base64String
+	var got Base64Bytes
 	err := json.Unmarshal(input, &got)
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestUnmarshalUrlSafeBase64(t *testing.T) {
 }
 
 func TestMarshalBase64Struct(t *testing.T) {
-	input := struct{ Value Base64String }{Base64String("this\xffis\xffa\xfftest")}
+	input := struct{ Value Base64Bytes }{Base64Bytes("this\xffis\xffa\xfftest")}
 	want := `{"Value":"dGhpc/9pc/9h/3Rlc3Q"}`
 	got, err := json.Marshal(input)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestMarshalBase64Struct(t *testing.T) {
 }
 
 func TestMarshalBase64Map(t *testing.T) {
-	input := map[string]Base64String{"Value": Base64String("this\xffis\xffa\xfftest")}
+	input := map[string]Base64Bytes{"Value": Base64Bytes("this\xffis\xffa\xfftest")}
 	want := `{"Value":"dGhpc/9pc/9h/3Rlc3Q"}`
 	got, err := json.Marshal(input)
 	if err != nil {
@@ -85,7 +85,7 @@ func TestMarshalBase64Map(t *testing.T) {
 }
 
 func TestMarshalBase64Slice(t *testing.T) {
-	input := []Base64String{Base64String("this\xffis\xffa\xfftest")}
+	input := []Base64Bytes{Base64Bytes("this\xffis\xffa\xfftest")}
 	want := `["dGhpc/9pc/9h/3Rlc3Q"]`
 	got, err := json.Marshal(input)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestMarshalBase64Slice(t *testing.T) {
 }
 
 func TestMarshalYAMLBase64(t *testing.T) {
-	input := Base64String("this\xffis\xffa\xfftest")
+	input := Base64Bytes("this\xffis\xffa\xfftest")
 	want := "dGhpc/9pc/9h/3Rlc3Q\n"
 	got, err := yaml.Marshal(input)
 	if err != nil {
@@ -109,7 +109,7 @@ func TestMarshalYAMLBase64(t *testing.T) {
 }
 
 func TestMarshalYAMLBase64Struct(t *testing.T) {
-	input := struct{ Value Base64String }{Base64String("this\xffis\xffa\xfftest")}
+	input := struct{ Value Base64Bytes }{Base64Bytes("this\xffis\xffa\xfftest")}
 	want := "value: dGhpc/9pc/9h/3Rlc3Q\n"
 	got, err := yaml.Marshal(input)
 	if err != nil {
@@ -122,8 +122,8 @@ func TestMarshalYAMLBase64Struct(t *testing.T) {
 
 func TestUnmarshalYAMLBase64(t *testing.T) {
 	input := []byte("dGhpc/9pc/9h/3Rlc3Q")
-	want := Base64String("this\xffis\xffa\xfftest")
-	var got Base64String
+	want := Base64Bytes("this\xffis\xffa\xfftest")
+	var got Base64Bytes
 	err := yaml.Unmarshal(input, &got)
 	if err != nil {
 		t.Fatal(err)
@@ -135,12 +135,12 @@ func TestUnmarshalYAMLBase64(t *testing.T) {
 
 func TestUnmarshalYAMLBase64Struct(t *testing.T) {
 	// var u yaml.Unmarshaler
-	u := Base64String("this\xffis\xffa\xfftest")
+	u := Base64Bytes("this\xffis\xffa\xfftest")
 
 	input := []byte(`value: dGhpc/9pc/9h/3Rlc3Q`)
-	want := struct{ Value Base64String }{u}
+	want := struct{ Value Base64Bytes }{u}
 	result := struct {
-		Value Base64String `yaml:"value"`
+		Value Base64Bytes `yaml:"value"`
 	}{}
 	err := yaml.Unmarshal(input, &result)
 	if err != nil {
