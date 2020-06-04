@@ -236,11 +236,11 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON); err != nil {
+	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {
 		return
 	}
 
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, roomVersion); err != nil {
 		return
 	}
 
@@ -265,6 +265,16 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
+	}
+
+	var enforceCanonicalJSON bool
+	if enforceCanonicalJSON, err = roomVersion.EnforceCanonicalJSON(); err != nil {
+		return
+	}
+	if enforceCanonicalJSON {
+		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
+			return
+		}
 	}
 
 	result.roomVersion = roomVersion
@@ -302,7 +312,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		// If the content hash doesn't match then we have to discard all non-essential fields
 		// because they've been tampered with.
 		var redactedJSON []byte
-		if redactedJSON, err = redactEvent(eventJSON); err != nil {
+		if redactedJSON, err = redactEvent(eventJSON, roomVersion); err != nil {
 			return
 		}
 
@@ -393,12 +403,12 @@ func (e *Event) Redact() Event {
 	if e.redacted {
 		return *e
 	}
-	eventJSON, err := redactEvent(e.eventJSON)
+	eventJSON, err := redactEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
@@ -430,7 +440,7 @@ func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	if err != nil {
 		return Event{}, err
 	}
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		return Event{}, err
 	}
 	if err = e.updateUnsignedFields(unsignedJSON); err != nil {
@@ -502,12 +512,12 @@ func (e *Event) EventReference() EventReference {
 
 // Sign returns a copy of the event with an additional signature.
 func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
-	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON)
+	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
-	if eventJSON, err = CanonicalJSON(eventJSON); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
@@ -530,7 +540,7 @@ func (e *Event) KeyIDs(signingName string) []KeyID {
 
 // Verify checks a ed25519 signature
 func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
-	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON)
+	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON, e.roomVersion)
 }
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
@@ -714,10 +724,15 @@ func (e *Event) Origin() ServerName {
 }
 
 func (e *Event) generateEventID() (eventID string, err error) {
-	switch e.roomVersion {
-	case RoomVersionV1, RoomVersionV2:
+	var eventFormat EventFormat
+	eventFormat, err = e.roomVersion.EventFormat()
+	if err != nil {
+		return
+	}
+	switch eventFormat {
+	case EventFormatV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
-	case RoomVersionV3, RoomVersionV4, RoomVersionV5:
+	case EventFormatV2:
 		eventJSON := e.eventJSON
 		var reference EventReference
 		reference, err = referenceOfEvent(eventJSON, e.roomVersion)

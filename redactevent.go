@@ -52,7 +52,7 @@ func (r *RawJSON) UnmarshalJSON(data []byte) error {
 
 // redactEvent strips the user controlled fields from an event, but leaves the
 // fields necessary for authenticating the event.
-func redactEvent(eventJSON []byte) ([]byte, error) {
+func redactEvent(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 
 	// createContent keeps the fields needed in a m.room.create event.
 	// Create events need to keep the creator.
@@ -151,7 +151,11 @@ func redactEvent(eventJSON []byte) ([]byte, error) {
 	case MRoomHistoryVisibility:
 		newContent.historyVisibilityContent = event.Content.historyVisibilityContent
 	case MRoomAliases:
-		newContent.aliasesContent = event.Content.aliasesContent
+		if algo, err := roomVersion.RedactionAlgorithm(); err != nil {
+			return nil, err
+		} else if algo == RedactionAlgorithmV1 {
+			newContent.aliasesContent = event.Content.aliasesContent
+		}
 	}
 	// Replace the content with our new filtered content.
 	// This will zero out any keys that weren't copied in the switch statement above.

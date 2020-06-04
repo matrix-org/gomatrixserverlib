@@ -14,6 +14,9 @@ type EventFormat int
 // EventIDFormat refers to the formatting used to generate new event IDs.
 type EventIDFormat int
 
+// RedactionAlgorithm refers to the redaction algorithm used in a room version.
+type RedactionAlgorithm int
+
 // Room version constants. These are strings because the version grammar
 // allows for future expansion.
 // https://matrix.org/docs/spec/#room-version-grammar
@@ -23,6 +26,7 @@ const (
 	RoomVersionV3 RoomVersion = "3"
 	RoomVersionV4 RoomVersion = "4"
 	RoomVersionV5 RoomVersion = "5"
+	RoomVersionV6 RoomVersion = "6"
 )
 
 // Event format constants.
@@ -44,46 +48,78 @@ const (
 	StateResV2                              // state resolution v2
 )
 
+// Redaction algorithm.
+const (
+	RedactionAlgorithmV1 RedactionAlgorithm = iota + 1 // default algorithm
+	RedactionAlgorithmV2                               // no special meaning for m.room.aliases
+)
+
 var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 	RoomVersionV1: {
-		Supported:              true,
-		Stable:                 true,
-		stateResAlgorithm:      StateResV1,
-		eventFormat:            EventFormatV1,
-		eventIDFormat:          EventIDFormatV1,
-		enforceSignatureChecks: false,
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV1,
+		eventFormat:                     EventFormatV1,
+		eventIDFormat:                   EventIDFormatV1,
+		redactionAlgorithm:              RedactionAlgorithmV1,
+		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
+		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV2: {
-		Supported:              true,
-		Stable:                 true,
-		stateResAlgorithm:      StateResV2,
-		eventFormat:            EventFormatV1,
-		eventIDFormat:          EventIDFormatV1,
-		enforceSignatureChecks: false,
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV1,
+		eventIDFormat:                   EventIDFormatV1,
+		redactionAlgorithm:              RedactionAlgorithmV1,
+		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
+		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV3: {
-		Supported:              true,
-		Stable:                 true,
-		stateResAlgorithm:      StateResV2,
-		eventFormat:            EventFormatV2,
-		eventIDFormat:          EventIDFormatV2,
-		enforceSignatureChecks: false,
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV2,
+		redactionAlgorithm:              RedactionAlgorithmV1,
+		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
+		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV4: {
-		Supported:              true,
-		Stable:                 true,
-		stateResAlgorithm:      StateResV2,
-		eventFormat:            EventFormatV2,
-		eventIDFormat:          EventIDFormatV3,
-		enforceSignatureChecks: false,
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV1,
+		enforceSignatureChecks:          false,
+		enforceCanonicalJSON:            false,
+		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV5: {
-		Supported:              true,
-		Stable:                 true,
-		stateResAlgorithm:      StateResV2,
-		eventFormat:            EventFormatV2,
-		eventIDFormat:          EventIDFormatV3,
-		enforceSignatureChecks: true,
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV1,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            false,
+		powerLevelsIncludeNotifications: false,
+	},
+	RoomVersionV6: {
+		Supported:                       true,
+		Stable:                          false,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV2,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
 	},
 }
 
@@ -130,12 +166,15 @@ func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
 // calling the /capabilities endpoint.
 // https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-capabilities
 type RoomVersionDescription struct {
-	stateResAlgorithm      StateResAlgorithm
-	eventFormat            EventFormat
-	eventIDFormat          EventIDFormat
-	enforceSignatureChecks bool
-	Supported              bool
-	Stable                 bool
+	stateResAlgorithm               StateResAlgorithm
+	eventFormat                     EventFormat
+	eventIDFormat                   EventIDFormat
+	redactionAlgorithm              RedactionAlgorithm
+	enforceSignatureChecks          bool
+	enforceCanonicalJSON            bool
+	powerLevelsIncludeNotifications bool
+	Supported                       bool
+	Stable                          bool
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
@@ -162,11 +201,37 @@ func (v RoomVersion) EventIDFormat() (EventIDFormat, error) {
 	return 0, UnsupportedRoomVersionError{v}
 }
 
+// RedactionAlgorithm returns the redaction algorithm for the given room version.
+func (v RoomVersion) RedactionAlgorithm() (RedactionAlgorithm, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.redactionAlgorithm, nil
+	}
+	return 0, UnsupportedRoomVersionError{v}
+}
+
 // StrictValidityChecking returns true if the given room version calls for
 // strict signature checking (room version 5 and onward) or false otherwise.
 func (v RoomVersion) StrictValidityChecking() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.enforceSignatureChecks, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// PowerLevelsIncludeNotifications returns true if the given room version calls
+// for the power level checks to cover the `notifications` key or false otherwise.
+func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.powerLevelsIncludeNotifications, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// PowerLevelsIncludeNotifications returns true if the given room version calls
+// for the power level checks to cover the `notifications` key or false otherwise.
+func (v RoomVersion) EnforceCanonicalJSON() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.enforceCanonicalJSON, nil
 	}
 	return false, UnsupportedRoomVersionError{v}
 }

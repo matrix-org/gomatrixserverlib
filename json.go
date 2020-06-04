@@ -17,7 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"sort"
 	"unicode/utf8"
 
@@ -26,13 +26,55 @@ import (
 
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
-// https://matrix.org/docs/spec/server_server/unstable.html#canonical-json
+// At present this function performs:
+// * shortest encoding, sorted lexicographically by UTF-8 codepoint:
+//   https://matrix.org/docs/spec/appendices#canonical-json
+// Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func CanonicalJSON(input []byte) ([]byte, error) {
 	if !gjson.Valid(string(input)) {
-		return nil, fmt.Errorf("invalid json")
+		return nil, BadJSONError{errors.New("gjson validation failed")}
 	}
 
 	return CanonicalJSONAssumeValid(input), nil
+}
+
+// Returns a gomatrixserverlib.BadJSONError if the canonical JSON fails enforced
+// checks or if JSON validation fails. At present this function performs:
+// * integer bounds checking for room version 6 and above:
+//   https://matrix.org/docs/spec/rooms/v6#canonical-json
+// * shortest encoding, sorted lexicographically by UTF-8 codepoint:
+//   https://matrix.org/docs/spec/appendices#canonical-json
+// Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
+func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
+	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
+		if err = verifyEnforcedCanonicalJSON(input); err != nil {
+			return nil, BadJSONError{err}
+		}
+	}
+
+	return CanonicalJSON(input)
+}
+
+func verifyEnforcedCanonicalJSON(input []byte) error {
+	valid := true
+	res := gjson.ParseBytes(input)
+	var iter func(key, value gjson.Result) bool
+	iter = func(_, value gjson.Result) bool {
+		if value.IsArray() || value.IsObject() {
+			value.ForEach(iter)
+			return true
+		}
+		if value.Num < -9007199254740991 || value.Num > 9007199254740991 {
+			valid = false
+			return false
+		}
+		return true
+	}
+	res.ForEach(iter)
+	if !valid {
+		return errors.New("value is outside of safe range")
+	}
+	return nil
 }
 
 // CanonicalJSONAssumeValid is the same as CanonicalJSON, but assumes the
