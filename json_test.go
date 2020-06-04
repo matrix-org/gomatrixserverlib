@@ -44,6 +44,19 @@ func TestJSONIntegerRanges(t *testing.T) {
 	}
 }
 
+func TestJSONFloats(t *testing.T) {
+	// This value is in range so it should be fine with both room versions
+	input := `{"foo": 1.1}`
+	if _, err := EnforcedCanonicalJSON([]byte(input), RoomVersionV1); err != nil {
+		// Room version 1 allows this value
+		t.Errorf("should be valid")
+	}
+	if _, err := EnforcedCanonicalJSON([]byte(input), RoomVersionV6); err == nil {
+		// Room version 6 forbids this value
+		t.Errorf("should be invalid")
+	}
+}
+
 func testSortJSON(t *testing.T, input, want string) {
 	got := SortJSON([]byte(input), nil)
 
