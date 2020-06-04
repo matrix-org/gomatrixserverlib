@@ -197,6 +197,11 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	// If the key has expired, it's no use re-requesting it.
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	for req, res := range keysFromDatabase {
+		if AsTimestamp(time.Now()) > res.ValidUntilTS {
+			// We have passed the key validity period so we should re-request from
+			// the remote server (or the perspectives).
+			continue
+		}
 		keysFetched[req] = res
 	}
 
