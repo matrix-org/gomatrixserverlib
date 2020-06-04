@@ -56,8 +56,8 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 	hashes := struct {
-		Sha256 Base64String `json:"sha256"`
-	}{Base64String(sha256Hash[:])}
+		Sha256 Base64Bytes `json:"sha256"`
+	}{Base64Bytes(sha256Hash[:])}
 	hashesJSON, err := json.Marshal(&hashes)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func checkEventContentHash(eventJSON []byte) error {
 	var err error
 
 	result := gjson.GetBytes(eventJSON, "hashes.sha256")
-	var hash Base64String
+	var hash Base64Bytes
 	if err = hash.Decode(result.Str); err != nil {
 		return err
 	}

@@ -32,13 +32,13 @@ type ServerKeys struct {
 
 // A TLSFingerprint is a SHA256 hash of an X509 certificate.
 type TLSFingerprint struct {
-	SHA256 Base64String `json:"sha256"`
+	SHA256 Base64Bytes `json:"sha256"`
 }
 
 // A VerifyKey is a ed25519 public key for a server.
 type VerifyKey struct {
 	// The public key.
-	Key Base64String `json:"key"`
+	Key Base64Bytes `json:"key"`
 }
 
 // An OldVerifyKey is an old ed25519 public key that is no longer valid.
@@ -112,7 +112,7 @@ func CheckKeys(
 	keys ServerKeys,
 ) (
 	checks KeyChecks,
-	ed25519Keys map[KeyID]Base64String,
+	ed25519Keys map[KeyID]Base64Bytes,
 ) {
 	checks.MatchingServerName = serverName == keys.ServerName
 	checks.FutureValidUntilTS = keys.ValidUntilTS.Time().After(now)
@@ -126,10 +126,10 @@ func CheckKeys(
 	return
 }
 
-func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[KeyID]Base64String {
+func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[KeyID]Base64Bytes {
 	allEd25519ChecksOK := true
 	checks.Ed25519Checks = map[KeyID]Ed25519Checks{}
-	verifyKeys := map[KeyID]Base64String{}
+	verifyKeys := map[KeyID]Base64Bytes{}
 	for keyID, keyData := range keys.VerifyKeys {
 		algorithm := strings.SplitN(string(keyID), ":", 2)[0]
 		publicKey := keyData.Key
