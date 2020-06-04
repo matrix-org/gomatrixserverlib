@@ -21,26 +21,26 @@ import (
 
 func TestJSONIntegerRanges(t *testing.T) {
 	// This value is in range so it should be fine with both room versions
-	input := `{"foo": 9007199254740991}`
+	input := `{"foo": 9007199254740991, "bar": {"baz": 9007199254740991}}`
 	if _, err := EnforcedCanonicalJSON([]byte(input), RoomVersionV1); err != nil {
 		// Room version 1 allows this value
-		t.Fatalf("should be valid")
+		t.Errorf("should be valid")
 	}
 	if _, err := EnforcedCanonicalJSON([]byte(input), RoomVersionV6); err != nil {
 		// Room version 6 allows this value
-		t.Fatalf("should be valid")
+		t.Errorf("should be valid")
 	}
 
 	// This time the value is out of range, which was OK before room version 6,
 	// but now isn't OK
-	input = `{"foo": 9007199254740998}`
+	input = `{"foo": 9007199254740991, "bar": {"baz": 9007199254740991, "qux": {"another": [9007199254740998]}}}`
 	if _, err := EnforcedCanonicalJSON([]byte(input), RoomVersionV1); err != nil {
 		// Room version 1 allows this value
-		t.Fatalf("should be valid")
+		t.Errorf("should be valid")
 	}
 	if _, err := EnforcedCanonicalJSON([]byte(input), RoomVersionV6); err == nil {
 		// Room version 6 shouldn't allow this value
-		t.Fatalf("should be invalid")
+		t.Errorf("should be invalid")
 	}
 }
 

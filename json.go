@@ -17,10 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"reflect"
 	"sort"
 	"unicode/utf8"
 
@@ -29,7 +26,9 @@ import (
 
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
-// https://matrix.org/docs/spec/server_server/unstable.html#canonical-json
+// At present this function performs:
+// * shortest encoding, sorted lexicographically by UTF-8 codepoint:
+//   https://matrix.org/docs/spec/appendices#canonical-json
 // Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func CanonicalJSON(input []byte) ([]byte, error) {
 	if !gjson.Valid(string(input)) {
@@ -40,7 +39,12 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 }
 
 // Returns a gomatrixserverlib.BadJSONError if the canonical JSON fails enforced
-// checks or if JSON validation fails.
+// checks or if JSON validation fails. At present this function performs:
+// * integer bounds checking for room version 6 and above:
+//   https://matrix.org/docs/spec/rooms/v6#canonical-json
+// * shortest encoding, sorted lexicographically by UTF-8 codepoint:
+//   https://matrix.org/docs/spec/appendices#canonical-json
+// Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
 	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
 		if err = verifyEnforcedCanonicalJSON(input); err != nil {
@@ -52,41 +56,23 @@ func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error
 }
 
 func verifyEnforcedCanonicalJSON(input []byte) error {
-	var j interface{}
-	if err := json.Unmarshal(input, &j); err != nil {
-		return err
-	}
-	var walk func(v reflect.Value) error
-	walk = func(v reflect.Value) error {
-		for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-			v = v.Elem()
+	valid := true
+	res := gjson.ParseBytes(input)
+	var iter func(key, value gjson.Result) bool
+	iter = func(_, value gjson.Result) bool {
+		if value.IsArray() || value.IsObject() {
+			value.ForEach(iter)
+			return true
 		}
-		switch v.Kind() {
-		case reflect.Array, reflect.Slice:
-			for i := 0; i < v.Len(); i++ {
-				if err := walk(v.Index(i)); err != nil {
-					return err
-				}
-			}
-		case reflect.Map:
-			for _, k := range v.MapKeys() {
-				if err := walk(v.MapIndex(k)); err != nil {
-					return err
-				}
-			}
-		case reflect.Int, reflect.Int64:
-			if v.Int() < -9007199254740991 || v.Int() > 9007199254740991 {
-				return fmt.Errorf("%d is outside of safe range", v.Int())
-			}
-		case reflect.Float64:
-			if v.Float() < -9007199254740991 || v.Float() > 9007199254740991 {
-				return fmt.Errorf("%f is outside of safe range", v.Float())
-			}
+		if value.Num < -9007199254740991 || value.Num > 9007199254740991 {
+			valid = false
+			return false
 		}
-		return nil
+		return true
 	}
-	if err := walk(reflect.ValueOf(j)); err != nil {
-		return err
+	res.ForEach(iter)
+	if !valid {
+		return errors.New("value is outside of safe range")
 	}
 	return nil
 }

@@ -644,11 +644,7 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 		new    int64
 		userID string
 	}
-
-	// First add the notification default level.
-	notificationLevelChecks := []levelPair{
-		//	{oldPowerLevels.UsersDefault, newPowerLevels.UsersDefault, ""},
-	}
+	notificationLevelChecks := []levelPair{}
 
 	// Then add checks for each notification key in the new levels.
 	for notification := range newPowerLevels.Notifications {
