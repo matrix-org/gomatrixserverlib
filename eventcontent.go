@@ -178,7 +178,7 @@ type ThirdPartyInviteContent struct {
 // PublicKey is the "PublicKeys" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-third-party-invite
 type PublicKey struct {
 	PublicKey      Base64Bytes `json:"public_key"`
-	KeyValidityURL string       `json:"key_validity_url"`
+	KeyValidityURL string      `json:"key_validity_url"`
 }
 
 // NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
