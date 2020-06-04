@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"sort"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/tidwall/gjson"
@@ -65,6 +66,10 @@ func verifyEnforcedCanonicalJSON(input []byte) error {
 			return true
 		}
 		if value.Num < -9007199254740991 || value.Num > 9007199254740991 {
+			valid = false
+			return false
+		}
+		if value.Num != 0 && strings.ContainsRune(value.Raw, '.') {
 			valid = false
 			return false
 		}
