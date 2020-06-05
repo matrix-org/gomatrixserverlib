@@ -371,7 +371,7 @@ func (r RespState) Events() ([]Event, error) {
 }
 
 // Check that a response to /state is valid.
-func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
+func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
 	logger := util.GetLogger(ctx)
 	var allEvents []Event
 	for _, event := range r.AuthEvents {
@@ -411,7 +411,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier) error {
 
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
-		if err := checkAllowedByAuthEvents(event, eventsByID); err != nil {
+		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
 			return err
 		}
 	}
@@ -511,13 +511,13 @@ func (r RespSendJoin) ToRespState() RespState {
 // Check that a response to /send_join is valid.
 // This checks that it would be valid as a response to /state
 // This also checks that the join event is allowed by the state.
-func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event) error {
+func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) error {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	if err := r.ToRespState().Check(ctx, keyRing); err != nil {
+	if err := r.ToRespState().Check(ctx, keyRing, missingAuth); err != nil {
 		return err
 	}
 
@@ -547,7 +547,7 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	}
 
 	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, eventsByID); err != nil {
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
 		return err
 	}
 
@@ -590,19 +590,55 @@ type RespProfile struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 }
 
-func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event) error {
+func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missingAuth AuthChainProvider) error {
 	authEvents := NewAuthEvents(nil)
 
 	for _, ae := range event.AuthEventIDs() {
+	retryEvent:
 		authEvent, ok := eventsByID[ae]
 		if !ok {
+			// We don't have an entry in the eventsByID map - neither an event nor nil.
+			if missingAuth != nil {
+				// If we have a AuthChainProvider then ask it for the missing event.
+				if ev, err := missingAuth(event.roomVersion, []string{ae}); err == nil && len(ev) > 0 {
+					// It claims to have returned events - populate the eventsByID
+					// map and the authEvents provider so that we can retry with the
+					// new events.
+					for _, e := range ev {
+						if err := authEvents.AddEvent(&e); err == nil {
+							eventsByID[e.EventID()] = &e
+						} else {
+							eventsByID[e.EventID()] = nil
+						}
+					}
+				} else {
+					// It claims to have not returned an event - put a nil into the
+					// eventsByID map instead. This signals that we tried to retrieve
+					// the event but failed, so we don't keep retrying.
+					eventsByID[ae] = nil
+				}
+				goto retryEvent
+			} else {
+				// If we didn't have a AuthChainProvider then just stop at this
+				// point - we can't do anything better than to notify the caller.
+				return MissingAuthEventError{ae, event.EventID()}
+			}
+		} else if authEvent != nil {
+			// We had an entry in the map and it contains an actual event, so add it to
+			// the auth events provider.
+			if err := authEvents.AddEvent(authEvent); err != nil {
+				return err
+			}
+		} else {
+			// We had an entry in the map but it contains nil, which means that we tried
+			// to use the AuthChainProvider to retrieve it and failed, so at this
+			// point there's nothing better to do than to notify the caller.
 			return MissingAuthEventError{ae, event.EventID()}
-		}
-		if err := authEvents.AddEvent(authEvent); err != nil {
-			return err
 		}
 	}
 
+	// If we made it this far then we've successfully got all of the events as required
+	// by AuthEventIDs(). Check if they allow the event.
 	if err := Allowed(event, &authEvents); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",

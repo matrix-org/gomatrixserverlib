@@ -106,7 +106,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	if ctx.Err() != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: context cancelled: %w", ctx.Err())
 	}
-	if err := checkAllowedByAuthEvents(eventToVerify.Unwrap(), roomState); err != nil {
+	if err := checkAllowedByAuthEvents(eventToVerify.Unwrap(), roomState, nil); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib.VerifyAuthRulesAtState: event %s is not allowed at state %s : %w",
 			eventToVerify.EventID(), eventToVerify.EventID(), err,
