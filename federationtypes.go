@@ -374,7 +374,7 @@ func (r RespState) Events() ([]Event, error) {
 // RespState.Check(), RespSendJoin.Check() and checkAllowedByAuthEvents. If
 // an auth event comes up missing during the checks, the MissingAuthEventHandler
 // will be called (if provided) to try and retrieve the missing event.
-type MissingAuthEventHandler func(eventID string) (*Event, error)
+type MissingAuthEventHandler func(eventID string, roomVersion RoomVersion) (*Event, error)
 
 // Check that a response to /state is valid.
 func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth MissingAuthEventHandler) error {
@@ -606,7 +606,7 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 			// We don't have an entry in the eventsByID map - neither an event nor nil.
 			if missingAuth != nil {
 				// If we have a MissingAuthEventHandler then ask it for the missing event.
-				if ev, err := missingAuth(ae); err == nil {
+				if ev, err := missingAuth(ae, event.roomVersion); err == nil {
 					// It claims to have returned an event - populate the eventsByID
 					// map so that we can retry with the new event.
 					eventsByID[ae] = ev
