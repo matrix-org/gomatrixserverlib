@@ -370,6 +370,10 @@ func (r RespState) Events() ([]Event, error) {
 	return result, nil
 }
 
+// MissingAuthEventHandler is a function signature which can be provided to
+// RespState.Check(), RespSendJoin.Check() and checkAllowedByAuthEvents. If
+// an auth event comes up missing during the checks, the MissingAuthEventHandler
+// will be called (if provided) to try and retrieve the missing event.
 type MissingAuthEventHandler func(eventID string) (*Event, error)
 
 // Check that a response to /state is valid.
