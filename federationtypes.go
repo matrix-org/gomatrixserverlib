@@ -370,14 +370,8 @@ func (r RespState) Events() ([]Event, error) {
 	return result, nil
 }
 
-// MissingAuthEventHandler is a function signature which can be provided to
-// RespState.Check(), RespSendJoin.Check() and checkAllowedByAuthEvents. If
-// an auth event comes up missing during the checks, the MissingAuthEventHandler
-// will be called (if provided) to try and retrieve the missing event.
-type MissingAuthEventHandler func(eventID string, roomVersion RoomVersion) (*Event, error)
-
 // Check that a response to /state is valid.
-func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth MissingAuthEventHandler) error {
+func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
 	logger := util.GetLogger(ctx)
 	var allEvents []Event
 	for _, event := range r.AuthEvents {
@@ -517,7 +511,7 @@ func (r RespSendJoin) ToRespState() RespState {
 // Check that a response to /send_join is valid.
 // This checks that it would be valid as a response to /state
 // This also checks that the join event is allowed by the state.
-func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth MissingAuthEventHandler) error {
+func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) error {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
@@ -596,7 +590,7 @@ type RespProfile struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 }
 
-func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missingAuth MissingAuthEventHandler) error {
+func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missingAuth AuthChainProvider) error {
 	authEvents := NewAuthEvents(nil)
 
 	for _, ae := range event.AuthEventIDs() {
@@ -605,11 +599,13 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 		if !ok {
 			// We don't have an entry in the eventsByID map - neither an event nor nil.
 			if missingAuth != nil {
-				// If we have a MissingAuthEventHandler then ask it for the missing event.
-				if ev, err := missingAuth(ae, event.roomVersion); err == nil {
+				// If we have a AuthChainProvider then ask it for the missing event.
+				if ev, err := missingAuth(event.roomVersion, []string{ae}); err == nil && len(ev) > 0 {
 					// It claims to have returned an event - populate the eventsByID
 					// map so that we can retry with the new event.
-					eventsByID[ae] = ev
+					for _, e := range ev {
+						eventsByID[e.EventID()] = &e
+					}
 				} else {
 					// It claims to have not returned an event - put a nil into the
 					// eventsByID map instead. This signals that we tried to retrieve
@@ -618,7 +614,7 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 				}
 				goto retryEvent
 			} else {
-				// If we didn't have a MissingAuthEventHandler then just stop at this
+				// If we didn't have a AuthChainProvider then just stop at this
 				// point - we can't do anything better than to notify the caller.
 				return MissingAuthEventError{ae, event.EventID()}
 			}
@@ -630,7 +626,7 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 			}
 		} else {
 			// We had an entry in the map but it contains nil, which means that we tried
-			// to use the MissingAuthEventHandler to retrieve it and failed, so at this
+			// to use the AuthChainProvider to retrieve it and failed, so at this
 			// point there's nothing better to do than to notify the caller.
 			return MissingAuthEventError{ae, event.EventID()}
 		}
