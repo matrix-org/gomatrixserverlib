@@ -155,6 +155,10 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	logger := util.GetLogger(ctx)
 	results := make([]VerifyJSONResult, len(requests))
 	keyIDs := make([][]KeyID, len(requests))
+
+	// Store the initial number of requests that were made. We'll remove
+	// things from the requests array that we no longer need, but we later
+	// need to check that we satisfied the full number of requests.
 	numRequests := len(requests)
 
 	for i := range requests {
@@ -205,6 +209,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			// The key is expired - it's not going to change so just return
 			// it and don't bother requesting it again.
 			keysFetched[req] = res
+			delete(keyRequests, req)
 			continue
 		}
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
