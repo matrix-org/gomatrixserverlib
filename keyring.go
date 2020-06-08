@@ -224,9 +224,21 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 
 	if len(keysFetched) == len(keyRequests) {
+		fmt.Println("Going to try checking using keys now")
+
 		// If our key requests are all satisfied then we can try performing
 		// a verification using our keys.
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+
+		fmt.Println("Requests:")
+		for k, v := range requests {
+			fmt.Println("*", k, v)
+		}
+
+		fmt.Println("Results:")
+		for k, v := range results {
+			fmt.Println("*", k, v)
+		}
 
 		// If we run into any errors when verifying using the keys that we
 		// have then we can hit federation and check for updated keys.
