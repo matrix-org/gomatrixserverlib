@@ -156,6 +156,11 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	results := make([]VerifyJSONResult, len(requests))
 	keyIDs := make([][]KeyID, len(requests))
 
+	// Store the initial number of requests that were made. We'll remove
+	// things from the requests array that we no longer need, but we later
+	// need to check that we satisfied the full number of requests.
+	numRequests := len(requests)
+
 	for i := range requests {
 		ids, err := ListKeyIDs(string(requests[i].ServerName), requests[i].Message)
 		if err != nil {
@@ -193,34 +198,52 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		return nil, err
 	}
 
-	// TODO: we should distinguish here between expired keys, and those we don't have.
-	// If the key has expired, it's no use re-requesting it.
-	now := AsTimestamp(time.Now())
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+	now := AsTimestamp(time.Now())
 	for req, res := range keysFromDatabase {
-		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
-			// We have passed the key validity period so we should re-request from
-			// the remote server (or the perspectives).
+		if res.ExpiredTS != PublicKeyNotExpired {
+			// The key is expired - it's not going to change so just return
+			// it and don't bother requesting it again.
+			keysFetched[req] = res
+			delete(keyRequests, req)
 			continue
 		}
+		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
+			// We're past the validity for this key so we should really
+			// hit the fetchers regardless to renew it.
+			continue
+		}
+		// The key isn't expired and it's inside the validity period so
+		// include it here.
 		keysFetched[req] = res
 	}
 
-	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+	if len(keysFetched) == numRequests {
+		// If our key requests are all satisfied then we can try performing
+		// a verification using our keys.
+		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
-	// If we can verify using the keys from the database, don't make a federation call.
-	doFederationHit := false
-	for _, r := range results {
-		if r.Error != nil {
-			doFederationHit = true
-			break
+		// If we run into any errors when verifying using the keys that we
+		// have then we can hit federation and check for updated keys.
+		errored := false
+		for _, r := range results {
+			if r.Error != nil {
+				errored = true
+				break
+			}
 		}
-	}
-	if !doFederationHit {
-		return results, nil
+		if !errored {
+			return results, nil
+		}
 	}
 
 	for _, fetcher := range k.KeyFetchers {
+		// If we have all of the keys that we need now then we can
+		// break the loop.
+		if len(keyRequests) == 0 {
+			break
+		}
+
 		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
 
 		// TODO: Coalesce in-flight requests for the same keys.
@@ -231,8 +254,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
-			fetcherLogger.WithError(err).WithField("fetcher", fetcher.FetcherName()).
-				Warn("Failed to request keys from fetcher")
+			fetcherLogger.WithError(err).Warn("Failed to request keys from fetcher")
+			continue
+		}
+
+		if len(fetched) == 0 {
+			fetcherLogger.Warn("Failed to retrieve any keys")
 			continue
 		}
 
@@ -243,12 +270,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		for req, res := range fetched {
 			keysFetched[req] = res
 			delete(keyRequests, req)
-		}
-
-		// If we have all of the keys that we need now then we can
-		// break the loop.
-		if len(keyRequests) == 0 {
-			break
 		}
 	}
 
@@ -417,6 +438,8 @@ func (d DirectKeyFetcher) FetcherName() string {
 func (d *DirectKeyFetcher) FetchKeys(
 	ctx context.Context, requests map[PublicKeyLookupRequest]Timestamp,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+	fetcherLogger := util.GetLogger(ctx).WithField("fetcher", d.FetcherName())
+
 	byServer := map[ServerName]map[PublicKeyLookupRequest]Timestamp{}
 	for req, ts := range requests {
 		server := byServer[req.ServerName]
@@ -458,6 +481,7 @@ func (d *DirectKeyFetcher) FetchKeys(
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
 				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+				fetcherLogger.WithError(err).Error("Failed to fetch key for server")
 				continue
 			}
 			resultsMutex.Lock()
