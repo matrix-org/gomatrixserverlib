@@ -156,6 +156,11 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	results := make([]VerifyJSONResult, len(requests))
 	keyIDs := make([][]KeyID, len(requests))
 
+	// Store the initial number of requests that were made. We'll remove
+	// things from the requests array that we no longer need, but we later
+	// need to check that we satisfied the full number of requests.
+	numRequests := len(requests)
+
 	for i := range requests {
 		ids, err := ListKeyIDs(string(requests[i].ServerName), requests[i].Message)
 		if err != nil {
@@ -193,9 +198,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		return nil, err
 	}
 
-	// Default to not hitting federation.
-	doFederationHit := false
-
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	now := AsTimestamp(time.Now())
 	for req, res := range keysFromDatabase {
@@ -209,7 +211,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
 			// We're past the validity for this key so we should really
 			// hit the fetchers regardless to renew it.
-			doFederationHit = true
 			continue
 		}
 		// The key isn't expired and it's inside the validity period so
@@ -217,24 +218,23 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		keysFetched[req] = res
 	}
 
-	if len(keysFetched) == len(keyRequests) {
+	if len(keysFetched) == numRequests {
 		// If our key requests are all satisfied then we can try performing
 		// a verification using our keys.
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 		// If we run into any errors when verifying using the keys that we
 		// have then we can hit federation and check for updated keys.
+		errored := false
 		for _, r := range results {
 			if r.Error != nil {
-				doFederationHit = true
+				errored = true
 				break
 			}
 		}
-	}
-
-	// If we didn't hit any errors then return the results.
-	if !doFederationHit {
-		return results, nil
+		if !errored {
+			return results, nil
+		}
 	}
 
 	for _, fetcher := range k.KeyFetchers {
