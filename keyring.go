@@ -207,7 +207,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			// The key is expired - it's not going to change so just return
 			// it and don't bother requesting it again.
 			keysFetched[req] = res
-			delete(keyRequests, req)
+			//delete(keyRequests, req)
 			continue
 		}
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
@@ -223,6 +223,8 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		keysFetched[req] = res
 	}
 
+	fmt.Println("Keys fetched:", keysFetched)
+	fmt.Println("Key requests:", keyRequests)
 	if len(keysFetched) == len(keyRequests) {
 		fmt.Println("Going to try checking using keys now")
 
