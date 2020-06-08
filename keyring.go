@@ -183,6 +183,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 
 	keyRequests := k.publicKeyRequests(requests, results, keyIDs)
+	fmt.Println("Key requests:", len(keyRequests))
 	if len(keyRequests) == 0 {
 		// There aren't any keys to fetch so we can stop here.
 		// This will happen if all the objects are missing supported signatures.
@@ -190,8 +191,10 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 	keysFromDatabase, err := k.KeyDatabase.FetchKeys(ctx, keyRequests)
 	if err != nil {
+		fmt.Println("Failed to get keys from database:", err)
 		return nil, err
 	}
+	fmt.Println("Got", len(keysFromDatabase), "keys from database")
 
 	// Default to not hitting federation.
 	doFederationHit := false
@@ -200,6 +203,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	now := AsTimestamp(time.Now())
 	for req, res := range keysFromDatabase {
 		if res.ExpiredTS != PublicKeyNotExpired {
+			fmt.Println(res, "is expired")
 			// The key is expired - it's not going to change so just return
 			// it and don't bother requesting it again.
 			keysFetched[req] = res
@@ -207,6 +211,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			continue
 		}
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
+			fmt.Println(res, "is past validity")
 			// We're past the validity for this key so we should really
 			// hit the fetchers regardless to renew it.
 			doFederationHit = true
@@ -214,6 +219,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		}
 		// The key isn't expired and it's inside the validity period so
 		// include it here.
+		fmt.Println(res, "is fine")
 		keysFetched[req] = res
 	}
 
@@ -226,6 +232,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// have then we can hit federation and check for updated keys.
 		for _, r := range results {
 			if r.Error != nil {
+				fmt.Println("Hit an error:", r.Error)
 				doFederationHit = true
 				break
 			}
@@ -234,6 +241,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 	// If we didn't hit any errors then return the results.
 	if !doFederationHit {
+		fmt.Println("Not hitting federation as not required")
 		return results, nil
 	}
 
@@ -241,6 +249,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// If we have all of the keys that we need now then we can
 		// break the loop.
 		if len(keyRequests) == 0 {
+			fmt.Println("No more key requests to satisfy")
 			break
 		}
 
