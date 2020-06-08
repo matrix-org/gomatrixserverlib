@@ -196,9 +196,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 	fmt.Println("Got", len(keysFromDatabase), "keys from database")
 
-	// Default to not hitting federation.
-	doFederationHit := false
-
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	now := AsTimestamp(time.Now())
 	for req, res := range keysFromDatabase {
@@ -207,14 +204,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			// The key is expired - it's not going to change so just return
 			// it and don't bother requesting it again.
 			keysFetched[req] = res
-			delete(keyRequests, req)
 			continue
 		}
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
 			fmt.Println(res, "is past validity")
 			// We're past the validity for this key so we should really
 			// hit the fetchers regardless to renew it.
-			doFederationHit = true
 			continue
 		}
 		// The key isn't expired and it's inside the validity period so
@@ -226,7 +221,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	fmt.Println("Keys fetched:", len(keysFetched))
 	fmt.Println("Key requests:", len(keyRequests))
 
-	if true {
+	if len(keysFetched) == len(keyRequests) {
 		fmt.Println("Going to try checking using keys now")
 
 		// If our key requests are all satisfied then we can try performing
@@ -235,7 +230,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 		fmt.Println("Requests:")
 		for k, v := range requests {
-			fmt.Println("*", k, v)
+			fmt.Println("*", k, v.ServerName)
 		}
 
 		fmt.Println("Results:")
@@ -245,19 +240,18 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 		// If we run into any errors when verifying using the keys that we
 		// have then we can hit federation and check for updated keys.
+		errored := false
 		for _, r := range results {
 			if r.Error != nil {
 				fmt.Println("Hit an error:", r.Error)
-				doFederationHit = true
+				errored = true
 				break
 			}
 		}
-	}
-
-	// If we didn't hit any errors then return the results.
-	if !doFederationHit {
-		fmt.Println("Not hitting federation as not required")
-		return results, nil
+		if !errored {
+			fmt.Println("Satisfied everything without federation")
+			return results, nil
+		}
 	}
 
 	for _, fetcher := range k.KeyFetchers {
