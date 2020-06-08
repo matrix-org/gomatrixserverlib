@@ -196,32 +196,43 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	// Default to not hitting federation.
 	doFederationHit := false
 
-	// TODO: we should distinguish here between expired keys, and those we
-	// don't have. If the key has expired, it's no use re-requesting it.
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	now := AsTimestamp(time.Now())
 	for req, res := range keysFromDatabase {
 		if res.ExpiredTS != PublicKeyNotExpired {
-			// Don't bother re-requesting keys that are marked as expired.
+			// The key is expired - it's not going to change so just return
+			// it and don't bother requesting it again.
+			keysFetched[req] = res
 			delete(keyRequests, req)
+			continue
 		}
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
 			// We're past the validity for this key so we should really
 			// hit the fetchers regardless to renew it.
 			doFederationHit = true
+			continue
 		}
+		// The key isn't expired and it's inside the validity period so
+		// include it here.
 		keysFetched[req] = res
 	}
 
-	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
+	if len(keysFetched) == len(keyRequests) {
+		// If our key requests are all satisfied then we can try performing
+		// a verification using our keys.
+		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
-	// If we can verify using the keys from the database, don't make a federation call.
-	for _, r := range results {
-		if r.Error != nil {
-			doFederationHit = true
-			break
+		// If we can verify using the keys from the database, don't make a
+		// federation call.
+		for _, r := range results {
+			if r.Error != nil {
+				doFederationHit = true
+				break
+			}
 		}
 	}
+
+	// If we didn't hit any errors then return the results.
 	if !doFederationHit {
 		return results, nil
 	}
