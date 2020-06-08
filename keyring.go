@@ -155,6 +155,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	logger := util.GetLogger(ctx)
 	results := make([]VerifyJSONResult, len(requests))
 	keyIDs := make([][]KeyID, len(requests))
+	numRequests := len(requests)
 
 	for i := range requests {
 		ids, err := ListKeyIDs(string(requests[i].ServerName), requests[i].Message)
@@ -183,7 +184,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 
 	keyRequests := k.publicKeyRequests(requests, results, keyIDs)
-	fmt.Println("Key requests:", len(keyRequests))
+	fmt.Println("Initial key requests:", len(keyRequests))
 	if len(keyRequests) == 0 {
 		// There aren't any keys to fetch so we can stop here.
 		// This will happen if all the objects are missing supported signatures.
@@ -219,9 +220,9 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 
 	fmt.Println("Keys fetched:", len(keysFetched))
-	fmt.Println("Key requests:", len(keyRequests))
+	fmt.Println("Key requests:", len(keyRequests), numRequests)
 
-	if len(keysFetched) == len(keyRequests) {
+	if len(keysFetched) == numRequests {
 		fmt.Println("Going to try checking using keys now")
 
 		// If our key requests are all satisfied then we can try performing
