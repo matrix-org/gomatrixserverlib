@@ -195,14 +195,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 	// TODO: we should distinguish here between expired keys, and those we don't have.
 	// If the key has expired, it's no use re-requesting it.
-	now := AsTimestamp(time.Now())
+	//now := AsTimestamp(time.Now())
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	for req, res := range keysFromDatabase {
-		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
-			// We have passed the key validity period so we should re-request from
-			// the remote server (or the perspectives).
-			continue
-		}
+		//if (now <= res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired) || res.ExpiredTS != PublicKeyNotExpired {
+		//	delete(keyRequests, req)
+		//}
 		keysFetched[req] = res
 	}
 
@@ -221,6 +219,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	}
 
 	for _, fetcher := range k.KeyFetchers {
+		// If we have all of the keys that we need now then we can
+		// break the loop.
+		if len(keyRequests) == 0 {
+			break
+		}
+
 		fetcherLogger := logger.WithField("fetcher", fetcher.FetcherName())
 
 		// TODO: Coalesce in-flight requests for the same keys.
@@ -231,8 +235,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
-			fetcherLogger.WithError(err).WithField("fetcher", fetcher.FetcherName()).
-				Warn("Failed to request keys from fetcher")
+			fetcherLogger.WithError(err).Warn("Failed to request keys from fetcher")
+			continue
+		}
+
+		if len(fetched) == 0 {
+			fetcherLogger.Warn("Failed to retrieve any keys")
 			continue
 		}
 
@@ -243,12 +251,6 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		for req, res := range fetched {
 			keysFetched[req] = res
 			delete(keyRequests, req)
-		}
-
-		// If we have all of the keys that we need now then we can
-		// break the loop.
-		if len(keyRequests) == 0 {
-			break
 		}
 	}
 
@@ -417,6 +419,8 @@ func (d DirectKeyFetcher) FetcherName() string {
 func (d *DirectKeyFetcher) FetchKeys(
 	ctx context.Context, requests map[PublicKeyLookupRequest]Timestamp,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+	fetcherLogger := util.GetLogger(ctx).WithField("fetcher", d.FetcherName())
+
 	byServer := map[ServerName]map[PublicKeyLookupRequest]Timestamp{}
 	for req, ts := range requests {
 		server := byServer[req.ServerName]
@@ -458,6 +462,7 @@ func (d *DirectKeyFetcher) FetchKeys(
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
 				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+				fetcherLogger.WithError(err).Error("Failed to fetch key for server")
 				continue
 			}
 			resultsMutex.Lock()
