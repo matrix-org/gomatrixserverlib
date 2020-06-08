@@ -222,8 +222,8 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// a verification using our keys.
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
-		// If we can verify using the keys from the database, don't make a
-		// federation call.
+		// If we run into any errors when verifying using the keys that we
+		// have then we can hit federation and check for updated keys.
 		for _, r := range results {
 			if r.Error != nil {
 				doFederationHit = true
