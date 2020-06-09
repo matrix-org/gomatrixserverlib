@@ -538,6 +538,8 @@ func mapServerKeysToPublicKeyLookupResult(serverKeys ServerKeys, results map[Pub
 			ValidUntilTS: serverKeys.ValidUntilTS,
 			ExpiredTS:    PublicKeyNotExpired,
 		}
+		fmt.Println("MAP SERVER KEYS TO PUBLIC KET LOOKUP RESULT")
+		fmt.Println(serverKeys.ServerName, keyID, serverKeys.ValidUntilTS)
 	}
 	for keyID, key := range serverKeys.OldVerifyKeys {
 		results[PublicKeyLookupRequest{
