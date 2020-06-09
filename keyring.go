@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -510,6 +511,10 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 	if err != nil {
 		return nil, err
 	}
+
+	j, _ := json.MarshalIndent(keys, "", "  ")
+	fmt.Println("DIRECT KEYS:", string(j))
+
 	// Check that the keys are valid for the server.
 	checks, _ := CheckKeys(serverName, time.Unix(0, 0), keys)
 	if !checks.AllChecksOK {
