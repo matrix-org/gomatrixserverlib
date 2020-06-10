@@ -193,6 +193,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// This will happen if all the objects are missing supported signatures.
 		return results, nil
 	}
+
+	fmt.Println("Key requests:")
+	for k, v := range keyRequests {
+		fmt.Println(k.ServerName, k.KeyID, "for", v.Time())
+	}
+
 	keysFromDatabase, err := k.KeyDatabase.FetchKeys(ctx, keyRequests)
 	if err != nil {
 		return nil, err
@@ -201,24 +207,31 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 	keysFetched := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 	now := AsTimestamp(time.Now())
 	for req, res := range keysFromDatabase {
+		fmt.Println(req.ServerName, req.KeyID, "from database")
+
 		if res.ExpiredTS != PublicKeyNotExpired {
 			// The key is expired - it's not going to change so just return
 			// it and don't bother requesting it again.
 			keysFetched[req] = res
 			delete(keyRequests, req)
+			fmt.Println("Key has expired")
 			continue
 		}
 		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
 			// We're past the validity for this key so we should really
 			// hit the fetchers regardless to renew it.
+			fmt.Println("Key has passed validity")
 			continue
 		}
 		// The key isn't expired and it's inside the validity period so
 		// include it here.
 		keysFetched[req] = res
+		fmt.Println("Key is OK")
 	}
 
 	if len(keysFetched) == numRequests {
+		fmt.Println("Got equal number keys to requests")
+
 		// If our key requests are all satisfied then we can try performing
 		// a verification using our keys.
 		k.checkUsingKeys(requests, results, keyIDs, keysFetched)
@@ -233,14 +246,20 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			}
 		}
 		if !errored {
+			fmt.Println("The database satisfied everything - returning")
 			return results, nil
+		} else {
+			fmt.Println("There was a problem validating one or more keys from the database")
 		}
 	}
 
 	for _, fetcher := range k.KeyFetchers {
+		fmt.Println("Using fetcher", fetcher.FetcherName())
+
 		// If we have all of the keys that we need now then we can
 		// break the loop.
 		if len(keyRequests) == 0 {
+			fmt.Println("No more key requests to satisfy")
 			break
 		}
 
@@ -273,15 +292,19 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		}
 	}
 
+	fmt.Println("Wanted", numRequests, "keys, got", len(keysFetched))
+
 	// Now that we've fetched all of the keys we need, try to check
 	// if the requests are valid.
 	k.checkUsingKeys(requests, results, keyIDs, keysFetched)
 
 	// Add the keys to the database so that we won't need to fetch them again.
 	if err := k.KeyDatabase.StoreKeys(ctx, keysFetched); err != nil {
+		fmt.Println("Storing keys failed:", err)
 		return nil, err
 	}
 
+	fmt.Println("Done, returning results")
 	return results, nil
 }
 
