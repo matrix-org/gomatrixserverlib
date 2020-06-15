@@ -17,6 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -114,11 +115,17 @@ func CheckKeys(
 	checks KeyChecks,
 	ed25519Keys map[KeyID]Base64Bytes,
 ) {
+	fmt.Println("CheckKeys")
+	fmt.Println(serverName, keys.ServerName)
+	fmt.Println(keys.ValidUntilTS.Time(), now, keys.ValidUntilTS.Time().After(now))
+
 	checks.MatchingServerName = serverName == keys.ServerName
 	checks.FutureValidUntilTS = keys.ValidUntilTS.Time().After(now)
 	checks.AllChecksOK = checks.MatchingServerName && checks.FutureValidUntilTS
 
 	ed25519Keys = checkVerifyKeys(keys, &checks)
+
+	fmt.Printf("CheckKeys result: %+v\n", checks)
 
 	if !checks.AllChecksOK {
 		ed25519Keys = nil
