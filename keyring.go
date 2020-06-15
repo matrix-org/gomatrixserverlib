@@ -208,14 +208,12 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			delete(keyRequests, req)
 			continue
 		}
-		if now > res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
-			// We're past the validity for this key so we should really
-			// hit the fetchers regardless to renew it.
-			continue
-		}
-		// The key isn't expired and it's inside the validity period so
-		// include it here.
+		// The key isn't expired so include it in the results.
 		keysFetched[req] = res
+		// If the key is inside validity then we don't need to update it.
+		if now < res.ValidUntilTS && res.ExpiredTS == PublicKeyNotExpired {
+			delete(keyRequests, req)
+		}
 	}
 
 	if len(keysFetched) == numRequests {
