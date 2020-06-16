@@ -300,7 +300,7 @@ func (fc *Client) LookupServerKeys(
 func (fc *Client) CreateMediaDownloadRequest(
 	ctx context.Context, matrixServer ServerName, mediaID string,
 ) (*http.Response, error) {
-	requestURL := "matrix://" + string(matrixServer) + "/_matrix/media/v1/download/" + string(matrixServer) + "/" + mediaID
+	requestURL := "matrix://" + string(matrixServer) + "/_matrix/media/v1/download/" + string(matrixServer) + "/" + mediaID + "?allow_remote=false"
 	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
 		return nil, err
