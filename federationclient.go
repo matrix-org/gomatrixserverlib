@@ -2,12 +2,14 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/matrix-org/gomatrix"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -119,6 +121,22 @@ func (ac *FederationClient) SendJoin(
 		return
 	}
 	err = ac.doRequest(ctx, req, &res)
+	gerr, ok := err.(gomatrix.HTTPError)
+	if ok && gerr.Code == 404 {
+		// fallback to v1 which returns [200, body]
+		v1path := federationPathPrefixV1 + "/send_join/" +
+			url.PathEscape(event.RoomID()) + "/" +
+			url.PathEscape(event.EventID())
+		v1req := NewFederationRequest("PUT", s, v1path)
+		if err = v1req.SetContent(event); err != nil {
+			return
+		}
+		var v1Res []json.RawMessage
+		err = ac.doRequest(ctx, v1req, &v1Res)
+		if err == nil && len(v1Res) == 2 {
+			err = json.Unmarshal(v1Res[1], &res)
+		}
+	}
 	return
 }
 
