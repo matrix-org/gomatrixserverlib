@@ -273,6 +273,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	}
 	if enforceCanonicalJSON {
 		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
+			err = BadJSONError{err}
 			return
 		}
 	}
