@@ -187,7 +187,12 @@ func (ac *FederationClient) SendInvite(
 	if err = req.SetContent(event); err != nil {
 		return
 	}
-	err = ac.doRequest(ctx, req, &res)
+	// returns as [200, {...}]
+	var v1Res []json.RawMessage
+	err = ac.doRequest(ctx, req, &v1Res)
+	if err == nil && len(v1Res) == 2 {
+		err = json.Unmarshal(v1Res[1], &res)
+	}
 	return
 }
 
@@ -206,6 +211,22 @@ func (ac *FederationClient) SendInviteV2(
 		return
 	}
 	err = ac.doRequest(ctx, req, &res)
+
+	gerr, ok := err.(gomatrix.HTTPError)
+	if ok && gerr.Code == 404 {
+		// fallback to v1 which returns [200, body]
+		var resp RespInvite
+		resp, err = ac.SendInvite(ctx, s, request.Event())
+		if err != nil {
+			return
+		}
+		// assume v1 as per spec: https://matrix.org/docs/spec/server_server/latest#put-matrix-federation-v1-invite-roomid-eventid
+		// Servers which receive a v1 invite request must assume that the room version is either "1" or "2".
+		res = RespInviteV2{
+			Event:       resp.Event,
+			roomVersion: RoomVersionV1,
+		}
+	}
 	return
 }
 
