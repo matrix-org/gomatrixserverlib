@@ -355,6 +355,7 @@ func (fc *Client) DoRequestAndParseResponse(
 			Code:         response.StatusCode,
 			Message:      msg,
 			WrappedError: wrap,
+			Contents:     contents,
 		}
 	}
 
