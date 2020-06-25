@@ -214,6 +214,12 @@ func VerifyHTTPRequest(
 		util.GetLogger(req.Context()).WithError(err).Print(message)
 		return nil, util.MessageResponse(401, message)
 	}
+	_, _, valid := ParseAndValidateServerName(request.Origin())
+	if !valid {
+		message := "Invalid server name for Origin"
+		util.GetLogger(req.Context()).WithError(err).Print(message)
+		return nil, util.MessageResponse(400, message)
+	}
 
 	results, err := keys.VerifyJSONs(req.Context(), []VerifyJSONRequest{{
 		ServerName:             request.Origin(),
