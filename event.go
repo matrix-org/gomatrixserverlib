@@ -50,6 +50,21 @@ type EventReference struct {
 	EventSHA256 Base64Bytes
 }
 
+// Event validation errors
+const (
+	EventValidationTooLarge int = 1
+)
+
+// EventValidationError is returned if there is a problem validating an event
+type EventValidationError struct {
+	Message string
+	Code    int
+}
+
+func (e EventValidationError) Error() string {
+	return e.Message
+}
+
 // An EventBuilder is used to build a new event.
 // These can be exchanged between matrix servers in the federation APIs when
 // joining or leaving a room.
@@ -606,24 +621,24 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	}
 
 	if len(e.eventJSON) > maxEventLength {
-		return fmt.Errorf(
-			"gomatrixserverlib: event is too long, length %d > maximum %d",
-			len(e.eventJSON), maxEventLength,
-		)
+		return EventValidationError{
+			Code:    EventValidationTooLarge,
+			Message: fmt.Sprintf("gomatrixserverlib: event is too long, length %d > maximum %d", len(e.eventJSON), maxEventLength),
+		}
 	}
 
 	if len(fields.Type) > maxIDLength {
-		return fmt.Errorf(
-			"gomatrixserverlib: event type is too long, length %d > maximum %d",
-			len(fields.Type), maxIDLength,
-		)
+		return EventValidationError{
+			Code:    EventValidationTooLarge,
+			Message: fmt.Sprintf("gomatrixserverlib: event type is too long, length %d > maximum %d", len(fields.Type), maxIDLength),
+		}
 	}
 
 	if fields.StateKey != nil && len(*fields.StateKey) > maxIDLength {
-		return fmt.Errorf(
-			"gomatrixserverlib: state key is too long, length %d > maximum %d",
-			len(*fields.StateKey), maxIDLength,
-		)
+		return EventValidationError{
+			Code:    EventValidationTooLarge,
+			Message: fmt.Sprintf("gomatrixserverlib: state key is too long, length %d > maximum %d", len(*fields.StateKey), maxIDLength),
+		}
 	}
 
 	_, err := checkID(fields.RoomID, "room", '!')
