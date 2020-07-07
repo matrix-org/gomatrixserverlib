@@ -411,6 +411,9 @@ func (e *Event) populateFieldsFromJSON(eventJSON []byte) error {
 // Redacted returns whether the event is redacted.
 func (e *Event) Redacted() bool { return e.redacted }
 
+// Version returns the version of this event
+func (e *Event) Version() RoomVersion { return e.roomVersion }
+
 // JSON returns the JSON bytes for the event.
 func (e *Event) JSON() []byte { return e.eventJSON }
 
