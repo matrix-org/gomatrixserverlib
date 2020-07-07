@@ -429,8 +429,9 @@ func (e *Event) Redact() Event {
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
 	result := Event{
-		redacted:  true,
-		eventJSON: eventJSON,
+		redacted:    true,
+		roomVersion: e.roomVersion,
+		eventJSON:   eventJSON,
 	}
 	if err = json.Unmarshal(eventJSON, &result.fields); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
