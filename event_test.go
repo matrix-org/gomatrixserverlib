@@ -77,8 +77,20 @@ func TestAddUnsignedField(t *testing.T) {
 
 // TestRedact makes sure Redact works as expected.
 func TestRedact(t *testing.T) {
+	// v1 event
 	nameEvent := ` {"auth_events":[["$oXL79cT7fFxR7dPH:localhost",{"sha256":"abjkiDSg1RkuZrbj2jZoGMlQaaj1Ue3Jhi7I7NlKfXY"}],["$IVUsaSkm1LBAZYYh:localhost",{"sha256":"X7RUj46hM/8sUHNBIFkStbOauPvbDzjSdH4NibYWnko"}],["$VS2QT0EeArZYi8wf:localhost",{"sha256":"k9eM6utkCH8vhLW9/oRsH74jOBS/6RVK42iGDFbylno"}]],"content":{"name":"test3"},"depth":7,"event_id":"$yvN1b43rlmcOs5fY:localhost","hashes":{"sha256":"Oh1mwI1jEqZ3tgJ+V1Dmu5nOEGpCE4RFUqyJv2gQXKs"},"origin":"localhost","origin_server_ts":1510854416361,"prev_events":[["$FqI6TVvWpcbcnJ97:localhost",{"sha256":"upCsBqUhNUgT2/+zkzg8TbqdQpWWKQnZpGJc6KcbUC4"}]],"prev_state":[],"room_id":"!19Mp0U9hjajeIiw1:localhost","sender":"@test:localhost","signatures":{"localhost":{"ed25519:u9kP":"5IzSuRXkxvbTp0vZhhXYZeOe+619iG3AybJXr7zfNn/4vHz4TH7qSJVQXSaHHvcTcDodAKHnTG1WDulgO5okAQ"}},"state_key":"","type":"m.room.name"}`
 	event, err := NewEventFromTrustedJSON([]byte(nameEvent), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event = event.Redact()
+	if !reflect.DeepEqual([]byte(`{}`), event.Content()) {
+		t.Fatalf("content not redacted: %s", string(event.Content()))
+	}
+
+	// v5 event
+	nameEvent = `{"auth_events":["$x4MKEPRSF6OGlo0qpnsP3BfSmYX5HhVlykOsQH3ECyg","$BcEcbZnlFLB5rxSNSZNBn6fO3jU_TKAJ79wfKyCQLiU"],"content":{"name":"test123"},"depth":2,"hashes":{"sha256":"5S025c0BhumelvCXMXWlislPnDYJn18mm9XMClL1OZ8"},"origin":"localhost","origin_server_ts":0,"prev_events":["$BcEcbZnlFLB5rxSNSZNBn6fO3jU_TKAJ79wfKyCQLiU"],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"VHCB/tai3S2nBpvYWnOlJfjt2KcxsgBJ1W6xDYUMOxGehDOd+lI2wy5ZBZydy1xFdIBzuERn9t9aiFThIHHcCA"}},"state_key":"","type":"m.room.name"}`
+	event, err = NewEventFromTrustedJSON([]byte(nameEvent), false, RoomVersionV5)
 	if err != nil {
 		t.Fatal(err)
 	}

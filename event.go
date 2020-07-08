@@ -436,27 +436,10 @@ func (e *Event) Redact() Event {
 		roomVersion: e.roomVersion,
 		eventJSON:   eventJSON,
 	}
-	eventFormat, err := e.roomVersion.EventFormat()
+	err = result.populateFieldsFromJSON(eventJSON)
 	if err != nil {
-		panic(fmt.Errorf("gomatrixserverlib: cannot work out event format: %s", err))
+		panic(fmt.Errorf("gomatrixserverlib: populateFieldsFromJSON failed %v", err))
 	}
-	switch eventFormat {
-	case EventFormatV1:
-		fields := eventFormatV1Fields{}
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-			panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
-		}
-		result.fields = fields
-	case EventFormatV2:
-		fields := eventFormatV2Fields{}
-		if err = json.Unmarshal(eventJSON, &fields); err != nil {
-			// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-			panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
-		}
-		result.fields = fields
-	}
-
 	return result
 }
 
