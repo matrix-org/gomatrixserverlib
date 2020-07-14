@@ -169,8 +169,6 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 		r.resolvedMembers[*event.StateKey()] = event
 	case MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[*event.StateKey()] = event
-	default:
-		panic(fmt.Errorf("Unexpected auth event with type %q", event.Type()))
 	}
 }
 
@@ -193,8 +191,6 @@ func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 		r.resolvedMembers[stateKey] = nil
 	case MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[stateKey] = nil
-	default:
-		panic(fmt.Errorf("Unexpected auth event with type %q", eventType))
 	}
 }
 
