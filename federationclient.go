@@ -375,6 +375,40 @@ func (ac *FederationClient) LookupProfile(
 	return
 }
 
+// ClaimKeys claims E2E one-time keys from a remote server.
+// `oneTimeKeys` are the keys to be claimed. A map from user ID, to a map from device ID to algorithm name. E.g:
+//    {
+//      "@alice:example.com": {
+//        "JLAFKJWSCS": "signed_curve25519"
+//      }
+//    }
+// https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
+func (ac *FederationClient) ClaimKeys(ctx context.Context, s ServerName, oneTimeKeys map[string]map[string]string) (res RespClaimKeys, err error) {
+	path := federationPathPrefixV1 + "/user/keys/claim"
+	req := NewFederationRequest("POST", s, path)
+	if err = req.SetContent(map[string]interface{}{
+		"one_time_keys": oneTimeKeys,
+	}); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
+// QueryKeys queries E2E device keys from a remote server.
+// https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
+func (ac *FederationClient) QueryKeys(ctx context.Context, s ServerName, keys map[string][]string) (res RespQueryKeys, err error) {
+	path := federationPathPrefixV1 + "/user/keys/query"
+	req := NewFederationRequest("POST", s, path)
+	if err = req.SetContent(map[string]interface{}{
+		"device_keys": keys,
+	}); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // GetEvent gets an event by ID from a remote server.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-event-eventid
 func (ac *FederationClient) GetEvent(
