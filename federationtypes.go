@@ -221,10 +221,14 @@ type RespUserDevice struct {
 // RespUserDeviceKeys are embedded in RespUserDevice
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDeviceKeys struct {
-	UserID     string                       `json:"user_id"`
-	DeviceID   string                       `json:"device_id"`
-	Algorithms []string                     `json:"algorithms"`
-	Keys       map[string]string            `json:"keys"`
+	UserID     string   `json:"user_id"`
+	DeviceID   string   `json:"device_id"`
+	Algorithms []string `json:"algorithms"`
+	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
+	Keys map[string]string `json:"keys"`
+	// E.g "@alice:example.com": {
+	//	"ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
+	// }
 	Signatures map[string]map[string]string `json:"signatures"`
 }
 
@@ -709,4 +713,30 @@ func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
 	}
 	r.Event = event
 	return nil
+}
+
+// RespClaimKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
+type RespClaimKeys struct {
+	// Required. One-time keys for the queried devices. A map from user ID, to a map from devices to a map
+	// from <algorithm>:<key_id> to the key object.
+	OneTimeKeys map[string]map[string]map[string]OneTimeKey `json:"one_time_keys"`
+}
+
+// OneTimeKey is the key for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
+type OneTimeKey struct {
+	Key        string                       `json:"key"`
+	Signatures map[string]map[string]string `json:"signatures"`
+}
+
+// RespQueryKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
+type RespQueryKeys struct {
+	DeviceKeys map[string]map[string]DeviceKeys `json:"device_keys"`
+}
+
+// DeviceKeys as per https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
+type DeviceKeys struct {
+	RespUserDeviceKeys
+	// Additional data added to the device key information by intermediate servers, and not covered by the signatures.
+	// E.g { "device_display_name": "Alice's mobile phone" }
+	Unsigned map[string]interface{} `json:"unsigned"`
 }
