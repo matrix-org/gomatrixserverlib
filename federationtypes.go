@@ -718,14 +718,8 @@ func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
 // RespClaimKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
 type RespClaimKeys struct {
 	// Required. One-time keys for the queried devices. A map from user ID, to a map from devices to a map
-	// from <algorithm>:<key_id> to the key object.
-	OneTimeKeys map[string]map[string]map[string]OneTimeKey `json:"one_time_keys"`
-}
-
-// OneTimeKey is the key for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
-type OneTimeKey struct {
-	Key        string                       `json:"key"`
-	Signatures map[string]map[string]string `json:"signatures"`
+	// from <algorithm>:<key_id> to the key object or a string.
+	OneTimeKeys map[string]map[string]map[string]json.RawMessage `json:"one_time_keys"`
 }
 
 // RespQueryKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
