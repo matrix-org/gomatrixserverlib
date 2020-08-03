@@ -60,6 +60,8 @@ const (
 	MTyping = "m.typing"
 	// MDirectToDevice https://matrix.org/docs/spec/server_server/r0.1.3#send-to-device-messaging
 	MDirectToDevice = "m.direct_to_device"
+	// MDeviceListUpdate https://matrix.org/docs/spec/server_server/latest#m-device-list-update-schema
+	MDeviceListUpdate = "m.device_list_update"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
