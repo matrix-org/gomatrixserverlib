@@ -27,7 +27,7 @@ func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState) (
 
 type inviteV2RequestHeaders struct {
 	RoomVersion     RoomVersion             `json:"room_version"`
-	InviteRoomState []InviteV2StrippedState `json:"invite_stripped_state"`
+	InviteRoomState []InviteV2StrippedState `json:"invite_room_state"`
 }
 
 // InviteV2Request is used in the body of a /_matrix/federation/v2/invite request.
