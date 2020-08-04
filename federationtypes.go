@@ -213,9 +213,9 @@ type RespUserDevices struct {
 // RespUserDevice are embedded in RespUserDevices
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevice struct {
-	DeviceID    string               `json:"device_id"`
-	DisplayName string               `json:"device_display_name"`
-	Keys        []RespUserDeviceKeys `json:"keys"`
+	DeviceID    string             `json:"device_id"`
+	DisplayName string             `json:"device_display_name"`
+	Keys        RespUserDeviceKeys `json:"keys"`
 }
 
 // RespUserDeviceKeys are embedded in RespUserDevice
