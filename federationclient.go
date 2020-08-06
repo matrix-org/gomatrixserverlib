@@ -431,6 +431,17 @@ func (ac *FederationClient) GetEventAuth(
 	return
 }
 
+// GetUserDevices returns a list of the user's devices from a remote server.
+// See https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
+func (ac *FederationClient) GetUserDevices(
+	ctx context.Context, s ServerName, userID string,
+) (res RespUserDevices, err error) {
+	path := federationPathPrefixV1 + "/user/devices/" + url.PathEscape(userID)
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // Backfill asks a homeserver for events early enough for them to not be in the
 // local database.
 // See https://matrix.org/docs/spec/server_server/unstable.html#get-matrix-federation-v1-backfill-roomid

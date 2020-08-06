@@ -202,7 +202,7 @@ type respStateFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
-// RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{id}
+// RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevices struct {
 	UserID   string           `json:"user_id"`
