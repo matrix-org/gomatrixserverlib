@@ -504,6 +504,9 @@ func (d *DirectKeyFetcher) FetchKeys(
 func (d *DirectKeyFetcher) fetchKeysForServer(
 	ctx context.Context, serverName ServerName,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*15)
+	defer cancel()
+
 	keys, err := d.Client.GetServerKeys(ctx, serverName)
 	if err != nil {
 		return nil, err
