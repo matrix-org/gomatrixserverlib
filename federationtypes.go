@@ -403,20 +403,48 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	if err := VerifyAllEventSignatures(ctx, allEvents, keyRing); err != nil {
+	errors, err := VerifyEventSignatures(ctx, allEvents, keyRing)
+	if err != nil {
 		return err
 	}
+	if len(errors) != len(allEvents) {
+		return fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
+	}
 
+	// Work out which events failed the signature checks.
+	failures := map[string]struct{}{}
+	for i, e := range allEvents {
+		if errors[i] != nil {
+			failures[e.EventID()] = struct{}{}
+		}
+	}
+
+	// Collect a map of event reference to event.
 	eventsByID := map[string]*Event{}
-	// Collect a map of event reference to event
 	for i := range allEvents {
-		eventsByID[allEvents[i].EventID()] = &allEvents[i]
+		if _, ok := failures[allEvents[i].EventID()]; !ok {
+			eventsByID[allEvents[i].EventID()] = &allEvents[i]
+		}
 	}
 
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
 			return err
+		}
+	}
+
+	// For all of the events that weren't verified, remove them
+	// from the RespState. This way they won't be passed onwards.
+	logger.Infof("Discarding %d auth/state events due to invalid signatures", len(failures))
+	for i := range r.AuthEvents {
+		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
+			r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
+		}
+	}
+	for i := range r.StateEvents {
+		if _, ok := failures[r.StateEvents[i].EventID()]; ok {
+			r.StateEvents = append(r.StateEvents[:i], r.StateEvents[i+1:]...)
 		}
 	}
 
