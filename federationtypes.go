@@ -436,6 +436,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
+	logger.Infof("Discarding %d auth/state events due to invalid signatures", len(failures))
 	for i := range r.AuthEvents {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
 			r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
