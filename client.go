@@ -48,12 +48,12 @@ type UserInfo struct {
 }
 
 // NewClient makes a new Client (with default timeout)
-func NewClient(enforceX509 bool) *Client {
-	return NewClientWithTimeout(requestTimeout, newFederationTripper(enforceX509))
+func NewClient(skipVerify bool) *Client {
+	return NewClientWithTimeout(requestTimeout, newFederationTripper(skipVerify))
 }
 
 // NewClientWithTransport makes a new Client with an existing transport
-func NewClientWithTransport(enforceX509 bool, transport http.RoundTripper) *Client {
+func NewClientWithTransport(skipVerify bool, transport http.RoundTripper) *Client {
 	return NewClientWithTimeout(requestTimeout, transport)
 }
 
@@ -74,10 +74,10 @@ type federationTripper struct {
 	skipVerify      bool
 }
 
-func newFederationTripper(enforceX509 bool) *federationTripper {
+func newFederationTripper(skipVerify bool) *federationTripper {
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
-		skipVerify: enforceX509,
+		skipVerify: skipVerify,
 	}
 }
 
