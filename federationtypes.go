@@ -403,18 +403,28 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	if err := VerifyAllEventSignatures(ctx, allEvents, keyRing); err != nil {
+	var successes []Event
+	errors, err := VerifyEventSignatures(ctx, allEvents, keyRing)
+	if err != nil {
 		return err
+	}
+	if len(errors) != len(allEvents) {
+		return fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
+	}
+	for i, e := range allEvents {
+		if errors[i] == nil {
+			successes = append(successes, e)
+		}
 	}
 
 	eventsByID := map[string]*Event{}
 	// Collect a map of event reference to event
-	for i := range allEvents {
-		eventsByID[allEvents[i].EventID()] = &allEvents[i]
+	for i := range successes {
+		eventsByID[successes[i].EventID()] = &successes[i]
 	}
 
 	// Check whether the events are allowed by the auth rules.
-	for _, event := range allEvents {
+	for _, event := range successes {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
 			return err
 		}
