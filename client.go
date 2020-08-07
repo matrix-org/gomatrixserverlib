@@ -96,8 +96,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 	if transport, ok = f.transports[tlsServerName]; !ok {
 		transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
-				ServerName: tlsServerName,
-				// TODO: Remove this when we enforce MSC1711.
+				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
 			},
 		}
