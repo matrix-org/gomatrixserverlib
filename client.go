@@ -48,12 +48,12 @@ type UserInfo struct {
 }
 
 // NewClient makes a new Client (with default timeout)
-func NewClient() *Client {
-	return NewClientWithTimeout(requestTimeout, newFederationTripper())
+func NewClient(skipVerify bool) *Client {
+	return NewClientWithTimeout(requestTimeout, newFederationTripper(skipVerify))
 }
 
 // NewClientWithTransport makes a new Client with an existing transport
-func NewClientWithTransport(transport http.RoundTripper) *Client {
+func NewClientWithTransport(skipVerify bool, transport http.RoundTripper) *Client {
 	return NewClientWithTimeout(requestTimeout, transport)
 }
 
@@ -71,11 +71,13 @@ type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
 	transportsMutex sync.Mutex
+	skipVerify      bool
 }
 
-func newFederationTripper() *federationTripper {
+func newFederationTripper(skipVerify bool) *federationTripper {
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
+		skipVerify: skipVerify,
 	}
 }
 
@@ -94,9 +96,8 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 	if transport, ok = f.transports[tlsServerName]; !ok {
 		transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
-				ServerName: tlsServerName,
-				// TODO: Remove this when we enforce MSC1711.
-				InsecureSkipVerify: true,
+				ServerName:         tlsServerName,
+				InsecureSkipVerify: f.skipVerify,
 			},
 		}
 
