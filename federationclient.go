@@ -25,9 +25,10 @@ type FederationClient struct {
 // NewFederationClient makes a new FederationClient
 func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
+	enforceX509 bool,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClient(),
+		Client:           *NewClient(enforceX509),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
@@ -37,10 +38,11 @@ func NewFederationClient(
 // NewFederationClientWithTransport makes a new FederationClient with a custom
 // transport.
 func NewFederationClientWithTransport(
-	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey, transport *http.Transport,
+	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
+	enforceX509 bool, transport *http.Transport,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClientWithTransport(transport),
+		Client:           *NewClientWithTransport(enforceX509, transport),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
