@@ -71,13 +71,13 @@ type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
 	transportsMutex sync.Mutex
-	enforceX509     bool
+	skipVerify      bool
 }
 
 func newFederationTripper(enforceX509 bool) *federationTripper {
 	return &federationTripper{
-		transports:  make(map[string]http.RoundTripper),
-		enforceX509: enforceX509,
+		transports: make(map[string]http.RoundTripper),
+		skipVerify: enforceX509,
 	}
 }
 
@@ -98,7 +98,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 			TLSClientConfig: &tls.Config{
 				ServerName: tlsServerName,
 				// TODO: Remove this when we enforce MSC1711.
-				InsecureSkipVerify: f.enforceX509,
+				InsecureSkipVerify: f.skipVerify,
 			},
 		}
 

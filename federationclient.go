@@ -25,10 +25,10 @@ type FederationClient struct {
 // NewFederationClient makes a new FederationClient
 func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	enforceX509 bool,
+	skipVerify bool,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClient(enforceX509),
+		Client:           *NewClient(skipVerify),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
@@ -39,10 +39,10 @@ func NewFederationClient(
 // transport.
 func NewFederationClientWithTransport(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	enforceX509 bool, transport *http.Transport,
+	skipVerify bool, transport *http.Transport,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClientWithTransport(enforceX509, transport),
+		Client:           *NewClientWithTransport(skipVerify, transport),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
