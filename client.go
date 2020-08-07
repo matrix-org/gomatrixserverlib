@@ -381,7 +381,7 @@ func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.R
 		"out.req.method": req.Method,
 		"out.req.uri":    req.URL,
 	})
-	logger.Info("Outgoing request")
+	logger.Trace("Outgoing request")
 	newCtx := util.ContextWithLogger(ctx, logger)
 
 	start := time.Now()
@@ -395,7 +395,7 @@ func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.R
 	logger.WithFields(logrus.Fields{
 		"out.req.code":        resp.StatusCode,
 		"out.req.duration_ms": int(time.Since(start) / time.Millisecond),
-	}).Info("Outgoing request returned")
+	}).Trace("Outgoing request returned")
 
 	return resp, nil
 }
