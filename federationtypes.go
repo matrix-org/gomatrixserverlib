@@ -708,7 +708,7 @@ func (r *RespInvite) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(tuple[1], &fields); err != nil {
 		return err
 	}
-	*r = RespInvite(fields)
+	r.Event = fields.Event
 	return nil
 }
 

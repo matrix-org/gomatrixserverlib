@@ -205,12 +205,7 @@ func (ac *FederationClient) SendInvite(
 	if err = req.SetContent(event); err != nil {
 		return
 	}
-	// returns as [200, {...}]
-	var v1Res []json.RawMessage
-	err = ac.doRequest(ctx, req, &v1Res)
-	if err == nil && len(v1Res) == 2 {
-		err = json.Unmarshal(v1Res[1], &res)
-	}
+	err = ac.doRequest(ctx, req, &res)
 	return
 }
 
