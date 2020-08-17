@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/matrix-org/util"
+	"github.com/tidwall/gjson"
 )
 
 // A ServerName is the name a matrix homeserver is identified by.
@@ -704,11 +705,13 @@ func (r *RespInvite) UnmarshalJSON(data []byte) error {
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid invite response, invalid length: %d != 2", len(tuple))
 	}
-	var fields respInviteFields
-	if err := json.Unmarshal(tuple[1], &fields); err != nil {
-		return err
+	if jr := gjson.GetBytes(tuple[1], "event"); jr.Exists() {
+		event, err := NewEventFromUntrustedJSON([]byte(jr.Raw), RoomVersionV1)
+		if err != nil {
+			return err
+		}
+		r.Event = event
 	}
-	r.Event = fields.Event
 	return nil
 }
 
