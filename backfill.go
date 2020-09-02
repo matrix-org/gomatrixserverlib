@@ -5,6 +5,14 @@ import (
 	"fmt"
 )
 
+// BackfillClient contains the necessary functions from the federation client to perform a backfill request
+// from another homeserver.
+type BackfillClient interface {
+	// Backfill performs a backfill request to the given server.
+	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-backfill-roomid
+	Backfill(ctx context.Context, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
+}
+
 // BackfillRequester contains the necessary functions to perform backfill requests from one server to another.
 //
 // It requires a StateProvider in order to perform PDU checks on received events, notably the step
@@ -14,15 +22,12 @@ import (
 // constantly deferring to federation requests.
 type BackfillRequester interface {
 	StateProvider
+	BackfillClient
 	// ServersAtEvent is called when trying to determine which server to request from.
 	// It returns a list of servers which can be queried for backfill requests. These servers
 	// will be servers that are in the room already. The entries at the beginning are preferred servers
 	// and will be tried first. An empty list will fail the request.
 	ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName
-	// Backfill performs a backfill request to the given server.
-	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-backfill-roomid
-	Backfill(ctx context.Context, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
-
 	ProvideEvents(roomVer RoomVersion, eventIDs []string) ([]Event, error)
 }
 
