@@ -28,7 +28,7 @@ func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer Ro
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
 	return t.servers
 }
-func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (*Transaction, error) {
 	return t.backfillFn(server, roomID, fromEventIDs, limit)
 }
 func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []Event, err error) {
