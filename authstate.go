@@ -15,9 +15,18 @@ type StateProvider interface {
 	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error)
 }
 
+type FederatedStateClient interface {
+	LookupState(
+		ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
+	) (res RespState, err error)
+	LookupStateIDs(
+		ctx context.Context, s ServerName, roomID, eventID string,
+	) (res RespStateIDs, err error)
+}
+
 // FederatedStateProvider is an implementation of StateProvider which solely uses federation requests to retrieve events.
 type FederatedStateProvider struct {
-	FedClient *FederationClient
+	FedClient FederatedStateClient
 	// The remote server to ask.
 	Server ServerName
 	// Set to true to remember the auth event IDs for the room at various states
