@@ -10,7 +10,7 @@ import (
 type BackfillClient interface {
 	// Backfill performs a backfill request to the given server.
 	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-backfill-roomid
-	Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (*Transaction, error)
+	Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error)
 }
 
 // BackfillRequester contains the necessary functions to perform backfill requests from one server to another.

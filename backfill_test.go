@@ -28,8 +28,12 @@ func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer Ro
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
 	return t.servers
 }
-func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (*Transaction, error) {
-	return t.backfillFn(server, roomID, fromEventIDs, limit)
+func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error) {
+	txn, err := t.backfillFn(server, roomID, fromEventIDs, limit)
+	if err != nil {
+		return Transaction{}, err
+	}
+	return *txn, nil
 }
 func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []Event, err error) {
 	eventMap := make(map[string]Event)
