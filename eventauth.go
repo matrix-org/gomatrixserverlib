@@ -34,7 +34,7 @@ const (
 	Leave = "leave"
 	// Invite is the string constant "invite"
 	Invite = "invite"
-	// Peek is the string constant "peek"
+	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
 	Peek = "peek"
 	// Public is the string constant "public"
 	Public = "public"
