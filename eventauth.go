@@ -34,6 +34,8 @@ const (
 	Leave = "leave"
 	// Invite is the string constant "invite"
 	Invite = "invite"
+	// Peek is the string constant "peek"
+	Peek = "peek"
 	// Public is the string constant "public"
 	Public = "public"
 	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
