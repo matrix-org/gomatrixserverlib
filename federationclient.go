@@ -309,6 +309,19 @@ func (ac *FederationClient) LookupMissingEvents(
 	return
 }
 
+// Peek starts a peek on a remote server
+func (ac *FederationClient) Peek(
+	ctx context.Context, s ServerName, roomID, peekID string, roomVersion RoomVersion,
+) (res RespPeek, err error) {
+	res.roomVersion = roomVersion
+	path := federationPathPrefixV1 + "/peek/" +
+		url.PathEscape(roomID) +
+		url.PathEscape(peekID)
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // LookupRoomAlias looks up a room alias hosted on the remote server.
 // The domain part of the roomAlias must match the name of the server it is
 // being looked up on.

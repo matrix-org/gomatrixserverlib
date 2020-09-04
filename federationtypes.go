@@ -136,6 +136,18 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// A RespPeek is the content of a response to GET /_matrix/federation/v1/peek/{roomID}
+type RespPeek struct {
+	// The room version that dictates the format of the state events.
+	roomVersion RoomVersion
+	// How often should we renew the peek?
+	RenewalInterval int `json:"renewal_interval"`
+	// A list of events giving the state of the room at the point of the request
+	StateEvents []Event `json:"pdus"`
+	// A list of events needed to authenticate the state events.
+	AuthEvents []Event `json:"auth_chain"`
+}
+
 // MissingEvents represents a request for missing events.
 // https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
 type MissingEvents struct {
@@ -519,6 +531,20 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 		r.StateEvents = append(r.StateEvents, event)
 	}
 	return nil
+}
+
+// ToRespState returns a new RespState with the same data from the given RespPeek
+func (r RespPeek) ToRespState() RespState {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
+	return RespState{
+		StateEvents: r.StateEvents,
+		AuthEvents: r.AuthEvents,
+	}
 }
 
 type respSendJoinFields struct {
