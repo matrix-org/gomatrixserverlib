@@ -577,21 +577,21 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references
 	// to all of the auth events.
-	for i, event := range r.AuthEvents {
-		eventsByID[event.EventID()] = &r.AuthEvents[i]
+	for i, event := range rs.AuthEvents {
+		eventsByID[event.EventID()] = &rs.AuthEvents[i]
 	}
 
 	// Then we add the current state events too, since our newly formed
 	// membership event will likely refer to these as auth events too.
-	for i, event := range r.StateEvents {
-		eventsByID[event.EventID()] = &r.StateEvents[i]
+	for i, event := range rs.StateEvents {
+		eventsByID[event.EventID()] = &rs.StateEvents[i]
 	}
 
 	// Add all of the current state events to an auth provider, allowing us
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
-	for i := range r.StateEvents {
-		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
+	for i := range rs.StateEvents {
+		if err := authEventProvider.AddEvent(&rs.StateEvents[i]); err != nil {
 			return nil, err
 		}
 	}
