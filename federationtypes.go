@@ -548,17 +548,20 @@ func (r RespSendJoin) ToRespState() RespState {
 	}
 }
 
-// Check that a response to /send_join is valid.
+// Check that a response to /send_join is valid. If it is then it
+// returns a reference to the RespState that contains the room state
+// excluding any events that failed signature checks.
 // This checks that it would be valid as a response to /state
 // This also checks that the join event is allowed by the state.
-func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) error {
+func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) (*RespState, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	if err := r.ToRespState().Check(ctx, keyRing, missingAuth); err != nil {
-		return err
+	rs := r.ToRespState()
+	if err := rs.Check(ctx, keyRing, missingAuth); err != nil {
+		return nil, err
 	}
 
 	eventsByID := map[string]*Event{}
@@ -582,24 +585,24 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	// state (and not by former auth events).
 	for i := range r.StateEvents {
 		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// Now check that the join event is valid against its auth events.
 	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Now check that the join event is valid against the supplied state.
 	if err := Allowed(joinEvent, &authEventProvider); err != nil {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
 			joinEvent.EventID(), err.Error(),
 		)
 	}
 
-	return nil
+	return &rs, nil
 }
 
 // A RespMakeLeave is the content of a response to GET /_matrix/federation/v2/make_leave/{roomID}/{userID}
