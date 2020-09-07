@@ -135,6 +135,14 @@ type RespState struct {
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
+	// A list of rejected event IDs from the above state events and auth events.
+	invalidEventIDs []string
+}
+
+// InvalidEventIDs returns a list of event IDs that were rejected from either the state events
+// or the auth events due to invalid signature checks.
+func (s *RespState) InvalidEventIDs() []string {
+	return s.invalidEventIDs
 }
 
 // MissingEvents represents a request for missing events.
@@ -419,6 +427,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 		if errors[i] != nil {
 			logrus.WithError(errors[i]).Errorf("Signature validation failed for event %q", e.EventID())
 			failures[e.EventID()] = errors[i]
+			r.invalidEventIDs = append(r.invalidEventIDs, e.EventID())
 		}
 	}
 
@@ -441,8 +450,6 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 	// from the RespState. This way they won't be passed onwards.
 	logger.Warnf("Discarding %d auth/state events due to invalid signatures", len(failures))
 
-	ac, sc := len(r.AuthEvents), len(r.StateEvents)
-
 	for i := 0; i < len(r.AuthEvents); i++ {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
 			r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
@@ -455,9 +462,6 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 			i--
 		}
 	}
-
-	logger.Infof("Auth events -> before %d, after %d", ac, len(r.AuthEvents))
-	logger.Infof("State events -> before %d, after %d", sc, len(r.StateEvents))
 
 	return nil
 }
