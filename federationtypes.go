@@ -441,7 +441,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 	for i, e := range failures {
 		logrus.WithError(e).Errorf("Signature validation failed for event %q", i)
 	}
-	logger.Infof("Discarding %d auth/state events due to invalid signatures", len(failures))
+	logger.Warnf("Discarding %d auth/state events due to invalid signatures", len(failures))
 
 	for i := 0; i < len(r.AuthEvents); i++ {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
