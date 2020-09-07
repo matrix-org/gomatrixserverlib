@@ -417,6 +417,7 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 	failures := map[string]error{}
 	for i, e := range allEvents {
 		if errors[i] != nil {
+			logrus.WithError(errors[i]).Errorf("Signature validation failed for event %q", e.EventID())
 			failures[e.EventID()] = errors[i]
 		}
 	}
@@ -438,10 +439,9 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
-	for i, e := range failures {
-		logrus.WithError(e).Errorf("Signature validation failed for event %q", i)
-	}
 	logger.Warnf("Discarding %d auth/state events due to invalid signatures", len(failures))
+
+	ac, sc := len(r.AuthEvents), len(r.StateEvents)
 
 	for i := 0; i < len(r.AuthEvents); i++ {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
@@ -455,6 +455,9 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 			i--
 		}
 	}
+
+	logger.Infof("Auth events -> before %d, after %d", ac, len(r.AuthEvents))
+	logger.Infof("State events -> before %d, after %d", sc, len(r.StateEvents))
 
 	return nil
 }
