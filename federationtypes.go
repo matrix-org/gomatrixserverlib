@@ -135,14 +135,6 @@ type RespState struct {
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
-	// A list of rejected event IDs from the above state events and auth events.
-	invalidEventIDs []string
-}
-
-// InvalidEventIDs returns a list of event IDs that were rejected from either the state events
-// or the auth events due to invalid signature checks.
-func (s *RespState) InvalidEventIDs() []string {
-	return s.invalidEventIDs
 }
 
 // MissingEvents represents a request for missing events.
@@ -427,7 +419,6 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 		if errors[i] != nil {
 			logrus.WithError(errors[i]).Errorf("Signature validation failed for event %q", e.EventID())
 			failures[e.EventID()] = errors[i]
-			r.invalidEventIDs = append(r.invalidEventIDs, e.EventID())
 		}
 	}
 
@@ -571,27 +562,32 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 		return nil, err
 	}
 
+	// The RespState check can mutate the auth events and state events by
+	// removing events which didn't pass signature checks. Use those.
+	r.AuthEvents = rs.AuthEvents
+	r.StateEvents = rs.StateEvents
+
 	eventsByID := map[string]*Event{}
 	authEventProvider := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references
 	// to all of the auth events.
-	for i, event := range rs.AuthEvents {
-		eventsByID[event.EventID()] = &rs.AuthEvents[i]
+	for i, event := range r.AuthEvents {
+		eventsByID[event.EventID()] = &r.AuthEvents[i]
 	}
 
 	// Then we add the current state events too, since our newly formed
 	// membership event will likely refer to these as auth events too.
-	for i, event := range rs.StateEvents {
-		eventsByID[event.EventID()] = &rs.StateEvents[i]
+	for i, event := range r.StateEvents {
+		eventsByID[event.EventID()] = &r.StateEvents[i]
 	}
 
 	// Add all of the current state events to an auth provider, allowing us
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
-	for i := range rs.StateEvents {
-		if err := authEventProvider.AddEvent(&rs.StateEvents[i]); err != nil {
+	for i := range r.StateEvents {
+		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
 			return nil, err
 		}
 	}
