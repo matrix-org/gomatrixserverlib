@@ -376,7 +376,9 @@ func (r RespState) Events() ([]Event, error) {
 	return result, nil
 }
 
-// Check that a response to /state is valid.
+// Check that a response to /state is valid. This function mutates
+// the RespState to remove any events from AuthEvents or StateEvents
+// that do not have valid signatures.
 func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
 	logger := util.GetLogger(ctx)
 	var allEvents []Event
@@ -549,8 +551,10 @@ func (r RespSendJoin) ToRespState() RespState {
 // Check that a response to /send_join is valid. If it is then it
 // returns a reference to the RespState that contains the room state
 // excluding any events that failed signature checks.
-// This checks that it would be valid as a response to /state
+// This checks that it would be valid as a response to /state.
 // This also checks that the join event is allowed by the state.
+// This function mutates the RespSendJoin to remove any events from
+// AuthEvents or StateEvents that do not have valid signatures.
 func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) (*RespState, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
