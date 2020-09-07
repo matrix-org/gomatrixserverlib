@@ -377,7 +377,7 @@ func (r RespState) Events() ([]Event, error) {
 }
 
 // Check that a response to /state is valid.
-func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
+func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
 	logger := util.GetLogger(ctx)
 	var allEvents []Event
 	for _, event := range r.AuthEvents {
@@ -551,7 +551,7 @@ func (r RespSendJoin) ToRespState() RespState {
 // excluding any events that failed signature checks.
 // This checks that it would be valid as a response to /state
 // This also checks that the join event is allowed by the state.
-func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) (*RespState, error) {
+func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) (*RespState, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
