@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -413,10 +414,10 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 	}
 
 	// Work out which events failed the signature checks.
-	failures := map[string]struct{}{}
+	failures := map[string]error{}
 	for i, e := range allEvents {
 		if errors[i] != nil {
-			failures[e.EventID()] = struct{}{}
+			failures[e.EventID()] = errors[i]
 		}
 	}
 
@@ -437,7 +438,11 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
+	for i, e := range failures {
+		logrus.WithError(e).Errorf("Signature validation failed for event %q", i)
+	}
 	logger.Infof("Discarding %d auth/state events due to invalid signatures", len(failures))
+
 	for i := 0; i < len(r.AuthEvents); i++ {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
 			r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
