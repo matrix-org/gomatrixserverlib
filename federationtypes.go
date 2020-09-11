@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -387,8 +388,10 @@ func (r RespState) Events() ([]Event, error) {
 	return result, nil
 }
 
-// Check that a response to /state is valid.
-func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
+// Check that a response to /state is valid. This function mutates
+// the RespState to remove any events from AuthEvents or StateEvents
+// that do not have valid signatures.
+func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
 	logger := util.GetLogger(ctx)
 	var allEvents []Event
 	for _, event := range r.AuthEvents {
@@ -425,10 +428,11 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 	}
 
 	// Work out which events failed the signature checks.
-	failures := map[string]struct{}{}
+	failures := map[string]error{}
 	for i, e := range allEvents {
 		if errors[i] != nil {
-			failures[e.EventID()] = struct{}{}
+			logrus.WithError(errors[i]).Errorf("Signature validation failed for event %q", e.EventID())
+			failures[e.EventID()] = errors[i]
 		}
 	}
 
@@ -449,15 +453,18 @@ func (r RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth 
 
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
-	logger.Infof("Discarding %d auth/state events due to invalid signatures", len(failures))
-	for i := range r.AuthEvents {
+	logger.Warnf("Discarding %d auth/state events due to invalid signatures", len(failures))
+
+	for i := 0; i < len(r.AuthEvents); i++ {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
 			r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
+			i--
 		}
 	}
-	for i := range r.StateEvents {
+	for i := 0; i < len(r.StateEvents); i++ {
 		if _, ok := failures[r.StateEvents[i].EventID()]; ok {
 			r.StateEvents = append(r.StateEvents[:i], r.StateEvents[i+1:]...)
+			i--
 		}
 	}
 
@@ -567,18 +574,28 @@ func (r RespSendJoin) ToRespState() RespState {
 	}
 }
 
-// Check that a response to /send_join is valid.
-// This checks that it would be valid as a response to /state
+// Check that a response to /send_join is valid. If it is then it
+// returns a reference to the RespState that contains the room state
+// excluding any events that failed signature checks.
+// This checks that it would be valid as a response to /state.
 // This also checks that the join event is allowed by the state.
-func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) error {
+// This function mutates the RespSendJoin to remove any events from
+// AuthEvents or StateEvents that do not have valid signatures.
+func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent Event, missingAuth AuthChainProvider) (*RespState, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	if err := r.ToRespState().Check(ctx, keyRing, missingAuth); err != nil {
-		return err
+	rs := r.ToRespState()
+	if err := rs.Check(ctx, keyRing, missingAuth); err != nil {
+		return nil, err
 	}
+
+	// The RespState check can mutate the auth events and state events by
+	// removing events which didn't pass signature checks. Use those.
+	r.AuthEvents = rs.AuthEvents
+	r.StateEvents = rs.StateEvents
 
 	eventsByID := map[string]*Event{}
 	authEventProvider := NewAuthEvents(nil)
@@ -601,24 +618,24 @@ func (r RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent
 	// state (and not by former auth events).
 	for i := range r.StateEvents {
 		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// Now check that the join event is valid against its auth events.
 	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Now check that the join event is valid against the supplied state.
 	if err := Allowed(joinEvent, &authEventProvider); err != nil {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
 			joinEvent.EventID(), err.Error(),
 		)
 	}
 
-	return nil
+	return &rs, nil
 }
 
 // A RespMakeLeave is the content of a response to GET /_matrix/federation/v2/make_leave/{roomID}/{userID}
