@@ -136,7 +136,7 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
-// A RespPeek is the content of a response to GET /_matrix/federation/v1/peek/{roomID}
+// A RespPeek is the content of a response to GET /_matrix/federation/v1/peek/{roomID}/{peekID}
 type RespPeek struct {
 	// The room version that dictates the format of the state events.
 	roomVersion RoomVersion
