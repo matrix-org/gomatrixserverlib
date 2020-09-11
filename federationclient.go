@@ -95,7 +95,7 @@ func (ac *FederationClient) MakeJoin(
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			vqs = append(vqs, fmt.Sprintf("ver=%s", v))
+			vqs = append(vqs, url.QueryEscape(fmt.Sprintf("ver=%s", v)))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
@@ -311,12 +311,20 @@ func (ac *FederationClient) LookupMissingEvents(
 
 // Peek starts a peek on a remote server
 func (ac *FederationClient) Peek(
-	ctx context.Context, s ServerName, roomID, peekID string, roomVersion RoomVersion,
+	ctx context.Context, s ServerName, roomID, peekID string,
+	roomVersions []RoomVersion,
 ) (res RespPeek, err error) {
-	res.roomVersion = roomVersion
+	versionQueryString := ""
+	if len(roomVersions) > 0 {
+		var vqs []string
+		for _, v := range roomVersions {
+			vqs = append(vqs, url.QueryEscape(fmt.Sprintf("ver=%s", v)))
+		}
+		versionQueryString = "?" + strings.Join(vqs, "&")
+	}
 	path := federationPathPrefixV1 + "/peek/" +
 		url.PathEscape(roomID) +
-		url.PathEscape(peekID)
+		url.PathEscape(peekID) + versionQueryString
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return

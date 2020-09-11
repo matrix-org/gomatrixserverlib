@@ -139,14 +139,14 @@ type RespState struct {
 
 // A RespPeek is the content of a response to GET /_matrix/federation/v1/peek/{roomID}/{peekID}
 type RespPeek struct {
-	// The room version that dictates the format of the state events.
-	roomVersion RoomVersion
 	// How often should we renew the peek?
 	RenewalInterval int `json:"renewal_interval"`
 	// A list of events giving the state of the room at the point of the request
 	StateEvents []Event `json:"pdus"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
+	// The room version that we're trying to peek.
+	RoomVersion RoomVersion `json:"room_version"`
 }
 
 // MissingEvents represents a request for missing events.
