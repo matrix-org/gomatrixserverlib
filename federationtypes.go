@@ -142,7 +142,7 @@ type RespPeek struct {
 	// How often should we renew the peek?
 	RenewalInterval int `json:"renewal_interval"`
 	// A list of events giving the state of the room at the point of the request
-	StateEvents []Event `json:"pdus"`
+	StateEvents []Event `json:"state"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents []Event `json:"auth_chain"`
 	// The room version that we're trying to peek.
