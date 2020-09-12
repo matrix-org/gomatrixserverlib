@@ -95,7 +95,8 @@ func (ac *FederationClient) MakeJoin(
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			vqs = append(vqs, url.QueryEscape(fmt.Sprintf("ver=%s", v)))
+			escapedV := url.QueryEscape(fmt.Sprintf("%s", v))
+			vqs = append(vqs, fmt.Sprintf("ver=%s", escapedV))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
@@ -318,12 +319,13 @@ func (ac *FederationClient) Peek(
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			vqs = append(vqs, url.QueryEscape(fmt.Sprintf("ver=%s", v)))
+			escapedV := url.QueryEscape(fmt.Sprintf("%s", v))
+			vqs = append(vqs, fmt.Sprintf("ver=%s", escapedV))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
 	path := federationPathPrefixV1 + "/peek/" +
-		url.PathEscape(roomID) +
+		url.PathEscape(roomID) + "/" +
 		url.PathEscape(peekID) + versionQueryString
 	req := NewFederationRequest("PUT", s, path)
 	var empty struct{}
