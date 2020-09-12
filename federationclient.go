@@ -325,7 +325,11 @@ func (ac *FederationClient) Peek(
 	path := federationPathPrefixV1 + "/peek/" +
 		url.PathEscape(roomID) +
 		url.PathEscape(peekID) + versionQueryString
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("PUT", s, path)
+	var empty struct{}
+	if err = req.SetContent(empty); err != nil {
+		return
+	}
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
