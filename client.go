@@ -331,6 +331,10 @@ func (fc *Client) DoRequestAndParseResponse(
 		return err
 	}
 
+	// body, err := ioutil.ReadAll(response.Body)
+	// util.GetLogger(ctx).Warnf("fed request %#v returned %d: %s", req, response.StatusCode, body)
+	// response.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
 	if response.StatusCode/100 != 2 { // not 2xx
 		// Adapted from https://github.com/matrix-org/gomatrix/blob/master/client.go
 		var contents []byte
@@ -363,6 +367,8 @@ func (fc *Client) DoRequestAndParseResponse(
 	if err = json.NewDecoder(response.Body).Decode(result); err != nil {
 		return err
 	}
+
+	// util.GetLogger(ctx).Warnf("fed request decoded as %#v", result)
 
 	return nil
 }

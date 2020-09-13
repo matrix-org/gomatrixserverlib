@@ -216,6 +216,13 @@ type respStateFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
+type respPeekFields struct {
+	RenewalInterval int64 `json:"renewal_interval"`
+	StateEvents []Event `json:"pdus"`
+	AuthEvents  []Event `json:"auth_chain"`
+	RoomVersion RoomVersion `json:"room_version"`
+}
+
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevices struct {
@@ -267,6 +274,60 @@ func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+// MarshalJSON implements json.Marshaller
+func (r RespPeek) MarshalJSON() ([]byte, error) {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
+	return json.Marshal(respPeekFields{
+		RoomVersion: r.RoomVersion,
+		StateEvents: r.StateEvents,
+		AuthEvents:  r.AuthEvents,
+		RenewalInterval: r.RenewalInterval,
+	})
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespPeek) UnmarshalJSON(data []byte) error {
+	r.AuthEvents = []Event{}
+	r.StateEvents = []Event{}
+	// XXX: it feels broken that we have RespPeek, respPeekFields and intermediate
+	// all looking pretty similar. What am I doing wrong?
+	var intermediate struct {
+		RoomVersion RoomVersion `json:"room_version"`
+		StateEvents []json.RawMessage `json:"state"`
+		AuthEvents  []json.RawMessage `json:"auth_chain"`
+		RenewalInterval int64 `json:"renewal_interval"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return fmt.Errorf("RespPeek UnmarshalJSON(intermediate): %w", err)
+	}
+	r.RoomVersion = intermediate.RoomVersion
+	r.RenewalInterval = intermediate.RenewalInterval
+	if _, err := r.RoomVersion.EventFormat(); err != nil {
+		return fmt.Errorf("RespPeek UnmarshalJSON(roomversion): %w", err)
+	}
+	for _, raw := range intermediate.AuthEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.RoomVersion)
+		if err != nil {
+			return fmt.Errorf("RespPeek UnmarshalJSON(AuthEvent): %w", err)
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	for _, raw := range intermediate.StateEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.RoomVersion)
+		if err != nil {
+			return fmt.Errorf("RespPeek UnmarshalJSON(StateEvent): %w", err)
+		}
+		r.StateEvents = append(r.StateEvents, event)
+	}
+	return nil
+}
+
 
 // MarshalJSON implements json.Marshaller
 func (r RespState) MarshalJSON() ([]byte, error) {
@@ -549,6 +610,7 @@ func (r RespPeek) ToRespState() RespState {
 		r.AuthEvents = []Event{}
 	}
 	return RespState{
+		roomVersion: r.RoomVersion,
 		StateEvents: r.StateEvents,
 		AuthEvents: r.AuthEvents,
 	}
