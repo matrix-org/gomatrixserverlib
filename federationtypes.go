@@ -218,7 +218,7 @@ type respStateFields struct {
 
 type respPeekFields struct {
 	RenewalInterval int64 `json:"renewal_interval"`
-	StateEvents []Event `json:"pdus"`
+	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
 	RoomVersion RoomVersion `json:"room_version"`
 }
