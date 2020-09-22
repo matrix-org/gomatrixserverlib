@@ -87,7 +87,7 @@ type PublicKeyNotaryLookupRequest struct {
 }
 
 type PublicKeyNotaryQueryCriteria struct {
-	MinimumValidUntilTS int64 `json:"minimum_valid_until_ts"`
+	MinimumValidUntilTS Timestamp `json:"minimum_valid_until_ts"`
 }
 
 // A KeyFetcher is a way of fetching public keys in bulk.
