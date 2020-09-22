@@ -73,6 +73,13 @@ func (keys *ServerKeys) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements json.Marshaler
 func (keys ServerKeys) MarshalJSON() ([]byte, error) {
+	if len(keys.Raw) == 0 {
+		js, err := json.Marshal(keys.ServerKeyFields)
+		if err != nil {
+			return nil, err
+		}
+		return js, nil
+	}
 	// We already have a copy of the serialised JSON for the keys so we can return that directly.
 	return keys.Raw, nil
 }
