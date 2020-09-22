@@ -147,6 +147,9 @@ type RespPeek struct {
 	AuthEvents []Event `json:"auth_chain"`
 	// The room version that we're trying to peek.
 	RoomVersion RoomVersion `json:"room_version"`
+	// The ID of the event whose state snapshot this is - i.e. the
+	// most recent forward extremity in the room.
+	LatestEvent Event `json:"latest_event"`
 }
 
 // MissingEvents represents a request for missing events.
@@ -216,11 +219,14 @@ type respStateFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
+// XXX: this duplicates RespPeek above and needs to be kept in sync with it
+// (and it's unclear why we've ended up with both)
 type respPeekFields struct {
 	RenewalInterval int64 `json:"renewal_interval"`
 	StateEvents []Event `json:"state"`
 	AuthEvents  []Event `json:"auth_chain"`
 	RoomVersion RoomVersion `json:"room_version"`
+	LatestEvent Event `json:"latest_event"`
 }
 
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
@@ -288,6 +294,7 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
 		RenewalInterval: r.RenewalInterval,
+		LatestEvent: r.LatestEvent,
 	})
 }
 
@@ -302,6 +309,7 @@ func (r *RespPeek) UnmarshalJSON(data []byte) error {
 		StateEvents []json.RawMessage `json:"state"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
 		RenewalInterval int64 `json:"renewal_interval"`
+		LatestEvent json.RawMessage `json:"latest_event"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return fmt.Errorf("RespPeek UnmarshalJSON(intermediate): %w", err)
@@ -325,6 +333,11 @@ func (r *RespPeek) UnmarshalJSON(data []byte) error {
 		}
 		r.StateEvents = append(r.StateEvents, event)
 	}
+	latestEvent, err := NewEventFromUntrustedJSON([]byte(intermediate.LatestEvent), r.RoomVersion)
+	if err != nil {
+		return fmt.Errorf("RespPeek UnmarshalJSON(StateEvent): %w", err)
+	}
+	r.LatestEvent = latestEvent
 	return nil
 }
 
