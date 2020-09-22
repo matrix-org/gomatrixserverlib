@@ -360,6 +360,11 @@ func (k *KeyRing) checkUsingKeys(
 	}
 }
 
+type KeyClient interface {
+	GetServerKeys(ctx context.Context, matrixServer ServerName) (ServerKeys, error)
+	LookupServerKeys(ctx context.Context, matrixServer ServerName, keyRequests map[PublicKeyLookupRequest]Timestamp) ([]ServerKeys, error)
+}
+
 // A PerspectiveKeyFetcher fetches server keys from a single perspective server.
 type PerspectiveKeyFetcher struct {
 	// The name of the perspective server to fetch keys from.
@@ -367,7 +372,7 @@ type PerspectiveKeyFetcher struct {
 	// The ed25519 public keys the perspective server must sign responses with.
 	PerspectiveServerKeys map[KeyID]ed25519.PublicKey
 	// The federation client to use to fetch keys with.
-	Client Client
+	Client KeyClient
 }
 
 // FetcherName implements KeyFetcher
@@ -432,7 +437,7 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 // This may be suitable for local deployments that are firewalled from the public internet where DNS can be trusted.
 type DirectKeyFetcher struct {
 	// The federation client to use to fetch keys with.
-	Client Client
+	Client KeyClient
 }
 
 // FetcherName implements KeyFetcher
