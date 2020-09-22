@@ -83,14 +83,7 @@ func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking
 }
 
 type PublicKeyNotaryLookupRequest struct {
-	// server_name -> key_id -> criteria
-	ServerKeys map[string]map[string]PublicKeyNotaryQueryCriteria `json:"server_keys"`
-}
-
-type PublicKeyNotaryLookupResponse struct {
-	// []bytes here are actually signed ServerKeyFields marshalled into JSON
-	// but storing them as bytes here makes it easy to reuse SignJSON()
-	ServerKeys [][]byte `json:"server_keys"`
+	ServerKeys map[ServerName]map[KeyID]PublicKeyNotaryQueryCriteria `json:"server_keys"`
 }
 
 type PublicKeyNotaryQueryCriteria struct {
@@ -493,9 +486,12 @@ func (d *DirectKeyFetcher) FetchKeys(
 		for server := range ch {
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
-				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-				fetcherLogger.WithError(err).Error("Failed to fetch key for server")
-				continue
+				serverResults, err = d.fetchNotaryKeysForServer(ctx, server)
+				if err != nil {
+					// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+					fetcherLogger.WithError(err).Error("Failed to fetch key for server")
+					continue
+				}
 			}
 			resultsMutex.Lock()
 			for req, keys := range serverResults {
@@ -524,12 +520,53 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 
 	keys, err := d.Client.GetServerKeys(ctx, serverName)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Check that the keys are valid for the server.
 	checks, _ := CheckKeys(serverName, time.Unix(0, 0), keys)
 	if !checks.AllChecksOK {
 		return nil, fmt.Errorf("gomatrixserverlib: key response direct from %q failed checks", serverName)
+	}
+
+	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+
+	// TODO (matrix-org/dendrite#345): What happens if the same key ID
+	// appears in multiple responses? We should probably reject the response.
+	mapServerKeysToPublicKeyLookupResult(keys, results)
+
+	return results, nil
+}
+
+func (d *DirectKeyFetcher) fetchNotaryKeysForServer(
+	ctx context.Context, serverName ServerName,
+) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*15)
+	defer cancel()
+
+	var keys ServerKeys
+	allKeys, err := d.Client.LookupServerKeys(ctx, serverName, map[PublicKeyLookupRequest]Timestamp{
+		{serverName, ""}: AsTimestamp(time.Now()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for _, serverKeys := range allKeys {
+		if serverKeys.ServerName == serverName {
+			keys = serverKeys
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("gomatrixserverlib: notary key response contained no results for %q", serverName)
+	}
+	// Check that the keys are valid for the server.
+	checks, _ := CheckKeys(serverName, time.Unix(0, 0), keys)
+	if !checks.AllChecksOK {
+		return nil, fmt.Errorf("gomatrixserverlib: notary key response direct from %q failed checks", serverName)
 	}
 
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
