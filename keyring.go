@@ -82,6 +82,19 @@ func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking
 	return true
 }
 
+type PublicKeyNotaryLookupRequest struct {
+	// server_name -> key_id -> criteria
+	ServerKeys map[string]map[string]PublicKeyNotaryQueryCriteria `json:"server_keys"`
+}
+
+type PublicKeyNotaryLookupResponse struct {
+	ServerKeys []ServerKeyFields `json:"server_keys"`
+}
+
+type PublicKeyNotaryQueryCriteria struct {
+	MinimumValidUntilTS int64 `json:"minimum_valid_until_ts"`
+}
+
 // A KeyFetcher is a way of fetching public keys in bulk.
 type KeyFetcher interface {
 	// Lookup a batch of public keys.
