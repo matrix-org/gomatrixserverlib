@@ -226,8 +226,6 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 		}
 
 		domains := make(map[ServerName]bool)
-		domains[event.Origin()] = true
-
 		// in general, we expect the domain of the sender id to be the
 		// same as the origin; however there was a bug in an old version
 		// of synapse which meant that some joins/leaves used the origin
@@ -243,7 +241,14 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 		if err != nil {
 			return nil, err
 		}
-		domains[ServerName(senderDomain)] = true
+		senderServer := ServerName(senderDomain)
+		domains[senderServer] = true
+		// TODO: This enables deprecation of the "origin" field as per MSC1664
+		// (https://github.com/matrix-org/matrix-doc/issues/1664) but really
+		// this has been done so that we can join rooms touched by Conduit again.
+		if senderServer != event.Origin() && event.Origin() != "" {
+			domains[event.Origin()] = true
+		}
 
 		// MRoomMember invite events are signed by both the server sending
 		// the invite and the server the invite is for.
