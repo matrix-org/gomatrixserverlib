@@ -88,7 +88,9 @@ type PublicKeyNotaryLookupRequest struct {
 }
 
 type PublicKeyNotaryLookupResponse struct {
-	ServerKeys []ServerKeyFields `json:"server_keys"`
+	// []bytes here are actually signed ServerKeyFields marshalled into JSON
+	// but storing them as bytes here makes it easy to reuse SignJSON()
+	ServerKeys [][]byte `json:"server_keys"`
 }
 
 type PublicKeyNotaryQueryCriteria struct {
