@@ -53,7 +53,7 @@ type ServerKeyFields struct {
 	// The name of the server
 	ServerName ServerName `json:"server_name"`
 	// List of SHA256 fingerprints of X509 certificates used by this server.
-	TLSFingerprints []TLSFingerprint `json:"tls_fingerprints"`
+	TLSFingerprints []TLSFingerprint `json:"tls_fingerprints,omitempty"`
 	// The current signing keys in use on this server.
 	// The keys of the map are the IDs of the keys.
 	// These are valid while this response is valid.
