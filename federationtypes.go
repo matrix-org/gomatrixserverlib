@@ -588,27 +588,15 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 		eventsByID[event.EventID()] = &r.StateEvents[i]
 	}
 
-	// Check for the minimum required events: create, power levels and
-	// join rules.
-	hasCreate, hasPowerLevels, hasJoinRules := false, false, false
+	// Check for the create event.
+	hasCreate := false
 	for _, event := range eventsByID {
-		switch event.Type() {
-		case MRoomCreate:
+		if event.Type() == MRoomCreate {
 			hasCreate = true
-		case MRoomPowerLevels:
-			hasPowerLevels = true
-		case MRoomJoinRules:
-			hasJoinRules = true
 		}
 	}
 	if !hasCreate {
-		return nil, errors.New("gomatrixserverlib: Missing create event")
-	}
-	if !hasPowerLevels {
-		return nil, errors.New("gomatrixserverlib: Missing power levels event")
-	}
-	if !hasJoinRules {
-		return nil, errors.New("gomatrixserverlib: Missing join rules event")
+		return nil, errors.New("gomatrixserverlib: missing create event")
 	}
 
 	// Add all of the current state events to an auth provider, allowing us

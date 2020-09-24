@@ -370,6 +370,15 @@ func createEventAllowed(event Event) error {
 	if len(event.PrevEvents()) > 0 {
 		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
 	}
+	var createContent CreateContent
+	if err := json.Unmarshal(event.Content(), &createContent); err != nil {
+		return errorf("create event content is invalid")
+	}
+	if createContent.RoomVersion != nil {
+		if _, err := createContent.RoomVersion.EventFormat(); err != nil {
+			return errorf("create event refers to unsupported room version")
+		}
+	}
 	return nil
 }
 
