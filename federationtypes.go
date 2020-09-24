@@ -3,6 +3,7 @@ package gomatrixserverlib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -585,6 +586,29 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 	// membership event will likely refer to these as auth events too.
 	for i, event := range r.StateEvents {
 		eventsByID[event.EventID()] = &r.StateEvents[i]
+	}
+
+	// Check for the minimum required events: create, power levels and
+	// join rules.
+	hasCreate, hasPowerLevels, hasJoinRules := false, false, false
+	for _, event := range eventsByID {
+		switch event.Type() {
+		case MRoomCreate:
+			hasCreate = true
+		case MRoomPowerLevels:
+			hasPowerLevels = true
+		case MRoomJoinRules:
+			hasJoinRules = true
+		}
+	}
+	if !hasCreate {
+		return nil, errors.New("gomatrixserverlib: Missing create event")
+	}
+	if !hasPowerLevels {
+		return nil, errors.New("gomatrixserverlib: Missing power levels event")
+	}
+	if !hasJoinRules {
+		return nil, errors.New("gomatrixserverlib: Missing join rules event")
 	}
 
 	// Add all of the current state events to an auth provider, allowing us
