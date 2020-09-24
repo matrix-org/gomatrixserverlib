@@ -616,8 +616,8 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 	// Now check that the join event is valid against the supplied state.
 	if err := Allowed(joinEvent, &authEventProvider); err != nil {
 		return nil, fmt.Errorf(
-			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
-			joinEvent.EventID(), err.Error(),
+			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %w",
+			joinEvent.EventID(), err,
 		)
 	}
 
@@ -703,8 +703,8 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 	// by AuthEventIDs(). Check if they allow the event.
 	if err := Allowed(event, &authEvents); err != nil {
 		return fmt.Errorf(
-			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
-			event.EventID(), err.Error(),
+			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %w",
+			event.EventID(), err,
 		)
 	}
 	return nil

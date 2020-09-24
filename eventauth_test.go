@@ -388,6 +388,16 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			"unsigned": {
 				"not_allowed": "The state_key is not empty"
 			}
+		}, {
+			"type": "m.room.create",
+			"state_key": "",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e7:a",
+			"content": {"room_version": "some_unsupported_version"},
+			"unsigned": {
+				"not_allowed": "The room_version is not suported"
+			}
 		}]
 	}`)
 }

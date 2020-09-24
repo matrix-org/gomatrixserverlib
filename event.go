@@ -52,7 +52,10 @@ type EventReference struct {
 
 // Event validation errors
 const (
-	EventValidationTooLarge int = 1
+	EventValidationTooLarge int = iota + 1
+	EventContentInvalid
+	EventUnexpectedPrevEvents
+	EventDomainMismatch
 )
 
 // EventValidationError is returned if there is a problem validating an event

@@ -365,18 +365,27 @@ func createEventAllowed(event Event) error {
 		return err
 	}
 	if senderDomain != roomIDDomain {
-		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
+		return EventValidationError{
+			Message: fmt.Sprintf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain),
+			Code:    EventDomainMismatch,
+		}
 	}
 	if len(event.PrevEvents()) > 0 {
-		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
+		return EventValidationError{
+			Message: fmt.Sprintf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents())),
+			Code:    EventUnexpectedPrevEvents,
+		}
 	}
 	var createContent CreateContent
 	if err := json.Unmarshal(event.Content(), &createContent); err != nil {
-		return errorf("create event content is invalid")
+		return EventValidationError{
+			Message: "create event content was invalid",
+			Code:    EventContentInvalid,
+		}
 	}
-	if createContent.RoomVersion != nil {
-		if _, err := createContent.RoomVersion.EventFormat(); err != nil {
-			return errorf("create event refers to unsupported room version")
+	if v := createContent.RoomVersion; v != nil {
+		if _, err := v.EventFormat(); err != nil {
+			return UnsupportedRoomVersionError{*v}
 		}
 	}
 	return nil
