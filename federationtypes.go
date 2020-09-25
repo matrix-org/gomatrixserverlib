@@ -441,7 +441,9 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
-	logger.Warnf("Discarding %d auth/state events due to invalid signatures", len(failures))
+	if f := len(failures); f > 0 {
+		logger.Warnf("Discarding %d auth/state events due to invalid signatures", f)
+	}
 
 	for i := 0; i < len(r.AuthEvents); i++ {
 		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
@@ -669,9 +671,10 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 				}
 				goto retryEvent
 			} else {
-				// If we didn't have a AuthChainProvider then just stop at this
-				// point - we can't do anything better than to notify the caller.
-				return MissingAuthEventError{ae, event.EventID()}
+				// If we didn't have a AuthChainProvider then we can't get the event
+				// so just carry on without it. If it was important for anything then
+				// Check() below will catch it.
+				continue
 			}
 		} else if authEvent != nil {
 			// We had an entry in the map and it contains an actual event, so add it to
@@ -681,9 +684,9 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 			}
 		} else {
 			// We had an entry in the map but it contains nil, which means that we tried
-			// to use the AuthChainProvider to retrieve it and failed, so at this
-			// point there's nothing better to do than to notify the caller.
-			return MissingAuthEventError{ae, event.EventID()}
+			// to use the AuthChainProvider to retrieve it and failed, so at this point
+			// we just have to ignore the event.
+			continue
 		}
 	}
 
