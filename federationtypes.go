@@ -346,7 +346,7 @@ func (r RespState) Events() ([]Event, error) {
 			for _, ref := range top.AuthEvents() {
 				authEvent := eventsByID[ref.EventID]
 				if authEvent == nil {
-					return nil, MissingAuthEventError{ref.EventID, top.EventID()}
+					continue
 				}
 				if outputted[authEvent] {
 					continue
@@ -445,7 +445,7 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
 	if f := len(failures); f > 0 {
-		logger.Warnf("Discarding %d auth/state events due to invalid signatures", f)
+		logger.Warnf("Discarding %d auth/state event(s) due to invalid signatures", f)
 
 		for i := 0; i < len(r.AuthEvents); i++ {
 			if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
@@ -592,6 +592,14 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 		eventsByID[event.EventID()] = &r.StateEvents[i]
 	}
 
+	// Now check that the join event is valid against its auth events.
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
+		return nil, fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
+			joinEvent.EventID(), err,
+		)
+	}
+
 	// Add all of the current state events to an auth provider, allowing us
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
@@ -599,14 +607,6 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 		if err := authEventProvider.AddEvent(&r.StateEvents[i]); err != nil {
 			return nil, err
 		}
-	}
-
-	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
-		return nil, fmt.Errorf(
-			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
-			joinEvent.EventID(), err,
-		)
 	}
 
 	// Now check that the join event is valid against the supplied state.
