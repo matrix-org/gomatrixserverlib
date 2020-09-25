@@ -650,7 +650,7 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 			// We don't have an entry in the eventsByID map - neither an event nor nil.
 			if missingAuth != nil {
 				// If we have a AuthChainProvider then ask it for the missing event.
-				if ev, err := missingAuth(event.roomVersion, []string{ae}); err == nil && len(ev) > 0 {
+				if ev, err := missingAuth(event.roomVersion, []string{ae}, event.Origin()); err == nil && len(ev) > 0 {
 					// It claims to have returned events - populate the eventsByID
 					// map and the authEvents provider so that we can retry with the
 					// new events.

@@ -35,7 +35,7 @@ func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName,
 	}
 	return *txn, nil
 }
-func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []Event, err error) {
+func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string, serverName ServerName) (result []Event, err error) {
 	eventMap := make(map[string]Event)
 	for _, eventBytes := range t.authEventsToProvide {
 		ev, err := NewEventFromTrustedJSON(eventBytes, false, RoomVersionV1)

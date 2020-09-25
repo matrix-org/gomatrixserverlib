@@ -79,7 +79,7 @@ func provideEvents(t *testing.T, events [][]byte) gomatrixserverlib.AuthChainPro
 		}
 		eventMap[ev.EventID()] = ev
 	}
-	return func(roomVer gomatrixserverlib.RoomVersion, eventIDs []string) (result []gomatrixserverlib.Event, err error) {
+	return func(roomVer gomatrixserverlib.RoomVersion, eventIDs []string, serverName gomatrixserverlib.ServerName) (result []gomatrixserverlib.Event, err error) {
 		for _, id := range eventIDs {
 			if ev, ok := eventMap[id]; ok {
 				result = append(result, ev)
