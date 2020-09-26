@@ -82,6 +82,14 @@ func (r PublicKeyLookupResult) WasValidAt(atTs Timestamp, strictValidityChecking
 	return true
 }
 
+type PublicKeyNotaryLookupRequest struct {
+	ServerKeys map[ServerName]map[KeyID]PublicKeyNotaryQueryCriteria `json:"server_keys"`
+}
+
+type PublicKeyNotaryQueryCriteria struct {
+	MinimumValidUntilTS Timestamp `json:"minimum_valid_until_ts"`
+}
+
 // A KeyFetcher is a way of fetching public keys in bulk.
 type KeyFetcher interface {
 	// Lookup a batch of public keys.
@@ -352,6 +360,11 @@ func (k *KeyRing) checkUsingKeys(
 	}
 }
 
+type KeyClient interface {
+	GetServerKeys(ctx context.Context, matrixServer ServerName) (ServerKeys, error)
+	LookupServerKeys(ctx context.Context, matrixServer ServerName, keyRequests map[PublicKeyLookupRequest]Timestamp) ([]ServerKeys, error)
+}
+
 // A PerspectiveKeyFetcher fetches server keys from a single perspective server.
 type PerspectiveKeyFetcher struct {
 	// The name of the perspective server to fetch keys from.
@@ -359,7 +372,7 @@ type PerspectiveKeyFetcher struct {
 	// The ed25519 public keys the perspective server must sign responses with.
 	PerspectiveServerKeys map[KeyID]ed25519.PublicKey
 	// The federation client to use to fetch keys with.
-	Client Client
+	Client KeyClient
 }
 
 // FetcherName implements KeyFetcher
@@ -424,7 +437,7 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 // This may be suitable for local deployments that are firewalled from the public internet where DNS can be trusted.
 type DirectKeyFetcher struct {
 	// The federation client to use to fetch keys with.
-	Client Client
+	Client KeyClient
 }
 
 // FetcherName implements KeyFetcher
@@ -478,9 +491,12 @@ func (d *DirectKeyFetcher) FetchKeys(
 		for server := range ch {
 			serverResults, err := d.fetchKeysForServer(ctx, server)
 			if err != nil {
-				// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-				fetcherLogger.WithError(err).Error("Failed to fetch key for server")
-				continue
+				serverResults, err = d.fetchNotaryKeysForServer(ctx, server)
+				if err != nil {
+					// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
+					fetcherLogger.WithError(err).Error("Failed to fetch key for server")
+					continue
+				}
 			}
 			resultsMutex.Lock()
 			for req, keys := range serverResults {
@@ -509,12 +525,53 @@ func (d *DirectKeyFetcher) fetchKeysForServer(
 
 	keys, err := d.Client.GetServerKeys(ctx, serverName)
 	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Check that the keys are valid for the server.
 	checks, _ := CheckKeys(serverName, time.Unix(0, 0), keys)
 	if !checks.AllChecksOK {
 		return nil, fmt.Errorf("gomatrixserverlib: key response direct from %q failed checks", serverName)
+	}
+
+	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+
+	// TODO (matrix-org/dendrite#345): What happens if the same key ID
+	// appears in multiple responses? We should probably reject the response.
+	mapServerKeysToPublicKeyLookupResult(keys, results)
+
+	return results, nil
+}
+
+func (d *DirectKeyFetcher) fetchNotaryKeysForServer(
+	ctx context.Context, serverName ServerName,
+) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*15)
+	defer cancel()
+
+	var keys ServerKeys
+	allKeys, err := d.Client.LookupServerKeys(ctx, serverName, map[PublicKeyLookupRequest]Timestamp{
+		{serverName, ""}: AsTimestamp(time.Now()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for _, serverKeys := range allKeys {
+		if serverKeys.ServerName == serverName {
+			keys = serverKeys
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("gomatrixserverlib: notary key response contained no results for %q", serverName)
+	}
+	// Check that the keys are valid for the server.
+	checks, _ := CheckKeys(serverName, time.Unix(0, 0), keys)
+	if !checks.AllChecksOK {
+		return nil, fmt.Errorf("gomatrixserverlib: notary key response direct from %q failed checks", serverName)
 	}
 
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}

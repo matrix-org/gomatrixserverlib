@@ -53,7 +53,7 @@ type ServerKeyFields struct {
 	// The name of the server
 	ServerName ServerName `json:"server_name"`
 	// List of SHA256 fingerprints of X509 certificates used by this server.
-	TLSFingerprints []TLSFingerprint `json:"tls_fingerprints"`
+	TLSFingerprints []TLSFingerprint `json:"tls_fingerprints,omitempty"`
 	// The current signing keys in use on this server.
 	// The keys of the map are the IDs of the keys.
 	// These are valid while this response is valid.
@@ -73,6 +73,13 @@ func (keys *ServerKeys) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements json.Marshaler
 func (keys ServerKeys) MarshalJSON() ([]byte, error) {
+	if len(keys.Raw) == 0 {
+		js, err := json.Marshal(keys.ServerKeyFields)
+		if err != nil {
+			return nil, err
+		}
+		return js, nil
+	}
 	// We already have a copy of the serialised JSON for the keys so we can return that directly.
 	return keys.Raw, nil
 }

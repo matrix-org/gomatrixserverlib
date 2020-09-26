@@ -269,7 +269,9 @@ func (fc *Client) LookupServerKeys(
 			server = map[KeyID]keyreq{}
 			request.ServerKeyMap[k.ServerName] = server
 		}
-		server[k.KeyID] = keyreq{ts}
+		if k.KeyID != "" {
+			server[k.KeyID] = keyreq{ts}
+		}
 	}
 
 	requestBytes, err := json.Marshal(request)

@@ -432,7 +432,7 @@ func (r RespState) Events() ([]Event, error) {
 			for _, ref := range top.AuthEvents() {
 				authEvent := eventsByID[ref.EventID]
 				if authEvent == nil {
-					return nil, MissingAuthEventError{ref.EventID, top.EventID()}
+					continue
 				}
 				if outputted[authEvent] {
 					continue
@@ -521,24 +521,29 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
-			return err
+			return fmt.Errorf(
+				"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
+				event.EventID(), err,
+			)
 		}
 	}
 
 	// For all of the events that weren't verified, remove them
 	// from the RespState. This way they won't be passed onwards.
-	logger.Warnf("Discarding %d auth/state events due to invalid signatures", len(failures))
+	if f := len(failures); f > 0 {
+		logger.Warnf("Discarding %d auth/state event(s) due to invalid signatures", f)
 
-	for i := 0; i < len(r.AuthEvents); i++ {
-		if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
-			r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
-			i--
+		for i := 0; i < len(r.AuthEvents); i++ {
+			if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
+				r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
+				i--
+			}
 		}
-	}
-	for i := 0; i < len(r.StateEvents); i++ {
-		if _, ok := failures[r.StateEvents[i].EventID()]; ok {
-			r.StateEvents = append(r.StateEvents[:i], r.StateEvents[i+1:]...)
-			i--
+		for i := 0; i < len(r.StateEvents); i++ {
+			if _, ok := failures[r.StateEvents[i].EventID()]; ok {
+				r.StateEvents = append(r.StateEvents[:i], r.StateEvents[i+1:]...)
+				i--
+			}
 		}
 	}
 
@@ -688,6 +693,14 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 		eventsByID[event.EventID()] = &r.StateEvents[i]
 	}
 
+	// Now check that the join event is valid against its auth events.
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
+		return nil, fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
+			joinEvent.EventID(), err,
+		)
+	}
+
 	// Add all of the current state events to an auth provider, allowing us
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
@@ -697,16 +710,11 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 		}
 	}
 
-	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
-		return nil, err
-	}
-
 	// Now check that the join event is valid against the supplied state.
 	if err := Allowed(joinEvent, &authEventProvider); err != nil {
 		return nil, fmt.Errorf(
-			"gomatrixserverlib: event with ID %q is not allowed by the supplied state: %s",
-			joinEvent.EventID(), err.Error(),
+			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
+			joinEvent.EventID(), err,
 		)
 	}
 
@@ -770,9 +778,10 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 				}
 				goto retryEvent
 			} else {
-				// If we didn't have a AuthChainProvider then just stop at this
-				// point - we can't do anything better than to notify the caller.
-				return MissingAuthEventError{ae, event.EventID()}
+				// If we didn't have a AuthChainProvider then we can't get the event
+				// so just carry on without it. If it was important for anything then
+				// Check() below will catch it.
+				continue
 			}
 		} else if authEvent != nil {
 			// We had an entry in the map and it contains an actual event, so add it to
@@ -782,14 +791,14 @@ func checkAllowedByAuthEvents(event Event, eventsByID map[string]*Event, missing
 			}
 		} else {
 			// We had an entry in the map but it contains nil, which means that we tried
-			// to use the AuthChainProvider to retrieve it and failed, so at this
-			// point there's nothing better to do than to notify the caller.
-			return MissingAuthEventError{ae, event.EventID()}
+			// to use the AuthChainProvider to retrieve it and failed, so at this point
+			// we just have to ignore the event.
+			continue
 		}
 	}
 
-	// If we made it this far then we've successfully got all of the events as required
-	// by AuthEventIDs(). Check if they allow the event.
+	// If we made it this far then we've successfully got as many of the auth events as
+	// as described by AuthEventIDs(). Check if they allow the event.
 	if err := Allowed(event, &authEvents); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
