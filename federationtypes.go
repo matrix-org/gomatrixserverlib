@@ -222,11 +222,11 @@ type respStateFields struct {
 // XXX: this duplicates RespPeek above and needs to be kept in sync with it
 // (and it's unclear why we've ended up with both)
 type respPeekFields struct {
-	RenewalInterval int64 `json:"renewal_interval"`
-	StateEvents []Event `json:"state"`
-	AuthEvents  []Event `json:"auth_chain"`
-	RoomVersion RoomVersion `json:"room_version"`
-	LatestEvent Event `json:"latest_event"`
+	RenewalInterval int64       `json:"renewal_interval"`
+	StateEvents     []Event     `json:"state"`
+	AuthEvents      []Event     `json:"auth_chain"`
+	RoomVersion     RoomVersion `json:"room_version"`
+	LatestEvent     Event       `json:"latest_event"`
 }
 
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
@@ -290,11 +290,11 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 		r.AuthEvents = []Event{}
 	}
 	return json.Marshal(respPeekFields{
-		RoomVersion: r.RoomVersion,
-		StateEvents: r.StateEvents,
-		AuthEvents:  r.AuthEvents,
+		RoomVersion:     r.RoomVersion,
+		StateEvents:     r.StateEvents,
+		AuthEvents:      r.AuthEvents,
 		RenewalInterval: r.RenewalInterval,
-		LatestEvent: r.LatestEvent,
+		LatestEvent:     r.LatestEvent,
 	})
 }
 
@@ -305,11 +305,11 @@ func (r *RespPeek) UnmarshalJSON(data []byte) error {
 	// XXX: it feels broken that we have RespPeek, respPeekFields and intermediate
 	// all looking pretty similar. What am I doing wrong?
 	var intermediate struct {
-		RoomVersion RoomVersion `json:"room_version"`
-		StateEvents []json.RawMessage `json:"state"`
-		AuthEvents  []json.RawMessage `json:"auth_chain"`
-		RenewalInterval int64 `json:"renewal_interval"`
-		LatestEvent json.RawMessage `json:"latest_event"`
+		RoomVersion     RoomVersion       `json:"room_version"`
+		StateEvents     []json.RawMessage `json:"state"`
+		AuthEvents      []json.RawMessage `json:"auth_chain"`
+		RenewalInterval int64             `json:"renewal_interval"`
+		LatestEvent     json.RawMessage   `json:"latest_event"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return fmt.Errorf("RespPeek UnmarshalJSON(intermediate): %w", err)
@@ -340,7 +340,6 @@ func (r *RespPeek) UnmarshalJSON(data []byte) error {
 	r.LatestEvent = latestEvent
 	return nil
 }
-
 
 // MarshalJSON implements json.Marshaller
 func (r RespState) MarshalJSON() ([]byte, error) {
@@ -630,7 +629,7 @@ func (r RespPeek) ToRespState() RespState {
 	return RespState{
 		roomVersion: r.RoomVersion,
 		StateEvents: r.StateEvents,
-		AuthEvents: r.AuthEvents,
+		AuthEvents:  r.AuthEvents,
 	}
 }
 
