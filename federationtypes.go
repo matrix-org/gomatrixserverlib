@@ -289,13 +289,7 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 	if len(r.AuthEvents) == 0 {
 		r.AuthEvents = []Event{}
 	}
-	return json.Marshal(respPeekFields{
-		RoomVersion:     r.RoomVersion,
-		StateEvents:     r.StateEvents,
-		AuthEvents:      r.AuthEvents,
-		RenewalInterval: r.RenewalInterval,
-		LatestEvent:     r.LatestEvent,
-	})
+	return json.Marshal(respPeekFields(r))
 }
 
 // UnmarshalJSON implements json.Unmarshaller

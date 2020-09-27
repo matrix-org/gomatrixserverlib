@@ -95,8 +95,7 @@ func (ac *FederationClient) MakeJoin(
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			escapedV := url.QueryEscape(fmt.Sprintf("%s", v))
-			vqs = append(vqs, fmt.Sprintf("ver=%s", escapedV))
+			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
@@ -319,8 +318,7 @@ func (ac *FederationClient) Peek(
 	if len(roomVersions) > 0 {
 		var vqs []string
 		for _, v := range roomVersions {
-			escapedV := url.QueryEscape(fmt.Sprintf("%s", v))
-			vqs = append(vqs, fmt.Sprintf("ver=%s", escapedV))
+			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
 		}
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
