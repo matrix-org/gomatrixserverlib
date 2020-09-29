@@ -304,8 +304,6 @@ func (fc *Client) LookupServerKeys(
 		var keys ServerKeys
 		if err := json.Unmarshal(field, &keys); err == nil {
 			res.ServerKeyList = append(res.ServerKeyList, keys)
-		} else {
-			logrus.WithError(err).Errorf("Failed to unmarshal key from %q", string(field))
 		}
 	}
 
