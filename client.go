@@ -280,7 +280,11 @@ func (fc *Client) LookupServerKeys(
 	}
 
 	var body struct {
-		ServerKeyList []ServerKeys `json:"server_keys"`
+		ServerKeyList []json.RawMessage `json:"server_keys"`
+	}
+
+	var res struct {
+		ServerKeyList []ServerKeys
 	}
 
 	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(requestBytes))
@@ -296,7 +300,14 @@ func (fc *Client) LookupServerKeys(
 		return nil, err
 	}
 
-	return body.ServerKeyList, nil
+	for _, field := range body.ServerKeyList {
+		var keys ServerKeys
+		if err := json.Unmarshal(field, &keys); err == nil {
+			res.ServerKeyList = append(res.ServerKeyList, keys)
+		}
+	}
+
+	return res.ServerKeyList, nil
 }
 
 // CreateMediaDownloadRequest creates a request for media on a homeserver and returns the http.Response or an error
