@@ -244,8 +244,7 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 		senderServer := ServerName(senderDomain)
 		domains[senderServer] = true
 		// Synapse requires that the event ID domain has a valid signature.
-		// https://github.com/matrix-org/synapse/blob/develop/synapse/event_auth.py#L98-L104
-		// There's a good reason for this. Surely.
+		// https://github.com/matrix-org/synapse/blob/v1.20.1/synapse/event_auth.py#L98-L104
 		if format, _ := event.roomVersion.EventIDFormat(); format == EventIDFormatV1 {
 			eventIDDomain, err := domainFromID(event.EventID())
 			if err != nil {
