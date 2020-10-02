@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -253,11 +254,12 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 		return nil, err
 	}
 	if len(content) != 0 {
-		if req.Header.Get("Content-Type") != "application/json" {
-			return nil, fmt.Errorf(
-				"gomatrixserverlib: The request must be \"application/json\" not %q",
-				req.Header.Get("Content-Type"),
-			)
+		mimetype, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
+		if err != nil {
+			return nil, fmt.Errorf("gomatrixserverlib: The request had an invalid Content-Type header: %w", err)
+		}
+		if mimetype != "application/json" {
+			return nil, fmt.Errorf("gomatrixserverlib: The request must be \"application/json\" not %q", mimetype)
 		}
 		result.fields.Content = RawJSON(content)
 	}
