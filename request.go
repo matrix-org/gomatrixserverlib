@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/matrix-org/util"
 	"golang.org/x/crypto/ed25519"
@@ -260,6 +261,11 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 		}
 		if mimetype != "application/json" {
 			return nil, fmt.Errorf("gomatrixserverlib: The request must be \"application/json\" not %q", mimetype)
+		}
+		// check for invalid utf-8
+		// https://matrix.org/docs/spec/server_server/r0.1.4#api-standards
+		if !utf8.Valid(content) {
+			return nil, fmt.Errorf("gomatrixserverlib: The request contained invalid UTF-8")
 		}
 		result.fields.Content = RawJSON(content)
 	}
