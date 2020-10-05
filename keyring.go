@@ -347,7 +347,7 @@ func (k *KeyRing) checkUsingKeys(
 	wg.Add(len(jobs))
 	for _, j := range jobs {
 		go func(jobs []job) {
-			for i, j := range jobs {
+			for _, j := range jobs {
 				mu.RLock()
 				if results[j.index].Error == nil {
 					// We've already checked this message and it passed the signature checks.
