@@ -158,8 +158,13 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 // Returns an error if the content couldn't be parsed.
 func NewMemberContentFromEvent(event Event) (c MemberContent, err error) {
 	if err = json.Unmarshal(event.Content(), &c); err != nil {
-		err = errorf("unparsable member event content: %s", err.Error())
-		return
+		var partial membershipContent
+		if err = json.Unmarshal(event.Content(), &partial); err != nil {
+			err = errorf("unparsable member event content: %s", err.Error())
+			return
+		}
+		c.Membership = partial.Membership
+		c.ThirdPartyInvite = partial.ThirdPartyInvite
 	}
 	return
 }

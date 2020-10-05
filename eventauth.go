@@ -144,13 +144,20 @@ func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []Eve
 	return
 }
 
+// The minimum amount of information we need to accumulate state for a membership event.
+type membershipContent struct {
+	Membership string `json:"membership"`
+	// We use the third_party_invite key to special case thirdparty invites.
+	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
+}
+
 // StateNeededForEventBuilder returns the event types and state_keys needed to authenticate the
 // event being built. These events should be put under 'auth_events' for the event being built.
 // Returns an error if the state needed could not be calculated with the given builder, e.g
 // if there is a m.room.member without a membership key.
 func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err error) {
 	// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
-	var content *MemberContent
+	var content *membershipContent
 	if builder.Type == MRoomMember {
 		if err = json.Unmarshal(builder.Content, &content); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
@@ -168,12 +175,9 @@ func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err 
 func StateNeededForAuth(events []Event) (result StateNeeded) {
 	for _, event := range events {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
-		var content *MemberContent
+		var content *membershipContent
 		if event.Type() == MRoomMember {
-			c, err := NewMemberContentFromEvent(event)
-			if err == nil {
-				content = &c
-			}
+			_ = json.Unmarshal(event.Content(), &content)
 		}
 		// Ignore errors when accumulating state needed.
 		// The event will be rejected when the actual checks encounter the same error.
@@ -186,7 +190,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 	return
 }
 
-func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *MemberContent) (err error) {
+func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *membershipContent) (err error) {
 	switch eventType {
 	case MRoomCreate:
 		// The create event doesn't require any state to authenticate.
