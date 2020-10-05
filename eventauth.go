@@ -1002,6 +1002,12 @@ func (m *membershipAllower) membershipAllowedFromThirdPartyInvite() error {
 
 // membershipAllowedSelf determines if the change made by the user to their own membership is allowed.
 func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
+	// NOTSPEC: Leave -> Leave is benign but not allowed according to the Matrix spec.
+	// We allow this because of an issue regarding Synapse incorrectly accepting this event.
+	if m.oldMember.Membership == Leave && m.newMember.Membership == Leave {
+		return nil
+	}
+
 	if m.newMember.Membership == Join {
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
