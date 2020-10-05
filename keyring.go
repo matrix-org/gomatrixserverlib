@@ -331,19 +331,15 @@ func (k *KeyRing) checkUsingKeys(
 		procs = 1
 	}
 	type job struct {
-		index   int
-		request VerifyJSONRequest
+		index   int               // the original index in the requests/results array
+		request VerifyJSONRequest // the request itself
 	}
 	jobs := make(map[int][]job)
 	for i := range requests {
 		jobs[i%procs] = append(jobs[i%procs], job{i, requests[i]})
 	}
-	fmt.Println("Balancing jobs across", procs, "queues")
-	for i, r := range jobs {
-		fmt.Println("*", i, "has", len(r), "jobs")
-	}
-	var wg sync.WaitGroup
-	var mu sync.RWMutex
+	var wg sync.WaitGroup // tracks the workers
+	var mu sync.RWMutex   // protects results array
 	wg.Add(len(jobs))
 	for _, j := range jobs {
 		go func(jobs []job) {
