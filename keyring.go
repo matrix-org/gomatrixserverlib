@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -325,39 +326,69 @@ func (k *KeyRing) checkUsingKeys(
 	requests []VerifyJSONRequest, results []VerifyJSONResult, keyIDs [][]KeyID,
 	keys map[PublicKeyLookupRequest]PublicKeyLookupResult,
 ) {
-	for i := range requests {
-		if results[i].Error == nil {
-			// We've already checked this message and it passed the signature checks.
-			// So we can skip to the next message.
-			continue
-		}
-		for _, keyID := range keyIDs[i] {
-			serverKey, ok := keys[PublicKeyLookupRequest{requests[i].ServerName, keyID}]
-			if !ok {
-				// No key for this key ID so we continue onto the next key ID.
-				continue
-			}
-			if !serverKey.WasValidAt(requests[i].AtTS, requests[i].StrictValidityChecking) {
-				// The key wasn't valid at the timestamp we needed it to be valid at.
-				// So skip onto the next key.
-				results[i].Error = fmt.Errorf(
-					"gomatrixserverlib: key with ID %q for %q not valid at %d",
-					keyID, requests[i].ServerName, requests[i].AtTS,
-				)
-				continue
-			}
-			if err := VerifyJSON(
-				string(requests[i].ServerName), keyID, ed25519.PublicKey(serverKey.Key), requests[i].Message,
-			); err != nil {
-				// The signature wasn't valid, record the error and try the next key ID.
-				results[i].Error = err
-				continue
-			}
-			// The signature is valid, set the result to nil.
-			results[i].Error = nil
-			break
-		}
+	procs := runtime.NumCPU() - 1
+	if procs < 1 {
+		procs = 1
 	}
+	jobs := make(map[int][]VerifyJSONRequest)
+	for i := range requests {
+		jobs[i%procs] = append(jobs[i%procs], requests[i])
+	}
+	fmt.Println("Balancing jobs across", procs, "queues")
+	for i, r := range jobs {
+		fmt.Println("*", i, "has", len(r), "jobs")
+	}
+	var wg sync.WaitGroup
+	var mu sync.RWMutex
+	wg.Add(len(jobs))
+	for _, r := range jobs {
+		go func(requests []VerifyJSONRequest) {
+			for i := range requests {
+				mu.RLock()
+				if results[i].Error == nil {
+					// We've already checked this message and it passed the signature checks.
+					// So we can skip to the next message.
+					mu.RUnlock()
+					continue
+				}
+				mu.RUnlock()
+				for _, keyID := range keyIDs[i] {
+					serverKey, ok := keys[PublicKeyLookupRequest{requests[i].ServerName, keyID}]
+					if !ok {
+						// No key for this key ID so we continue onto the next key ID.
+						continue
+					}
+					if !serverKey.WasValidAt(requests[i].AtTS, requests[i].StrictValidityChecking) {
+						// The key wasn't valid at the timestamp we needed it to be valid at.
+						// So skip onto the next key.
+						mu.Lock()
+						results[i].Error = fmt.Errorf(
+							"gomatrixserverlib: key with ID %q for %q not valid at %d",
+							keyID, requests[i].ServerName, requests[i].AtTS,
+						)
+						mu.Unlock()
+						continue
+					}
+					if err := VerifyJSON(
+						string(requests[i].ServerName), keyID, ed25519.PublicKey(serverKey.Key), requests[i].Message,
+					); err != nil {
+						// The signature wasn't valid, record the error and try the next key ID.
+						mu.Lock()
+						results[i].Error = err
+						mu.Unlock()
+						continue
+					}
+					// The signature is valid, set the result to nil.
+					mu.Lock()
+					results[i].Error = nil
+					mu.Unlock()
+					break
+				}
+			}
+			wg.Done()
+		}(r)
+	}
+	wg.Wait()
 }
 
 type KeyClient interface {
