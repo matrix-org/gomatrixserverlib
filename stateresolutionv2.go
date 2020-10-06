@@ -584,7 +584,6 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
 	}
 
 	var event *stateResV2ConflictedPowerLevel
-resetNoIncoming:
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
@@ -593,7 +592,6 @@ resetNoIncoming:
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
 		graph = append([]*stateResV2ConflictedPowerLevel{event}, graph...)
-		//graph = append(graph, event)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
@@ -610,7 +608,6 @@ resetNoIncoming:
 				if _, ok := eventMap[auth]; ok {
 					heap.Push(&noIncoming, eventMap[auth])
 					delete(eventMap, auth)
-					goto resetNoIncoming
 				}
 			}
 		}
@@ -627,7 +624,6 @@ resetNoIncoming:
 	}
 
 	// The graph is complete at this point!
-	//sort.Sort(sort.Reverse(stateResV2ConflictedPowerLevelHeap(graph)))
 	return graph
 }
 
@@ -679,7 +675,6 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) (
 	}
 
 	var event *stateResV2ConflictedOther
-resetNoIncoming:
 	for noIncoming.Len() > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// prev event dependencies.
@@ -688,7 +683,6 @@ resetNoIncoming:
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
 		graph = append([]*stateResV2ConflictedOther{event}, graph...)
-		//graph = append(graph, event)
 
 		// Now we should look at the outgoing prev dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing prev
@@ -705,7 +699,6 @@ resetNoIncoming:
 				if _, ok := eventMap[prev]; ok {
 					heap.Push(&noIncoming, eventMap[prev])
 					delete(eventMap, prev)
-					goto resetNoIncoming
 				}
 			}
 		}
