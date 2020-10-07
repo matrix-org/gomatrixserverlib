@@ -952,7 +952,7 @@ func (m *membershipAllower) membershipAllowed(event Event) error { // nolint: go
 	if m.newMember.Membership == Invite && m.newMember.ThirdPartyInvite != nil {
 		// Special case third party invites
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
-		return m.membershipAllowedFromThirdPartyInvite()
+		//return m.membershipAllowedFromThirdPartyInvite()
 	}
 
 	if m.targetID == m.senderID {
