@@ -59,7 +59,7 @@ func NewClientWithTimeout(timeout time.Duration, skipVerify bool) *Client {
 }
 
 // NewClientWithTransport makes a new Client with an existing transport
-func NewClientWithTransport(skipVerify bool, transport http.RoundTripper) *Client {
+func NewClientWithTransport(transport http.RoundTripper) *Client {
 	return NewClientWithTransportTimeout(requestTimeout, transport)
 }
 

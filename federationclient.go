@@ -42,7 +42,7 @@ func NewFederationClientWithTransport(
 	skipVerify bool, transport *http.Transport,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClientWithTransport(skipVerify, transport),
+		Client:           *NewClientWithTransport(transport),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
