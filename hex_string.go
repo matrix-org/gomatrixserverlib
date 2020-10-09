@@ -17,7 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/hex"
-	"encoding/json"
+	json "github.com/json-iterator/go"
 )
 
 // A HexString is a string of bytes that are hex encoded when used in JSON.

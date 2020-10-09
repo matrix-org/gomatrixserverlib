@@ -2,8 +2,8 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
+	json "github.com/json-iterator/go"
 	"io"
 	"io/ioutil"
 	"mime"

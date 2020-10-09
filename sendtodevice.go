@@ -1,6 +1,6 @@
 package gomatrixserverlib
 
-import "encoding/json"
+import json "github.com/json-iterator/go"
 
 type SendToDeviceEvent struct {
 	Sender  string          `json:"sender"`

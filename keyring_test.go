@@ -2,7 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
+	json "github.com/json-iterator/go"
 	"testing"
 	"time"
 )

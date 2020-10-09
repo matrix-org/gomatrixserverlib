@@ -1,6 +1,6 @@
 package gomatrixserverlib
 
-import "encoding/json"
+import json "github.com/json-iterator/go"
 
 // DeviceListUpdateEvent is https://matrix.org/docs/spec/server_server/latest#m-device-list-update-schema
 type DeviceListUpdateEvent struct {

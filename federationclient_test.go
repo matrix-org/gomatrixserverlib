@@ -3,8 +3,8 @@ package gomatrixserverlib_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	json "github.com/json-iterator/go"
 	"io/ioutil"
 	"net/http"
 	"reflect"

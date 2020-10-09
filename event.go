@@ -17,9 +17,9 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
+	json "github.com/json-iterator/go"
 	"reflect"
 	"strings"
 	"time"

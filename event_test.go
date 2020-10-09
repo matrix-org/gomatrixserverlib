@@ -16,8 +16,8 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"errors"
+	json "github.com/json-iterator/go"
 	"reflect"
 	"testing"
 )

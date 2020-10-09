@@ -16,7 +16,7 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
+	json "github.com/json-iterator/go"
 )
 
 // RawJSON is a reimplementation of json.RawMessage that supports being used as a value type

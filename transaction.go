@@ -1,6 +1,6 @@
 package gomatrixserverlib
 
-import "encoding/json"
+import json "github.com/json-iterator/go"
 
 // A Transaction is used to push data from one matrix server to another matrix
 // server.

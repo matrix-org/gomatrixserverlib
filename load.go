@@ -2,8 +2,8 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	json "github.com/json-iterator/go"
 )
 
 // EventLoadResult is the result of loading and verifying an event in the EventsLoader.

@@ -16,8 +16,8 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"fmt"
+	json "github.com/json-iterator/go"
 	"strings"
 
 	"golang.org/x/crypto/ed25519"

@@ -16,7 +16,7 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
+	json "github.com/json-iterator/go"
 	"strings"
 	"time"
 )

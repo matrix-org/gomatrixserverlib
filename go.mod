@@ -3,6 +3,7 @@ module github.com/matrix-org/gomatrixserverlib
 require (
 	github.com/frankban/quicktest v1.7.2 // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
+	github.com/json-iterator/go v1.1.10
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/matrix-org/gomatrix v0.0.0-20190528120928-7df988a63f26

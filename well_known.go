@@ -1,8 +1,8 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"errors"
+	json "github.com/json-iterator/go"
 	"io/ioutil"
 	"net/http"
 	"strconv"

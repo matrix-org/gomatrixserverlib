@@ -20,8 +20,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	json "github.com/json-iterator/go"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
