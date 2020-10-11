@@ -23,7 +23,7 @@ import (
 //
 // For example:
 //
-//  jsonBytes, _ := json.Marshal(struct{
+//  jsonBytes, _ := json.ConfigCompatibleWithStandardLibrary.Marshal(struct{
 //		RawMessage json.RawMessage
 //		RawJSON RawJSON
 //	}{
@@ -133,7 +133,7 @@ func redactEvent(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 
 	var event eventFields
 	// Unmarshalling into a struct will discard any extra fields from the event.
-	if err := json.Unmarshal(eventJSON, &event); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}
 	var newContent allContent
@@ -161,5 +161,5 @@ func redactEvent(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 	// This will zero out any keys that weren't copied in the switch statement above.
 	event.Content = newContent
 	// Return the redacted event encoded as JSON.
-	return json.Marshal(&event)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(&event)
 }

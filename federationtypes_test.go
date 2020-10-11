@@ -57,11 +57,11 @@ func TestRespStateMarshalJSON(t *testing.T) {
 	inputData := `{"pdus":[],"auth_chain":[]}`
 	var input RespState
 	input.roomVersion = RoomVersionV1
-	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
 
-	gotBytes, err := json.Marshal(input)
+	gotBytes, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestRespStateMarshalJSON(t *testing.T) {
 	got := string(gotBytes)
 
 	if emptyRespStateResponse != got {
-		t.Errorf("json.Marshal(RespState(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.ConfigCompatibleWithStandardLibrary.Marshal(RespState(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 }
 
@@ -77,18 +77,18 @@ func TestRespStateUnmarshalJSON(t *testing.T) {
 	inputData := `{"pdus":[],"auth_chain":[]}`
 	var input RespState
 	input.roomVersion = RoomVersionV1
-	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
 
-	gotBytes, err := json.Marshal(input)
+	gotBytes, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(gotBytes)
 
 	if emptyRespStateResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.ConfigCompatibleWithStandardLibrary.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 }
 
@@ -96,11 +96,11 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
 	input.roomVersion = RoomVersionV1
-	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
 
-	gotBytes, err := json.Marshal(input)
+	gotBytes, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 	got := string(gotBytes)
 
 	if emptyRespSendJoinResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.ConfigCompatibleWithStandardLibrary.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 }
 
@@ -116,17 +116,17 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
 	input.roomVersion = RoomVersionV1
-	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
 
-	gotBytes, err := json.Marshal(input)
+	gotBytes, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(gotBytes)
 
 	if emptyRespSendJoinResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.ConfigCompatibleWithStandardLibrary.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
 	}
 }

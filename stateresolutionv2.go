@@ -245,7 +245,7 @@ func isControlEvent(e *Event) bool {
 		// Membership events are only control events if the "membership" key in the
 		// content is "leave" or "ban" so we need to extract the content.
 		var content map[string]interface{}
-		if err := json.Unmarshal(e.Content(), &content); err != nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(e.Content(), &content); err != nil {
 			break
 		}
 		// If the "membership" key is set and is set to either "leave" or "ban" then
@@ -511,7 +511,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 
 		// Try and parse the content of the event.
 		var content map[string]interface{}
-		if err := json.Unmarshal(authEvent.Content(), &content); err != nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(authEvent.Content(), &content); err != nil {
 			return 0
 		}
 

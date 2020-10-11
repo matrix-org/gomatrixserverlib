@@ -97,13 +97,13 @@ type EventBuilder struct {
 
 // SetContent sets the JSON content key of the event.
 func (eb *EventBuilder) SetContent(content interface{}) (err error) {
-	eb.Content, err = json.Marshal(content)
+	eb.Content, err = json.ConfigCompatibleWithStandardLibrary.Marshal(content)
 	return
 }
 
 // SetUnsigned sets the JSON unsigned key of the event.
 func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
-	eb.Unsigned, err = json.Marshal(unsigned)
+	eb.Unsigned, err = json.ConfigCompatibleWithStandardLibrary.Marshal(unsigned)
 	return
 }
 
@@ -238,7 +238,7 @@ func (eb *EventBuilder) Build(
 	}
 
 	var eventJSON []byte
-	if eventJSON, err = json.Marshal(&event); err != nil {
+	if eventJSON, err = json.ConfigCompatibleWithStandardLibrary.Marshal(&event); err != nil {
 		return
 	}
 
@@ -376,7 +376,7 @@ func (e *Event) populateFieldsFromJSON(eventJSON []byte) error {
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV1Fields{}
-		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
 		// Populate the fields of the received object.
@@ -391,7 +391,7 @@ func (e *Event) populateFieldsFromJSON(eventJSON []byte) error {
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
-		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
 		// Generate a hash of the event which forms the event ID.
@@ -449,15 +449,15 @@ func (e *Event) Redact() Event {
 func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
 	var eventAsMap map[string]RawJSON
 	var err error
-	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
 		return Event{}, err
 	}
-	unsignedJSON, err := json.Marshal(unsigned)
+	unsignedJSON, err := json.ConfigCompatibleWithStandardLibrary.Marshal(unsigned)
 	if err != nil {
 		return Event{}, err
 	}
 	eventAsMap["unsigned"] = unsignedJSON
-	eventJSON, err := json.Marshal(eventAsMap)
+	eventJSON, err := json.ConfigCompatibleWithStandardLibrary.Marshal(eventAsMap)
 	if err != nil {
 		return Event{}, err
 	}
@@ -874,7 +874,7 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 	if fields.Type != eventType {
 		return fmt.Errorf("gomatrixserverlib: not a %s event", eventType)
 	}
-	return json.Unmarshal(fields.Content, &content)
+	return json.ConfigCompatibleWithStandardLibrary.Unmarshal(fields.Content, &content)
 }
 
 // Membership returns the value of the content.membership field if this event
@@ -1034,19 +1034,19 @@ func (e Event) Headered(roomVersion RoomVersion) HeaderedEvent {
 // UnmarshalJSON implements json.Unmarshaller
 func (er *EventReference) UnmarshalJSON(data []byte) error {
 	var tuple []RawJSON
-	if err := json.Unmarshal(data, &tuple); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &tuple); err != nil {
 		return err
 	}
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, invalid length: %d != 2", len(tuple))
 	}
-	if err := json.Unmarshal(tuple[0], &er.EventID); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(tuple[0], &er.EventID); err != nil {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, first element is invalid: %q %v", string(tuple[0]), err)
 	}
 	var hashes struct {
 		SHA256 Base64Bytes `json:"sha256"`
 	}
-	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(tuple[1], &hashes); err != nil {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, second element is invalid: %q %v", string(tuple[1]), err)
 	}
 	er.EventSHA256 = hashes.SHA256
@@ -1061,7 +1061,7 @@ func (er EventReference) MarshalJSON() ([]byte, error) {
 
 	tuple := []interface{}{er.EventID, hashes}
 
-	return json.Marshal(&tuple)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(&tuple)
 }
 
 // SplitID splits a matrix ID into a local part and a server name.

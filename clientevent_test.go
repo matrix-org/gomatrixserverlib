@@ -64,7 +64,7 @@ func TestToClientEvent(t *testing.T) { // nolint: gocyclo
 	if ce.Sender != ev.Sender() {
 		t.Errorf("ClientEvent.Sender: wanted %s, got %s", ev.Sender(), ce.Sender)
 	}
-	j, err := json.Marshal(ce)
+	j, err := json.ConfigCompatibleWithStandardLibrary.Marshal(ce)
 	if err != nil {
 		t.Fatalf("failed to Marshal ClientEvent: %s", err)
 	}

@@ -24,7 +24,7 @@ import (
 func TestLevelJSONValueValid(t *testing.T) {
 	var values []levelJSONValue
 	input := `[0,"1",2.0]`
-	if err := json.Unmarshal([]byte(input), &values); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(input), &values); err != nil {
 		t.Fatal("Unexpected error unmarshalling ", input, ": ", err)
 	}
 	for i, got := range values {
@@ -45,7 +45,7 @@ func TestLevelJSONValueInvalid(t *testing.T) {
 	}
 
 	for _, input := range inputs {
-		if err := json.Unmarshal([]byte(input), &values); err == nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(input), &values); err == nil {
 			t.Fatalf("Unexpected success when unmarshalling %q", input)
 		}
 	}

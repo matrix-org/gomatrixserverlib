@@ -89,7 +89,7 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 	wellKnownResponse := &WellKnownResult{
 		CacheExpiresAt: expiryTimestamp,
 	}
-	err = json.Unmarshal(body, wellKnownResponse)
+	err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(body, wellKnownResponse)
 	if err != nil {
 		return nil, err
 	}

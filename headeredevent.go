@@ -53,7 +53,7 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	var err error
 	// First extract the headers from the JSON.
 	var m EventHeader
-	if err = json.Unmarshal(data, &m); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &m); err != nil {
 		return err
 	}
 	e.EventHeader = m

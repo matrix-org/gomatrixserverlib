@@ -308,7 +308,7 @@ func TestPublicKeyRequestMarshalUnmarshalText(t *testing.T) {
 	one := map[PublicKeyLookupRequest]struct{}{}
 	one[req] = struct{}{}
 	// Marshal the JSON.
-	j, err := json.Marshal(one)
+	j, err := json.ConfigCompatibleWithStandardLibrary.Marshal(one)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestPublicKeyRequestMarshalUnmarshalText(t *testing.T) {
 	}
 	// Now let's unmarshal it into a new struct.
 	two := map[PublicKeyLookupRequest]struct{}{}
-	if err := json.Unmarshal(j, &two); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(j, &two); err != nil {
 		t.Fatal(err)
 	}
 	// We should now have a map key that looks like the original request.

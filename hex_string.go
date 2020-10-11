@@ -29,14 +29,14 @@ type HexString []byte
 // MarshalJSON encodes the bytes as hex and then encodes the hex as a JSON string.
 // This takes a value receiver so that maps and slices of HexString encode correctly.
 func (h HexString) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hex.EncodeToString(h))
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(hex.EncodeToString(h))
 }
 
 // UnmarshalJSON decodes a JSON string and then decodes the resulting hex.
 // This takes a pointer receiver because it needs to write the result of decoding.
 func (h *HexString) UnmarshalJSON(raw []byte) (err error) {
 	var str string
-	if err = json.Unmarshal(raw, &str); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(raw, &str); err != nil {
 		return
 	}
 

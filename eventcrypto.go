@@ -35,7 +35,7 @@ import (
 func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	var event map[string]RawJSON
 
-	if err := json.Unmarshal(eventJSON, &event); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}
 
@@ -45,7 +45,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	delete(event, "unsigned")
 	delete(event, "hashes")
 
-	hashableEventJSON, err := json.Marshal(event)
+	hashableEventJSON, err := json.ConfigCompatibleWithStandardLibrary.Marshal(event)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	hashes := struct {
 		Sha256 Base64Bytes `json:"sha256"`
 	}{Base64Bytes(sha256Hash[:])}
-	hashesJSON, err := json.Marshal(&hashes)
+	hashesJSON, err := json.ConfigCompatibleWithStandardLibrary.Marshal(&hashes)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	}
 	event["hashes"] = RawJSON(hashesJSON)
 
-	return json.Marshal(event)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(event)
 }
 
 // checkEventContentHash checks if the unredacted content of the event matches the SHA-256 hash under the "hashes" key.
@@ -109,14 +109,14 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 	}
 
 	var event map[string]RawJSON
-	if err = json.Unmarshal(redactedJSON, &event); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(redactedJSON, &event); err != nil {
 		return EventReference{}, err
 	}
 
 	delete(event, "signatures")
 	delete(event, "unsigned")
 
-	hashableEventJSON, err := json.Marshal(event)
+	hashableEventJSON, err := json.ConfigCompatibleWithStandardLibrary.Marshal(event)
 	if err != nil {
 		return EventReference{}, err
 	}
@@ -140,7 +140,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 
 	switch eventFormat {
 	case EventFormatV1:
-		if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
+		if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(event["event_id"], &eventID); err != nil {
 			return EventReference{}, err
 		}
 	case EventFormatV2:
@@ -182,19 +182,19 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 	var signedEvent struct {
 		Signatures RawJSON `json:"signatures"`
 	}
-	if err := json.Unmarshal(signedJSON, &signedEvent); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(signedJSON, &signedEvent); err != nil {
 		return nil, err
 	}
 
 	// Unmarshal the event JSON so that we can replace the signatures key.
 	var event map[string]RawJSON
-	if err := json.Unmarshal(eventJSON, &event); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}
 
 	event["signatures"] = signedEvent.Signatures
 
-	return json.Marshal(event)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(event)
 }
 
 // VerifyEventSignature checks if the event has been signed by the given ED25519 key.

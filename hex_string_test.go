@@ -24,12 +24,12 @@ import (
 func TestMarshalHex(t *testing.T) {
 	input := HexString("this\xffis\xffa\xfftest")
 	want := `"74686973ff6973ff61ff74657374"`
-	got, err := json.Marshal(input)
+	got, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Fatalf("json.Marshal(HexString(%q)): wanted %q got %q", string(input), want, string(got))
+		t.Fatalf("json.ConfigCompatibleWithStandardLibrary.Marshal(HexString(%q)): wanted %q got %q", string(input), want, string(got))
 	}
 }
 
@@ -37,47 +37,47 @@ func TestUnmarshalHex(t *testing.T) {
 	input := []byte(`"74686973ff6973ff61ff74657374"`)
 	want := "this\xffis\xffa\xfftest"
 	var got HexString
-	err := json.Unmarshal(input, &got)
+	err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(input, &got)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Fatalf("json.Unmarshal(%q): wanted %q got %q", string(input), want, string(got))
+		t.Fatalf("json.ConfigCompatibleWithStandardLibrary.Unmarshal(%q): wanted %q got %q", string(input), want, string(got))
 	}
 }
 
 func TestMarshalHexStruct(t *testing.T) {
 	input := struct{ Value HexString }{HexString("this\xffis\xffa\xfftest")}
 	want := `{"Value":"74686973ff6973ff61ff74657374"}`
-	got, err := json.Marshal(input)
+	got, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Fatalf("json.Marshal(%v): wanted %q got %q", input, want, string(got))
+		t.Fatalf("json.ConfigCompatibleWithStandardLibrary.Marshal(%v): wanted %q got %q", input, want, string(got))
 	}
 }
 
 func TestMarshalHexMap(t *testing.T) {
 	input := map[string]HexString{"Value": HexString("this\xffis\xffa\xfftest")}
 	want := `{"Value":"74686973ff6973ff61ff74657374"}`
-	got, err := json.Marshal(input)
+	got, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Fatalf("json.Marshal(%v): wanted %q got %q", input, want, string(got))
+		t.Fatalf("json.ConfigCompatibleWithStandardLibrary.Marshal(%v): wanted %q got %q", input, want, string(got))
 	}
 }
 
 func TestMarshalHexSlice(t *testing.T) {
 	input := []HexString{HexString("this\xffis\xffa\xfftest")}
 	want := `["74686973ff6973ff61ff74657374"]`
-	got, err := json.Marshal(input)
+	got, err := json.ConfigCompatibleWithStandardLibrary.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != want {
-		t.Fatalf("json.Marshal(%v): wanted %q got %q", input, want, string(got))
+		t.Fatalf("json.ConfigCompatibleWithStandardLibrary.Marshal(%v): wanted %q got %q", input, want, string(got))
 	}
 }

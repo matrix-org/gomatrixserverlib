@@ -11,13 +11,13 @@ const TestHeaderedExampleEvent = `{"_room_version":"1","auth_events":[["$oXL79cT
 func TestUnmarshalMarshalHeaderedEvent(t *testing.T) {
 	output := HeaderedEvent{}
 
-	if err := json.Unmarshal([]byte(TestHeaderedExampleEvent), &output); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(TestHeaderedExampleEvent), &output); err != nil {
 		t.Fatal(err)
 	}
 
 	headered := output.Event.Headered(RoomVersionV1)
 
-	if j, err := json.Marshal(headered); err == nil {
+	if j, err := json.ConfigCompatibleWithStandardLibrary.Marshal(headered); err == nil {
 		if string(j) != TestHeaderedExampleEvent {
 			t.Logf("got: %s", string(j))
 			t.Logf("expected: %s", TestHeaderedExampleEvent)
@@ -33,7 +33,7 @@ func TestUnmarshalHeaderedV4AndVerifyEventID(t *testing.T) {
 	expectedEventID := "$RrGxF28UrHLmoASHndYb9Jb_1SFww2ptmtur9INS438"
 
 	event := HeaderedEvent{}
-	if err := json.Unmarshal([]byte(initialEventJSON), &event); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(initialEventJSON), &event); err != nil {
 		t.Fatal(err)
 	}
 

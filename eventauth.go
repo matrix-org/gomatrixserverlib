@@ -160,7 +160,7 @@ func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err 
 	// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 	var content *membershipContent
 	if builder.Type == MRoomMember {
-		if err = json.Unmarshal(builder.Content, &content); err != nil {
+		if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(builder.Content, &content); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
 		}
@@ -178,7 +178,7 @@ func StateNeededForAuth(events []Event) (result StateNeeded) {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 		var content *membershipContent
 		if event.Type() == MRoomMember {
-			_ = json.Unmarshal(event.Content(), &content)
+			_ = json.ConfigCompatibleWithStandardLibrary.Unmarshal(event.Content(), &content)
 		}
 		// Ignore errors when accumulating state needed.
 		// The event will be rejected when the actual checks encounter the same error.
@@ -977,7 +977,7 @@ func (m *membershipAllower) membershipAllowedFromThirdPartyInvite() error {
 		)
 	}
 	// Marshal the "signed" so it can be verified by VerifyJSON.
-	marshalledSigned, err := json.Marshal(m.newMember.ThirdPartyInvite.Signed)
+	marshalledSigned, err := json.ConfigCompatibleWithStandardLibrary.Marshal(m.newMember.ThirdPartyInvite.Signed)
 	if err != nil {
 		return err
 	}

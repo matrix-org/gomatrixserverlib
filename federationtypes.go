@@ -244,7 +244,7 @@ func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
 	var intermediate struct {
 		Events []json.RawMessage `json:"events"`
 	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
 	for _, raw := range intermediate.Events {
@@ -265,7 +265,7 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 	if len(r.AuthEvents) == 0 {
 		r.AuthEvents = []Event{}
 	}
-	return json.Marshal(respStateFields{
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(respStateFields{
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
 	})
@@ -282,7 +282,7 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 		StateEvents []json.RawMessage `json:"pdus"`
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
 	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
 	for _, raw := range intermediate.AuthEvents {
@@ -499,7 +499,7 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	if len(fields.StateEvents) == 0 {
 		fields.StateEvents = []Event{}
 	}
-	return json.Marshal(fields)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(fields)
 }
 
 // UnmarshalJSON implements json.Unmarshaller
@@ -514,7 +514,7 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 		AuthEvents  []json.RawMessage `json:"auth_chain"`
 		Origin      ServerName        `json:"origin"`
 	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
 	for _, raw := range intermediate.AuthEvents {
@@ -720,13 +720,13 @@ func (r RespInvite) MarshalJSON() ([]byte, error) {
 	// of a two element list where the first element is the constant integer 200.
 	// (This protocol oddity is the result of a typo in the synapse matrix
 	//  server, and is preserved to maintain compatibility.)
-	return json.Marshal([]interface{}{200, respInviteFields(r)})
+	return json.ConfigCompatibleWithStandardLibrary.Marshal([]interface{}{200, respInviteFields(r)})
 }
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespInvite) UnmarshalJSON(data []byte) error {
 	var tuple []RawJSON
-	if err := json.Unmarshal(data, &tuple); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &tuple); err != nil {
 		return err
 	}
 	if len(tuple) != 2 {
@@ -762,7 +762,7 @@ func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
 	var intermediate struct {
 		Event json.RawMessage `json:"event"`
 	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
 	event, err := NewEventFromUntrustedJSON([]byte(intermediate.Event), r.roomVersion)

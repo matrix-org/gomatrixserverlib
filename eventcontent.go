@@ -59,7 +59,7 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateConte
 		err = errorf("missing create event")
 		return
 	}
-	if err = json.Unmarshal(createEvent.Content(), &c); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(createEvent.Content(), &c); err != nil {
 		err = errorf("unparsable create event content: %s", err.Error())
 		return
 	}
@@ -158,9 +158,9 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 // NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
 func NewMemberContentFromEvent(event Event) (c MemberContent, err error) {
-	if err = json.Unmarshal(event.Content(), &c); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(event.Content(), &c); err != nil {
 		var partial membershipContent
-		if err = json.Unmarshal(event.Content(), &partial); err != nil {
+		if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(event.Content(), &partial); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
 		}
@@ -199,7 +199,7 @@ func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 		err = errorf("Couldn't find third party invite event")
 		return
 	}
-	if err = json.Unmarshal(thirdPartyInviteEvent.Content(), &t); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(thirdPartyInviteEvent.Content(), &t); err != nil {
 		err = errorf("unparsable third party invite event content: %s", err.Error())
 	}
 	return
@@ -231,7 +231,7 @@ func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleC
 		c.JoinRule = Invite
 		return
 	}
-	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
 		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
@@ -359,7 +359,7 @@ func NewPowerLevelContentFromEvent(event Event) (c PowerLevelContent, err error)
 		StateDefaultLevel levelJSONValue            `json:"state_default"`
 		EventDefaultLevel levelJSONValue            `json:"event_default"`
 	}
-	if err = json.Unmarshal(event.Content(), &content); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(event.Content(), &content); err != nil {
 		err = errorf("unparsable power_levels event content: %s", err.Error())
 		return
 	}
@@ -406,11 +406,11 @@ func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
 	var err error
 
 	// First try to unmarshal as an int64.
-	if err = json.Unmarshal(data, &int64Value); err != nil {
+	if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &int64Value); err != nil {
 		// If unmarshalling as an int64 fails try as a string.
-		if err = json.Unmarshal(data, &stringValue); err != nil {
+		if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &stringValue); err != nil {
 			// If unmarshalling as a string fails try as a float.
-			if err = json.Unmarshal(data, &floatValue); err != nil {
+			if err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &floatValue); err != nil {
 				return err
 			}
 			int64Value = int64(floatValue)

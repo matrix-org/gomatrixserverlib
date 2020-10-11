@@ -172,7 +172,7 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	j, err := json.Marshal(event.Headered(RoomVersionV1))
+	j, err := json.ConfigCompatibleWithStandardLibrary.Marshal(event.Headered(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}

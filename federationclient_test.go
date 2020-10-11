@@ -48,7 +48,7 @@ func TestSendJoinFallback(t *testing.T) {
 	v1Res := []interface{}{
 		200, wantRes,
 	}
-	v1ResBytes, err := json.Marshal(v1Res)
+	v1ResBytes, err := json.ConfigCompatibleWithStandardLibrary.Marshal(v1Res)
 	if err != nil {
 		t.Fatalf("failed to marshal RespSendJoin: %s", err)
 	}

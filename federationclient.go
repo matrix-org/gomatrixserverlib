@@ -151,7 +151,7 @@ func (ac *FederationClient) SendJoin(
 		var v1Res []json.RawMessage
 		err = ac.doRequest(ctx, v1req, &v1Res)
 		if err == nil && len(v1Res) == 2 {
-			err = json.Unmarshal(v1Res[1], &res)
+			err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(v1Res[1], &res)
 		}
 	}
 	return
@@ -202,7 +202,7 @@ func (ac *FederationClient) SendLeave(
 		var v1Res []json.RawMessage
 		err = ac.doRequest(ctx, v1req, &v1Res)
 		if err == nil && len(v1Res) == 2 {
-			err = json.Unmarshal(v1Res[1], &res)
+			err = json.ConfigCompatibleWithStandardLibrary.Unmarshal(v1Res[1], &res)
 		}
 	}
 	return

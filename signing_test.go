@@ -191,7 +191,7 @@ func TestSignJSONWithUnsigned(t *testing.T) {
 	unsigned := json.RawMessage(`{"unsigned":"data"}`)
 	message := MyMessage{&unsigned, &content, nil}
 
-	input, err := json.Marshal(&message)
+	input, err := json.ConfigCompatibleWithStandardLibrary.Marshal(&message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,12 +206,12 @@ func TestSignJSONWithUnsigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err2 := json.Unmarshal(signed, &message); err2 != nil {
+	if err2 := json.ConfigCompatibleWithStandardLibrary.Unmarshal(signed, &message); err2 != nil {
 		t.Fatal(err2)
 	}
 	newUnsigned := json.RawMessage(`{"different":"data"}`)
 	message.Unsigned = &newUnsigned
-	input, err = json.Marshal(&message)
+	input, err = json.ConfigCompatibleWithStandardLibrary.Marshal(&message)
 	if err != nil {
 		t.Fatal(err)
 	}

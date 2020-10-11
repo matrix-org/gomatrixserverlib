@@ -287,7 +287,7 @@ func (fc *Client) LookupServerKeys(
 		}
 	}
 
-	requestBytes, err := json.Marshal(request)
+	requestBytes, err := json.ConfigCompatibleWithStandardLibrary.Marshal(request)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +315,7 @@ func (fc *Client) LookupServerKeys(
 
 	for _, field := range body.ServerKeyList {
 		var keys ServerKeys
-		if err := json.Unmarshal(field, &keys); err == nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(field, &keys); err == nil {
 			res.ServerKeyList = append(res.ServerKeyList, keys)
 		}
 	}
@@ -367,7 +367,7 @@ func (fc *Client) DoRequestAndParseResponse(
 
 		var wrap error
 		var respErr gomatrix.RespError
-		if _ = json.Unmarshal(contents, &respErr); respErr.ErrCode != "" {
+		if _ = json.ConfigCompatibleWithStandardLibrary.Unmarshal(contents, &respErr); respErr.ErrCode != "" {
 			wrap = respErr
 		}
 

@@ -41,12 +41,12 @@ type InviteV2Request struct {
 
 // MarshalJSON implements json.Marshaller
 func (i InviteV2Request) MarshalJSON() ([]byte, error) {
-	return json.Marshal(i.fields)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(i.fields)
 }
 
 // UnmarshalJSON implements json.Unmarshaller
 func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
-	err := json.Unmarshal(data, &i.fields.inviteV2RequestHeaders)
+	err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &i.fields.inviteV2RequestHeaders)
 	if err != nil {
 		return err
 	}
@@ -100,12 +100,12 @@ func NewInviteV2StrippedState(event *Event) (ss InviteV2StrippedState) {
 
 // MarshalJSON implements json.Marshaller
 func (i InviteV2StrippedState) MarshalJSON() ([]byte, error) {
-	return json.Marshal(i.fields)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(i.fields)
 }
 
 // UnmarshalJSON implements json.Unmarshaller
 func (i *InviteV2StrippedState) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &i.fields)
+	return json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &i.fields)
 }
 
 // Content returns the content of the stripped state.

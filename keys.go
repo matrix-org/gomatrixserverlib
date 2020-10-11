@@ -62,13 +62,13 @@ type ServerKeyFields struct {
 // UnmarshalJSON implements json.Unmarshaler
 func (keys *ServerKeys) UnmarshalJSON(data []byte) error {
 	keys.Raw = data
-	return json.Unmarshal(data, &keys.ServerKeyFields)
+	return json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &keys.ServerKeyFields)
 }
 
 // MarshalJSON implements json.Marshaler
 func (keys ServerKeys) MarshalJSON() ([]byte, error) {
 	if len(keys.Raw) == 0 {
-		js, err := json.Marshal(keys.ServerKeyFields)
+		js, err := json.ConfigCompatibleWithStandardLibrary.Marshal(keys.ServerKeyFields)
 		if err != nil {
 			return nil, err
 		}

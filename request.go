@@ -54,7 +54,7 @@ func (r *FederationRequest) SetContent(content interface{}) error {
 	if r.fields.Signatures != nil {
 		return fmt.Errorf("gomatrixserverlib: the request is signed and cannot be modified")
 	}
-	data, err := json.Marshal(content)
+	data, err := json.ConfigCompatibleWithStandardLibrary.Marshal(content)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (r *FederationRequest) Sign(serverName ServerName, keyID KeyID, privateKey 
 	r.fields.Origin = serverName
 	// The request fields are already in the form required by the specification
 	// So we can just serialise the request fields using the default marshaller
-	data, err := json.Marshal(r.fields)
+	data, err := json.ConfigCompatibleWithStandardLibrary.Marshal(r.fields)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (r *FederationRequest) Sign(serverName ServerName, keyID KeyID, privateKey 
 	// Now we can deserialise the signed request back into the request structure
 	// to set the Signatures field, (This will clobber the other fields but they
 	// will all round-trip through an encode/decode.)
-	return json.Unmarshal(signedData, &r.fields)
+	return json.ConfigCompatibleWithStandardLibrary.Unmarshal(signedData, &r.fields)
 }
 
 // HTTPRequest constructs an net/http.Request for this matrix request.
@@ -205,7 +205,7 @@ func VerifyHTTPRequest(
 
 	// The request fields are already in the form required by the specification
 	// So we can just serialise the request fields using the default marshaller
-	toVerify, err := json.Marshal(request.fields)
+	toVerify, err := json.ConfigCompatibleWithStandardLibrary.Marshal(request.fields)
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing JSON")
 		return nil, util.MessageResponse(400, "Invalid JSON")

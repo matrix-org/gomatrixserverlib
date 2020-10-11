@@ -55,7 +55,7 @@ type testEventList []Event
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
 	var eventJSONs []RawJSON
 	var events []Event
-	if err := json.Unmarshal(data, &eventJSONs); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(data, &eventJSONs); err != nil {
 		return err
 	}
 	for _, eventJSON := range eventJSONs {
@@ -71,7 +71,7 @@ func (tel *testEventList) UnmarshalJSON(data []byte) error {
 
 func testStateNeededForAuth(t *testing.T, eventdata string, builder *EventBuilder, want StateNeeded) {
 	var events testEventList
-	if err := json.Unmarshal([]byte(eventdata), &events); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(eventdata), &events); err != nil {
 		panic(err)
 	}
 	got := StateNeededForAuth(events)
@@ -274,7 +274,7 @@ type testCase struct {
 
 func testEventAllowed(t *testing.T, testCaseJSON string) {
 	var tc testCase
-	if err := json.Unmarshal([]byte(testCaseJSON), &tc); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal([]byte(testCaseJSON), &tc); err != nil {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {

@@ -37,7 +37,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	// It also ensures that the JSON is actually a valid JSON object.
 	var object map[string]*json.RawMessage
 	var signatures map[string]map[KeyID]Base64Bytes
-	if err := json.Unmarshal(message, &object); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(message, &object); err != nil {
 		return nil, err
 	}
 
@@ -49,7 +49,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	// Signing a JSON object adds our signature to the existing
 	// signature rather than replacing it.
 	if rawSignatures := object["signatures"]; rawSignatures != nil {
-		if err := json.Unmarshal(*rawSignatures, &signatures); err != nil {
+		if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(*rawSignatures, &signatures); err != nil {
 			return nil, err
 		}
 		delete(object, "signatures")
@@ -59,7 +59,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 
 	// Encode the JSON object without the "signatures" key or
 	// the "unsigned" key in the canonical format.
-	unsorted, err := json.Marshal(object)
+	unsorted, err := json.ConfigCompatibleWithStandardLibrary.Marshal(object)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 		signatures[signingName] = map[KeyID]Base64Bytes{keyID: signature}
 	}
 	var rawSignatures json.RawMessage
-	rawSignatures, err = json.Marshal(signatures)
+	rawSignatures, err = json.ConfigCompatibleWithStandardLibrary.Marshal(signatures)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 		object["unsigned"] = rawUnsigned
 	}
 
-	return json.Marshal(object)
+	return json.ConfigCompatibleWithStandardLibrary.Marshal(object)
 }
 
 // ListKeyIDs lists the key IDs a given entity has signed a message with.
@@ -98,7 +98,7 @@ func ListKeyIDs(signingName string, message []byte) ([]KeyID, error) {
 	var object struct {
 		Signatures map[string]map[KeyID]json.RawMessage `json:"signatures"`
 	}
-	if err := json.Unmarshal(message, &object); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(message, &object); err != nil {
 		return nil, err
 	}
 	var result []KeyID
@@ -115,7 +115,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	// It also ensures that the JSON is actually a valid JSON object.
 	var object map[string]*json.RawMessage
 	var signatures map[string]map[KeyID]Base64Bytes
-	if err := json.Unmarshal(message, &object); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(message, &object); err != nil {
 		return err
 	}
 
@@ -123,7 +123,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	if object["signatures"] == nil {
 		return fmt.Errorf("No signatures")
 	}
-	if err := json.Unmarshal(*object["signatures"], &signatures); err != nil {
+	if err := json.ConfigCompatibleWithStandardLibrary.Unmarshal(*object["signatures"], &signatures); err != nil {
 		return err
 	}
 	signature, ok := signatures[signingName][keyID]
@@ -139,7 +139,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	delete(object, "signatures")
 
 	// Encode the JSON without the "unsigned" and "signatures" keys in the canonical format.
-	unsorted, err := json.Marshal(object)
+	unsorted, err := json.ConfigCompatibleWithStandardLibrary.Marshal(object)
 	if err != nil {
 		return err
 	}
