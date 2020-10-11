@@ -67,10 +67,15 @@ func TestToClientEvent(t *testing.T) { // nolint: gocyclo
 	if err != nil {
 		t.Fatalf("failed to Marshal ClientEvent: %s", err)
 	}
-	// Marshal sorts keys in structs by the order they are defined in the struct, which is alphabetical
-	out := `{"content":{"name":"Hello World"},"event_id":"$test:localhost","origin_server_ts":123456,` +
-		`"room_id":"!test:localhost","sender":"@test:localhost","state_key":"","type":"m.room.name",` +
-		`"unsigned":{"prev_content":{"name":"Goodbye World"}}}`
+
+	out := `{"content":{
+			"name": "Hello World"
+		},"event_id":"$test:localhost","origin_server_ts":123456,"room_id":"!test:localhost","sender":"@test:localhost","state_key":"","type":"m.room.name","unsigned":{
+			"prev_content": {
+				"name": "Goodbye World"
+			}
+		}}`
+
 	if !bytes.Equal([]byte(out), j) {
 		t.Errorf("ClientEvent marshalled to wrong bytes: wanted %s, got %s", out, string(j))
 	}
