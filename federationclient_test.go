@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
 	"testing"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"golang.org/x/crypto/ed25519"

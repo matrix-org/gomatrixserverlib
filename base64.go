@@ -17,8 +17,9 @@ package gomatrixserverlib
 
 import (
 	"encoding/base64"
-	json "github.com/json-iterator/go"
 	"strings"
+
+	json "github.com/json-iterator/go"
 )
 
 // A Base64Bytes is a string of bytes (not base64 encoded) that are

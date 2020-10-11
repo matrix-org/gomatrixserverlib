@@ -16,8 +16,9 @@
 package gomatrixserverlib
 
 import (
-	json "github.com/json-iterator/go"
 	"testing"
+
+	json "github.com/json-iterator/go"
 )
 
 func TestMarshalHex(t *testing.T) {

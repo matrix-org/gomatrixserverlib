@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"errors"
+
 	json "github.com/json-iterator/go"
 
 	"github.com/tidwall/gjson"

@@ -3,13 +3,14 @@ package gomatrixserverlib
 import (
 	"bytes"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
 	"strings"
 	"time"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/matrix-org/util"
 	"golang.org/x/crypto/ed25519"

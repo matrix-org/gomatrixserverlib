@@ -2,9 +2,10 @@ package gomatrixserverlib
 
 import (
 	"context"
-	json "github.com/json-iterator/go"
 	"testing"
 	"time"
+
+	json "github.com/json-iterator/go"
 )
 
 var privateKeySeed1 = `QJvXAPj0D9MUb1exkD8pIWmCvT1xajlsB8jRYz/G5HE`

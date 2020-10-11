@@ -16,9 +16,10 @@
 package gomatrixserverlib
 
 import (
-	json "github.com/json-iterator/go"
 	"strconv"
 	"strings"
+
+	json "github.com/json-iterator/go"
 )
 
 // CreateContent is the JSON content of a m.room.create event along with

@@ -16,9 +16,10 @@
 package gomatrixserverlib
 
 import (
-	json "github.com/json-iterator/go"
 	"strings"
 	"time"
+
+	json "github.com/json-iterator/go"
 )
 
 // ServerKeys are the ed25519 signing keys published by a matrix server.

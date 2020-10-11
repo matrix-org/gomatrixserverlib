@@ -17,9 +17,10 @@ package gomatrixserverlib
 
 import (
 	"errors"
-	json "github.com/json-iterator/go"
 	"reflect"
 	"testing"
+
+	json "github.com/json-iterator/go"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {

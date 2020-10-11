@@ -17,9 +17,10 @@ package gomatrixserverlib
 import (
 	"container/heap"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"sort"
 	"strconv"
+
+	json "github.com/json-iterator/go"
 )
 
 // TopologicalOrder represents how to sort a list of events, used primarily in ReverseTopologicalOrdering

@@ -17,8 +17,9 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	json "github.com/json-iterator/go"
 	"testing"
+
+	json "github.com/json-iterator/go"
 )
 
 func TestToClientEvent(t *testing.T) { // nolint: gocyclo

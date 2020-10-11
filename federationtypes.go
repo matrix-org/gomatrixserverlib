@@ -3,10 +3,11 @@ package gomatrixserverlib
 import (
 	"context"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"net"
 	"strconv"
 	"strings"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"

@@ -2,12 +2,13 @@ package gomatrixserverlib
 
 import (
 	"errors"
-	json "github.com/json-iterator/go"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	json "github.com/json-iterator/go"
 )
 
 var (

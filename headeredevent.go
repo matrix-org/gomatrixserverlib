@@ -1,9 +1,10 @@
 package gomatrixserverlib
 
 import (
-	json "github.com/json-iterator/go"
 	"reflect"
 	"strings"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/tidwall/sjson"
 )

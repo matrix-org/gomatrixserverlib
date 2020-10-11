@@ -3,6 +3,7 @@ package gomatrixserverlib
 import (
 	"context"
 	"fmt"
+
 	json "github.com/json-iterator/go"
 )
 

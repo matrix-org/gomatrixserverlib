@@ -19,10 +19,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"reflect"
 	"strings"
 	"time"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"

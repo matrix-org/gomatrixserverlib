@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"sort"
 	"testing"
 	"time"
+
+	json "github.com/json-iterator/go"
 )
 
 type testBackfillRequester struct {

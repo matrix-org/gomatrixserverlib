@@ -3,11 +3,12 @@ package gomatrixserverlib
 import (
 	"context"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/matrix-org/gomatrix"
 	"golang.org/x/crypto/ed25519"

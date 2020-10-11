@@ -20,13 +20,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	json "github.com/json-iterator/go"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/util"
