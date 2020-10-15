@@ -79,42 +79,41 @@ func ResolveStateConflictsV2(
 	// Start by taking our copies of the events and making them into pointer
 	// arrays. This means that, throughout the duration of the algorithm
 	// running, we will no longer make copies but instead just move pointers.
-	var conflicted, unconflicted []*Event
-	var authEvents, authDifference []*Event
+	conflicted := make([]*Event, len(conflictedCopy))
+	unconflicted := make([]*Event, len(unconflictedCopy))
+	authEvents := make([]*Event, len(authEventsCopy))
+	authDifference := make([]*Event, len(authDifferenceCopy))
 	for i := range conflictedCopy {
-		conflicted = append(conflicted, &conflictedCopy[i])
+		conflicted[i] = &conflictedCopy[i]
 	}
 	for i := range unconflictedCopy {
-		unconflicted = append(unconflicted, &unconflictedCopy[i])
+		unconflicted[i] = &unconflictedCopy[i]
 	}
 	for i := range authEventsCopy {
-		authEvents = append(authEvents, &authEventsCopy[i])
+		authEvents[i] = &authEventsCopy[i]
 	}
 	for i := range authDifferenceCopy {
-		authDifference = append(authDifference, &authDifferenceCopy[i])
+		authDifference[i] = &authDifferenceCopy[i]
 	}
 
 	// Prepare the state resolver.
-	var conflictedControlEvents []*Event
-	var conflictedOthers []*Event
+	conflictedControlEvents := make([]*Event, 0, len(conflicted))
+	conflictedOthers := make([]*Event, 0, len(conflicted))
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		powerLevelMainlinePos:     make(map[string]int),
-		resolvedThirdPartyInvites: make(map[string]*Event),
-		resolvedMembers:           make(map[string]*Event),
-		resolvedOthers:            make(map[string]map[string]*Event),
+		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
+		resolvedMembers:           make(map[string]*Event, len(conflicted)),
+		resolvedOthers:            make(map[string]map[string]*Event, len(conflicted)),
+		result:                    make([]Event, 0, len(conflicted)+len(unconflicted)),
 	}
 
-	// This is a quick helper function to determine if an event already belongs to
-	// the unconflicted set. If it does then we shouldn't add it back into the
+	// This is a map to help us determine if an event already belongs to the
+	// unconflicted set. If it does then we shouldn't add it back into the
 	// conflicted set later.
-	isUnconflicted := func(event *Event) bool {
-		for _, v := range unconflicted {
-			if event.EventID() == v.EventID() {
-				return true
-			}
-		}
-		return false
+	isUnconflicted := make(map[string]struct{}, len(unconflicted))
+	for _, u := range unconflicted {
+		isUnconflicted[u.EventID()] = struct{}{}
 	}
 
 	// Separate out control events from the rest of the events. This is necessary
@@ -122,7 +121,7 @@ func ResolveStateConflictsV2(
 	// and then the mainline ordering of all other events depends on that
 	// ordering.
 	for _, p := range append(conflicted, authDifference...) {
-		if !isUnconflicted(p) {
+		if _, unconflicted := isUnconflicted[p.EventID()]; !unconflicted {
 			if isControlEvent(p) {
 				conflictedControlEvents = append(conflictedControlEvents, p)
 			} else {
@@ -190,14 +189,15 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) (result []Event) {
+func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) []Event {
 	r := stateResolverV2{}
-	var input []*Event
+	input := make([]*Event, len(events))
 	for i := range events {
-		input = append(input, &events[i])
+		input[i] = &events[i]
 	}
-	for _, e := range r.reverseTopologicalOrdering(input, order) {
-		result = append(result, *e)
+	result := make([]Event, len(input))
+	for i, e := range r.reverseTopologicalOrdering(input, order) {
+		result[i] = *e
 	}
 	return result
 }
@@ -206,18 +206,18 @@ func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) (result 
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order TopologicalOrder) (result []HeaderedEvent) {
+func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order TopologicalOrder) []HeaderedEvent {
 	r := stateResolverV2{}
-	var input []*Event
+	input := make([]*Event, len(events))
 	for i := range events {
 		unwrapped := events[i].Unwrap()
-		input = append(input, &unwrapped)
+		input[i] = &unwrapped
 	}
-	evs := r.reverseTopologicalOrdering(input, order)
-	for _, e := range evs {
-		result = append(result, e.Headered(e.roomVersion))
+	result := make([]HeaderedEvent, len(input))
+	for i, e := range r.reverseTopologicalOrdering(input, order) {
+		result[i] = e.Headered(e.roomVersion)
 	}
-	return
+	return result
 }
 
 // isControlEvent returns true if the event meets the criteria for being classed
@@ -374,41 +374,43 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 
 // applyEvents applies the events on top of the partial state.
 func (r *stateResolverV2) applyEvents(events []*Event) {
-	for _, e := range events {
-		event := e
-		switch event.Type() {
+	for _, event := range events {
+		st, sk := event.Type(), event.StateKey()
+		switch st {
 		case MRoomCreate:
 			// Room creation events are only valid with an empty state key.
-			if event.StateKey() == nil || *event.StateKey() == "" {
+			if sk != nil && *sk == "" {
 				r.resolvedCreate = event
 			}
 		case MRoomPowerLevels:
 			// Power level events are only valid with an empty state key.
-			if event.StateKey() == nil || *event.StateKey() == "" {
+			if sk != nil && *sk == "" {
 				r.resolvedPowerLevels = event
 			}
 		case MRoomJoinRules:
 			// Join rule events are only valid with an empty state key.
-			if event.StateKey() == nil || *event.StateKey() == "" {
+			if sk != nil && *sk == "" {
 				r.resolvedJoinRules = event
 			}
 		case MRoomThirdPartyInvite:
 			// Third party invite events are only valid with a non-empty state key.
-			if event.StateKey() != nil && *event.StateKey() != "" {
-				r.resolvedThirdPartyInvites[*event.StateKey()] = event
+			if sk != nil && *sk != "" {
+				r.resolvedThirdPartyInvites[*sk] = event
 			}
 		case MRoomMember:
 			// Membership events are only valid with a non-empty state key.
-			if event.StateKey() != nil && *event.StateKey() != "" {
-				r.resolvedMembers[*event.StateKey()] = event
+			if sk != nil && *sk != "" {
+				r.resolvedMembers[*sk] = event
 			}
 		default:
 			// Doesn't match one of the core state types so store it by type and state
 			// key.
-			if _, ok := r.resolvedOthers[event.Type()]; !ok {
-				r.resolvedOthers[event.Type()] = make(map[string]*Event)
+			if _, ok := r.resolvedOthers[st]; !ok {
+				r.resolvedOthers[st] = make(map[string]*Event)
 			}
-			r.resolvedOthers[event.Type()][*event.StateKey()] = event
+			if sk != nil {
+				r.resolvedOthers[st][*sk] = event
+			}
 		}
 	}
 }
@@ -416,7 +418,7 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 // eventMapFromEvents takes a list of events and returns a map, where the key
 // for each value is the event ID.
 func eventMapFromEvents(events []*Event) map[string]*Event {
-	r := make(map[string]*Event)
+	r := make(map[string]*Event, len(events))
 	for _, e := range events {
 		if _, ok := r[e.EventID()]; !ok {
 			r[e.EventID()] = e
@@ -541,10 +543,9 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 // events. This works through each event, counting how many incoming auth event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
-	graph []*stateResV2ConflictedPowerLevel,
-) {
-	eventMap := make(map[string]*stateResV2ConflictedPowerLevel)
+func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*stateResV2ConflictedPowerLevel {
+	eventMap := make(map[string]*stateResV2ConflictedPowerLevel, len(events))
+	graph := make([]*stateResV2ConflictedPowerLevel, 0, len(events))
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -632,10 +633,9 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
 // events. This works through each event, counting how many incoming prev event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) (
-	graph []*stateResV2ConflictedOther,
-) {
-	eventMap := make(map[string]*stateResV2ConflictedOther)
+func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*stateResV2ConflictedOther {
+	eventMap := make(map[string]*stateResV2ConflictedOther, len(events))
+	graph := make([]*stateResV2ConflictedOther, 0, len(events))
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
