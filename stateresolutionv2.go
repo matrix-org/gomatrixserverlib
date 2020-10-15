@@ -105,6 +105,7 @@ func ResolveStateConflictsV2(
 		resolvedThirdPartyInvites: make(map[string]*Event),
 		resolvedMembers:           make(map[string]*Event),
 		resolvedOthers:            make(map[string]map[string]*Event),
+		result:                    make([]Event, 0, len(conflicted)+len(unconflicted)),
 	}
 
 	// This is a map to help us determine if an event already belongs to the
