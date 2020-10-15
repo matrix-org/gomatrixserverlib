@@ -102,16 +102,16 @@ func ResolveStateConflictsV2(
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		powerLevelMainlinePos:     make(map[string]int),
-		resolvedThirdPartyInvites: make(map[string]*Event),
-		resolvedMembers:           make(map[string]*Event),
-		resolvedOthers:            make(map[string]map[string]*Event),
+		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
+		resolvedMembers:           make(map[string]*Event, len(conflicted)),
+		resolvedOthers:            make(map[string]map[string]*Event, len(conflicted)),
 		result:                    make([]Event, 0, len(conflicted)+len(unconflicted)),
 	}
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
 	// conflicted set later.
-	isUnconflicted := map[string]struct{}{}
+	isUnconflicted := make(map[string]struct{}, len(unconflicted))
 	for _, u := range unconflicted {
 		isUnconflicted[u.EventID()] = struct{}{}
 	}
@@ -191,9 +191,9 @@ func ResolveStateConflictsV2(
 // first.
 func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) (result []Event) {
 	r := stateResolverV2{}
-	var input []*Event
+	input := make([]*Event, len(events))
 	for i := range events {
-		input = append(input, &events[i])
+		input[i] = &events[i]
 	}
 	for _, e := range r.reverseTopologicalOrdering(input, order) {
 		result = append(result, *e)
@@ -207,10 +207,10 @@ func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) (result 
 // first.
 func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order TopologicalOrder) (result []HeaderedEvent) {
 	r := stateResolverV2{}
-	var input []*Event
+	input := make([]*Event, len(events))
 	for i := range events {
 		unwrapped := events[i].Unwrap()
-		input = append(input, &unwrapped)
+		input[i] = &unwrapped
 	}
 	evs := r.reverseTopologicalOrdering(input, order)
 	for _, e := range evs {
@@ -415,7 +415,7 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 // eventMapFromEvents takes a list of events and returns a map, where the key
 // for each value is the event ID.
 func eventMapFromEvents(events []*Event) map[string]*Event {
-	r := make(map[string]*Event)
+	r := make(map[string]*Event, len(events))
 	for _, e := range events {
 		if _, ok := r[e.EventID()]; !ok {
 			r[e.EventID()] = e
