@@ -317,12 +317,6 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 	}, expected)
 }
 
-func BenchmarkStateResolutionBanVsPowerLevel(b *testing.B) {
-	for i := 0; i < 10000; i++ {
-		TestStateResolutionBanVsPowerLevel(&testing.T{})
-	}
-}
-
 func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 	expected := []string{
 		"$CREATE:example.com", "$JR:example.com", "$IPOWER:example.com",
