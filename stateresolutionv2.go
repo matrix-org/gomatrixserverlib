@@ -379,17 +379,17 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 		switch st {
 		case MRoomCreate:
 			// Room creation events are only valid with an empty state key.
-			if sk == nil || *sk == "" {
+			if sk != nil && *sk == "" {
 				r.resolvedCreate = event
 			}
 		case MRoomPowerLevels:
 			// Power level events are only valid with an empty state key.
-			if sk == nil || *sk == "" {
+			if sk != nil && *sk == "" {
 				r.resolvedPowerLevels = event
 			}
 		case MRoomJoinRules:
 			// Join rule events are only valid with an empty state key.
-			if sk == nil || *sk == "" {
+			if sk != nil && *sk == "" {
 				r.resolvedJoinRules = event
 			}
 		case MRoomThirdPartyInvite:
