@@ -26,10 +26,10 @@ const (
 // ClientEvent is an event which is fit for consumption by clients, in accordance with the specification.
 type ClientEvent struct {
 	Content        RawJSON   `json:"content"`
-	EventID        string    `json:"event_id"`
-	OriginServerTS Timestamp `json:"origin_server_ts"`
-	RoomID         string    `json:"room_id,omitempty"` // RoomID is omitted on /sync responses
-	Sender         string    `json:"sender"`
+	EventID        string    `json:"event_id,omitempty"`         // EventID is omitted on receipt events
+	OriginServerTS Timestamp `json:"origin_server_ts,omitempty"` // OriginServerTS is omitted on receipt events
+	RoomID         string    `json:"room_id,omitempty"`          // RoomID is omitted on /sync responses
+	Sender         string    `json:"sender,omitempty"`           // Sender is omitted on receipt events
 	StateKey       *string   `json:"state_key,omitempty"`
 	Type           string    `json:"type"`
 	Unsigned       RawJSON   `json:"unsigned,omitempty"`
