@@ -97,8 +97,8 @@ func ResolveStateConflictsV2(
 	}
 
 	// Prepare the state resolver.
-	var conflictedControlEvents []*Event
-	var conflictedOthers []*Event
+	conflictedControlEvents := make([]*Event, 0, len(conflicted))
+	conflictedOthers := make([]*Event, 0, len(conflicted))
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		powerLevelMainlinePos:     make(map[string]int),
@@ -107,16 +107,12 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[string]map[string]*Event),
 	}
 
-	// This is a quick helper function to determine if an event already belongs to
-	// the unconflicted set. If it does then we shouldn't add it back into the
+	// This is a map to help us determine if an event already belongs to the
+	// unconflicted set. If it does then we shouldn't add it back into the
 	// conflicted set later.
-	isUnconflicted := func(event *Event) bool {
-		for _, v := range unconflicted {
-			if event.EventID() == v.EventID() {
-				return true
-			}
-		}
-		return false
+	isUnconflicted := map[string]struct{}{}
+	for _, u := range unconflicted {
+		isUnconflicted[u.EventID()] = struct{}{}
 	}
 
 	// Separate out control events from the rest of the events. This is necessary
@@ -124,7 +120,7 @@ func ResolveStateConflictsV2(
 	// and then the mainline ordering of all other events depends on that
 	// ordering.
 	for _, p := range append(conflicted, authDifference...) {
-		if !isUnconflicted(p) {
+		if _, unconflicted := isUnconflicted[p.EventID()]; !unconflicted {
 			if isControlEvent(p) {
 				conflictedControlEvents = append(conflictedControlEvents, p)
 			} else {
