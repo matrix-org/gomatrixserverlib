@@ -543,7 +543,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
 	graph []*stateResV2ConflictedPowerLevel,
 ) {
-	eventMap := make(map[string]*stateResV2ConflictedPowerLevel)
+	eventMap := make(map[string]*stateResV2ConflictedPowerLevel, len(events))
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -634,7 +634,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
 func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) (
 	graph []*stateResV2ConflictedOther,
 ) {
-	eventMap := make(map[string]*stateResV2ConflictedOther)
+	eventMap := make(map[string]*stateResV2ConflictedOther, len(events))
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
