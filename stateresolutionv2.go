@@ -543,10 +543,9 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 // events. This works through each event, counting how many incoming auth event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
-	graph []*stateResV2ConflictedPowerLevel,
-) {
+func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*stateResV2ConflictedPowerLevel {
 	eventMap := make(map[string]*stateResV2ConflictedPowerLevel, len(events))
+	graph := make([]*stateResV2ConflictedPowerLevel, 0, len(events))
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
@@ -634,10 +633,9 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) (
 // events. This works through each event, counting how many incoming prev event
 // dependencies it has, and then adding them into the graph as the dependencies
 // are resolved.
-func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) (
-	graph []*stateResV2ConflictedOther,
-) {
+func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*stateResV2ConflictedOther {
 	eventMap := make(map[string]*stateResV2ConflictedOther, len(events))
+	graph := make([]*stateResV2ConflictedOther, 0, len(events))
 	inDegree := make(map[string]int)
 
 	for _, event := range events {
