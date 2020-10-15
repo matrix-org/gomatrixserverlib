@@ -79,19 +79,21 @@ func ResolveStateConflictsV2(
 	// Start by taking our copies of the events and making them into pointer
 	// arrays. This means that, throughout the duration of the algorithm
 	// running, we will no longer make copies but instead just move pointers.
-	var conflicted, unconflicted []*Event
-	var authEvents, authDifference []*Event
+	conflicted := make([]*Event, len(conflictedCopy))
+	unconflicted := make([]*Event, len(unconflictedCopy))
+	authEvents := make([]*Event, len(authEventsCopy))
+	authDifference := make([]*Event, len(authDifferenceCopy))
 	for i := range conflictedCopy {
-		conflicted = append(conflicted, &conflictedCopy[i])
+		conflicted[i] = &conflictedCopy[i]
 	}
 	for i := range unconflictedCopy {
-		unconflicted = append(unconflicted, &unconflictedCopy[i])
+		unconflicted[i] = &unconflictedCopy[i]
 	}
 	for i := range authEventsCopy {
-		authEvents = append(authEvents, &authEventsCopy[i])
+		authEvents[i] = &authEventsCopy[i]
 	}
 	for i := range authDifferenceCopy {
-		authDifference = append(authDifference, &authDifferenceCopy[i])
+		authDifference[i] = &authDifferenceCopy[i]
 	}
 
 	// Prepare the state resolver.
