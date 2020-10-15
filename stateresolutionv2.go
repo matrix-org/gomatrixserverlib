@@ -189,14 +189,15 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) (result []Event) {
+func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) []Event {
 	r := stateResolverV2{}
 	input := make([]*Event, len(events))
 	for i := range events {
 		input[i] = &events[i]
 	}
-	for _, e := range r.reverseTopologicalOrdering(input, order) {
-		result = append(result, *e)
+	result := make([]Event, len(input))
+	for i, e := range r.reverseTopologicalOrdering(input, order) {
+		result[i] = *e
 	}
 	return result
 }
@@ -205,18 +206,18 @@ func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) (result 
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order TopologicalOrder) (result []HeaderedEvent) {
+func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order TopologicalOrder) []HeaderedEvent {
 	r := stateResolverV2{}
 	input := make([]*Event, len(events))
 	for i := range events {
 		unwrapped := events[i].Unwrap()
 		input[i] = &unwrapped
 	}
-	evs := r.reverseTopologicalOrdering(input, order)
-	for _, e := range evs {
-		result = append(result, e.Headered(e.roomVersion))
+	result := make([]HeaderedEvent, len(input))
+	for i, e := range r.reverseTopologicalOrdering(input, order) {
+		result[i] = e.Headered(e.roomVersion)
 	}
-	return
+	return result
 }
 
 // isControlEvent returns true if the event meets the criteria for being classed
