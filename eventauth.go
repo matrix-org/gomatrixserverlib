@@ -64,6 +64,8 @@ const (
 	MDirectToDevice = "m.direct_to_device"
 	// MDeviceListUpdate https://matrix.org/docs/spec/server_server/latest#m-device-list-update-schema
 	MDeviceListUpdate = "m.device_list_update"
+	// MReceipt https://matrix.org/docs/spec/server_server/r0.1.4#receipts
+	MReceipt = "m.receipt"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
