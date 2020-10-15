@@ -373,41 +373,43 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 
 // applyEvents applies the events on top of the partial state.
 func (r *stateResolverV2) applyEvents(events []*Event) {
-	for _, e := range events {
-		event := e
-		switch event.Type() {
+	for _, event := range events {
+		st, sk := event.Type(), event.StateKey()
+		switch st {
 		case MRoomCreate:
 			// Room creation events are only valid with an empty state key.
-			if event.StateKey() == nil || *event.StateKey() == "" {
+			if sk == nil || *sk == "" {
 				r.resolvedCreate = event
 			}
 		case MRoomPowerLevels:
 			// Power level events are only valid with an empty state key.
-			if event.StateKey() == nil || *event.StateKey() == "" {
+			if sk == nil || *sk == "" {
 				r.resolvedPowerLevels = event
 			}
 		case MRoomJoinRules:
 			// Join rule events are only valid with an empty state key.
-			if event.StateKey() == nil || *event.StateKey() == "" {
+			if sk == nil || *sk == "" {
 				r.resolvedJoinRules = event
 			}
 		case MRoomThirdPartyInvite:
 			// Third party invite events are only valid with a non-empty state key.
-			if event.StateKey() != nil && *event.StateKey() != "" {
-				r.resolvedThirdPartyInvites[*event.StateKey()] = event
+			if sk != nil && *sk != "" {
+				r.resolvedThirdPartyInvites[*sk] = event
 			}
 		case MRoomMember:
 			// Membership events are only valid with a non-empty state key.
-			if event.StateKey() != nil && *event.StateKey() != "" {
-				r.resolvedMembers[*event.StateKey()] = event
+			if sk != nil && *sk != "" {
+				r.resolvedMembers[*sk] = event
 			}
 		default:
 			// Doesn't match one of the core state types so store it by type and state
 			// key.
-			if _, ok := r.resolvedOthers[event.Type()]; !ok {
-				r.resolvedOthers[event.Type()] = make(map[string]*Event)
+			if _, ok := r.resolvedOthers[st]; !ok {
+				r.resolvedOthers[st] = make(map[string]*Event)
 			}
-			r.resolvedOthers[event.Type()][*event.StateKey()] = event
+			if sk != nil {
+				r.resolvedOthers[st][*sk] = event
+			}
 		}
 	}
 }
