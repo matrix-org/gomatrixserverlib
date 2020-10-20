@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/matrix-org/util"
 	"golang.org/x/crypto/ed25519"
@@ -253,11 +255,17 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 		return nil, err
 	}
 	if len(content) != 0 {
-		if req.Header.Get("Content-Type") != "application/json" {
-			return nil, fmt.Errorf(
-				"gomatrixserverlib: The request must be \"application/json\" not %q",
-				req.Header.Get("Content-Type"),
-			)
+		mimetype, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
+		if err != nil {
+			return nil, fmt.Errorf("gomatrixserverlib: The request had an invalid Content-Type header: %w", err)
+		}
+		if mimetype != "application/json" {
+			return nil, fmt.Errorf("gomatrixserverlib: The request must be \"application/json\" not %q", mimetype)
+		}
+		// check for invalid utf-8
+		// https://matrix.org/docs/spec/server_server/r0.1.4#api-standards
+		if !utf8.Valid(content) {
+			return nil, fmt.Errorf("gomatrixserverlib: The request contained invalid UTF-8")
 		}
 		result.fields.Content = RawJSON(content)
 	}

@@ -386,7 +386,7 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
 	serverKeys, err := p.Client.LookupServerKeys(ctx, p.PerspectiveServerName, requests)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gomatrixserverlib: unable to lookup server keys: %w", err)
 	}
 
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
@@ -396,7 +396,7 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 		keyIDs, err := ListKeyIDs(string(p.PerspectiveServerName), keys.Raw)
 		if err != nil {
 			// The response from the perspective server was corrupted.
-			return nil, err
+			return nil, fmt.Errorf("gomatrixserverlib: unable to list key IDs: %w", err)
 		}
 		for _, keyID := range keyIDs {
 			perspectiveKey, ok := p.PerspectiveServerKeys[keyID]
@@ -407,7 +407,7 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 			if err := VerifyJSON(string(p.PerspectiveServerName), keyID, perspectiveKey, keys.Raw); err != nil {
 				// An invalid signature is very bad since it means we have a
 				// problem talking to the perspective server.
-				return nil, err
+				return nil, fmt.Errorf("gomatrixserverlib: unable to verify response: %w", err)
 			}
 			valid = true
 			break
