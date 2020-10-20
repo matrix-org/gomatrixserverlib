@@ -389,8 +389,6 @@ func (fc *Client) DoRequestAndParseResponse(
 		return err
 	}
 
-	// util.GetLogger(ctx).Warnf("fed request decoded as %#v", result)
-
 	return nil
 }
 
