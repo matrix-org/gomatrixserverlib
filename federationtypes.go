@@ -137,6 +137,21 @@ type RespState struct {
 	AuthEvents []Event `json:"auth_chain"`
 }
 
+// A RespPeek is the content of a response to GET /_matrix/federation/v1/peek/{roomID}/{peekID}
+type RespPeek struct {
+	// How often should we renew the peek?
+	RenewalInterval int64 `json:"renewal_interval"`
+	// A list of events giving the state of the room at the point of the request
+	StateEvents []Event `json:"state"`
+	// A list of events needed to authenticate the state events.
+	AuthEvents []Event `json:"auth_chain"`
+	// The room version that we're trying to peek.
+	RoomVersion RoomVersion `json:"room_version"`
+	// The ID of the event whose state snapshot this is - i.e. the
+	// most recent forward extremity in the room.
+	LatestEvent Event `json:"latest_event"`
+}
+
 // MissingEvents represents a request for missing events.
 // https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
 type MissingEvents struct {
@@ -253,6 +268,58 @@ func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
 		}
 		r.Events = append(r.Events, event)
 	}
+	return nil
+}
+
+// MarshalJSON implements json.Marshaller
+func (r RespPeek) MarshalJSON() ([]byte, error) {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
+	return json.Marshal(r)
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespPeek) UnmarshalJSON(data []byte) error {
+	r.AuthEvents = []Event{}
+	r.StateEvents = []Event{}
+	var intermediate struct {
+		RoomVersion     RoomVersion       `json:"room_version"`
+		StateEvents     []json.RawMessage `json:"state"`
+		AuthEvents      []json.RawMessage `json:"auth_chain"`
+		RenewalInterval int64             `json:"renewal_interval"`
+		LatestEvent     json.RawMessage   `json:"latest_event"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return fmt.Errorf("RespPeek UnmarshalJSON(intermediate): %w", err)
+	}
+	r.RoomVersion = intermediate.RoomVersion
+	r.RenewalInterval = intermediate.RenewalInterval
+	if _, err := r.RoomVersion.EventFormat(); err != nil {
+		return fmt.Errorf("RespPeek UnmarshalJSON(roomversion): %w", err)
+	}
+	for _, raw := range intermediate.AuthEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.RoomVersion)
+		if err != nil {
+			return fmt.Errorf("RespPeek UnmarshalJSON(AuthEvent): %w", err)
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	for _, raw := range intermediate.StateEvents {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.RoomVersion)
+		if err != nil {
+			return fmt.Errorf("RespPeek UnmarshalJSON(StateEvent): %w", err)
+		}
+		r.StateEvents = append(r.StateEvents, event)
+	}
+	latestEvent, err := NewEventFromUntrustedJSON([]byte(intermediate.LatestEvent), r.RoomVersion)
+	if err != nil {
+		return fmt.Errorf("RespPeek UnmarshalJSON(StateEvent): %w", err)
+	}
+	r.LatestEvent = latestEvent
 	return nil
 }
 
@@ -531,6 +598,21 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 		r.StateEvents = append(r.StateEvents, event)
 	}
 	return nil
+}
+
+// ToRespState returns a new RespState with the same data from the given RespPeek
+func (r RespPeek) ToRespState() RespState {
+	if len(r.StateEvents) == 0 {
+		r.StateEvents = []Event{}
+	}
+	if len(r.AuthEvents) == 0 {
+		r.AuthEvents = []Event{}
+	}
+	return RespState{
+		roomVersion: r.RoomVersion,
+		StateEvents: r.StateEvents,
+		AuthEvents:  r.AuthEvents,
+	}
 }
 
 type respSendJoinFields struct {
