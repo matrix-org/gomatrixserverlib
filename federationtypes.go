@@ -219,16 +219,6 @@ type respStateFields struct {
 	AuthEvents  []Event `json:"auth_chain"`
 }
 
-// XXX: this duplicates RespPeek above and needs to be kept in sync with it
-// (and it's unclear why we've ended up with both)
-type respPeekFields struct {
-	RenewalInterval int64       `json:"renewal_interval"`
-	StateEvents     []Event     `json:"state"`
-	AuthEvents      []Event     `json:"auth_chain"`
-	RoomVersion     RoomVersion `json:"room_version"`
-	LatestEvent     Event       `json:"latest_event"`
-}
-
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevices struct {
@@ -289,15 +279,13 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 	if len(r.AuthEvents) == 0 {
 		r.AuthEvents = []Event{}
 	}
-	return json.Marshal(respPeekFields(r))
+	return json.Marshal(r)
 }
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespPeek) UnmarshalJSON(data []byte) error {
 	r.AuthEvents = []Event{}
 	r.StateEvents = []Event{}
-	// XXX: it feels broken that we have RespPeek, respPeekFields and intermediate
-	// all looking pretty similar. What am I doing wrong?
 	var intermediate struct {
 		RoomVersion     RoomVersion       `json:"room_version"`
 		StateEvents     []json.RawMessage `json:"state"`
