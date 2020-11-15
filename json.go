@@ -56,6 +56,8 @@ func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error
 	return CanonicalJSON(input)
 }
 
+var CanonicalJSONErr = errors.New("value is outside of safe range")
+
 func verifyEnforcedCanonicalJSON(input []byte) error {
 	valid := true
 	res := gjson.ParseBytes(input)
@@ -77,7 +79,7 @@ func verifyEnforcedCanonicalJSON(input []byte) error {
 	}
 	res.ForEach(iter)
 	if !valid {
-		return errors.New("value is outside of safe range")
+		return CanonicalJSONErr
 	}
 	return nil
 }
