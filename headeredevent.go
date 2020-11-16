@@ -39,7 +39,7 @@ func (e *HeaderedEvent) Unwrap() *Event {
 }
 
 // UnwrapEventHeaders unwraps an array of headered events.
-func UnwrapEventHeaders(in []HeaderedEvent) []*Event {
+func UnwrapEventHeaders(in []*HeaderedEvent) []*Event {
 	result := make([]*Event, len(in))
 	for i := range in {
 		result[i] = in[i].Event
