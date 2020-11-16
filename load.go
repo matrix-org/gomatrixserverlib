@@ -47,7 +47,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 
 	// 1. Is a valid event, otherwise it is dropped.
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
-	events := make([]Event, 0, len(rawEvents))
+	events := make([]*Event, 0, len(rawEvents))
 	errs := make([]error, 0, len(rawEvents))
 	for _, rawEv := range rawEvents {
 		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer)
@@ -109,7 +109,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 			}
 		}
 		results[i] = EventLoadResult{
-			Event: &h,
+			Event: h,
 		}
 	}
 

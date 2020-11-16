@@ -40,7 +40,7 @@ func TestSendJoinFallback(t *testing.T) {
 		t.Fatalf("failed to marshal RespSendJoin event: %s", err)
 	}
 	wantRes := gomatrixserverlib.RespSendJoin{
-		StateEvents: []gomatrixserverlib.Event{
+		StateEvents: []*gomatrixserverlib.Event{
 			retEv,
 		},
 	}

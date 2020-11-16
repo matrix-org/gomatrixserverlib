@@ -18,11 +18,11 @@ type testBackfillRequester struct {
 	callOrderForStateIDsBeforeEvent []string // event IDs called
 }
 
-func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent HeaderedEvent) ([]string, error) {
+func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent *HeaderedEvent) ([]string, error) {
 	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
 	return t.stateIDsAtEvent[atEvent.EventID()], nil
 }
-func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
@@ -35,8 +35,8 @@ func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName,
 	}
 	return *txn, nil
 }
-func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []Event, err error) {
-	eventMap := make(map[string]Event)
+func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []*Event, err error) {
+	eventMap := make(map[string]*Event)
 	for _, eventBytes := range t.authEventsToProvide {
 		ev, err := NewEventFromTrustedJSON(eventBytes, false, RoomVersionV1)
 		if err != nil {
@@ -192,7 +192,7 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 
 }
 
-func assertUnsortedEqual(t *testing.T, result []HeaderedEvent, want [][]byte) {
+func assertUnsortedEqual(t *testing.T, result []*HeaderedEvent, want [][]byte) {
 	if len(result) != len(want) {
 		t.Fatalf("RequestBackfill got %d events, want %d", len(result), len(want))
 	}

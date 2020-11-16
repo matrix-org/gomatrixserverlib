@@ -24,11 +24,11 @@ type EventHeader struct {
 // when marshalling into JSON and will be separated out when unmarshalling.
 type HeaderedEvent struct {
 	EventHeader
-	Event
+	*Event
 }
 
 // Unwrap extracts the event object from the headered event.
-func (e *HeaderedEvent) Unwrap() Event {
+func (e *HeaderedEvent) Unwrap() *Event {
 	if e.RoomVersion == "" {
 		// TODO: Perhaps return an error here instead of panicing
 		panic("gomatrixserverlib: malformed HeaderedEvent doesn't contain room version")
@@ -39,8 +39,8 @@ func (e *HeaderedEvent) Unwrap() Event {
 }
 
 // UnwrapEventHeaders unwraps an array of headered events.
-func UnwrapEventHeaders(in []HeaderedEvent) []Event {
-	result := make([]Event, len(in))
+func UnwrapEventHeaders(in []*HeaderedEvent) []*Event {
+	result := make([]*Event, len(in))
 	for i := range in {
 		result[i] = in[i].Event
 	}
@@ -71,6 +71,9 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	}
 	// Check what the room version is and prepare the Event struct for
 	// that specific version type.
+	if e.Event == nil {
+		e.Event = &Event{}
+	}
 	switch eventFormat {
 	case EventFormatV1:
 		e.fields = eventFormatV1Fields{}

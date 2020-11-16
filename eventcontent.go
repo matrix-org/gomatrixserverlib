@@ -151,12 +151,12 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 		c.Membership = Leave
 		return
 	}
-	return NewMemberContentFromEvent(*memberEvent)
+	return NewMemberContentFromEvent(memberEvent)
 }
 
 // NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
-func NewMemberContentFromEvent(event Event) (c MemberContent, err error) {
+func NewMemberContentFromEvent(event *Event) (c MemberContent, err error) {
 	if err = json.Unmarshal(event.Content(), &c); err != nil {
 		var partial membershipContent
 		if err = json.Unmarshal(event.Content(), &partial); err != nil {
@@ -303,7 +303,7 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 		return
 	}
 	if powerLevelsEvent != nil {
-		return NewPowerLevelContentFromEvent(*powerLevelsEvent)
+		return NewPowerLevelContentFromEvent(powerLevelsEvent)
 	}
 
 	// If there are no power levels then fall back to defaults.
@@ -346,7 +346,7 @@ func (c *PowerLevelContent) Defaults() {
 }
 
 // NewPowerLevelContentFromEvent loads the power level content from an event.
-func NewPowerLevelContentFromEvent(event Event) (c PowerLevelContent, err error) {
+func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error) {
 	// Set the levels to their default values.
 	c.Defaults()
 

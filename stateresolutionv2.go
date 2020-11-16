@@ -41,7 +41,7 @@ type stateResolverV2 struct {
 	resolvedThirdPartyInvites map[string]*Event            // Resolved third party invite events
 	resolvedMembers           map[string]*Event            // Resolved member events
 	resolvedOthers            map[string]map[string]*Event // Resolved other events
-	result                    []Event                      // Final list of resolved events
+	result                    []*Event                     // Final list of resolved events
 }
 
 // Create implements AuthEventProvider
@@ -73,29 +73,9 @@ func (r *stateResolverV2) Member(key string) (*Event, error) {
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
 func ResolveStateConflictsV2(
-	conflictedCopy, unconflictedCopy []Event,
-	authEventsCopy, authDifferenceCopy []Event,
-) []Event {
-	// Start by taking our copies of the events and making them into pointer
-	// arrays. This means that, throughout the duration of the algorithm
-	// running, we will no longer make copies but instead just move pointers.
-	conflicted := make([]*Event, len(conflictedCopy))
-	unconflicted := make([]*Event, len(unconflictedCopy))
-	authEvents := make([]*Event, len(authEventsCopy))
-	authDifference := make([]*Event, len(authDifferenceCopy))
-	for i := range conflictedCopy {
-		conflicted[i] = &conflictedCopy[i]
-	}
-	for i := range unconflictedCopy {
-		unconflicted[i] = &unconflictedCopy[i]
-	}
-	for i := range authEventsCopy {
-		authEvents[i] = &authEventsCopy[i]
-	}
-	for i := range authDifferenceCopy {
-		authDifference[i] = &authDifferenceCopy[i]
-	}
-
+	conflicted, unconflicted []*Event,
+	authEvents, authDifference []*Event,
+) []*Event {
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]*Event, 0, len(conflicted))
 	conflictedOthers := make([]*Event, 0, len(conflicted))
@@ -105,7 +85,7 @@ func ResolveStateConflictsV2(
 		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
 		resolvedMembers:           make(map[string]*Event, len(conflicted)),
 		resolvedOthers:            make(map[string]map[string]*Event, len(conflicted)),
-		result:                    make([]Event, 0, len(conflicted)+len(unconflicted)),
+		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
 	}
 
 	// This is a map to help us determine if an event already belongs to the
@@ -162,23 +142,23 @@ func ResolveStateConflictsV2(
 	// Now that we have our final state, populate the result array with the
 	// resolved state and return it.
 	if r.resolvedCreate != nil {
-		r.result = append(r.result, *r.resolvedCreate)
+		r.result = append(r.result, r.resolvedCreate)
 	}
 	if r.resolvedJoinRules != nil {
-		r.result = append(r.result, *r.resolvedJoinRules)
+		r.result = append(r.result, r.resolvedJoinRules)
 	}
 	if r.resolvedPowerLevels != nil {
-		r.result = append(r.result, *r.resolvedPowerLevels)
+		r.result = append(r.result, r.resolvedPowerLevels)
 	}
 	for _, member := range r.resolvedMembers {
-		r.result = append(r.result, *member)
+		r.result = append(r.result, member)
 	}
 	for _, invite := range r.resolvedThirdPartyInvites {
-		r.result = append(r.result, *invite)
+		r.result = append(r.result, invite)
 	}
 	for _, other := range r.resolvedOthers {
 		for _, event := range other {
-			r.result = append(r.result, *event)
+			r.result = append(r.result, event)
 		}
 	}
 
@@ -189,31 +169,23 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func ReverseTopologicalOrdering(events []Event, order TopologicalOrder) []Event {
+func ReverseTopologicalOrdering(input []*Event, order TopologicalOrder) []*Event {
 	r := stateResolverV2{}
-	input := make([]*Event, len(events))
-	for i := range events {
-		input[i] = &events[i]
-	}
-	result := make([]Event, len(input))
-	for i, e := range r.reverseTopologicalOrdering(input, order) {
-		result[i] = *e
-	}
-	return result
+	return r.reverseTopologicalOrdering(input, order)
 }
 
 // HeaderedReverseTopologicalOrdering takes a set of input events and sorts
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func HeaderedReverseTopologicalOrdering(events []HeaderedEvent, order TopologicalOrder) []HeaderedEvent {
+func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order TopologicalOrder) []*HeaderedEvent {
 	r := stateResolverV2{}
 	input := make([]*Event, len(events))
 	for i := range events {
 		unwrapped := events[i].Unwrap()
-		input[i] = &unwrapped
+		input[i] = unwrapped
 	}
-	result := make([]HeaderedEvent, len(input))
+	result := make([]*HeaderedEvent, len(input))
 	for i, e := range r.reverseTopologicalOrdering(input, order) {
 		result[i] = e.Headered(e.roomVersion)
 	}
@@ -363,7 +335,7 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
-		if err := Allowed(*event, r); err != nil {
+		if err := Allowed(event, r); err != nil {
 			continue
 		}
 		// Apply the newly authed event to the partial state. We need to do this

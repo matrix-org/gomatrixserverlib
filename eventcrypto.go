@@ -210,7 +210,7 @@ func verifyEventSignature(signingName string, keyID KeyID, publicKey ed25519.Pub
 // signatures from the server that sent it.
 //
 // returns an array with either an error or nil for each event.
-func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVerifier) ([]error, error) { // nolint: gocyclo
+func VerifyEventSignatures(ctx context.Context, events []*Event, keyRing JSONVerifier) ([]error, error) { // nolint: gocyclo
 	// we will end up doing at least as many verifications as we have events.
 	// some events require multiple verifications, as they are signed by multiple
 	// servers.
@@ -321,7 +321,7 @@ func VerifyEventSignatures(ctx context.Context, events []Event, keyRing JSONVeri
 // signatures from the server that sent it.
 //
 // returns an error if any event fails verifications
-func VerifyAllEventSignatures(ctx context.Context, events []Event, keyRing JSONVerifier) error {
+func VerifyAllEventSignatures(ctx context.Context, events []*Event, keyRing JSONVerifier) error {
 	verificationErrors, err := VerifyEventSignatures(ctx, events, keyRing)
 	if err != nil {
 		return err
