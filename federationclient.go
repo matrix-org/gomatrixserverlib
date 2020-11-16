@@ -177,7 +177,7 @@ func (ac *FederationClient) MakeLeave(
 // This is used to reject a remote invite.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#put-matrix-federation-v1-send-leave-roomid-eventid
 func (ac *FederationClient) SendLeave(
-	ctx context.Context, s ServerName, event Event,
+	ctx context.Context, s ServerName, event *Event,
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
 		url.PathEscape(event.RoomID()) + "/" +
