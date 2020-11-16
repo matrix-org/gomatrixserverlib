@@ -28,7 +28,7 @@ type BackfillRequester interface {
 	// will be servers that are in the room already. The entries at the beginning are preferred servers
 	// and will be tried first. An empty list will fail the request.
 	ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName
-	ProvideEvents(roomVer RoomVersion, eventIDs []string) ([]Event, error)
+	ProvideEvents(roomVer RoomVersion, eventIDs []string) ([]*Event, error)
 }
 
 // RequestBackfill implements the server logic for making backfill requests to other servers.
@@ -46,13 +46,13 @@ type BackfillRequester interface {
 //
 // TODO: When does it make sense to return errors?
 func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerifier,
-	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]HeaderedEvent, error) {
+	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]*HeaderedEvent, error) {
 
 	if len(fromEventIDs) == 0 {
 		return nil, nil
 	}
 	haveEventIDs := make(map[string]bool)
-	var result []HeaderedEvent
+	var result []*HeaderedEvent
 	loader := NewEventsLoader(ver, keyRing, b, b.ProvideEvents, false)
 	// pick a server to backfill from
 	// TODO: use other event IDs and make a set out of all the returned servers?
@@ -84,7 +84,7 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 				continue // we got this event from a different server
 			}
 			haveEventIDs[res.Event.EventID()] = true
-			result = append(result, *res.Event)
+			result = append(result, res.Event)
 		}
 	}
 

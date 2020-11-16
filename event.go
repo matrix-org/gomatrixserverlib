@@ -157,7 +157,7 @@ var emptyEventReferenceList = []EventReference{}
 func (eb *EventBuilder) Build(
 	now time.Time, origin ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
-) (result Event, err error) {
+) (result *Event, err error) {
 	eventFormat, err := roomVersion.EventFormat()
 	if err != nil {
 		return result, err
@@ -259,6 +259,7 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
+	result = &Event{}
 	result.roomVersion = roomVersion
 
 	if err = result.populateFieldsFromJSON(eventJSON); err != nil {
@@ -276,7 +277,7 @@ func (eb *EventBuilder) Build(
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result Event, err error) {
+func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
@@ -293,6 +294,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		}
 	}
 
+	result = &Event{}
 	result.roomVersion = roomVersion
 
 	var eventFormat EventFormat
@@ -354,7 +356,8 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // NewEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result Event, err error) {
+func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON(eventJSON)
@@ -418,9 +421,9 @@ func (e *Event) Version() RoomVersion { return e.roomVersion }
 func (e *Event) JSON() []byte { return e.eventJSON }
 
 // Redact returns a redacted copy of the event.
-func (e *Event) Redact() Event {
+func (e *Event) Redact() *Event {
 	if e.redacted {
-		return *e
+		return e
 	}
 	eventJSON, err := redactEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
@@ -440,35 +443,35 @@ func (e *Event) Redact() Event {
 	if err != nil {
 		panic(fmt.Errorf("gomatrixserverlib: populateFieldsFromJSON failed %v", err))
 	}
-	return result
+	return &result
 }
 
 // SetUnsigned sets the unsigned key of the event.
 // Returns a copy of the event with the "unsigned" key set.
-func (e *Event) SetUnsigned(unsigned interface{}) (Event, error) {
+func (e *Event) SetUnsigned(unsigned interface{}) (*Event, error) {
 	var eventAsMap map[string]RawJSON
 	var err error
 	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	unsignedJSON, err := json.Marshal(unsigned)
 	if err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	eventAsMap["unsigned"] = unsignedJSON
 	eventJSON, err := json.Marshal(eventAsMap)
 	if err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	if err = e.updateUnsignedFields(unsignedJSON); err != nil {
-		return Event{}, err
+		return nil, err
 	}
 	result := *e
 	result.eventJSON = eventJSON
-	return result, nil
+	return &result, nil
 }
 
 // SetUnsignedField takes a path and value to insert into the unsigned dict of
@@ -1021,8 +1024,8 @@ func (e Event) MarshalJSON() ([]byte, error) {
 
 // Headered returns a HeaderedEvent encapsulating the original event, with the
 // supplied headers.
-func (e Event) Headered(roomVersion RoomVersion) HeaderedEvent {
-	return HeaderedEvent{
+func (e *Event) Headered(roomVersion RoomVersion) *HeaderedEvent {
+	return &HeaderedEvent{
 		EventHeader: EventHeader{
 			RoomVersion: roomVersion,
 		},

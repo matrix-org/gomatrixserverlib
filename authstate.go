@@ -9,10 +9,10 @@ import (
 type StateProvider interface {
 	// StateIDsBeforeEvent returns a list of state event IDs for the event ID provided, which represent the entire
 	// room state before that event.
-	StateIDsBeforeEvent(ctx context.Context, event HeaderedEvent) ([]string, error)
+	StateIDsBeforeEvent(ctx context.Context, event *HeaderedEvent) ([]string, error)
 	// StateBeforeEvent returns the state of the room before the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
-	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error)
+	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error)
 }
 
 type FederatedStateClient interface {
@@ -37,7 +37,7 @@ type FederatedStateProvider struct {
 }
 
 // StateIDsBeforeEvent implements StateProvider
-func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event HeaderedEvent) ([]string, error) {
+func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event *HeaderedEvent) ([]string, error) {
 	res, err := p.FedClient.LookupStateIDs(ctx, p.Server, event.RoomID(), event.EventID())
 	if err != nil {
 		return nil, err
@@ -49,20 +49,20 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 }
 
 // StateBeforeEvent implements StateProvider
-func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
 	res, err := p.FedClient.LookupState(ctx, p.Server, event.RoomID(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}
 	if p.RememberAuthEvents {
 		for i := range res.AuthEvents {
-			p.AuthEventMap[res.AuthEvents[i].EventID()] = &res.AuthEvents[i]
+			p.AuthEventMap[res.AuthEvents[i].EventID()] = res.AuthEvents[i]
 		}
 	}
 
 	result := make(map[string]*Event)
 	for i := range res.StateEvents {
-		result[res.StateEvents[i].EventID()] = &res.StateEvents[i]
+		result[res.StateEvents[i].EventID()] = res.StateEvents[i]
 	}
 	return result, nil
 }
@@ -78,7 +78,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 // no auth_events are required and this function will short-circuit and allow it.
 //
 //
-func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify HeaderedEvent, allowValidation bool) error {
+func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify *HeaderedEvent, allowValidation bool) error {
 	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs before event %s: %w", eventToVerify.EventID(), err)

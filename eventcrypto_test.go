@@ -370,7 +370,7 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 		t.Error(err)
 	}
 
-	events := []Event{event}
+	events := []*Event{event}
 	if err = VerifyAllEventSignatures(context.Background(), events, &verifier); err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +428,7 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 		t.Error(err)
 	}
 
-	events := []Event{event}
+	events := []*Event{event}
 	if err = VerifyAllEventSignatures(context.Background(), events, &verifier); err != nil {
 		t.Fatal(err)
 	}

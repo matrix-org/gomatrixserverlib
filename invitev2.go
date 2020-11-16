@@ -34,7 +34,7 @@ type inviteV2RequestHeaders struct {
 type InviteV2Request struct {
 	fields struct {
 		inviteV2RequestHeaders
-		Event Event `json:"event"`
+		Event *Event `json:"event"`
 	}
 }
 
@@ -61,7 +61,7 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 }
 
 // Event returns the invite event.
-func (i *InviteV2Request) Event() Event {
+func (i *InviteV2Request) Event() *Event {
 	return i.fields.Event
 }
 
