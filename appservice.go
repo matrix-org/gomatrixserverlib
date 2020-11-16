@@ -18,5 +18,5 @@ package gomatrixserverlib
 // ApplicationServiceTransaction is the transaction that is sent off to an
 // application service.
 type ApplicationServiceTransaction struct {
-	Events []Event `json:"events"`
+	Events []*Event `json:"events"`
 }
