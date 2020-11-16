@@ -171,11 +171,7 @@ func ResolveStateConflictsV2(
 // first.
 func ReverseTopologicalOrdering(input []*Event, order TopologicalOrder) []*Event {
 	r := stateResolverV2{}
-	result := make([]*Event, len(input))
-	for i, e := range r.reverseTopologicalOrdering(input, order) {
-		result[i] = e
-	}
-	return result
+	return r.reverseTopologicalOrdering(input, order)
 }
 
 // HeaderedReverseTopologicalOrdering takes a set of input events and sorts
