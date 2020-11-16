@@ -71,6 +71,9 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	}
 	// Check what the room version is and prepare the Event struct for
 	// that specific version type.
+	if e.Event == nil {
+		e.Event = &Event{}
+	}
 	switch eventFormat {
 	case EventFormatV1:
 		e.fields = eventFormatV1Fields{}
