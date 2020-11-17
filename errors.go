@@ -23,3 +23,7 @@ type BadJSONError struct {
 func (e BadJSONError) Error() string {
 	return fmt.Sprintf("gomatrixserverlib: bad JSON: %s", e.err.Error())
 }
+
+func (e BadJSONError) Unwrap() error {
+	return e.err
+}
