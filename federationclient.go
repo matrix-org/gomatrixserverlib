@@ -323,7 +323,7 @@ func (ac *FederationClient) LookupMissingEvents(
 	return
 }
 
-// Peek starts a peek on a remote server
+// Peek starts a peek on a remote server: see MSC2753
 func (ac *FederationClient) Peek(
 	ctx context.Context, s ServerName, roomID, peekID string,
 	roomVersions []RoomVersion,
@@ -501,6 +501,19 @@ func (ac *FederationClient) Backfill(
 
 	// Send the request.
 	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
+// MSC2836EventRelationships performs an MSC2836 /event_relationships request.
+func (ac *FederationClient) MSC2836EventRelationships(
+	ctx context.Context, dst ServerName, r MSC2836EventRelationshipsRequest,
+) (res MSC2836EventRelationshipsResponse, err error) {
+	path := "/_matrix/federation/unstable/event_relationships"
+	req := NewFederationRequest("POST", dst, path)
+	if err = req.SetContent(r); err != nil {
+		return
+	}
 	err = ac.doRequest(ctx, req, &res)
 	return
 }

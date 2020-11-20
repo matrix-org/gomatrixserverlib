@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -872,4 +873,52 @@ type DeviceKeys struct {
 	// Additional data added to the device key information by intermediate servers, and not covered by the signatures.
 	// E.g { "device_display_name": "Alice's mobile phone" }
 	Unsigned map[string]interface{} `json:"unsigned"`
+}
+
+// MSC2836EventRelationshipsRequest is a request to /event_relationships from
+// https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
+type MSC2836EventRelationshipsRequest struct {
+	EventID         string `json:"event_id"`
+	MaxDepth        int    `json:"max_depth"`
+	MaxBreadth      int    `json:"max_breadth"`
+	Limit           int    `json:"limit"`
+	DepthFirst      bool   `json:"depth_first"`
+	RecentFirst     bool   `json:"recent_first"`
+	IncludeParent   bool   `json:"include_parent"`
+	IncludeChildren bool   `json:"include_children"`
+	Direction       string `json:"direction"`
+	Batch           string `json:"batch"`
+	AutoJoin        bool   `json:"auto_join"`
+}
+
+// NewMSC2836EventRelationshipsRequest creates a new MSC2836 /event_relationships request with defaults set.
+// https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
+func NewMSC2836EventRelationshipsRequest(body io.Reader) (*MSC2836EventRelationshipsRequest, error) {
+	var relation MSC2836EventRelationshipsRequest
+	relation.Defaults()
+	if err := json.NewDecoder(body).Decode(&relation); err != nil {
+		return nil, err
+	}
+	return &relation, nil
+}
+
+// Defaults sets default values.
+func (r *MSC2836EventRelationshipsRequest) Defaults() {
+	r.Limit = 100
+	r.MaxBreadth = 10
+	r.MaxDepth = 3
+	r.DepthFirst = false
+	r.RecentFirst = true
+	r.IncludeParent = false
+	r.IncludeChildren = false
+	r.Direction = "down"
+}
+
+// MSC2836EventRelationshipsResponse is a response to /event_relationships from
+// https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
+type MSC2836EventRelationshipsResponse struct {
+	Events    []Event `json:"events"`
+	NextBatch string  `json:"next_batch"`
+	Limited   bool    `json:"limited"`
+	AuthChain []Event `json:"auth_chain"`
 }
