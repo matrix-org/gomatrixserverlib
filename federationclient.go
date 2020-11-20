@@ -507,8 +507,9 @@ func (ac *FederationClient) Backfill(
 
 // MSC2836EventRelationships performs an MSC2836 /event_relationships request.
 func (ac *FederationClient) MSC2836EventRelationships(
-	ctx context.Context, dst ServerName, r MSC2836EventRelationshipsRequest,
+	ctx context.Context, dst ServerName, r MSC2836EventRelationshipsRequest, roomVersion RoomVersion,
 ) (res MSC2836EventRelationshipsResponse, err error) {
+	res.roomVersion = roomVersion
 	path := "/_matrix/federation/unstable/event_relationships"
 	req := NewFederationRequest("POST", dst, path)
 	if err = req.SetContent(r); err != nil {

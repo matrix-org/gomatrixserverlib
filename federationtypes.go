@@ -917,8 +917,42 @@ func (r *MSC2836EventRelationshipsRequest) Defaults() {
 // MSC2836EventRelationshipsResponse is a response to /event_relationships from
 // https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
 type MSC2836EventRelationshipsResponse struct {
-	Events    []Event `json:"events"`
-	NextBatch string  `json:"next_batch"`
-	Limited   bool    `json:"limited"`
-	AuthChain []Event `json:"auth_chain"`
+	Events      []*Event `json:"events"`
+	NextBatch   string   `json:"next_batch"`
+	Limited     bool     `json:"limited"`
+	AuthChain   []*Event `json:"auth_chain"`
+	roomVersion RoomVersion
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		Events    []json.RawMessage `json:"events"`
+		NextBatch string            `json:"next_batch"`
+		Limited   bool              `json:"limited"`
+		AuthChain []json.RawMessage `json:"auth_chain"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	r.NextBatch = intermediate.NextBatch
+	r.Limited = intermediate.Limited
+	for _, raw := range intermediate.Events {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.Events = append(r.Events, event)
+	}
+	for _, raw := range intermediate.AuthChain {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.AuthChain = append(r.AuthChain, event)
+	}
+	return nil
 }
