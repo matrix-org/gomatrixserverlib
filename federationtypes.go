@@ -926,6 +926,8 @@ type MSC2836EventRelationshipsResponse struct {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
+	r.Events = []*Event{}
+	r.AuthChain = []*Event{}
 	if _, err := r.roomVersion.EventFormat(); err != nil {
 		return err
 	}
