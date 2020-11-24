@@ -924,6 +924,11 @@ type MSC2836EventRelationshipsResponse struct {
 	roomVersion RoomVersion
 }
 
+// SetRoomVersion can be called prior to unmarshalling JSON to control how events should be deserialised.
+func (r *MSC2836EventRelationshipsResponse) SetRoomVersion(roomVer RoomVersion) {
+	r.roomVersion = roomVer
+}
+
 // UnmarshalJSON implements json.Unmarshaller
 func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
 	r.Events = []*Event{}
