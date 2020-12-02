@@ -15,9 +15,11 @@
 
 package gomatrixserverlib
 
+type ClientEventFormat int
+
 const (
 	// FormatAll will include all client event keys
-	FormatAll EventFormat = iota
+	FormatAll ClientEventFormat = iota
 	// FormatSync will include only the event keys required by the /sync API. Notably, this
 	// means the 'room_id' will be missing from the events.
 	FormatSync
@@ -37,7 +39,7 @@ type ClientEvent struct {
 }
 
 // ToClientEvents converts server events to client events.
-func ToClientEvents(serverEvs []*Event, format EventFormat) []ClientEvent {
+func ToClientEvents(serverEvs []*Event, format ClientEventFormat) []ClientEvent {
 	evs := make([]ClientEvent, len(serverEvs))
 	for i, se := range serverEvs {
 		evs[i] = ToClientEvent(se, format)
@@ -46,7 +48,7 @@ func ToClientEvents(serverEvs []*Event, format EventFormat) []ClientEvent {
 }
 
 // ToClientEvents converts server events to client events.
-func HeaderedToClientEvents(serverEvs []*HeaderedEvent, format EventFormat) []ClientEvent {
+func HeaderedToClientEvents(serverEvs []*HeaderedEvent, format ClientEventFormat) []ClientEvent {
 	evs := make([]ClientEvent, len(serverEvs))
 	for i, se := range serverEvs {
 		evs[i] = HeaderedToClientEvent(se, format)
@@ -55,7 +57,7 @@ func HeaderedToClientEvents(serverEvs []*HeaderedEvent, format EventFormat) []Cl
 }
 
 // ToClientEvent converts a single server event to a client event.
-func ToClientEvent(se *Event, format EventFormat) ClientEvent {
+func ToClientEvent(se *Event, format ClientEventFormat) ClientEvent {
 	ce := ClientEvent{
 		Content:        RawJSON(se.Content()),
 		Sender:         se.Sender(),
@@ -73,7 +75,7 @@ func ToClientEvent(se *Event, format EventFormat) ClientEvent {
 }
 
 // ToClientEvent converts a single server event to a client event.
-func HeaderedToClientEvent(se *HeaderedEvent, format EventFormat) ClientEvent {
+func HeaderedToClientEvent(se *HeaderedEvent, format ClientEventFormat) ClientEvent {
 	ce := ClientEvent{
 		Content:        RawJSON(se.Content()),
 		Sender:         se.Sender(),
