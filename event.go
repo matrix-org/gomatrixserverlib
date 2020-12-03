@@ -410,16 +410,14 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		}
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
-		fields := eventFormatV2Fields{
-			eventFields: eventFields{
-				EventID: eventIDIfKnown,
-			},
-		}
+		fields := eventFormatV2Fields{}
 		if err := json.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
 		// Generate a hash of the event which forms the event ID.
-		if fields.EventID == "" {
+		if eventIDIfKnown != "" {
+			fields.EventID = eventIDIfKnown
+		} else {
 			fields.EventID, err = e.generateEventID()
 			if err != nil {
 				return err
