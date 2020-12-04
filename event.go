@@ -360,16 +360,16 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
-	err = result.populateFieldsFromJSON("", eventJSON)
+	err = result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
 	return
 }
 
-// NewEventFromStoredJSON loads a new event from some JSON that must be valid
+// NewEventFromTrustedJSONWithEventID loads a new event from some JSON that must be valid
 // and that the event ID is already known. This must ONLY be used when retrieving
 // an event from the database and NEVER when accepting an event over federation.
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
-func NewEventFromStoredJSON(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+func NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
 	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
