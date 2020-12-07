@@ -63,6 +63,20 @@ func NewFederationClientWithTransport(
 	}
 }
 
+// NewFederationClientWithTransport makes a new FederationClient with a custom
+// transport.
+func NewFederationClientWithTransportTimeout(
+	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
+	skipVerify bool, timeout time.Duration, transport *http.Transport,
+) *FederationClient {
+	return &FederationClient{
+		Client:           *NewClientWithTransportTimeout(timeout, transport),
+		serverName:       serverName,
+		serverKeyID:      keyID,
+		serverPrivateKey: privateKey,
+	}
+}
+
 func (ac *FederationClient) doRequest(ctx context.Context, r FederationRequest, resBody interface{}) error {
 	if err := r.Sign(ac.serverName, ac.serverKeyID, ac.serverPrivateKey); err != nil {
 		return err
