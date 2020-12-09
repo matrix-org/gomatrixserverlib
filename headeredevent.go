@@ -49,6 +49,13 @@ func UnwrapEventHeaders(in []*HeaderedEvent) []*Event {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
+	return e.UnmarshalJSONWithEventID(data, "")
+}
+
+// UnmarshalJSONWithEventID allows lighter unmarshalling when the
+// event ID is already known, rather than burning CPU cycles calculating
+// it again. If it isn't, supply "" instead.
+func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) error {
 	var err error
 	// First extract the headers from the JSON.
 	var m EventHeader
@@ -84,7 +91,7 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 	}
 	// Finally, unmarshal the remaining event JSON (less the headers)
 	// into the event struct.
-	if e.Event, err = NewEventFromTrustedJSON(data, false, m.RoomVersion); err != nil {
+	if e.Event, err = NewEventFromTrustedJSONWithEventID(eventID, data, false, m.RoomVersion); err != nil {
 		return err
 	}
 	// At this point unmarshalling is complete.
