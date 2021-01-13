@@ -78,6 +78,7 @@ type federationTripper struct {
 	transports      map[string]http.RoundTripper
 	transportsMutex sync.Mutex
 	skipVerify      bool
+	resolutionCache sync.Map // serverName -> []ResolutionResult
 }
 
 func newFederationTripper(skipVerify bool) *federationTripper {
@@ -124,12 +125,30 @@ func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {
 }
 
 func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var err error
 	serverName := ServerName(r.URL.Host)
-	resolutionResults, err := ResolveServer(serverName)
-	if err != nil {
-		return nil, err
+	resolutionRetried := false
+	resolutionResults := []ResolutionResult{}
+
+retryResolution:
+	if cached, ok := f.resolutionCache.Load(serverName); ok {
+		if results, ok := cached.([]ResolutionResult); ok {
+			resolutionResults = results
+		}
 	}
 
+	// If the cache returned nothing then we'll have no results here,
+	// so go and hit the network.
+	if len(resolutionResults) == 0 {
+		resolutionResults, err = ResolveServer(serverName)
+		if err != nil {
+			return nil, err
+		}
+		f.resolutionCache.Store(serverName, resolutionResults)
+	}
+
+	// If we still have no results at this point, even after possibly
+	// hitting the network, then give up.
 	if len(resolutionResults) == 0 {
 		return nil, fmt.Errorf("no address found for matrix host %v", serverName)
 	}
@@ -146,6 +165,15 @@ func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 		}
 		util.GetLogger(r.Context()).Warnf("Error sending request to %s: %v",
 			u.String(), err)
+	}
+
+	// We failed to reach any of the locations in the resolution results,
+	// so clear the cache and mark that we're retrying, then give it a
+	// try again.
+	f.resolutionCache.Delete(serverName)
+	if !resolutionRetried {
+		resolutionRetried = true
+		goto retryResolution
 	}
 
 	// just return the most recent error
