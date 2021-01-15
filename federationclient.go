@@ -518,3 +518,16 @@ func (ac *FederationClient) MSC2836EventRelationships(
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
+
+func (ac *FederationClient) MSC2946Spaces(
+	ctx context.Context, dst ServerName, roomID string, r MSC2946SpacesRequest, roomVersion RoomVersion,
+) (res MSC2946SpacesResponse, err error) {
+	res.roomVersion = roomVersion
+	path := "/_matrix/federation/unstable/spaces/" + url.PathEscape(roomID)
+	req := NewFederationRequest("POST", dst, path)
+	if err = req.SetContent(r); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
