@@ -963,3 +963,54 @@ func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+// MSC2946SpacesRequest is the HTTP body for the federated /unstable/spaces/{roomID} endpoint
+// See https://github.com/matrix-org/matrix-doc/pull/2946
+type MSC2946SpacesRequest struct {
+	ExcludeRooms     []string `json:"exclude_rooms"`
+	MaxRoomsPerSpace int      `json:"max_rooms_per_space"`
+	Limit            int      `json:"limit"`
+	Batch            string   `json:"batch"`
+}
+
+// MSC2946Room represents a public room with additional metadata on the space directory
+type MSC2946Room struct {
+	PublicRoom
+	NumRefs  int    `json:"num_refs"`
+	RoomType string `json:"room_type,omitempty"`
+}
+
+// MSC2946SpacesResponse is the HTTP response body for the federation /unstable/spaces/{roomID} endpoint
+// See https://github.com/matrix-org/matrix-doc/pull/2946
+type MSC2946SpacesResponse struct {
+	Rooms       []MSC2946Room `json:"rooms"`
+	Events      []*Event      `json:"events"`
+	NextBatch   string        `json:"next_batch"`
+	roomVersion RoomVersion
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *MSC2946SpacesResponse) UnmarshalJSON(data []byte) error {
+	r.Events = []*Event{}
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		Rooms     []MSC2946Room     `json:"rooms"`
+		Events    []json.RawMessage `json:"events"`
+		NextBatch string            `json:"next_batch"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	r.NextBatch = intermediate.NextBatch
+	r.Rooms = intermediate.Rooms
+	for _, raw := range intermediate.Events {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.Events = append(r.Events, event)
+	}
+	return nil
+}
