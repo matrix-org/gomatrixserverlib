@@ -520,9 +520,8 @@ func (ac *FederationClient) MSC2836EventRelationships(
 }
 
 func (ac *FederationClient) MSC2946Spaces(
-	ctx context.Context, dst ServerName, roomID string, r MSC2946SpacesRequest, roomVersion RoomVersion,
+	ctx context.Context, dst ServerName, roomID string, r MSC2946SpacesRequest,
 ) (res MSC2946SpacesResponse, err error) {
-	res.roomVersion = roomVersion
 	path := "/_matrix/federation/unstable/spaces/" + url.PathEscape(roomID)
 	req := NewFederationRequest("POST", dst, path)
 	if err = req.SetContent(r); err != nil {

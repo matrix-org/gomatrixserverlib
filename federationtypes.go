@@ -983,39 +983,16 @@ type MSC2946Room struct {
 // MSC2946SpacesResponse is the HTTP response body for the federation /unstable/spaces/{roomID} endpoint
 // See https://github.com/matrix-org/matrix-doc/pull/2946
 type MSC2946SpacesResponse struct {
-	Rooms       []MSC2946Room `json:"rooms"`
-	Events      []*Event      `json:"events"`
-	NextBatch   string        `json:"next_batch"`
-	roomVersion RoomVersion
+	Rooms     []MSC2946Room          `json:"rooms"`
+	Events    []MSC2946StrippedEvent `json:"events"`
+	NextBatch string                 `json:"next_batch"`
 }
 
-// SetRoomVersion can be called prior to unmarshalling JSON to control how events should be deserialised.
-func (r *MSC2946SpacesResponse) SetRoomVersion(roomVer RoomVersion) {
-	r.roomVersion = roomVer
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *MSC2946SpacesResponse) UnmarshalJSON(data []byte) error {
-	r.Events = []*Event{}
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		Rooms     []MSC2946Room     `json:"rooms"`
-		Events    []json.RawMessage `json:"events"`
-		NextBatch string            `json:"next_batch"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	r.NextBatch = intermediate.NextBatch
-	r.Rooms = intermediate.Rooms
-	for _, raw := range intermediate.Events {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.Events = append(r.Events, event)
-	}
-	return nil
+// MSC2946StrippedEvent is the format of events returned in the HTTP response body
+type MSC2946StrippedEvent struct {
+	Type     string          `json:"type"`
+	StateKey string          `json:"state_key"`
+	Content  json.RawMessage `json:"content"`
+	Sender   string          `json:"sender"`
+	RoomID   string          `json:"room_id"`
 }
