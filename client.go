@@ -86,7 +86,7 @@ func newFederationTripper(skipVerify bool) *federationTripper {
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
 		skipVerify: skipVerify,
-		dnsCache:   newDNSCache(1024, time.Minute),
+		dnsCache:   newDNSCache(2048, time.Minute*5), // TODO: What are sane values here?
 	}
 }
 
@@ -103,16 +103,17 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 
 	// Create the transport if we don't have any for this TLS server name.
 	if transport, ok = f.transports[tlsServerName]; !ok {
-		transport = &http.Transport{
+		tr := &http.Transport{
 			DisableKeepAlives: true,
 			TLSClientConfig: &tls.Config{
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
 			},
-			DialContext: f.dnsCache.DialContext,
 		}
-
-		f.transports[tlsServerName] = transport
+		if f.dnsCache != nil {
+			tr.DialContext = f.dnsCache.DialContext
+		}
+		f.transports[tlsServerName] = tr
 	}
 
 	f.transportsMutex.Unlock()
