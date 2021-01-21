@@ -3,7 +3,8 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,8 @@ import (
 var (
 	errNoWellKnown = errors.New("No .well-known found")
 )
+
+const WellKnownMaxSize = 50 * 1024 // 50KB
 
 // WellKnownResult is the result of looking up a matrix server's well-known file.
 // Located at https://<server_name>/.well-known/matrix/server
@@ -41,6 +44,13 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 	}()
 	if resp.StatusCode != 200 {
 		return nil, errNoWellKnown
+	}
+
+	// If the remote server reports a Content-Length to us then make sure
+	// that the well-known response size doesn't exceed WellKnownMaxSize.
+	contentLengthHeader := resp.Header.Get("Content-Length")
+	if l, err := strconv.Atoi(contentLengthHeader); err == nil && l > WellKnownMaxSize {
+		return nil, fmt.Errorf("well-known content length %d exceeds %d bytes", l, WellKnownMaxSize)
 	}
 
 	// Figure out when the cache expiry time of this well-known record is
@@ -79,10 +89,20 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 		}
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	// By this point we hope that we've caught any huge well-known records
+	// by checking Content-Length, but it's possible that header will be
+	// missing. Better to be safe than sorry by reading no more than the
+	// WellKnownMaxSize in any case.
+	bodyBuffer := make([]byte, WellKnownMaxSize)
+	limitedReader := &io.LimitedReader{
+		R: resp.Body,
+		N: WellKnownMaxSize,
+	}
+	n, err := limitedReader.Read(bodyBuffer)
 	if err != nil {
 		return nil, err
 	}
+	body := bodyBuffer[:n]
 
 	// Convert result to JSON
 	wellKnownResponse := &WellKnownResult{
