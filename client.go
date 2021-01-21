@@ -113,7 +113,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 		if f.dnsCache != nil {
 			tr.DialContext = f.dnsCache.DialContext
 		}
-		f.transports[tlsServerName] = tr
+		transport, f.transports[tlsServerName] = tr, tr
 	}
 
 	f.transportsMutex.Unlock()
