@@ -79,12 +79,14 @@ type federationTripper struct {
 	transportsMutex sync.Mutex
 	skipVerify      bool
 	resolutionCache sync.Map // serverName -> []ResolutionResult
+	dnsCache        *dnsCache
 }
 
 func newFederationTripper(skipVerify bool) *federationTripper {
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
 		skipVerify: skipVerify,
+		dnsCache:   newDNSCache(1024, time.Minute),
 	}
 }
 
@@ -107,6 +109,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
 			},
+			DialContext: f.dnsCache.DialContext,
 		}
 
 		f.transports[tlsServerName] = transport
