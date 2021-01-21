@@ -280,7 +280,19 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 	if len(r.AuthEvents) == 0 {
 		r.AuthEvents = []*Event{}
 	}
-	return json.Marshal(r)
+	return json.Marshal(struct {
+		RenewalInterval int64       `json:"renewal_interval"`
+		StateEvents     []*Event    `json:"state"`
+		AuthEvents      []*Event    `json:"auth_chain"`
+		RoomVersion     RoomVersion `json:"room_version"`
+		LatestEvent     *Event      `json:"latest_event"`
+	}{
+		RenewalInterval: r.RenewalInterval,
+		StateEvents:     r.StateEvents,
+		AuthEvents:      r.AuthEvents,
+		RoomVersion:     r.RoomVersion,
+		LatestEvent:     r.LatestEvent,
+	})
 }
 
 // UnmarshalJSON implements json.Unmarshaller
