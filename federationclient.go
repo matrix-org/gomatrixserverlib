@@ -27,7 +27,7 @@ type FederationClient struct {
 // WithDNSCache etc.
 func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	skipVerify bool, options ...ClientOption,
+	options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
 		Client:           *NewClient(options...),

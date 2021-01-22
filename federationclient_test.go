@@ -51,7 +51,10 @@ func TestSendJoinFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal RespSendJoin: %s", err)
 	}
-	fc := gomatrixserverlib.NewFederationClient(serverName, keyID, privateKey, true)
+	fc := gomatrixserverlib.NewFederationClient(
+		serverName, keyID, privateKey,
+		gomatrixserverlib.WithSkipVerify(true),
+	)
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
 		&roundTripper{
 			fn: func(req *http.Request) (*http.Response, error) {
