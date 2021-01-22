@@ -9,7 +9,7 @@ import (
 )
 
 type DNSCache struct {
-	resolver *net.Resolver
+	resolver netResolver
 	mutex    sync.Mutex
 	size     int
 	duration time.Duration
@@ -28,6 +28,10 @@ func NewDNSCache(size int, duration time.Duration) *DNSCache {
 type dnsCacheEntry struct {
 	addrs   []net.IPAddr
 	expires time.Time
+}
+
+type netResolver interface {
+	LookupIPAddr(context.Context, string) ([]net.IPAddr, error)
 }
 
 func (c *DNSCache) lookup(ctx context.Context, name string) (*dnsCacheEntry, bool) {
