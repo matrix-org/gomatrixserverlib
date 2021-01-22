@@ -58,7 +58,7 @@ type clientOptions struct {
 // ClientOption are supplied to NewClient or NewFederationClient.
 type ClientOption func(*clientOptions)
 
-// NewClient makes a new Client. You can supply zero or more ClientOpts
+// NewClient makes a new Client. You can supply zero or more ClientOptions
 // which control the transport, timeout, TLS validation etc - see
 // WithTransport, WithTimeout, WithSkipVerify, WithDNSCache etc.
 func NewClient(options ...ClientOption) *Client {
