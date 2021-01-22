@@ -26,7 +26,7 @@ type FederationClient struct {
 // NewFederationClient makes a new FederationClient
 func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	skipVerify bool, options ...interface{},
+	skipVerify bool, options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
 		Client:           *NewClient(skipVerify, options...),
@@ -39,7 +39,7 @@ func NewFederationClient(
 // NewFederationClientWithTimeout makes a new FederationClient
 func NewFederationClientWithTimeout(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	skipVerify bool, timeout time.Duration, options ...interface{},
+	skipVerify bool, timeout time.Duration, options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
 		Client:           *NewClientWithTimeout(timeout, skipVerify, options...),

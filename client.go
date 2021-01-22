@@ -48,13 +48,17 @@ type UserInfo struct {
 	Sub string `json:"sub"`
 }
 
+type ClientOption interface {
+	IsClientOption()
+}
+
 // NewClient makes a new Client (with default timeout)
-func NewClient(skipVerify bool, options ...interface{}) *Client {
+func NewClient(skipVerify bool, options ...ClientOption) *Client {
 	return NewClientWithTransportTimeout(requestTimeout, newFederationTripper(skipVerify, options...))
 }
 
 // NewClientWithTieout makes a new Client (with specified timeout)
-func NewClientWithTimeout(timeout time.Duration, skipVerify bool, options ...interface{}) *Client {
+func NewClientWithTimeout(timeout time.Duration, skipVerify bool, options ...ClientOption) *Client {
 	return NewClientWithTransportTimeout(timeout, newFederationTripper(skipVerify, options...))
 }
 
@@ -78,6 +82,8 @@ type WithDNSCache struct {
 	DNSCache *DNSCache
 }
 
+func (w WithDNSCache) IsClientOption() {}
+
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
@@ -87,7 +93,7 @@ type federationTripper struct {
 	dnsCache        *DNSCache
 }
 
-func newFederationTripper(skipVerify bool, options ...interface{}) *federationTripper {
+func newFederationTripper(skipVerify bool, options ...ClientOption) *federationTripper {
 	var dnsCache *DNSCache
 	for _, opt := range options {
 		switch o := opt.(type) {
