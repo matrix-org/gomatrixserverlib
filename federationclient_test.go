@@ -52,24 +52,26 @@ func TestSendJoinFallback(t *testing.T) {
 		t.Fatalf("failed to marshal RespSendJoin: %s", err)
 	}
 	fc := gomatrixserverlib.NewFederationClient(serverName, keyID, privateKey, true)
-	fc.Client = *gomatrixserverlib.NewClientWithTransport(&roundTripper{
-		fn: func(req *http.Request) (*http.Response, error) {
-			if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
+	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
+					return &http.Response{
+						StatusCode: 404,
+						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+					}, nil
+				}
+				if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
+					return nil, fmt.Errorf("test: unexpected url path: %s", req.URL.Path)
+				}
+				t.Logf("Sending response: %s", string(v1ResBytes))
 				return &http.Response{
-					StatusCode: 404,
-					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+					StatusCode: 200,
+					Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
 				}, nil
-			}
-			if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
-				return nil, fmt.Errorf("test: unexpected url path: %s", req.URL.Path)
-			}
-			t.Logf("Sending response: %s", string(v1ResBytes))
-			return &http.Response{
-				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
-			}, nil
+			},
 		},
-	})
+	))
 	ev, err := gomatrixserverlib.NewEventFromTrustedJSON(
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"membership":"join"},"depth":1,"event_id":"$fnwGrQEpiOIUoDU2:baba.is.you","hashes":{"sha256":"DqOjdFgvFQ3V/jvQW2j3ygHL4D+t7/LaIPZ/tHTDZtI"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"qBWLb42zicQVsbh333YrcKpHfKokcUOM/ytldGlrgSdXqDEDDxvpcFlfadYnyvj3Z/GjA2XZkqKHanNEh575Bw"}},"state_key":"@userid:baba.is.you","type":"m.room.member"}`),
 		false, roomVer,
