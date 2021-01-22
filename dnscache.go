@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type dnsCache struct {
+type DNSCache struct {
 	resolver *net.Resolver
 	mutex    sync.Mutex
 	size     int
@@ -16,8 +16,8 @@ type dnsCache struct {
 	entries  map[string]*dnsCacheEntry
 }
 
-func newDNSCache(size int, duration time.Duration) *dnsCache {
-	return &dnsCache{
+func NewDNSCache(size int, duration time.Duration) *DNSCache {
+	return &DNSCache{
 		resolver: net.DefaultResolver,
 		size:     size,
 		duration: duration,
@@ -30,7 +30,7 @@ type dnsCacheEntry struct {
 	expires time.Time
 }
 
-func (c *dnsCache) lookup(ctx context.Context, name string) (*dnsCacheEntry, bool) {
+func (c *DNSCache) lookup(ctx context.Context, name string) (*dnsCacheEntry, bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -80,7 +80,7 @@ func (c *dnsCache) lookup(ctx context.Context, name string) (*dnsCacheEntry, boo
 	return entry, false
 }
 
-func (c *dnsCache) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+func (c *DNSCache) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	// Split up the host and port from the give address.
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {

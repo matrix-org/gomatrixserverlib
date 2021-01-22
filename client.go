@@ -49,13 +49,13 @@ type UserInfo struct {
 }
 
 // NewClient makes a new Client (with default timeout)
-func NewClient(skipVerify bool) *Client {
-	return NewClientWithTransportTimeout(requestTimeout, newFederationTripper(skipVerify))
+func NewClient(skipVerify bool, options ...interface{}) *Client {
+	return NewClientWithTransportTimeout(requestTimeout, newFederationTripper(skipVerify, options...))
 }
 
 // NewClientWithTieout makes a new Client (with specified timeout)
-func NewClientWithTimeout(timeout time.Duration, skipVerify bool) *Client {
-	return NewClientWithTransportTimeout(timeout, newFederationTripper(skipVerify))
+func NewClientWithTimeout(timeout time.Duration, skipVerify bool, options ...interface{}) *Client {
+	return NewClientWithTransportTimeout(timeout, newFederationTripper(skipVerify, options...))
 }
 
 // NewClientWithTransport makes a new Client with an existing transport
@@ -79,14 +79,21 @@ type federationTripper struct {
 	transportsMutex sync.Mutex
 	skipVerify      bool
 	resolutionCache sync.Map // serverName -> []ResolutionResult
-	dnsCache        *dnsCache
+	dnsCache        *DNSCache
 }
 
-func newFederationTripper(skipVerify bool) *federationTripper {
+func newFederationTripper(skipVerify bool, options ...interface{}) *federationTripper {
+	var dnsCache *DNSCache
+	for _, opt := range options {
+		switch o := opt.(type) {
+		case *DNSCache:
+			dnsCache = o
+		}
+	}
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
 		skipVerify: skipVerify,
-		dnsCache:   newDNSCache(2048, time.Minute*5), // TODO: What are sane values here?
+		dnsCache:   dnsCache,
 	}
 }
 
