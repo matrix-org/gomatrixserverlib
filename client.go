@@ -52,7 +52,9 @@ type ClientOption interface {
 	IsClientOption()
 }
 
-// NewClient makes a new Client (with default timeout)
+// NewClient makes a new Client. You can supply zero or more ClientOpts
+// which control the transport, timeout, TLS validation etc - see
+// WithTransport, WithTimeout, WithSkipVerify, WithDNSCache etc.
 func NewClient(options ...ClientOption) *Client {
 	var transport http.RoundTripper
 	var dnsCache *DNSCache

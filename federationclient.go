@@ -21,7 +21,10 @@ type FederationClient struct {
 	serverPrivateKey ed25519.PrivateKey
 }
 
-// NewFederationClient makes a new FederationClient
+// NewFederationClient makes a new FderationClient. You can supply
+// zero or more ClientOpts which control the transport, timeout,
+// TLS validation etc - see WithTransport, WithTimeout, WithSkipVerify,
+// WithDNSCache etc.
 func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
 	skipVerify bool, options ...ClientOption,
