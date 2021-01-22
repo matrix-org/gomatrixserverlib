@@ -31,14 +31,13 @@ type dnsCacheEntry struct {
 }
 
 func (c *DNSCache) lookup(ctx context.Context, name string) (*dnsCacheEntry, bool) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	// Check to see if there's something in the cache for this name.
+	c.mutex.Lock()
 	if entry, ok := c.entries[name]; ok {
 		// Check the expiry of the cache entry. If it's still within
 		// the expiry period then return the entry as-is.
 		if time.Now().Before(entry.expires) {
+			c.mutex.Unlock()
 			return entry, true
 		}
 
@@ -46,15 +45,20 @@ func (c *DNSCache) lookup(ctx context.Context, name string) (*dnsCacheEntry, boo
 		// the cache.
 		delete(c.entries, name)
 	}
+	c.mutex.Unlock()
 
 	// At this point there's either nothing in the cache, or there
 	// was something in the cache but it's past the validity, so we
 	// have nuked it. Ask the operating system to perform a lookup
 	// for us.
+
 	addrs, err := c.resolver.LookupIPAddr(ctx, name)
 	if err != nil {
 		return nil, false
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	// If we've hit, or exceed somehow, the maximum size of the cache
 	// then we will need to evict the oldest entries to make room.
