@@ -73,6 +73,11 @@ func NewClientWithTransportTimeout(timeout time.Duration, transport http.RoundTr
 	}
 }
 
+// WithDNSCache is an option that can be given to NewClient, NewFederationClient etc.
+type WithDNSCache struct {
+	DNSCache *DNSCache
+}
+
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
@@ -86,8 +91,8 @@ func newFederationTripper(skipVerify bool, options ...interface{}) *federationTr
 	var dnsCache *DNSCache
 	for _, opt := range options {
 		switch o := opt.(type) {
-		case *DNSCache:
-			dnsCache = o
+		case WithDNSCache:
+			dnsCache = o.DNSCache
 		}
 	}
 	return &federationTripper{
