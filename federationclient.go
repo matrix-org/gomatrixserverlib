@@ -22,7 +22,7 @@ type FederationClient struct {
 }
 
 // NewFederationClient makes a new FederationClient. You can supply
-// zero or more ClientOpts which control the transport, timeout,
+// zero or more ClientOptions which control the transport, timeout,
 // TLS validation etc - see WithTransport, WithTimeout, WithSkipVerify,
 // WithDNSCache etc.
 func NewFederationClient(
