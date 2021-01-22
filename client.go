@@ -48,14 +48,18 @@ type UserInfo struct {
 	Sub string `json:"sub"`
 }
 
+type ClientOption interface {
+	IsClientOption()
+}
+
 // NewClient makes a new Client (with default timeout)
-func NewClient(skipVerify bool) *Client {
-	return NewClientWithTransportTimeout(requestTimeout, newFederationTripper(skipVerify))
+func NewClient(skipVerify bool, options ...ClientOption) *Client {
+	return NewClientWithTransportTimeout(requestTimeout, newFederationTripper(skipVerify, options...))
 }
 
 // NewClientWithTieout makes a new Client (with specified timeout)
-func NewClientWithTimeout(timeout time.Duration, skipVerify bool) *Client {
-	return NewClientWithTransportTimeout(timeout, newFederationTripper(skipVerify))
+func NewClientWithTimeout(timeout time.Duration, skipVerify bool, options ...ClientOption) *Client {
+	return NewClientWithTransportTimeout(timeout, newFederationTripper(skipVerify, options...))
 }
 
 // NewClientWithTransport makes a new Client with an existing transport
@@ -73,18 +77,34 @@ func NewClientWithTransportTimeout(timeout time.Duration, transport http.RoundTr
 	}
 }
 
+// WithDNSCache is an option that can be given to NewClient, NewFederationClient etc.
+type WithDNSCache struct {
+	DNSCache *DNSCache
+}
+
+func (w WithDNSCache) IsClientOption() {}
+
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
 	transportsMutex sync.Mutex
 	skipVerify      bool
 	resolutionCache sync.Map // serverName -> []ResolutionResult
+	dnsCache        *DNSCache
 }
 
-func newFederationTripper(skipVerify bool) *federationTripper {
+func newFederationTripper(skipVerify bool, options ...ClientOption) *federationTripper {
+	var dnsCache *DNSCache
+	for _, opt := range options {
+		switch o := opt.(type) {
+		case WithDNSCache:
+			dnsCache = o.DNSCache
+		}
+	}
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
 		skipVerify: skipVerify,
+		dnsCache:   dnsCache,
 	}
 }
 
@@ -101,15 +121,17 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 
 	// Create the transport if we don't have any for this TLS server name.
 	if transport, ok = f.transports[tlsServerName]; !ok {
-		transport = &http.Transport{
+		tr := &http.Transport{
 			DisableKeepAlives: true,
 			TLSClientConfig: &tls.Config{
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
 			},
 		}
-
-		f.transports[tlsServerName] = transport
+		if f.dnsCache != nil {
+			tr.DialContext = f.dnsCache.DialContext
+		}
+		transport, f.transports[tlsServerName] = tr, tr
 	}
 
 	f.transportsMutex.Unlock()
