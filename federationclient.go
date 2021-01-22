@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/matrix-org/gomatrix"
 	"golang.org/x/crypto/ed25519"
@@ -29,34 +27,7 @@ func NewFederationClient(
 	skipVerify bool, options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClient(skipVerify, options...),
-		serverName:       serverName,
-		serverKeyID:      keyID,
-		serverPrivateKey: privateKey,
-	}
-}
-
-// NewFederationClientWithTimeout makes a new FederationClient
-func NewFederationClientWithTimeout(
-	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	skipVerify bool, timeout time.Duration, options ...ClientOption,
-) *FederationClient {
-	return &FederationClient{
-		Client:           *NewClientWithTimeout(timeout, skipVerify, options...),
-		serverName:       serverName,
-		serverKeyID:      keyID,
-		serverPrivateKey: privateKey,
-	}
-}
-
-// NewFederationClientWithTransport makes a new FederationClient with a custom
-// transport.
-func NewFederationClientWithTransport(
-	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	skipVerify bool, transport *http.Transport,
-) *FederationClient {
-	return &FederationClient{
-		Client:           *NewClientWithTransport(transport),
+		Client:           *NewClient(options...),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,

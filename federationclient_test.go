@@ -52,22 +52,24 @@ func TestSendJoinFallback(t *testing.T) {
 		t.Fatalf("failed to marshal RespSendJoin: %s", err)
 	}
 	fc := gomatrixserverlib.NewFederationClient(serverName, keyID, privateKey, true)
-	fc.Client = *gomatrixserverlib.NewClientWithTransport(&roundTripper{
-		fn: func(req *http.Request) (*http.Response, error) {
-			if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
+	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport{
+		Transport: &roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
+					return &http.Response{
+						StatusCode: 404,
+						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+					}, nil
+				}
+				if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
+					return nil, fmt.Errorf("test: unexpected url path: %s", req.URL.Path)
+				}
+				t.Logf("Sending response: %s", string(v1ResBytes))
 				return &http.Response{
-					StatusCode: 404,
-					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+					StatusCode: 200,
+					Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
 				}, nil
-			}
-			if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
-				return nil, fmt.Errorf("test: unexpected url path: %s", req.URL.Path)
-			}
-			t.Logf("Sending response: %s", string(v1ResBytes))
-			return &http.Response{
-				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
-			}, nil
+			},
 		},
 	})
 	ev, err := gomatrixserverlib.NewEventFromTrustedJSON(

@@ -53,36 +53,63 @@ type ClientOption interface {
 }
 
 // NewClient makes a new Client (with default timeout)
-func NewClient(skipVerify bool, options ...ClientOption) *Client {
-	return NewClientWithTransportTimeout(requestTimeout, newFederationTripper(skipVerify, options...))
-}
-
-// NewClientWithTieout makes a new Client (with specified timeout)
-func NewClientWithTimeout(timeout time.Duration, skipVerify bool, options ...ClientOption) *Client {
-	return NewClientWithTransportTimeout(timeout, newFederationTripper(skipVerify, options...))
-}
-
-// NewClientWithTransport makes a new Client with an existing transport
-func NewClientWithTransport(transport http.RoundTripper) *Client {
-	return NewClientWithTransportTimeout(requestTimeout, transport)
-}
-
-// NewClientWithTransportTimeout makes a new Client with a specified request timeout
-func NewClientWithTransportTimeout(timeout time.Duration, transport http.RoundTripper) *Client {
-	return &Client{
+func NewClient(options ...ClientOption) *Client {
+	var transport http.RoundTripper
+	var dnsCache *DNSCache
+	timeout := requestTimeout
+	skipVerify := false
+	for _, option := range options {
+		switch o := option.(type) {
+		case WithTransport:
+			transport = o.Transport
+		case WithTimeout:
+			timeout = o.Timeout
+		case WithSkipVerify:
+			skipVerify = o.SkipVerify
+		case WithDNSCache:
+			dnsCache = o.DNSCache
+		}
+	}
+	if transport == nil {
+		transport = newFederationTripper(skipVerify, dnsCache)
+	}
+	client := &Client{
 		client: http.Client{
 			Transport: transport,
 			Timeout:   timeout,
 		},
 	}
+	return client
+}
+
+// WithTransport is an option that can be given to NewClient, NewFederationClient etc.
+type WithTransport struct {
+	Transport http.RoundTripper
+}
+
+// WithTimeout is an option that can be given to NewClient, NewFederationClient etc.
+type WithTimeout struct {
+	Timeout time.Duration
 }
 
 // WithDNSCache is an option that can be given to NewClient, NewFederationClient etc.
+// This option will only take effect if WithTransport is NOT supplied, as a custom
+// transport will override DNS caching.
 type WithDNSCache struct {
 	DNSCache *DNSCache
 }
 
-func (w WithDNSCache) IsClientOption() {}
+// WithSkipVerify is an option that can be given to NewClient, NewFederationClient etc.
+// This option will only take effect if WithTransport is NOT supplied, as a custom
+// transport will override TLS verification.
+type WithSkipVerify struct {
+	SkipVerify bool
+}
+
+func (w WithTransport) IsClientOption()  {}
+func (w WithTimeout) IsClientOption()    {}
+func (w WithDNSCache) IsClientOption()   {}
+func (w WithSkipVerify) IsClientOption() {}
 
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
@@ -93,14 +120,7 @@ type federationTripper struct {
 	dnsCache        *DNSCache
 }
 
-func newFederationTripper(skipVerify bool, options ...ClientOption) *federationTripper {
-	var dnsCache *DNSCache
-	for _, opt := range options {
-		switch o := opt.(type) {
-		case WithDNSCache:
-			dnsCache = o.DNSCache
-		}
-	}
+func newFederationTripper(skipVerify bool, dnsCache *DNSCache) *federationTripper {
 	return &federationTripper{
 		transports: make(map[string]http.RoundTripper),
 		skipVerify: skipVerify,
