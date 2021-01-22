@@ -21,7 +21,7 @@ type FederationClient struct {
 	serverPrivateKey ed25519.PrivateKey
 }
 
-// NewFederationClient makes a new FderationClient. You can supply
+// NewFederationClient makes a new FederationClient. You can supply
 // zero or more ClientOpts which control the transport, timeout,
 // TLS validation etc - see WithTransport, WithTimeout, WithSkipVerify,
 // WithDNSCache etc.
