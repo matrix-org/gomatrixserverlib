@@ -15,19 +15,15 @@
 
 package gomatrixserverlib
 
-import (
-	"encoding/json"
-)
-
-// RawJSON is a reimplementation of json.RawMessage that supports being used as a value type
+// RawJSON is a reimplementation of jsoniter.RawMessage that supports being used as a value type
 //
 // For example:
 //
 //  jsonBytes, _ := json.Marshal(struct{
-//		RawMessage json.RawMessage
+//		RawMessage jsoniter.RawMessage
 //		RawJSON RawJSON
 //	}{
-//		json.RawMessage(`"Hello"`),
+//		jsoniter.RawMessage(`"Hello"`),
 //		RawJSON(`"World"`),
 //	})
 //

@@ -16,7 +16,6 @@ package gomatrixserverlib
 
 import (
 	"container/heap"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"

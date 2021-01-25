@@ -17,7 +17,6 @@ package gomatrixserverlib
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"strings"
 )
 

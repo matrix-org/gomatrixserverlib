@@ -1,16 +1,16 @@
 package gomatrixserverlib
 
-import "encoding/json"
+import jsoniter "github.com/json-iterator/go"
 
 type SendToDeviceEvent struct {
-	Sender  string          `json:"sender"`
-	Type    string          `json:"type"`
-	Content json.RawMessage `json:"content"`
+	Sender  string              `json:"sender"`
+	Type    string              `json:"type"`
+	Content jsoniter.RawMessage `json:"content"`
 }
 
 type ToDeviceMessage struct {
-	Sender    string                                `json:"sender"`
-	Type      string                                `json:"type"`
-	MessageID string                                `json:"message_id"`
-	Messages  map[string]map[string]json.RawMessage `json:"messages"`
+	Sender    string                                    `json:"sender"`
+	Type      string                                    `json:"type"`
+	MessageID string                                    `json:"message_id"`
+	Messages  map[string]map[string]jsoniter.RawMessage `json:"messages"`
 }
