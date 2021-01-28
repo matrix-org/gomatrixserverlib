@@ -99,7 +99,7 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 		N: WellKnownMaxSize,
 	}
 	n, err := limitedReader.Read(bodyBuffer)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return nil, err
 	}
 	body := bodyBuffer[:n]
