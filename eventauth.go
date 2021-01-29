@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -994,6 +995,8 @@ func (m *membershipAllower) membershipAllowedFromThirdPartyInvite() error {
 						marshalledSigned,
 					); err == nil {
 						return nil
+					} else {
+						logrus.WithError(err).Errorf("Failed to validate third-party invite signature using domain %q key %q", domain, keyID)
 					}
 				}
 			}
