@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -133,15 +134,17 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 		return fmt.Errorf("Bad signature length from %q with ID %q", signingName, keyID)
 	}
 
-	// The "unsigned" key and "signatures" keys aren't covered by the signature so remove them.
-	delete(object, "unsigned")
-	delete(object, "signatures")
+	// Strip keys that shouldn't be a part of the signature check.
+	var err error
+	unsorted := append([]byte{}, message...)
+	if unsorted, err = sjson.DeleteBytes(unsorted, "unsigned"); err != nil {
+		return fmt.Errorf("sjson.DeleteBytes: %w", err)
+	}
+	if unsorted, err = sjson.DeleteBytes(unsorted, "signatures"); err != nil {
+		return fmt.Errorf("sjson.DeleteBytes: %w", err)
+	}
 
 	// Encode the JSON without the "unsigned" and "signatures" keys in the canonical format.
-	unsorted, err := json.Marshal(object)
-	if err != nil {
-		return err
-	}
 	canonical, err := CanonicalJSON(unsorted)
 	if err != nil {
 		return err
