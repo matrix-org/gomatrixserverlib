@@ -515,10 +515,8 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
-			return fmt.Errorf(
-				"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
-				event.EventID(), err,
-			)
+			logrus.WithError(err).Errorf("Event %q is not allowed by its auth events", event.EventID())
+			failures[event.EventID()] = err
 		}
 	}
 
