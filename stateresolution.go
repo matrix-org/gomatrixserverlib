@@ -324,6 +324,7 @@ func ResolveConflicts(
 	}
 
 	// Prepare our data structures.
+	eventIDMap := map[string]struct{}{}
 	eventMap := make(map[stateKeyTuple][]*Event)
 	var conflicted, notConflicted, resolved []*Event
 
@@ -332,6 +333,10 @@ func ResolveConflicts(
 	// that we can easily spot events that are "conflicted", e.g.
 	// there are duplicate values for the same tuple key.
 	for _, event := range events {
+		if _, ok := eventIDMap[event.EventID()]; ok {
+			continue
+		}
+		eventIDMap[event.EventID()] = struct{}{}
 		if event.StateKey() == nil {
 			// Ignore events that are not state events.
 			continue
