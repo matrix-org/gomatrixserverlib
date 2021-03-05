@@ -68,12 +68,6 @@ func NewClient(options ...ClientOption) *Client {
 	for _, option := range options {
 		option(clientOpts)
 	}
-	if clientOpts.transport == nil {
-		clientOpts.transport = newFederationTripper(
-			clientOpts.skipVerify,
-			clientOpts.dnsCache,
-		)
-	}
 	client := &Client{
 		client: http.Client{
 			Transport: clientOpts.transport,

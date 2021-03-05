@@ -29,6 +29,15 @@ func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
 	options ...ClientOption,
 ) *FederationClient {
+	options = append(
+		[]ClientOption{
+			// Start with the default federation tripper. This may
+			// be overridden by caller-supplied options, as they are
+			// processed in order, but it gives us sane defaults.
+			WithTransport(newFederationTripper(false, nil)),
+		},
+		options...,
+	)
 	return &FederationClient{
 		Client:           *NewClient(options...),
 		serverName:       serverName,
