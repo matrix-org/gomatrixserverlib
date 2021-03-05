@@ -68,6 +68,14 @@ func NewClient(options ...ClientOption) *Client {
 	for _, option := range options {
 		option(clientOpts)
 	}
+	if clientOpts.transport == nil {
+		clientOpts.transport = &http.Transport{
+			DisableKeepAlives: true,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: clientOpts.skipVerify,
+			},
+		}
+	}
 	client := &Client{
 		client: http.Client{
 			Transport: clientOpts.transport,
