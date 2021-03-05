@@ -120,6 +120,19 @@ func WithSkipVerify(skipVerify bool) ClientOption {
 	}
 }
 
+// withFederationTransport is an option that can be supplied to NewClient.
+// It causes the federation tripper to be used. This must be specified
+// AFTER other options such as WithTimeout, WithDNSCache or WithSkipVerify
+// and is called by NewFederationClient automatically.
+func withFederationTransport() ClientOption {
+	return func(options *clientOptions) {
+		options.transport = newFederationTripper(
+			options.skipVerify,
+			options.dnsCache,
+		)
+	}
+}
+
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
