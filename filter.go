@@ -22,11 +22,20 @@ import (
 // Filter is used by clients to specify how the server should filter responses to e.g. sync requests
 // Specified by: https://matrix.org/docs/spec/client_server/r0.5.0.html#filtering
 type Filter struct {
+	Rooms       RoomsFilter `json:"rooms,omitempty"`
 	EventFields []string    `json:"event_fields,omitempty"`
 	EventFormat string      `json:"event_format,omitempty"`
 	Presence    EventFilter `json:"presence,omitempty"`
 	AccountData EventFilter `json:"account_data,omitempty"`
 	Room        RoomFilter  `json:"room,omitempty"`
+}
+
+type RoomsFilter struct {
+	Sublists map[string]struct {
+		Ordering string `json:"order_by"`
+		Offset   int    `json:"offset"`
+		Limit    int    `json:"limit"`
+	} `json:"sublists"`
 }
 
 // EventFilter is used to define filtering rules for events
