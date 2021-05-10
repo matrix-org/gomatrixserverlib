@@ -121,7 +121,8 @@ func WithSkipVerify(skipVerify bool) ClientOption {
 }
 
 // WithKeepAlives is an option that can be supplied to either NewClient or
-// NewFederationClient.
+// NewFederationClient. This option will be ineffective if WithTransport
+// has already been supplied.
 func WithKeepAlives(keepAlives bool) ClientOption {
 	return func(options *clientOptions) {
 		options.keepAlives = keepAlives
