@@ -49,11 +49,11 @@ type UserInfo struct {
 }
 
 type clientOptions struct {
-	transport         http.RoundTripper
-	dnsCache          *DNSCache
-	timeout           time.Duration
-	skipVerify        bool
-	disableKeepAlives bool
+	transport  http.RoundTripper
+	dnsCache   *DNSCache
+	timeout    time.Duration
+	skipVerify bool
+	keepAlives bool
 }
 
 // ClientOption are supplied to NewClient or NewFederationClient.
@@ -73,7 +73,7 @@ func NewClient(options ...ClientOption) *Client {
 		clientOpts.transport = newFederationTripper(
 			clientOpts.skipVerify,
 			clientOpts.dnsCache,
-			clientOpts.disableKeepAlives,
+			clientOpts.keepAlives,
 		)
 	}
 	client := &Client{
@@ -122,28 +122,28 @@ func WithSkipVerify(skipVerify bool) ClientOption {
 
 // WithKeepAlives is an option that can be supplied to either NewClient or
 // NewFederationClient.
-func WithDisableKeepAlives(disableKeepAlives bool) ClientOption {
+func WithKeepAlives(keepAlives bool) ClientOption {
 	return func(options *clientOptions) {
-		options.disableKeepAlives = disableKeepAlives
+		options.keepAlives = keepAlives
 	}
 }
 
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
-	transports        map[string]http.RoundTripper
-	transportsMutex   sync.Mutex
-	skipVerify        bool
-	resolutionCache   sync.Map // serverName -> []ResolutionResult
-	dnsCache          *DNSCache
-	disableKeepAlives bool
+	transports      map[string]http.RoundTripper
+	transportsMutex sync.Mutex
+	skipVerify      bool
+	resolutionCache sync.Map // serverName -> []ResolutionResult
+	dnsCache        *DNSCache
+	keepAlives      bool
 }
 
-func newFederationTripper(skipVerify bool, dnsCache *DNSCache, disableKeepAlives bool) *federationTripper {
+func newFederationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) *federationTripper {
 	return &federationTripper{
-		transports:        make(map[string]http.RoundTripper),
-		skipVerify:        skipVerify,
-		dnsCache:          dnsCache,
-		disableKeepAlives: disableKeepAlives,
+		transports: make(map[string]http.RoundTripper),
+		skipVerify: skipVerify,
+		dnsCache:   dnsCache,
+		keepAlives: keepAlives,
 	}
 }
 
@@ -161,7 +161,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 	// Create the transport if we don't have any for this TLS server name.
 	if transport, ok = f.transports[tlsServerName]; !ok {
 		tr := &http.Transport{
-			DisableKeepAlives: f.disableKeepAlives,
+			DisableKeepAlives: !f.keepAlives,
 			TLSClientConfig: &tls.Config{
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
