@@ -977,8 +977,8 @@ func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
 // MSC2946SpacesRequest is the HTTP body for the federated /unstable/spaces/{roomID} endpoint
 // See https://github.com/matrix-org/matrix-doc/pull/2946
 type MSC2946SpacesRequest struct {
-	ExcludeRooms     []string `json:"exclude_rooms"`
-	MaxRoomsPerSpace int      `json:"max_rooms_per_space"`
+	ExcludeRooms     []string `json:"exclude_rooms,omitempty"`
+	MaxRoomsPerSpace int      `json:"max_rooms_per_space,omitempty"`
 	Limit            int      `json:"limit"`
 	Batch            string   `json:"batch"`
 }
