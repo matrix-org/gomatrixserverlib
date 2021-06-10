@@ -202,11 +202,11 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 }
 
 type testAuthEvents struct {
-	CreateJSON           json.RawMessage            `json:"create"`
-	JoinRulesJSON        json.RawMessage            `json:"join_rules"`
-	PowerLevelsJSON      json.RawMessage            `json:"power_levels"`
-	MemberJSON           map[string]json.RawMessage `json:"member"`
-	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
+	CreateJSON           []byte            `json:"create"`
+	JoinRulesJSON        []byte            `json:"join_rules"`
+	PowerLevelsJSON      []byte            `json:"power_levels"`
+	MemberJSON           map[string][]byte `json:"member"`
+	ThirdPartyInviteJSON map[string][]byte `json:"third_party_invite"`
 }
 
 func (tae *testAuthEvents) Create() (*Event, error) {
@@ -265,9 +265,9 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 }
 
 type testCase struct {
-	AuthEvents testAuthEvents    `json:"auth_events"`
-	Allowed    []json.RawMessage `json:"allowed"`
-	NotAllowed []json.RawMessage `json:"not_allowed"`
+	AuthEvents testAuthEvents `json:"auth_events"`
+	Allowed    [][]byte       `json:"allowed"`
+	NotAllowed [][]byte       `json:"not_allowed"`
 }
 
 func testEventAllowed(t *testing.T, testCaseJSON string) {

@@ -383,7 +383,7 @@ func (fc *Client) LookupServerKeys(
 	}
 
 	var body struct {
-		ServerKeyList []json.RawMessage `json:"server_keys"`
+		ServerKeyList [][]byte `json:"server_keys"`
 	}
 
 	var res struct {

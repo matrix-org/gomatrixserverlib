@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 )
 
@@ -42,7 +41,7 @@ func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider St
 // The order of the returned events depends on `sortOrder`. The events are reverse topologically sorted by the ordering specified. However
 // in order to sort the events the events must be loaded which could fail. For those events which fail to be loaded, they will
 // be put at the end of the returned slice.
-func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage, sortOrder TopologicalOrder) ([]EventLoadResult, error) {
+func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents [][]byte, sortOrder TopologicalOrder) ([]EventLoadResult, error) {
 	results := make([]EventLoadResult, len(rawEvents))
 
 	// 1. Is a valid event, otherwise it is dropped.

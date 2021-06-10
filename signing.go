@@ -34,7 +34,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	// Unpack the top-level key of the JSON object without unpacking the contents of the keys.
 	// This allows us to add and remove the top-level keys from the JSON object.
 	// It also ensures that the JSON is actually a valid JSON object.
-	var object map[string]*json.RawMessage
+	var object map[string]*[]byte
 	var signatures map[string]map[KeyID]Base64Bytes
 	if err := json.Unmarshal(message, &object); err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	} else {
 		signatures[signingName] = map[KeyID]Base64Bytes{keyID: signature}
 	}
-	var rawSignatures json.RawMessage
+	var rawSignatures []byte
 	rawSignatures, err = json.Marshal(signatures)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 // ListKeyIDs lists the key IDs a given entity has signed a message with.
 func ListKeyIDs(signingName string, message []byte) ([]KeyID, error) {
 	var object struct {
-		Signatures map[string]map[KeyID]json.RawMessage `json:"signatures"`
+		Signatures map[string]map[KeyID][]byte `json:"signatures"`
 	}
 	if err := json.Unmarshal(message, &object); err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	// Unpack the top-level key of the JSON object without unpacking the contents of the keys.
 	// This allows us to add and remove the top-level keys from the JSON object.
 	// It also ensures that the JSON is actually a valid JSON object.
-	var object map[string]*json.RawMessage
+	var object map[string]*[]byte
 	var signatures map[string]map[KeyID]Base64Bytes
 	if err := json.Unmarshal(message, &object); err != nil {
 		return err

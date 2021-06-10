@@ -3,7 +3,6 @@ package gomatrixserverlib
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"testing"
@@ -101,7 +100,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 				return &Transaction{
 					Origin:         serverA,
 					OriginServerTS: AsTimestamp(time.Now()),
-					PDUs: []json.RawMessage{
+					PDUs: [][]byte{
 						testBackfillEvents[1], testBackfillEvents[3],
 					},
 				}, nil
@@ -110,7 +109,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 				return &Transaction{
 					Origin:         serverB,
 					OriginServerTS: AsTimestamp(time.Now()),
-					PDUs: []json.RawMessage{
+					PDUs: [][]byte{
 						testBackfillEvents[0], testBackfillEvents[2], testBackfillEvents[3],
 					},
 				}, nil
@@ -165,7 +164,7 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 				return &Transaction{
 					Origin:         serverA,
 					OriginServerTS: AsTimestamp(time.Now()),
-					PDUs: []json.RawMessage{
+					PDUs: [][]byte{
 						testBackfillEvents[0], testBackfillEvents[1], testBackfillEvents[2], testBackfillEvents[3],
 					},
 				}, nil

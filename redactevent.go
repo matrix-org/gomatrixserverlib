@@ -19,15 +19,15 @@ import (
 	"encoding/json"
 )
 
-// RawJSON is a reimplementation of json.RawMessage that supports being used as a value type
+// RawJSON is a reimplementation of []byte that supports being used as a value type
 //
 // For example:
 //
 //  jsonBytes, _ := json.Marshal(struct{
-//		RawMessage json.RawMessage
+//		RawMessage []byte
 //		RawJSON RawJSON
 //	}{
-//		json.RawMessage(`"Hello"`),
+//		[]byte(`"Hello"`),
 //		RawJSON(`"World"`),
 //	})
 //
