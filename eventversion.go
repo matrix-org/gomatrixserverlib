@@ -27,6 +27,7 @@ const (
 	RoomVersionV4 RoomVersion = "4"
 	RoomVersionV5 RoomVersion = "5"
 	RoomVersionV6 RoomVersion = "6"
+	RoomVersionV7 RoomVersion = "7"
 )
 
 // Event format constants.
@@ -111,6 +112,17 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 	},
 	RoomVersionV6: {
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV2,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+	},
+	RoomVersionV7: {
 		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
