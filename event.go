@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 	"time"
 
@@ -710,26 +709,10 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	return nil
 }
 
-// https://matrix.org/docs/spec/appendices#id12
-var validUserIDRegex = regexp.MustCompile(`^[0-9a-z\._=\-/]+$`)
-
-func checkID(id, kind string, sigil byte) (domain ServerName, err error) {
-	var user string
-	if user, domain, err = SplitID(sigil, id); err != nil {
-		err = fmt.Errorf("gomatrixserverlib: invalid ID %q, invalid format: %w", id, err)
+func checkID(id, kind string, sigil byte) (domain string, err error) {
+	domain, err = domainFromID(id)
+	if err != nil {
 		return
-	}
-	// Check that the characters in the ID are valid for the type
-	switch sigil {
-	case '@':
-		if len(id) > 255 {
-			err = fmt.Errorf("gomatrixserverlib: invalid ID %q, too long", id)
-			return
-		}
-		if !validUserIDRegex.MatchString(user) {
-			err = fmt.Errorf("gomatrixserverlib: invalid ID %q, user part %q contains invalid characters", id, user)
-			return
-		}
 	}
 	if id[0] != sigil {
 		err = fmt.Errorf(

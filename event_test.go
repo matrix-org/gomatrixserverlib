@@ -180,28 +180,3 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
 	}
 }
-
-func TestValidUserID(t *testing.T) {
-	userIDsShouldPass := []string{
-		"@foo:bar.com",
-		"@foo-baz:bar.com",
-		"@foo_qux/baz:bar.com",
-		"@foo.baz:bar.com",
-	}
-	userIDsShouldFail := []string{
-		"@Foo:bar.com",
-		"@foo%:bar.com",
-		"@fooé:bar.com",
-		"@℉oo:bar.com",
-	}
-	for _, id := range userIDsShouldPass {
-		if _, err := checkID(id, "user", '@'); err != nil {
-			t.Fatalf("%q should have passed but didn't: %s", id, err)
-		}
-	}
-	for _, id := range userIDsShouldFail {
-		if _, err := checkID(id, "user", '@'); err == nil {
-			t.Fatalf("%q should have failed but didn't", id)
-		}
-	}
-}
