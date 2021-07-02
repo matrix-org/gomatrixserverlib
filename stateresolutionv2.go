@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 )
 
 // TopologicalOrder represents how to sort a list of events, used primarily in ReverseTopologicalOrdering
@@ -468,7 +467,7 @@ func (r *stateResolverV2) mainlineOrdering(events []*Event) (result []*Event) {
 // getPowerLevelFromAuthEvents tries to determine the effective power level of
 // the sender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
-func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
+func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 	for _, authID := range event.AuthEventIDs() {
 		// First check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.
@@ -483,31 +482,17 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) (pl int) {
 		}
 
 		// Try and parse the content of the event.
-		var content map[string]interface{}
-		if err := json.Unmarshal(authEvent.Content(), &content); err != nil {
+		content, err := NewPowerLevelContentFromEvent(authEvent)
+		if err != nil {
 			return 0
 		}
 
-		// First of all try to see if there's a default user power level. We'll use
-		// that for now as a fallback.
-		if defaultPl, ok := content["users_default"].(int); ok {
-			pl = defaultPl
-		}
-
-		// See if there is a "users" key in the event content.
-		if users, ok := content["users"].(map[string]string); ok {
-			// Is there a key that matches the sender?
-			if _, ok := users[event.Sender()]; ok {
-				// A power level for this specific user is known, let's use that
-				// instead.
-				if p, err := strconv.Atoi(users[event.Sender()]); err == nil {
-					pl = p
-				}
-			}
-		}
+		// Look up what the power level should be for this user. If the user is
+		// not in the list, the default user power level will be returned instead.
+		return content.UserLevel(event.Sender())
 	}
 
-	return
+	return 0
 }
 
 // kahnsAlgorithmByAuthEvents is, predictably, an implementation of Kahn's
