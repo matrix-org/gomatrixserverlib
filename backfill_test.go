@@ -3,11 +3,12 @@ package gomatrixserverlib
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"testing"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 type testBackfillRequester struct {
@@ -101,7 +102,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 				return &Transaction{
 					Origin:         serverA,
 					OriginServerTS: AsTimestamp(time.Now()),
-					PDUs: []json.RawMessage{
+					PDUs: []jsoniter.RawMessage{
 						testBackfillEvents[1], testBackfillEvents[3],
 					},
 				}, nil
@@ -110,7 +111,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 				return &Transaction{
 					Origin:         serverB,
 					OriginServerTS: AsTimestamp(time.Now()),
-					PDUs: []json.RawMessage{
+					PDUs: []jsoniter.RawMessage{
 						testBackfillEvents[0], testBackfillEvents[2], testBackfillEvents[3],
 					},
 				}, nil
@@ -165,7 +166,7 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 				return &Transaction{
 					Origin:         serverA,
 					OriginServerTS: AsTimestamp(time.Now()),
-					PDUs: []json.RawMessage{
+					PDUs: []jsoniter.RawMessage{
 						testBackfillEvents[0], testBackfillEvents[1], testBackfillEvents[2], testBackfillEvents[3],
 					},
 				}, nil

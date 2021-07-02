@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"

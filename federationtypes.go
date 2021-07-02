@@ -2,13 +2,13 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
@@ -257,7 +257,7 @@ func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		Events []json.RawMessage `json:"events"`
+		Events []jsoniter.RawMessage `json:"events"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
@@ -300,11 +300,11 @@ func (r *RespPeek) UnmarshalJSON(data []byte) error {
 	r.AuthEvents = []*Event{}
 	r.StateEvents = []*Event{}
 	var intermediate struct {
-		RoomVersion     RoomVersion       `json:"room_version"`
-		StateEvents     []json.RawMessage `json:"state"`
-		AuthEvents      []json.RawMessage `json:"auth_chain"`
-		RenewalInterval int64             `json:"renewal_interval"`
-		LatestEvent     json.RawMessage   `json:"latest_event"`
+		RoomVersion     RoomVersion           `json:"room_version"`
+		StateEvents     []jsoniter.RawMessage `json:"state"`
+		AuthEvents      []jsoniter.RawMessage `json:"auth_chain"`
+		RenewalInterval int64                 `json:"renewal_interval"`
+		LatestEvent     jsoniter.RawMessage   `json:"latest_event"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return fmt.Errorf("RespPeek UnmarshalJSON(intermediate): %w", err)
@@ -358,8 +358,8 @@ func (r *RespState) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		StateEvents []json.RawMessage `json:"pdus"`
-		AuthEvents  []json.RawMessage `json:"auth_chain"`
+		StateEvents []jsoniter.RawMessage `json:"pdus"`
+		AuthEvents  []jsoniter.RawMessage `json:"auth_chain"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
@@ -587,9 +587,9 @@ func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		StateEvents []json.RawMessage `json:"state"`
-		AuthEvents  []json.RawMessage `json:"auth_chain"`
-		Origin      ServerName        `json:"origin"`
+		StateEvents []jsoniter.RawMessage `json:"state"`
+		AuthEvents  []jsoniter.RawMessage `json:"auth_chain"`
+		Origin      ServerName            `json:"origin"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
@@ -852,7 +852,7 @@ func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		Event json.RawMessage `json:"event"`
+		Event jsoniter.RawMessage `json:"event"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
@@ -869,7 +869,7 @@ func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
 type RespClaimKeys struct {
 	// Required. One-time keys for the queried devices. A map from user ID, to a map from devices to a map
 	// from <algorithm>:<key_id> to the key object or a string.
-	OneTimeKeys map[string]map[string]map[string]json.RawMessage `json:"one_time_keys"`
+	OneTimeKeys map[string]map[string]map[string]jsoniter.RawMessage `json:"one_time_keys"`
 }
 
 // RespQueryKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
@@ -947,10 +947,10 @@ func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	var intermediate struct {
-		Events    []json.RawMessage `json:"events"`
-		NextBatch string            `json:"next_batch"`
-		Limited   bool              `json:"limited"`
-		AuthChain []json.RawMessage `json:"auth_chain"`
+		Events    []jsoniter.RawMessage `json:"events"`
+		NextBatch string                `json:"next_batch"`
+		Limited   bool                  `json:"limited"`
+		AuthChain []jsoniter.RawMessage `json:"auth_chain"`
 	}
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
@@ -1000,9 +1000,9 @@ type MSC2946SpacesResponse struct {
 
 // MSC2946StrippedEvent is the format of events returned in the HTTP response body
 type MSC2946StrippedEvent struct {
-	Type     string          `json:"type"`
-	StateKey string          `json:"state_key"`
-	Content  json.RawMessage `json:"content"`
-	Sender   string          `json:"sender"`
-	RoomID   string          `json:"room_id"`
+	Type     string              `json:"type"`
+	StateKey string              `json:"state_key"`
+	Content  jsoniter.RawMessage `json:"content"`
+	Sender   string              `json:"sender"`
+	RoomID   string              `json:"room_id"`
 }

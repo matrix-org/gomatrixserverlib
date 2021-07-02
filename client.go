@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
@@ -383,7 +383,7 @@ func (fc *Client) LookupServerKeys(
 	}
 
 	var body struct {
-		ServerKeyList []json.RawMessage `json:"server_keys"`
+		ServerKeyList []jsoniter.RawMessage `json:"server_keys"`
 	}
 
 	var res struct {

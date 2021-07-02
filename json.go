@@ -23,7 +23,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/tidwall/gjson"
+
+	jsoniter "github.com/json-iterator/go"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.

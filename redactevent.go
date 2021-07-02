@@ -15,10 +15,6 @@
 
 package gomatrixserverlib
 
-import (
-	"encoding/json"
-)
-
 // RawJSON is a reimplementation of json.RawMessage that supports being used as a value type
 //
 // For example:

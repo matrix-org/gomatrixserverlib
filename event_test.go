@@ -16,7 +16,6 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"

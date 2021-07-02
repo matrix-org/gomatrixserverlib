@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 )

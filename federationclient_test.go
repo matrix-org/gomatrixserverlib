@@ -3,7 +3,6 @@ package gomatrixserverlib_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +12,11 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"golang.org/x/crypto/ed25519"
+
+	jsoniter "github.com/json-iterator/go"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type roundTripper struct {
 	fn func(*http.Request) (*http.Response, error)

@@ -17,7 +17,6 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	"encoding/json"
 	"testing"
 )
 

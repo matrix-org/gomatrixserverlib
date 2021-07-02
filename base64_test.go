@@ -16,7 +16,6 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"testing"
 
 	"gopkg.in/yaml.v2"
