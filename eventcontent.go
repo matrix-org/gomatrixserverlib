@@ -17,7 +17,6 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
-	"strconv"
 	"strings"
 )
 
@@ -350,100 +349,13 @@ func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error
 	// Set the levels to their default values.
 	c.Defaults()
 
-	// We can't extract the JSON directly to the powerLevelContent because we
-	// need to convert string values to int values.
-	var content struct {
-		InviteLevel        levelJSONValue            `json:"invite"`
-		BanLevel           levelJSONValue            `json:"ban"`
-		KickLevel          levelJSONValue            `json:"kick"`
-		RedactLevel        levelJSONValue            `json:"redact"`
-		UserLevels         map[string]levelJSONValue `json:"users"`
-		UsersDefaultLevel  levelJSONValue            `json:"users_default"`
-		EventLevels        map[string]levelJSONValue `json:"events"`
-		StateDefaultLevel  levelJSONValue            `json:"state_default"`
-		EventDefaultLevel  levelJSONValue            `json:"event_default"`
-		NotificationLevels map[string]levelJSONValue `json:"notifications"`
-	}
-	if err = json.Unmarshal(event.Content(), &content); err != nil {
+	// Unmarshal the power level content. This will overwrite any
+	// defaults with things that were specified in the JSON if present.
+	if err = json.Unmarshal(event.Content(), &c); err != nil {
 		err = errorf("unparsable power_levels event content: %s", err.Error())
-		return
-	}
-
-	// Update the levels with the values that are present in the event content.
-	content.InviteLevel.assignIfExists(&c.Invite)
-	content.BanLevel.assignIfExists(&c.Ban)
-	content.KickLevel.assignIfExists(&c.Kick)
-	content.RedactLevel.assignIfExists(&c.Redact)
-	content.UsersDefaultLevel.assignIfExists(&c.UsersDefault)
-	content.StateDefaultLevel.assignIfExists(&c.StateDefault)
-	content.EventDefaultLevel.assignIfExists(&c.EventsDefault)
-
-	for k, v := range content.UserLevels {
-		if c.Users == nil {
-			c.Users = make(map[string]int64)
-		}
-		c.Users[k] = v.value
-	}
-
-	for k, v := range content.EventLevels {
-		if c.Events == nil {
-			c.Events = make(map[string]int64)
-		}
-		c.Events[k] = v.value
-	}
-
-	for k, v := range content.NotificationLevels {
-		if c.Notifications == nil {
-			c.Notifications = make(map[string]int64)
-		}
-		c.Notifications[k] = v.value
 	}
 
 	return
-}
-
-// A levelJSONValue is used for unmarshalling power levels from JSON.
-// It is intended to replicate the effects of x = int(content["key"]) in python.
-type levelJSONValue struct {
-	// Was a value loaded from the JSON?
-	exists bool
-	// The integer value of the power level.
-	value int64
-}
-
-func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
-	var stringValue string
-	var int64Value int64
-	var floatValue float64
-	var err error
-
-	// First try to unmarshal as an int64.
-	if err = json.Unmarshal(data, &int64Value); err != nil {
-		// If unmarshalling as an int64 fails try as a string.
-		if err = json.Unmarshal(data, &stringValue); err != nil {
-			// If unmarshalling as a string fails try as a float.
-			if err = json.Unmarshal(data, &floatValue); err != nil {
-				return err
-			}
-			int64Value = int64(floatValue)
-		} else {
-			// If we managed to get a string, try parsing the string as an int.
-			int64Value, err = strconv.ParseInt(stringValue, 10, 64)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	v.exists = true
-	v.value = int64Value
-	return nil
-}
-
-// assign the power level if a value was present in the JSON.
-func (v *levelJSONValue) assignIfExists(to *int64) {
-	if v.exists {
-		*to = v.value
-	}
 }
 
 // Check if the user ID is a valid user ID.
