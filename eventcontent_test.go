@@ -20,6 +20,27 @@ import (
 	"testing"
 )
 
+func BenchmarkLevelJSONValueInt(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		var value []levelJSONValue
+		_ = json.Unmarshal([]byte(`[1, 2, 3]`), &value)
+	}
+}
+
+func BenchmarkLevelJSONValueFloat(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		var value []levelJSONValue
+		_ = json.Unmarshal([]byte(`[1.1, 1.2, 1.3]`), &value)
+	}
+}
+
+func BenchmarkLevelJSONValueString(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		var value []levelJSONValue
+		_ = json.Unmarshal([]byte(`["1", "2", "3"]`), &value)
+	}
+}
+
 func TestLevelJSONValueValid(t *testing.T) {
 	var values []levelJSONValue
 	input := `[0,"1",2.0]`

@@ -418,11 +418,11 @@ func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
 	var err error
 
 	// First try to unmarshal as an int64.
-	if err = json.Unmarshal(data, &int64Value); err != nil {
+	if int64Value, err = strconv.ParseInt(string(data), 10, 64); err != nil {
 		// If unmarshalling as an int64 fails try as a string.
 		if err = json.Unmarshal(data, &stringValue); err != nil {
 			// If unmarshalling as a string fails try as a float.
-			if err = json.Unmarshal(data, &floatValue); err != nil {
+			if floatValue, err = strconv.ParseFloat(string(data), 64); err != nil {
 				return err
 			}
 			int64Value = int64(floatValue)
