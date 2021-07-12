@@ -129,6 +129,7 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 	}
 }
 
+// nolint:maligned
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
 	transports      map[string]http.RoundTripper
