@@ -887,6 +887,7 @@ type DeviceKeys struct {
 
 // MSC2836EventRelationshipsRequest is a request to /event_relationships from
 // https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
+// nolint:maligned
 type MSC2836EventRelationshipsRequest struct {
 	EventID         string `json:"event_id"`
 	MaxDepth        int    `json:"max_depth"`

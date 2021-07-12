@@ -906,7 +906,9 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
 func (e *Event) Membership() (string, error) {
-	var content MemberContent
+	var content struct {
+		Membership string `json:"membership"`
+	}
 	if err := e.extractContent(MRoomMember, &content); err != nil {
 		return "", err
 	}
