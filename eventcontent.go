@@ -311,9 +311,11 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 	// If there is no power level event then the creator gets level 100
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
 	c.Users = map[string]int64{creatorUserID: 100}
-	// If there is no power level event then the state_default is level 0
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L997
-	c.StateDefault = 0
+	// If there is no power level event then the state_default is level 50
+	// https://github.com/matrix-org/synapse/blob/v1.38.0/synapse/event_auth.py#L437
+	// Previously it was 0, but this was changed in:
+	// https://github.com/matrix-org/synapse/commit/5c9afd6f80cf04367fe9b02c396af9f85e02a611
+	c.StateDefault = 50
 	return
 }
 
