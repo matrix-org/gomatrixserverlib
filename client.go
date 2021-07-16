@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
@@ -458,7 +459,7 @@ func (fc *Client) DoRequestAndParseResponse(
 
 		var wrap error
 		var respErr gomatrix.RespError
-		if _ = json.Unmarshal(contents, &respErr); respErr.ErrCode != "" {
+		if _ = jsoniter.ConfigFastest.Unmarshal(contents, &respErr); respErr.ErrCode != "" {
 			wrap = respErr
 		}
 
@@ -476,8 +477,7 @@ func (fc *Client) DoRequestAndParseResponse(
 			Contents:     contents,
 		}
 	}
-
-	if err = json.NewDecoder(response.Body).Decode(result); err != nil {
+	if err = jsoniter.NewDecoder(response.Body).Decode(result); err != nil {
 		return err
 	}
 

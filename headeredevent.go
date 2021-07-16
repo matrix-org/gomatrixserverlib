@@ -1,10 +1,10 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/tidwall/sjson"
 )
 
@@ -59,7 +59,7 @@ func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) er
 	var err error
 	// First extract the headers from the JSON.
 	var m EventHeader
-	if err = json.Unmarshal(data, &m); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(data, &m); err != nil {
 		return err
 	}
 	e.EventHeader = m
