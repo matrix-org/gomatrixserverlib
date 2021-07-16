@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
@@ -34,7 +35,7 @@ import (
 func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	var event map[string]RawJSON
 
-	if err := json.Unmarshal(eventJSON, &event); err != nil {
+	if err := jsoniter.ConfigFastest.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}
 
@@ -108,7 +109,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 	}
 
 	var event map[string]RawJSON
-	if err = json.Unmarshal(redactedJSON, &event); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(redactedJSON, &event); err != nil {
 		return EventReference{}, err
 	}
 
@@ -139,7 +140,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 
 	switch eventFormat {
 	case EventFormatV1:
-		if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
+		if err = jsoniter.ConfigFastest.Unmarshal(event["event_id"], &eventID); err != nil {
 			return EventReference{}, err
 		}
 	case EventFormatV2:
@@ -181,13 +182,13 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 	var signedEvent struct {
 		Signatures RawJSON `json:"signatures"`
 	}
-	if err := json.Unmarshal(signedJSON, &signedEvent); err != nil {
+	if err := jsoniter.ConfigFastest.Unmarshal(signedJSON, &signedEvent); err != nil {
 		return nil, err
 	}
 
 	// Unmarshal the event JSON so that we can replace the signatures key.
 	var event map[string]RawJSON
-	if err := json.Unmarshal(eventJSON, &event); err != nil {
+	if err := jsoniter.ConfigFastest.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}
 

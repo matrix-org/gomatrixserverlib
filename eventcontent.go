@@ -16,9 +16,10 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
 	"strconv"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 // CreateContent is the JSON content of a m.room.create event along with
@@ -58,7 +59,7 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateConte
 		err = errorf("missing create event")
 		return
 	}
-	if err = json.Unmarshal(createEvent.Content(), &c); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(createEvent.Content(), &c); err != nil {
 		err = errorf("unparsable create event content: %s", err.Error())
 		return
 	}
@@ -157,9 +158,9 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 // NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
 func NewMemberContentFromEvent(event *Event) (c MemberContent, err error) {
-	if err = json.Unmarshal(event.Content(), &c); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(event.Content(), &c); err != nil {
 		var partial membershipContent
-		if err = json.Unmarshal(event.Content(), &partial); err != nil {
+		if err = jsoniter.ConfigFastest.Unmarshal(event.Content(), &partial); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
 		}
@@ -198,7 +199,7 @@ func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 		err = errorf("Couldn't find third party invite event")
 		return
 	}
-	if err = json.Unmarshal(thirdPartyInviteEvent.Content(), &t); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(thirdPartyInviteEvent.Content(), &t); err != nil {
 		err = errorf("unparsable third party invite event content: %s", err.Error())
 	}
 	return
@@ -230,7 +231,7 @@ func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleC
 		c.JoinRule = Invite
 		return
 	}
-	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
 		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
@@ -366,7 +367,7 @@ func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error
 		EventDefaultLevel  levelJSONValue            `json:"event_default"`
 		NotificationLevels map[string]levelJSONValue `json:"notifications"`
 	}
-	if err = json.Unmarshal(event.Content(), &content); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(event.Content(), &content); err != nil {
 		err = errorf("unparsable power_levels event content: %s", err.Error())
 		return
 	}
@@ -422,7 +423,7 @@ func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
 	// First try to unmarshal as an int64.
 	if int64Value, err = strconv.ParseInt(string(data), 10, 64); err != nil {
 		// If unmarshalling as an int64 fails try as a string.
-		if err = json.Unmarshal(data, &stringValue); err != nil {
+		if err = jsoniter.ConfigFastest.Unmarshal(data, &stringValue); err != nil {
 			// If unmarshalling as a string fails try as a float.
 			if floatValue, err = strconv.ParseFloat(string(data), 64); err != nil {
 				return err

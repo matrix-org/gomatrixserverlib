@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -390,13 +391,12 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 	if err != nil {
 		return err
 	}
-
 	switch eventFormat {
 	case EventFormatV1:
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV1Fields{}
-		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+		if err := jsoniter.ConfigFastest.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
 		// Populate the fields of the received object.
@@ -411,7 +411,7 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
-		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+		if err := jsoniter.ConfigFastest.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
 		// Generate a hash of the event which forms the event ID.
@@ -473,15 +473,15 @@ func (e *Event) Redact() *Event {
 func (e *Event) SetUnsigned(unsigned interface{}) (*Event, error) {
 	var eventAsMap map[string]RawJSON
 	var err error
-	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
+	if err = jsoniter.ConfigFastest.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
 		return nil, err
 	}
-	unsignedJSON, err := json.Marshal(unsigned)
+	unsignedJSON, err := jsoniter.ConfigFastest.Marshal(unsigned)
 	if err != nil {
 		return nil, err
 	}
 	eventAsMap["unsigned"] = unsignedJSON
-	eventJSON, err := json.Marshal(eventAsMap)
+	eventJSON, err := jsoniter.ConfigFastest.Marshal(eventAsMap)
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +898,7 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 	if fields.Type != eventType {
 		return fmt.Errorf("gomatrixserverlib: not a %s event", eventType)
 	}
-	return json.Unmarshal(fields.Content, &content)
+	return jsoniter.ConfigFastest.Unmarshal(fields.Content, &content)
 }
 
 // Membership returns the value of the content.membership field if this event
@@ -1060,19 +1060,19 @@ func (e *Event) Headered(roomVersion RoomVersion) *HeaderedEvent {
 // UnmarshalJSON implements json.Unmarshaller
 func (er *EventReference) UnmarshalJSON(data []byte) error {
 	var tuple []RawJSON
-	if err := json.Unmarshal(data, &tuple); err != nil {
+	if err := jsoniter.ConfigFastest.Unmarshal(data, &tuple); err != nil {
 		return err
 	}
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, invalid length: %d != 2", len(tuple))
 	}
-	if err := json.Unmarshal(tuple[0], &er.EventID); err != nil {
+	if err := jsoniter.ConfigFastest.Unmarshal(tuple[0], &er.EventID); err != nil {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, first element is invalid: %q %v", string(tuple[0]), err)
 	}
 	var hashes struct {
 		SHA256 Base64Bytes `json:"sha256"`
 	}
-	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
+	if err := jsoniter.ConfigFastest.Unmarshal(tuple[1], &hashes); err != nil {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, second element is invalid: %q %v", string(tuple[1]), err)
 	}
 	er.EventSHA256 = hashes.SHA256
