@@ -336,10 +336,10 @@ func errorf(message string, args ...interface{}) error {
 	return &NotAllowed{Message: fmt.Sprintf(message, args...)}
 }
 
-// AllowerContext allows auth checks to be run using cached create,
+// allowerContext allows auth checks to be run using cached create,
 // power level and join rule events. This can help when authing a large
 // state set for a specific room.
-type AllowerContext struct {
+type allowerContext struct {
 	// The auth event provider. This must be set.
 	provider AuthEventProvider
 	// The m.room.create content for the room.
@@ -350,23 +350,24 @@ type AllowerContext struct {
 	joinRule JoinRuleContent
 }
 
-func NewAllowerContext(provider AuthEventProvider) (*AllowerContext, error) {
+func newAllowerContext(provider AuthEventProvider) *allowerContext {
 	create, _ := NewCreateContentFromAuthEvents(provider)
 	powerLevels, _ := NewPowerLevelContentFromAuthEvents(provider, create.Creator)
 	joinRule, _ := NewJoinRuleContentFromAuthEvents(provider)
-	return &AllowerContext{
+	return &allowerContext{
 		provider:    provider,
 		create:      create,
 		powerLevels: powerLevels,
 		joinRule:    joinRule,
-	}, nil
+	}
 }
 
 // Allowed checks whether an event is allowed by the auth events, using the
-// create, power level and join events from the AllowerContext.
+// create, power level and join events from the allowerContext. This is a
+// quick path designed to speed up state resolution.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
-func (a *AllowerContext) Allowed(event *Event) error {
+func (a *allowerContext) allowed(event *Event) error {
 	switch event.Type() {
 	case MRoomCreate:
 		return a.createEventAllowed(event)
@@ -383,22 +384,16 @@ func (a *AllowerContext) Allowed(event *Event) error {
 	}
 }
 
-// Allowed checks whether an event is allowed by the auth events. A new
-// AllowerContext will be created for each call, re-parsing the create,
-// join rules and power level events.
+// Allowed checks whether an event is allowed by the auth events.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event *Event, authEvents AuthEventProvider) error {
-	allower, err := NewAllowerContext(authEvents)
-	if err != nil {
-		return err
-	}
-	return allower.Allowed(event)
+	return newAllowerContext(authEvents).allowed(event)
 }
 
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
-func (a *AllowerContext) createEventAllowed(event *Event) error {
+func (a *allowerContext) createEventAllowed(event *Event) error {
 	if !event.StateKeyEquals("") {
 		return errorf("create event state key is not empty: %v", event.StateKey())
 	}
@@ -421,7 +416,7 @@ func (a *AllowerContext) createEventAllowed(event *Event) error {
 
 // memberEventAllowed checks whether the m.room.member event is allowed.
 // Membership events have different authentication rules to ordinary events.
-func (a *AllowerContext) memberEventAllowed(event *Event) error {
+func (a *allowerContext) memberEventAllowed(event *Event) error {
 	allower, err := a.newMembershipAllower(a.provider, event)
 	if err != nil {
 		return err
@@ -431,7 +426,7 @@ func (a *AllowerContext) memberEventAllowed(event *Event) error {
 
 // aliasEventAllowed checks whether the m.room.aliases event is allowed.
 // Alias events have different authentication rules to ordinary events.
-func (a *AllowerContext) aliasEventAllowed(event *Event) error {
+func (a *allowerContext) aliasEventAllowed(event *Event) error {
 	// The alias events have different auth rules to ordinary events.
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
@@ -464,7 +459,7 @@ func (a *AllowerContext) aliasEventAllowed(event *Event) error {
 // powerLevelsEventAllowed checks whether the m.room.power_levels event is allowed.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
-func (a *AllowerContext) powerLevelsEventAllowed(event *Event) error {
+func (a *allowerContext) powerLevelsEventAllowed(event *Event) error {
 	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
@@ -742,7 +737,7 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 // membership) on the event.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
-func (a *AllowerContext) redactEventAllowed(event *Event) error {
+func (a *allowerContext) redactEventAllowed(event *Event) error {
 	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
@@ -800,7 +795,7 @@ func (a *AllowerContext) redactEventAllowed(event *Event) error {
 // checks for events.
 // It returns an error if the event is not allowed or if there was a
 // problem loading the auth events needed.
-func (a *AllowerContext) defaultEventAllowed(event *Event) error {
+func (a *allowerContext) defaultEventAllowed(event *Event) error {
 	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
@@ -811,15 +806,15 @@ func (a *AllowerContext) defaultEventAllowed(event *Event) error {
 // An eventAllower has the information needed to authorise all events types
 // other than m.room.create, m.room.member and m.room.aliases which are special.
 type eventAllower struct {
-	*AllowerContext
+	*allowerContext
 	// The content of the m.room.member event for the sender.
 	member MemberContent
 }
 
 // newEventAllower loads the information needed to authorise an event sent
 // by a given user ID from the auth events.
-func (a *AllowerContext) newEventAllower(senderID string) (e eventAllower, err error) {
-	e.AllowerContext = a
+func (a *allowerContext) newEventAllower(senderID string) (e eventAllower, err error) {
+	e.allowerContext = a
 	if e.member, err = NewMemberContentFromAuthEvents(a.provider, senderID); err != nil {
 		return
 	}
@@ -875,7 +870,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
-	*AllowerContext
+	*allowerContext
 	// The m.room.third_party_invite content referenced by this event.
 	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
@@ -892,8 +887,8 @@ type membershipAllower struct {
 
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
 // from the auth events.
-func (a *AllowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
-	m.AllowerContext = a
+func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
+	m.allowerContext = a
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
