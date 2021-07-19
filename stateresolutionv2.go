@@ -338,7 +338,7 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
-		if err := Allowed(event, r); err != nil {
+		if err := allower.Allowed(event); err != nil {
 			continue
 		}
 		// Apply the newly authed event to the partial state. We need to do this
