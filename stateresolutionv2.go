@@ -331,6 +331,10 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
 func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
+	allower, err := NewAllowerContext(r)
+	if err != nil {
+		panic(err)
+	}
 	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
