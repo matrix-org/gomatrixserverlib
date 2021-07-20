@@ -110,7 +110,27 @@ func (ac *FederationClient) SendJoin(
 	if err = req.SetContent(event); err != nil {
 		return
 	}
-	err = ac.doRequest(ctx, req, &res)
+	var intermediate struct {
+		StateEvents []json.RawMessage `json:"state"`
+		AuthEvents  []json.RawMessage `json:"auth_chain"`
+		Origin      ServerName        `json:"origin"`
+	}
+	process := func() {
+		for _, se := range intermediate.StateEvents {
+			if ev, err := NewEventFromUntrustedJSON(se, roomVersion); err == nil {
+				res.StateEvents = append(res.StateEvents, ev)
+			}
+		}
+		for _, ae := range intermediate.AuthEvents {
+			if ev, err := NewEventFromUntrustedJSON(ae, roomVersion); err == nil {
+				res.AuthEvents = append(res.AuthEvents, ev)
+			}
+		}
+	}
+	res.Origin = intermediate.Origin
+	if err = ac.doRequest(ctx, req, &intermediate); err == nil {
+		process()
+	}
 	gerr, ok := err.(gomatrix.HTTPError)
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
@@ -124,7 +144,10 @@ func (ac *FederationClient) SendJoin(
 		var v1Res []json.RawMessage
 		err = ac.doRequest(ctx, v1req, &v1Res)
 		if err == nil && len(v1Res) == 2 {
-			err = json.Unmarshal(v1Res[1], &res)
+			if err = json.Unmarshal(v1Res[1], &res); err != nil {
+				return
+			}
+			process()
 		}
 	}
 	return
