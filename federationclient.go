@@ -146,7 +146,7 @@ func (ac *FederationClient) SendJoin(
 		var v1Res []json.RawMessage
 		err = ac.doRequest(ctx, v1req, &v1Res)
 		if err == nil && len(v1Res) == 2 {
-			if err = json.Unmarshal(v1Res[1], &res); err != nil {
+			if err = json.Unmarshal(v1Res[1], &intermediate); err != nil {
 				return
 			}
 			process()
