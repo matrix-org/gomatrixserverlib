@@ -116,6 +116,9 @@ func (ac *FederationClient) SendJoin(
 		Origin      ServerName        `json:"origin"`
 	}
 	process := func() {
+		res.StateEvents = make([]*Event, 0, len(intermediate.StateEvents))
+		res.AuthEvents = make([]*Event, 0, len(intermediate.AuthEvents))
+		res.Origin = intermediate.Origin
 		for _, se := range intermediate.StateEvents {
 			if ev, err := NewEventFromUntrustedJSON(se, roomVersion); err == nil {
 				res.StateEvents = append(res.StateEvents, ev)
@@ -127,7 +130,6 @@ func (ac *FederationClient) SendJoin(
 			}
 		}
 	}
-	res.Origin = intermediate.Origin
 	if err = ac.doRequest(ctx, req, &intermediate); err == nil {
 		process()
 	}
