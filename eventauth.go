@@ -1018,6 +1018,9 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		return nil
 	}
 	if m.newMember.Membership == Knock {
+		if m.joinRule.JoinRule != Knock {
+			return m.membershipFailed()
+		}
 		// A user that is not in the room is allowed to knock if the join
 		// rules are "knock" and they are not already joined to, invited to
 		// or banned from the room.
@@ -1025,9 +1028,6 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 			return err
 		} else if !supported {
-			return m.membershipFailed()
-		}
-		if m.joinRule.JoinRule != Knock {
 			return m.membershipFailed()
 		}
 		switch m.oldMember.Membership {
@@ -1122,7 +1122,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			return nil
 		}
 		// A user can invite in response to a knock.
-		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
+		if m.joinRule.JoinRule == Knock && m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
 			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 				return err
 			} else if !supported {
