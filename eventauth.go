@@ -1030,15 +1030,18 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		fmt.Println("Old membership:", m.oldMember.Membership)
 		fmt.Println("New membership:", m.newMember.Membership)
 		if m.joinRule.JoinRule != Knock {
+			fmt.Println("JOIN RULE IS NOT KNOCK")
 			return m.membershipFailed()
 		}
 		switch m.oldMember.Membership {
 		case Join, Invite, Ban:
 			// The user is already joined, invited or banned, therefore they
 			// can't knock.
+			fmt.Println("PREVIOUS STATE IS JOIN, INVITE, BAN")
 			return m.membershipFailed()
 		default:
 			// A non-joined, non-invited, non-banned user is allowed to knock.
+			fmt.Println("KNOCK ALLOWED")
 			return nil
 		}
 	}
