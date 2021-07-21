@@ -1020,6 +1020,11 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// rules are "knock" and they are not already joined to, invited to
 		// or banned from the room.
 		// Spec: https://spec.matrix.org/unstable/rooms/v7/
+		if supported, err := m.create.RoomVersion.AllowKnockingInEventAuth(); err != nil {
+			return err
+		} else if !supported {
+			return m.membershipFailed()
+		}
 		if m.joinRule.JoinRule != Knock {
 			return m.membershipFailed()
 		}
