@@ -66,6 +66,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
 	},
 	RoomVersionV2: {
 		Supported:                       true,
@@ -77,6 +78,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
 	},
 	RoomVersionV3: {
 		Supported:                       true,
@@ -88,6 +90,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
 	},
 	RoomVersionV4: {
 		Supported:                       true,
@@ -99,6 +102,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
 	},
 	RoomVersionV5: {
 		Supported:                       true,
@@ -110,6 +114,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
 	},
 	RoomVersionV6: {
 		Supported:                       true,
@@ -121,6 +126,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        false,
 	},
 	RoomVersionV7: {
 		Supported:                       true,
@@ -132,6 +138,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
 	},
 }
 
@@ -185,6 +192,7 @@ type RoomVersionDescription struct {
 	enforceSignatureChecks          bool
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
+	allowKnockingInEventAuth        bool
 	Supported                       bool
 	Stable                          bool
 }
@@ -235,6 +243,15 @@ func (v RoomVersion) StrictValidityChecking() (bool, error) {
 func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.powerLevelsIncludeNotifications, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// AllowKnockingInEventAuth returns true if the given room version allows for
+// the `knock` membership state or false otherwise.
+func (v RoomVersion) AllowKnockingInEventAuth() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.allowKnockingInEventAuth, nil
 	}
 	return false, UnsupportedRoomVersionError{v}
 }

@@ -34,6 +34,8 @@ const (
 	Leave = "leave"
 	// Invite is the string constant "invite"
 	Invite = "invite"
+	// Knock is the string constant "knock"
+	Knock = "knock"
 	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
 	Peek = "peek"
 	// Public is the string constant "public"
@@ -1013,7 +1015,29 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	if m.oldMember.Membership == Leave && m.newMember.Membership == Leave {
 		return nil
 	}
-
+	if m.newMember.Membership == Knock {
+		// A user that is not in the room is allowed to knock if the join
+		// rules are "knock" and they are not already joined to, invited to
+		// or banned from the room.
+		// Spec: https://spec.matrix.org/unstable/rooms/v7/
+		if supported, err := m.create.RoomVersion.AllowKnockingInEventAuth(); err != nil {
+			return err
+		} else if !supported {
+			return m.membershipFailed()
+		}
+		if m.joinRule.JoinRule != Knock {
+			return m.membershipFailed()
+		}
+		switch m.oldMember.Membership {
+		case Join, Invite, Ban:
+			// The user is already joined, invited or banned, therefore they
+			// can't knock.
+			return m.membershipFailed()
+		default:
+			// A non-joined, non-invited, non-banned user is allowed to knock.
+			return nil
+		}
+	}
 	if m.newMember.Membership == Join {
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
