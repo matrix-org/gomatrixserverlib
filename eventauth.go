@@ -46,6 +46,10 @@ const (
 	MRoomPowerLevels = "m.room.power_levels"
 	// MRoomName https://matrix.org/docs/spec/client_server/r0.6.0#m-room-name
 	MRoomName = "m.room.name"
+	// MRoomTopic https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-topic
+	MRoomTopic = "m.room.topic"
+	// MRoomAvatar https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-avatar
+	MRoomAvatar = "m.room.topic"
 	// MRoomMember https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
 	MRoomMember = "m.room.member"
 	// MRoomThirdPartyInvite https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-third-party-invite
@@ -56,6 +60,10 @@ const (
 	MRoomCanonicalAlias = "m.room.canonical_alias"
 	// MRoomHistoryVisibility https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-history-visibility
 	MRoomHistoryVisibility = "m.room.history_visibility"
+	// MRoomGuestAccess https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-guest-access
+	MRoomGuestAccess = "m.room.guest_access"
+	// MRoomEncryption https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-encryption
+	MRoomEncryption = "m.room.encryption"
 	// MRoomRedaction https://matrix.org/docs/spec/client_server/r0.2.0.html#id21
 	MRoomRedaction = "m.room.redaction"
 	// MTyping https://matrix.org/docs/spec/client_server/r0.3.0.html#m-typing
