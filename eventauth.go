@@ -1059,6 +1059,10 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Invite {
 			return nil
 		}
+		// An invited user is allowed to join if the join rules are "knock"
+		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Knock {
+			return nil
+		}
 		// A joined user is allowed to update their join.
 		if m.oldMember.Membership == Join {
 			return nil
