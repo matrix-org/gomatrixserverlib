@@ -1122,6 +1122,15 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.Invite {
 			return nil
 		}
+		// A user can invite in response to a knock.
+		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
+			if supported, err := m.create.ContentRoomVersion().AllowKnockingInEventAuth(); err != nil {
+				return err
+			} else if !supported {
+				return m.membershipFailed()
+			}
+			return nil
+		}
 	}
 
 	return m.membershipFailed()
