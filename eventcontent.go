@@ -97,15 +97,6 @@ func (c *CreateContent) UserIDAllowed(id string) error {
 	return c.DomainAllowed(domain)
 }
 
-// RoomVersion returns the room version as specified in the create event,
-// or RoomVersionV1 if not set.
-func (c *CreateContent) ContentRoomVersion() RoomVersion {
-	if c.RoomVersion == nil || *c.RoomVersion == "" {
-		return RoomVersionV1
-	}
-	return *c.RoomVersion
-}
-
 // domainFromID returns everything after the first ":" character to extract
 // the domain part of a matrix ID.
 func domainFromID(id string) (string, error) {

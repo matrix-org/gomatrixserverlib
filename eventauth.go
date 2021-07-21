@@ -883,6 +883,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
 	*allowerContext
+	roomVersion RoomVersion
 	// The m.room.third_party_invite content referenced by this event.
 	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
@@ -901,6 +902,7 @@ type membershipAllower struct {
 // from the auth events.
 func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
+	m.roomVersion = event.roomVersion
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
@@ -1020,7 +1022,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// rules are "knock" and they are not already joined to, invited to
 		// or banned from the room.
 		// Spec: https://spec.matrix.org/unstable/rooms/v7/
-		if supported, err := m.create.ContentRoomVersion().AllowKnockingInEventAuth(); err != nil {
+		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 			return err
 		} else if !supported {
 			return m.membershipFailed()
@@ -1121,7 +1123,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		}
 		// A user can invite in response to a knock.
 		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
-			if supported, err := m.create.ContentRoomVersion().AllowKnockingInEventAuth(); err != nil {
+			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 				return err
 			} else if !supported {
 				return m.membershipFailed()
