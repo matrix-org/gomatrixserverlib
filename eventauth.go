@@ -51,7 +51,7 @@ const (
 	// MRoomTopic https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-topic
 	MRoomTopic = "m.room.topic"
 	// MRoomAvatar https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-avatar
-	MRoomAvatar = "m.room.topic"
+	MRoomAvatar = "m.room.avatar"
 	// MRoomMember https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
 	MRoomMember = "m.room.member"
 	// MRoomThirdPartyInvite https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-third-party-invite
