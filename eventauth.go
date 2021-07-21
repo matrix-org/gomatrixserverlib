@@ -38,6 +38,8 @@ const (
 	Peek = "peek"
 	// Public is the string constant "public"
 	Public = "public"
+	// WorldReadable is the string constant "world_readable"
+	WorldReadable = "world_readable"
 	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
 	MRoomCreate = "m.room.create"
 	// MRoomJoinRules https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules
