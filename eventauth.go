@@ -883,6 +883,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
 	*allowerContext
+	roomVersion RoomVersion
 	// The m.room.third_party_invite content referenced by this event.
 	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
@@ -901,6 +902,7 @@ type membershipAllower struct {
 // from the auth events.
 func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
+	m.roomVersion = event.roomVersion
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
@@ -1016,16 +1018,16 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		return nil
 	}
 	if m.newMember.Membership == Knock {
+		if m.joinRule.JoinRule != Knock {
+			return m.membershipFailed()
+		}
 		// A user that is not in the room is allowed to knock if the join
 		// rules are "knock" and they are not already joined to, invited to
 		// or banned from the room.
 		// Spec: https://spec.matrix.org/unstable/rooms/v7/
-		if supported, err := m.create.RoomVersion.AllowKnockingInEventAuth(); err != nil {
-			return err
+		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 		} else if !supported {
-			return m.membershipFailed()
-		}
-		if m.joinRule.JoinRule != Knock {
 			return m.membershipFailed()
 		}
 		switch m.oldMember.Membership {
@@ -1050,6 +1052,10 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		}
 		// An invited user is allowed to join if the join rules are "invite"
 		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Invite {
+			return nil
+		}
+		// An invited user is allowed to join if the join rules are "knock"
+		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Knock {
 			return nil
 		}
 		// A joined user is allowed to update their join.
@@ -1113,6 +1119,15 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		}
 		// A user may re-invite a user.
 		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.Invite {
+			return nil
+		}
+		// A user can invite in response to a knock.
+		if m.joinRule.JoinRule == Knock && m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
+			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
+			} else if !supported {
+				return m.membershipFailed()
+			}
 			return nil
 		}
 	}
