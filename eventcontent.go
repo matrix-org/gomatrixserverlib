@@ -100,7 +100,7 @@ func (c *CreateContent) UserIDAllowed(id string) error {
 // RoomVersion returns the room version as specified in the create event,
 // or RoomVersionV1 if not set.
 func (c *CreateContent) ContentRoomVersion() RoomVersion {
-	if c.RoomVersion == nil {
+	if c.RoomVersion == nil || *c.RoomVersion == "" {
 		return RoomVersionV1
 	}
 	return *c.RoomVersion
