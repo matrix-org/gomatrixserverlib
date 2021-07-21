@@ -1026,7 +1026,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// or banned from the room.
 		// Spec: https://spec.matrix.org/unstable/rooms/v7/
 		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
-			return err
+			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 		} else if !supported {
 			return m.membershipFailed()
 		}
@@ -1124,7 +1124,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		// A user can invite in response to a knock.
 		if m.joinRule.JoinRule == Knock && m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
 			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
-				return err
+				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 			} else if !supported {
 				return m.membershipFailed()
 			}
