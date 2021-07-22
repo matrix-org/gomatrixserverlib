@@ -1019,7 +1019,10 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	}
 	if m.newMember.Membership == Knock {
 		if m.joinRule.JoinRule != Knock {
-			return m.membershipFailed()
+			return errorf(
+				"%q is not allowed to change their membership from %q to %q as the join rule %q does not allow knocking",
+				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+			)
 		}
 		// A user that is not in the room is allowed to knock if the join
 		// rules are "knock" and they are not already joined to, invited to
@@ -1028,13 +1031,19 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 		} else if !supported {
-			return m.membershipFailed()
+			return errorf(
+				"%q is not allowed to change their membership from %q to %q as room version %q does not support knocking",
+				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+			)
 		}
 		switch m.oldMember.Membership {
 		case Join, Invite, Ban:
 			// The user is already joined, invited or banned, therefore they
 			// can't knock.
-			return m.membershipFailed()
+			return errorf(
+				"%q is not allowed to change their membership from %q to %q as they are already joined/invited/banned",
+				m.targetID, m.oldMember.Membership, m.newMember.Membership,
+			)
 		default:
 			// A non-joined, non-invited, non-banned user is allowed to knock.
 			return nil
@@ -1122,11 +1131,20 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			return nil
 		}
 		// A user can invite in response to a knock.
-		if m.joinRule.JoinRule == Knock && m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
+		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
+			if m.joinRule.JoinRule != Knock {
+				return errorf(
+					"%q is not allowed to change the membership of %q from %q to %q as the join rule %q does not allow knocking",
+					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+				)
+			}
 			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 			} else if !supported {
-				return m.membershipFailed()
+				return errorf(
+					"%q is not allowed to change the membership of %q from %q to %q as room version %q does not support knocking",
+					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+				)
 			}
 			return nil
 		}
