@@ -237,7 +237,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		if stateKey != nil {
 			result.Member = append(result.Member, sender, *stateKey)
 		}
-		if content.Membership == Join {
+		if content.Membership == Join || content.Membership == Knock {
 			result.JoinRules = true
 		}
 		if content.ThirdPartyInvite != nil {
