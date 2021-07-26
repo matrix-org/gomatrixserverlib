@@ -158,6 +158,12 @@ func (eb *EventBuilder) Build(
 	now time.Time, origin ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	eventFormat, err := roomVersion.EventFormat()
 	if err != nil {
 		return result, err
@@ -278,6 +284,12 @@ func (eb *EventBuilder) Build(
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
 func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
@@ -357,6 +369,12 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
@@ -370,6 +388,12 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
 func NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
