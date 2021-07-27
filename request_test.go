@@ -16,7 +16,7 @@ import (
 const exampleGetRequest = "GET /_matrix/federation/v1/query/directory?room_alias=%23test%3Alocalhost%3A44033 HTTP/1.1\r\n" +
 	"Host: localhost:44033\r\n" +
 	"Authorization: X-Matrix" +
-	" origin=\"localhost:8800\"" +
+	" origin=localhost:8800" +
 	",key=\"ed25519:a_Obwu\"" +
 	",sig=\"7vt4vP/w8zYB3Zg77nuTPwie3TxEy2OHZQMsSa4nsXZzL4/qw+DguXbyMy3BF77XvSJmBt+Gw+fU6T4HId7fBg\"" +
 	"\r\n" +
@@ -28,7 +28,7 @@ const examplePutRequest = "PUT /_matrix/federation/v1/send/1493385816575/ HTTP/1
 	"Host: localhost:44033\r\n" +
 	"Content-Length: 321\r\n" +
 	"Authorization: X-Matrix" +
-	" origin=\"localhost:8800\"" +
+	" origin=localhost:8800" +
 	",key=\"ed25519:a_Obwu\"" +
 	",sig=\"+hmW6UjEXx7vMt2+MXO/EImSfdEYdBsZEOmpiz3evYktAgGNpGuNMBYXIA969WGubmceREKA/r1phasUFHBpDg\"" +
 	"\r\n" +

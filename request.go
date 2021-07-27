@@ -145,7 +145,7 @@ func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 			return nil, fmt.Errorf("gomatrixserverlib: Request key ID isn't safe to include in an HTTP header")
 		}
 		httpReq.Header.Add("Authorization", fmt.Sprintf(
-			"X-Matrix origin=\"%s\",key=\"%s\",sig=\"%s\"", r.fields.Origin, keyID, sig,
+			"X-Matrix origin=%s,key=\"%s\",sig=\"%s\"", r.fields.Origin, keyID, sig,
 		))
 	}
 
