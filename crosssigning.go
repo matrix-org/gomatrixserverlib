@@ -14,6 +14,14 @@
 
 package gomatrixserverlib
 
+type CrossSigningKeyPurpose string
+
+const (
+	CrossSigningKeyPurposeMaster      CrossSigningKeyPurpose = "master"
+	CrossSigningKeyPurposeSelfSigning CrossSigningKeyPurpose = "self_signing"
+	CrossSigningKeyPurposeUserSigning CrossSigningKeyPurpose = "user_signing"
+)
+
 // CrossSigningBody represents either of the concrete types CrossSingingKeys or CrossSigningSignatures
 type CrossSigningBody interface {
 	isCrossSigningBody()
@@ -30,7 +38,7 @@ type CrossSigningKeys struct {
 type CrossSigningKey struct {
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
-	Usage      []string                         `json:"usage"`
+	Usage      []CrossSigningKeyPurpose         `json:"usage"`
 	UserID     string                           `json:"user_id"`
 }
 
