@@ -28,7 +28,7 @@ type CrossSigningKeys struct {
 }
 
 type CrossSigningKey struct {
-	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
+	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
 	Usage      []string                         `json:"usage"`
 	UserID     string                           `json:"user_id"`
@@ -45,7 +45,7 @@ type CrossSigningSignature struct {
 	UserID     string                           `json:"user_id"`
 	DeviceID   string                           `json:"device_id"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
-	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
+	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 }
 
 func (s *CrossSigningSignature) isCrossSigningBody() {} // implements CrossSigningBody
