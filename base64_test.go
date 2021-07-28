@@ -150,3 +150,20 @@ func TestUnmarshalYAMLBase64Struct(t *testing.T) {
 		t.Fatalf("yaml.Unmarshal(%v): wanted %q got %q", input, want, result)
 	}
 }
+
+func TestScanBase64(t *testing.T) {
+	str := "PHq54MtxJxVcavizqxvFZ4E4Xd2GpWJYg6wCVs7DamA"
+	bya := []byte(str)
+	itg := 3
+
+	var b Base64Bytes
+	if err := b.Scan(str); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Scan(bya); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Scan(itg); err == nil {
+		t.Fatal("should have failed")
+	}
+}
