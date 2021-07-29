@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -56,12 +57,14 @@ func (b64 *Base64Bytes) Scan(src interface{}) error {
 	switch v := src.(type) {
 	case string:
 		return b64.Decode(v)
-	case []byte:
-		*b64 = append(Base64Bytes{}, v...)
-		return nil
 	default:
 		return fmt.Errorf("unsupported source type")
 	}
+}
+
+// Implements sql.Valuer
+func (b64 *Base64Bytes) Value() (driver.Value, error) {
+	return b64.Encode(), nil
 }
 
 // MarshalJSON encodes the bytes as base64 and then encodes the base64 as a JSON string.
