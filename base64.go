@@ -57,6 +57,11 @@ func (b64 *Base64Bytes) Scan(src interface{}) error {
 	switch v := src.(type) {
 	case string:
 		return b64.Decode(v)
+	case []byte:
+		*b64 = append([]byte{}, v...)
+		return nil
+	case RawJSON:
+		return json.Unmarshal(v, b64)
 	default:
 		return fmt.Errorf("unsupported source type")
 	}
