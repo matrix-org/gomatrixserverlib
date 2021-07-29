@@ -22,38 +22,25 @@ const (
 	CrossSigningKeyPurposeUserSigning CrossSigningKeyPurpose = "user_signing"
 )
 
-// CrossSigningBody represents either of the concrete types CrossSingingKeys or CrossSigningSignatures
-type CrossSigningBody interface {
-	isCrossSigningBody()
+type CrossSigningKeys struct {
+	MasterKey      CrossSigningForKey `json:"master_key"`
+	SelfSigningKey CrossSigningForKey `json:"self_signing_key"`
+	UserSigningKey CrossSigningForKey `json:"user_signing_key"`
 }
 
 // https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keysdevice_signingupload
-
-type CrossSigningKeys struct {
-	MasterKey      CrossSigningKey `json:"master_key"`
-	SelfSigningKey CrossSigningKey `json:"self_signing_key"`
-	UserSigningKey CrossSigningKey `json:"user_signing_key"`
-}
-
-type CrossSigningKey struct {
+type CrossSigningForKey struct {
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
 	Usage      []CrossSigningKeyPurpose         `json:"usage"`
 	UserID     string                           `json:"user_id"`
 }
 
-func (s *CrossSigningKey) isCrossSigningBody() {} // implements CrossSigningBody
-
 // https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keyssignaturesupload
-
-type CrossSigningSignatures map[string]map[string]CrossSigningBody // user ID -> device ID -> key or signature
-
-type CrossSigningSignature struct {
+type CrossSigningForDevice struct {
 	Algorithms []string                         `json:"algorithms"`
 	UserID     string                           `json:"user_id"`
 	DeviceID   string                           `json:"device_id"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 }
-
-func (s *CrossSigningSignature) isCrossSigningBody() {} // implements CrossSigningBody
