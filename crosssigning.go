@@ -14,6 +14,12 @@
 
 package gomatrixserverlib
 
+import (
+	"encoding/json"
+
+	"github.com/tidwall/gjson"
+)
+
 type CrossSigningKeyPurpose string
 
 const (
@@ -36,6 +42,8 @@ type CrossSigningForKey struct {
 	UserID     string                           `json:"user_id"`
 }
 
+func (s *CrossSigningForKey) isCrossSigningBody() {} // implements CrossSigningBody
+
 // https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keyssignaturesupload
 type CrossSigningForDevice struct {
 	Algorithms []string                         `json:"algorithms"`
@@ -43,4 +51,25 @@ type CrossSigningForDevice struct {
 	DeviceID   string                           `json:"device_id"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
+}
+
+func (s *CrossSigningForDevice) isCrossSigningBody() {} // implements CrossSigningBody
+
+type CrossSigningBody interface {
+	isCrossSigningBody()
+}
+
+type CrossSigningForKeyOrDevice struct {
+	CrossSigningBody
+}
+
+// Implements json.Unmarshaler
+func (c *CrossSigningForKeyOrDevice) UnmarshalJSON(b []byte) error {
+	if gjson.Get(string(b), "device_id").Exists() {
+		body := &CrossSigningForDevice{}
+		return json.Unmarshal(b, body)
+	} else {
+		body := &CrossSigningForDevice{}
+		return json.Unmarshal(b, body)
+	}
 }
