@@ -63,7 +63,7 @@ func (b64 *Base64Bytes) Scan(src interface{}) error {
 }
 
 // Implements sql.Valuer
-func (b64 *Base64Bytes) Value() (driver.Value, error) {
+func (b64 Base64Bytes) Value() (driver.Value, error) {
 	return b64.Encode(), nil
 }
 
