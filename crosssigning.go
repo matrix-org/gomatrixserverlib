@@ -29,31 +29,20 @@ const (
 )
 
 type CrossSigningKeys struct {
-	MasterKey      CrossSigningForKey `json:"master_key"`
-	SelfSigningKey CrossSigningForKey `json:"self_signing_key"`
-	UserSigningKey CrossSigningForKey `json:"user_signing_key"`
+	MasterKey      CrossSigningKey `json:"master_key"`
+	SelfSigningKey CrossSigningKey `json:"self_signing_key"`
+	UserSigningKey CrossSigningKey `json:"user_signing_key"`
 }
 
 // https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keysdevice_signingupload
-type CrossSigningForKey struct {
+type CrossSigningKey struct {
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
 	Usage      []CrossSigningKeyPurpose         `json:"usage"`
 	UserID     string                           `json:"user_id"`
 }
 
-func (s *CrossSigningForKey) isCrossSigningBody() {} // implements CrossSigningBody
-
-// https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keyssignaturesupload
-type CrossSigningForDevice struct {
-	Algorithms []string                         `json:"algorithms"`
-	UserID     string                           `json:"user_id"`
-	DeviceID   string                           `json:"device_id"`
-	Keys       map[KeyID]Base64Bytes            `json:"keys"`
-	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
-}
-
-func (s *CrossSigningForDevice) isCrossSigningBody() {} // implements CrossSigningBody
+func (s *CrossSigningKey) isCrossSigningBody() {} // implements CrossSigningBody
 
 type CrossSigningBody interface {
 	isCrossSigningBody()
@@ -66,14 +55,14 @@ type CrossSigningForKeyOrDevice struct {
 // Implements json.Unmarshaler
 func (c *CrossSigningForKeyOrDevice) UnmarshalJSON(b []byte) error {
 	if gjson.Get(string(b), "device_id").Exists() {
-		body := &CrossSigningForDevice{}
+		body := &DeviceKeys{}
 		if err := json.Unmarshal(b, body); err != nil {
 			return err
 		}
 		c.CrossSigningBody = body
 		return nil
 	}
-	body := &CrossSigningForKey{}
+	body := &CrossSigningKey{}
 	if err := json.Unmarshal(b, body); err != nil {
 		return err
 	}

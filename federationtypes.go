@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -885,6 +886,22 @@ type DeviceKeys struct {
 	// Additional data added to the device key information by intermediate servers, and not covered by the signatures.
 	// E.g { "device_display_name": "Alice's mobile phone" }
 	Unsigned map[string]interface{} `json:"unsigned"`
+}
+
+func (s *DeviceKeys) isCrossSigningBody() {} // implements CrossSigningBody
+
+func (s *DeviceKeys) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case string:
+		return json.Unmarshal([]byte(v), s)
+	case []byte:
+		return json.Unmarshal(v, s)
+	}
+	return fmt.Errorf("unsupported source type")
+}
+
+func (s DeviceKeys) Value() (driver.Value, error) {
+	return json.Marshal(s)
 }
 
 // MSC2836EventRelationshipsRequest is a request to /event_relationships from
