@@ -891,6 +891,7 @@ type DeviceKeys struct {
 func (s *DeviceKeys) isCrossSigningBody() {} // implements CrossSigningBody
 
 func (s *DeviceKeys) Scan(src interface{}) error {
+	s.Unsigned = make(map[string]interface{})
 	switch v := src.(type) {
 	case string:
 		return json.Unmarshal([]byte(v), s)
@@ -905,6 +906,9 @@ func (s DeviceKeys) Value() (driver.Value, error) {
 }
 
 func (s *DeviceKeys) DisplayName() string {
+	if s.Unsigned == nil {
+		return ""
+	}
 	if v, ok := s.Unsigned["device_display_name"]; ok {
 		return v.(string)
 	}
