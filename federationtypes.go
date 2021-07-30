@@ -904,6 +904,13 @@ func (s DeviceKeys) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
+func (s *DeviceKeys) DisplayName() string {
+	if v, ok := s.Unsigned["device_display_name"]; ok {
+		return v.(string)
+	}
+	return ""
+}
+
 // MSC2836EventRelationshipsRequest is a request to /event_relationships from
 // https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
 // nolint:maligned
