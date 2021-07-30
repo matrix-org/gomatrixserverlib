@@ -874,7 +874,9 @@ type RespClaimKeys struct {
 
 // RespQueryKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
 type RespQueryKeys struct {
-	DeviceKeys map[string]map[string]DeviceKeys `json:"device_keys"`
+	DeviceKeys      map[string]map[string]DeviceKeys                `json:"device_keys"`
+	MasterKeys      map[string]map[KeyID]CrossSigningForKeyOrDevice `json:"master_keys"`
+	SelfSigningKeys map[string]map[KeyID]CrossSigningForKeyOrDevice `json:"self_signing_keys"`
 }
 
 // DeviceKeys as per https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query

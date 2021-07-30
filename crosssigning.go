@@ -68,8 +68,7 @@ func (c *CrossSigningForKeyOrDevice) UnmarshalJSON(b []byte) error {
 	if gjson.Get(string(b), "device_id").Exists() {
 		body := &CrossSigningForDevice{}
 		return json.Unmarshal(b, body)
-	} else {
-		body := &CrossSigningForDevice{}
-		return json.Unmarshal(b, body)
 	}
+	body := &CrossSigningForKey{}
+	return json.Unmarshal(b, body)
 }
