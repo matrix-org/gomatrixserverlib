@@ -78,6 +78,8 @@ const (
 	MDeviceListUpdate = "m.device_list_update"
 	// MReceipt https://matrix.org/docs/spec/server_server/r0.1.4#receipts
 	MReceipt = "m.receipt"
+	// MPresence https://matrix.org/docs/spec/server_server/latest#m-presence-schema
+	MPresence = "m.presence"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
