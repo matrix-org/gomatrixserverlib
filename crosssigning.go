@@ -54,7 +54,7 @@ type CrossSigningForKeyOrDevice struct {
 
 // Implements json.Unmarshaler
 func (c *CrossSigningForKeyOrDevice) UnmarshalJSON(b []byte) error {
-	if gjson.Get(string(b), "device_id").Exists() {
+	if gjson.GetBytes(b, "device_id").Exists() {
 		body := &DeviceKeys{}
 		if err := json.Unmarshal(b, body); err != nil {
 			return err
