@@ -244,11 +244,11 @@ type RespUserDeviceKeys struct {
 	DeviceID   string   `json:"device_id"`
 	Algorithms []string `json:"algorithms"`
 	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
-	Keys map[string]string `json:"keys"`
+	Keys map[KeyID]Base64Bytes `json:"keys"`
 	// E.g "@alice:example.com": {
 	//	"ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
 	// }
-	Signatures map[string]map[string]string `json:"signatures"`
+	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
 }
 
 // UnmarshalJSON implements json.Unmarshaller
