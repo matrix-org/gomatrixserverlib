@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -243,11 +244,11 @@ type RespUserDeviceKeys struct {
 	DeviceID   string   `json:"device_id"`
 	Algorithms []string `json:"algorithms"`
 	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
-	Keys map[string]string `json:"keys"`
+	Keys map[KeyID]Base64Bytes `json:"keys"`
 	// E.g "@alice:example.com": {
 	//	"ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
 	// }
-	Signatures map[string]map[string]string `json:"signatures"`
+	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
 }
 
 // UnmarshalJSON implements json.Unmarshaller
@@ -874,7 +875,9 @@ type RespClaimKeys struct {
 
 // RespQueryKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
 type RespQueryKeys struct {
-	DeviceKeys map[string]map[string]DeviceKeys `json:"device_keys"`
+	DeviceKeys      map[string]map[string]DeviceKeys      `json:"device_keys"`
+	MasterKeys      map[string]CrossSigningForKeyOrDevice `json:"master_keys"`
+	SelfSigningKeys map[string]CrossSigningForKeyOrDevice `json:"self_signing_keys"`
 }
 
 // DeviceKeys as per https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
@@ -883,6 +886,22 @@ type DeviceKeys struct {
 	// Additional data added to the device key information by intermediate servers, and not covered by the signatures.
 	// E.g { "device_display_name": "Alice's mobile phone" }
 	Unsigned map[string]interface{} `json:"unsigned"`
+}
+
+func (s *DeviceKeys) isCrossSigningBody() {} // implements CrossSigningBody
+
+func (s *DeviceKeys) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case string:
+		return json.Unmarshal([]byte(v), s)
+	case []byte:
+		return json.Unmarshal(v, s)
+	}
+	return fmt.Errorf("unsupported source type")
+}
+
+func (s DeviceKeys) Value() (driver.Value, error) {
+	return json.Marshal(s)
 }
 
 // MSC2836EventRelationshipsRequest is a request to /event_relationships from

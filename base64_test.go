@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -148,5 +149,41 @@ func TestUnmarshalYAMLBase64Struct(t *testing.T) {
 	}
 	if string(result.Value) != string(want.Value) {
 		t.Fatalf("yaml.Unmarshal(%v): wanted %q got %q", input, want, result)
+	}
+}
+
+func TestScanBase64(t *testing.T) {
+	expecting := Base64Bytes("This is a test string")
+
+	inputStr := "VGhpcyBpcyBhIHRlc3Qgc3RyaW5n"
+	inputJSON := RawJSON(`"` + inputStr + `"`)
+	inputBytes := []byte(inputStr)
+	inputInt := 3
+
+	var b Base64Bytes
+
+	if err := b.Scan(inputStr); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expecting, b) {
+		t.Fatalf("scanning from string failed, got %v, wanted %v", b, expecting)
+	}
+
+	if err := b.Scan(inputJSON); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expecting, b) {
+		t.Fatalf("scanning from RawJSON failed, got %v, wanted %v", b, expecting)
+	}
+
+	if err := b.Scan(inputBytes); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expecting, b) {
+		t.Fatalf("scanning from []byte failed, got %v, wanted %v", b, expecting)
+	}
+
+	if err := b.Scan(inputInt); err == nil {
+		t.Fatal("scanning from int should have failed but didn't")
 	}
 }
