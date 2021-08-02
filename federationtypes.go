@@ -240,8 +240,8 @@ type RespUserDevice struct {
 // RespUserDeviceKeys are embedded in RespUserDevice
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDeviceKeys struct {
-	UserID     string   `json:"user_id"`
-	DeviceID   string   `json:"device_id"`
+	UserID     string   `json:"user_id,omitempty"`
+	DeviceID   string   `json:"device_id,omitempty"`
 	Algorithms []string `json:"algorithms,omitempty"`
 	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
 	Keys map[KeyID]Base64Bytes `json:"keys,omitempty"`
