@@ -885,7 +885,7 @@ type DeviceKeys struct {
 	RespUserDeviceKeys
 	// Additional data added to the device key information by intermediate servers, and not covered by the signatures.
 	// E.g { "device_display_name": "Alice's mobile phone" }
-	Unsigned map[string]interface{} `json:"unsigned"`
+	Unsigned map[string]interface{} `json:"unsigned,omitempty"`
 }
 
 func (s *DeviceKeys) isCrossSigningBody() {} // implements CrossSigningBody
