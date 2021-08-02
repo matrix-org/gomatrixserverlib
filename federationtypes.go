@@ -224,9 +224,11 @@ type respStateFields struct {
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevices struct {
-	UserID   string           `json:"user_id"`
-	StreamID int              `json:"stream_id"`
-	Devices  []RespUserDevice `json:"devices"`
+	UserID         string           `json:"user_id"`
+	StreamID       int              `json:"stream_id"`
+	Devices        []RespUserDevice `json:"devices"`
+	MasterKey      *CrossSigningKey `json:"master_key"`
+	SelfSigningKey *CrossSigningKey `json:"self_signing_keys"`
 }
 
 // RespUserDevice are embedded in RespUserDevices
