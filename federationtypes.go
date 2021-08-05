@@ -228,7 +228,7 @@ type RespUserDevices struct {
 	StreamID       int              `json:"stream_id"`
 	Devices        []RespUserDevice `json:"devices"`
 	MasterKey      *CrossSigningKey `json:"master_key"`
-	SelfSigningKey *CrossSigningKey `json:"self_signing_keys"`
+	SelfSigningKey *CrossSigningKey `json:"self_signing_key"`
 }
 
 // RespUserDevice are embedded in RespUserDevices
