@@ -123,6 +123,9 @@ type MemberContent struct {
 	IsDirect    bool   `json:"is_direct,omitempty"`
 	// We use the third_party_invite key to special case thirdparty invites.
 	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
+	// Restricted join rules require a user with invite permission to be nominated,
+	// so that their membership can be included in the auth events.
+	AuthorisedVia string `json:"join_authorised_via_users_server,omitempty"`
 }
 
 // MemberThirdPartyInvite is the "Invite" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
@@ -214,7 +217,13 @@ type HistoryVisibilityContent struct {
 // See  https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules for descriptions of the fields.
 type JoinRuleContent struct {
 	// We use the join_rule key to check whether join m.room.member events are allowed.
-	JoinRule string `json:"join_rule"`
+	JoinRule string                     `json:"join_rule"`
+	Allow    []JoinRuleContentAllowRule `json:"allow,omitempty"`
+}
+
+type JoinRuleContentAllowRule struct {
+	Type   string `json:"type"`
+	RoomID string `json:"room_id"`
 }
 
 // NewJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
