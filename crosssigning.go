@@ -52,6 +52,13 @@ type CrossSigningForKeyOrDevice struct {
 	CrossSigningBody
 }
 
+// Implements json.Marshaler
+func (c CrossSigningForKeyOrDevice) MarshalJSON() ([]byte, error) {
+	// Marshal the contents at the top level, rather than having it embedded
+	// in a "CrossSigningBody" JSON key.
+	return json.Marshal(c.CrossSigningBody)
+}
+
 // Implements json.Unmarshaler
 func (c *CrossSigningForKeyOrDevice) UnmarshalJSON(b []byte) error {
 	if gjson.GetBytes(b, "device_id").Exists() {
