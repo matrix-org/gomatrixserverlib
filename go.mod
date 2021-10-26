@@ -7,7 +7,7 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/matrix-org/gomatrix v0.0.0-20190528120928-7df988a63f26
 	github.com/matrix-org/util v0.0.0-20190711121626-527ce5ddefc7
-	github.com/miekg/dns v1.1.12
+	github.com/miekg/dns v1.1.25
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/tidwall/gjson v1.9.3
