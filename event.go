@@ -117,6 +117,7 @@ type Event struct {
 	eventJSON   []byte
 	fields      interface{}
 	roomVersion RoomVersion
+	Signatures  map[ServerName]map[KeyID]Base64Bytes `json:"signatures"`
 }
 
 type eventFields struct {
@@ -412,6 +413,13 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 	var eventFormat EventFormat
 	eventFormat, err := e.roomVersion.EventFormat()
 	if err != nil {
+		return err
+	}
+
+	// Unmarshal to the top-level event struct, which allows us to
+	// keep signatures and such. Since the event fields are not exported,
+	// they will be captured in the next section.
+	if err := json.Unmarshal(eventJSON, e); err != nil {
 		return err
 	}
 
