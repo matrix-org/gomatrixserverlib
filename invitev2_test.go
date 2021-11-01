@@ -19,7 +19,7 @@ func TestMarshalInviteV2Request(t *testing.T) {
 
 	headered := output.Event.Headered(RoomVersionV1)
 
-	inviteReq, err := NewInviteV2Request(headered, []InviteV2StrippedState{})
+	inviteReq, err := NewInviteV2Request(headered, []InviteV2StrippedState{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

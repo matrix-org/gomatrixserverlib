@@ -16,6 +16,7 @@ import (
 // "Authorization: X-Matrix" headers to requests that need ed25519 signatures
 type FederationClient struct {
 	Client
+	verifier         JSONVerifier
 	serverName       ServerName
 	serverKeyID      KeyID
 	serverPrivateKey ed25519.PrivateKey
@@ -27,10 +28,11 @@ type FederationClient struct {
 // WithDNSCache etc.
 func NewFederationClient(
 	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
-	options ...ClientOption,
+	verifier JSONVerifier, options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
 		Client:           *NewClient(options...),
+		verifier:         verifier,
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
@@ -79,6 +81,7 @@ func (ac *FederationClient) MakeJoin(
 	ctx context.Context, s ServerName, roomID, userID string,
 	roomVersions []RoomVersion,
 ) (res RespMakeJoin, err error) {
+	res.verifier = ac.verifier
 	versionQueryString := ""
 	if len(roomVersions) > 0 {
 		var vqs []string
@@ -102,6 +105,7 @@ func (ac *FederationClient) MakeJoin(
 func (ac *FederationClient) SendJoin(
 	ctx context.Context, s ServerName, event *Event, roomVersion RoomVersion,
 ) (res RespSendJoin, err error) {
+	res.verifier = ac.verifier
 	res.roomVersion = roomVersion
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
@@ -120,12 +124,12 @@ func (ac *FederationClient) SendJoin(
 		res.AuthEvents = make([]*Event, 0, len(intermediate.AuthEvents))
 		res.Origin = intermediate.Origin
 		for _, se := range intermediate.StateEvents {
-			if ev, err := NewEventFromUntrustedJSON(se, roomVersion); err == nil {
+			if ev, err := NewEventFromUntrustedJSON(se, roomVersion, ac.verifier); err == nil {
 				res.StateEvents = append(res.StateEvents, ev)
 			}
 		}
 		for _, ae := range intermediate.AuthEvents {
-			if ev, err := NewEventFromUntrustedJSON(ae, roomVersion); err == nil {
+			if ev, err := NewEventFromUntrustedJSON(ae, roomVersion, ac.verifier); err == nil {
 				res.AuthEvents = append(res.AuthEvents, ev)
 			}
 		}
@@ -211,6 +215,7 @@ func (ac *FederationClient) SendLeave(
 func (ac *FederationClient) SendInvite(
 	ctx context.Context, s ServerName, event *Event,
 ) (res RespInvite, err error) {
+	res.verifier = ac.verifier
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
@@ -227,6 +232,7 @@ func (ac *FederationClient) SendInvite(
 func (ac *FederationClient) SendInviteV2(
 	ctx context.Context, s ServerName, request InviteV2Request,
 ) (res RespInviteV2, err error) {
+	res.verifier = ac.verifier
 	res.roomVersion = request.RoomVersion()
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
@@ -280,6 +286,7 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 func (ac *FederationClient) LookupState(
 	ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 ) (res RespState, err error) {
+	res.verifier = ac.verifier
 	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/state/" +
 		url.PathEscape(roomID) +
@@ -311,6 +318,7 @@ func (ac *FederationClient) LookupMissingEvents(
 	ctx context.Context, s ServerName, roomID string,
 	missing MissingEvents, roomVersion RoomVersion,
 ) (res RespMissingEvents, err error) {
+	res.verifier = ac.verifier
 	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/get_missing_events/" +
 		url.PathEscape(roomID)
@@ -327,6 +335,7 @@ func (ac *FederationClient) Peek(
 	ctx context.Context, s ServerName, roomID, peekID string,
 	roomVersions []RoomVersion,
 ) (res RespPeek, err error) {
+	res.verifier = ac.verifier
 	versionQueryString := ""
 	if len(roomVersions) > 0 {
 		var vqs []string
@@ -449,6 +458,7 @@ func (ac *FederationClient) QueryKeys(ctx context.Context, s ServerName, keys ma
 func (ac *FederationClient) GetEvent(
 	ctx context.Context, s ServerName, eventID string,
 ) (res Transaction, err error) {
+	res.verifier = ac.verifier
 	path := federationPathPrefixV1 + "/event/" + url.PathEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
@@ -460,6 +470,7 @@ func (ac *FederationClient) GetEvent(
 func (ac *FederationClient) GetEventAuth(
 	ctx context.Context, s ServerName, roomID, eventID string,
 ) (res RespEventAuth, err error) {
+	res.verifier = ac.verifier
 	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
@@ -483,6 +494,7 @@ func (ac *FederationClient) GetUserDevices(
 func (ac *FederationClient) Backfill(
 	ctx context.Context, s ServerName, roomID string, limit int, eventIDs []string,
 ) (res Transaction, err error) {
+	res.verifier = ac.verifier
 	// Parse the limit into a string so that we can include it in the URL's query.
 	limitStr := strconv.Itoa(limit)
 
@@ -508,6 +520,7 @@ func (ac *FederationClient) Backfill(
 func (ac *FederationClient) MSC2836EventRelationships(
 	ctx context.Context, dst ServerName, r MSC2836EventRelationshipsRequest, roomVersion RoomVersion,
 ) (res MSC2836EventRelationshipsResponse, err error) {
+	res.verifier = ac.verifier
 	res.roomVersion = roomVersion
 	path := "/_matrix/federation/unstable/event_relationships"
 	req := NewFederationRequest("POST", dst, path)

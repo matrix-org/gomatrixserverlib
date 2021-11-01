@@ -25,7 +25,7 @@ import (
 func benchmarkParse(b *testing.B, eventJSON string) {
 	// run the Unparse function b.N times
 	for n := 0; n < b.N; n++ {
-		if _, err := NewEventFromUntrustedJSON([]byte(eventJSON), RoomVersionV1); err != nil {
+		if _, err := NewEventFromUntrustedJSON([]byte(eventJSON), RoomVersionV1, nil); err != nil {
 			b.Error("Failed to parse event")
 		}
 	}
@@ -175,7 +175,7 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = NewEventFromUntrustedJSON(j, RoomVersionV1)
+	_, err = NewEventFromUntrustedJSON(j, RoomVersionV1, nil)
 	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
 		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
 	}
