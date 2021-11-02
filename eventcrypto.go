@@ -83,19 +83,17 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		}
 
 		// For restricted join rules, the authorising server should have signed.
-		/*
-			if restricted, err := e.roomVersion.AllowRestrictedJoinsInEventAuth(); err != nil {
-				return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
-			} else if restricted && membership == Join {
-				if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
-					_, serverName, err = SplitID('@', v.String())
-					if err != nil {
-						return fmt.Errorf("failed to split authorised server: %w", err)
-					}
-					needed[serverName] = false
+		if restricted, err := e.roomVersion.AllowRestrictedJoinsInEventAuth(); err != nil {
+			return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
+		} else if restricted && membership == Join {
+			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
+				_, serverName, err = SplitID('@', v.String())
+				if err != nil {
+					return fmt.Errorf("failed to split authorised server: %w", err)
 				}
+				needed[serverName] = struct{}{}
 			}
-		*/
+		}
 	}
 
 	strictValidityChecking, err := e.roomVersion.StrictValidityChecking()

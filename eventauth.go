@@ -980,7 +980,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	}
 
 	if m.joinRule.JoinRule == Restricted {
-		if err := m.membershipAllowedForRestrictedJoin(event); err != nil {
+		if err := m.membershipAllowedForRestrictedJoin(); err != nil {
 			return errorf("Failed to process restricted join: %s", err)
 		}
 	}
@@ -994,7 +994,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	return m.membershipAllowedOther()
 }
 
-func (m *membershipAllower) membershipAllowedForRestrictedJoin(event *Event) error {
+func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
 	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
@@ -1018,8 +1018,7 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin(event *Event) err
 	// 'join_authorised_via_users_server' key, containing the user ID of a user
 	// in the room that should have a suitable power level to issue invites.
 	// If no such key is specified then we should reject the join.
-	_, authServer, err := SplitID('@', m.newMember.AuthorisedVia)
-	if err != nil {
+	if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
 		return fmt.Errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
 	}
 
@@ -1036,31 +1035,11 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin(event *Event) err
 	if otherMembership != Join {
 		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q is not joined to the room", m.newMember.AuthorisedVia)
 	}
+
+	// And secondly, does the user have the power to issue invites in the room?
 	if m.powerLevels.UserLevel(m.newMember.AuthorisedVia) < m.powerLevels.Invite {
 		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite", m.newMember.AuthorisedVia)
 	}
-
-	// Secondly, we need to see if there's a valid signature from the server
-	// that the nominated user came from.
-	var signatures struct {
-		Signatures map[ServerName]map[KeyID]json.RawMessage `json:"signatures"`
-	}
-	if err := json.Unmarshal(event.eventJSON, &signatures); err != nil {
-		return fmt.Errorf("failed to unmarshal the signatures of the event")
-	}
-	keyIDsForAuthServer := []KeyID{}
-	for serverName, keyIDs := range signatures.Signatures {
-		if serverName == authServer {
-			for keyID := range keyIDs {
-				keyIDsForAuthServer = append(keyIDsForAuthServer, keyID)
-			}
-		}
-	}
-	if len(keyIDsForAuthServer) == 0 {
-		return fmt.Errorf("no valid signatures were found from the authorising server %q", authServer)
-	}
-
-	// TODO: check these signatures somehow.
 
 	// At this point all of the checks have proceeded, so continue as if
 	// the room is a public room.
