@@ -29,6 +29,7 @@ const (
 	RoomVersionV6 RoomVersion = "6"
 	RoomVersionV7 RoomVersion = "7"
 	RoomVersionV8 RoomVersion = "8"
+	RoomVersionV9 RoomVersion = "9"
 )
 
 // Event format constants.
@@ -54,6 +55,7 @@ const (
 const (
 	RedactionAlgorithmV1 RedactionAlgorithm = iota + 1 // default algorithm
 	RedactionAlgorithmV2                               // no special meaning for m.room.aliases
+	RedactionAlgorithmV3                               // protects 'join_authorised_via_users_server'
 )
 
 var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
@@ -155,6 +157,19 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV2,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
+		allowRestrictedJoinsInEventAuth: true,
+	},
+	RoomVersionV9: {
+		Supported:                       true,
+		Stable:                          false,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV3,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,

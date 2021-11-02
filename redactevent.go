@@ -84,7 +84,8 @@ func redactEvent(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 	// Member events keep the membership.
 	// (In an ideal world they would keep the third_party_invite see matrix-org/synapse#1831)
 	type memberContent struct {
-		Membership RawJSON `json:"membership,omitempty"`
+		Membership    RawJSON `json:"membership,omitempty"`
+		AuthorisedVia string  `json:"join_authorised_via_users_server,omitempty"`
 	}
 
 	// aliasesContent keeps the fields needed in a m.room.aliases event.
@@ -144,6 +145,14 @@ func redactEvent(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 		newContent.createContent = event.Content.createContent
 	case MRoomMember:
 		newContent.memberContent = event.Content.memberContent
+		if algo, err := roomVersion.RedactionAlgorithm(); err != nil {
+			return nil, err
+		} else if algo < RedactionAlgorithmV3 {
+			// We only stopped redacting the 'join_authorised_via_users_server'
+			// key in room version 9, so if the algorithm used is from an older
+			// room version, we should ensure this field is redacted.
+			newContent.memberContent.AuthorisedVia = ""
+		}
 	case MRoomJoinRules:
 		newContent.joinRulesContent = event.Content.joinRulesContent
 	case MRoomPowerLevels:
