@@ -1036,8 +1036,8 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 	}
 
 	// And secondly, does the user have the power to issue invites in the room?
-	if m.powerLevels.UserLevel(m.newMember.AuthorisedVia) < m.powerLevels.Invite {
-		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite", m.newMember.AuthorisedVia)
+	if pl := m.powerLevels.UserLevel(m.newMember.AuthorisedVia); pl < m.powerLevels.Invite {
+		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
 	}
 
 	// At this point all of the checks have proceeded, so continue as if
