@@ -1005,11 +1005,10 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 		return fmt.Errorf("restricted joins are not supported in this room version")
 	}
 
-	// Check if the user was already joined or invited. If they were then there
-	// is not anything else further to check. After this point, the rest of the
-	// auth rules should continue as if the room is a public room.
-	if m.oldMember.Membership == Join || m.oldMember.Membership == Invite {
-		m.joinRule.JoinRule = Public
+	// In the case that the user is already joined, invited or there is no
+	// authorised via server, we should treat the join rule as if it's invite.
+	if m.oldMember.Membership == Join || m.oldMember.Membership == Invite || m.newMember.AuthorisedVia == "" {
+		m.joinRule.JoinRule = Invite
 		return nil
 	}
 
