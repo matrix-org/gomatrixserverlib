@@ -124,7 +124,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 
 	for _, result := range results {
 		if result.Error != nil {
-			return fmt.Errorf("validation error: %w", result.Error)
+			return result.Error
 		}
 	}
 

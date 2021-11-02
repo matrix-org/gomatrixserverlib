@@ -55,7 +55,8 @@ const (
 const (
 	RedactionAlgorithmV1 RedactionAlgorithm = iota + 1 // default algorithm
 	RedactionAlgorithmV2                               // no special meaning for m.room.aliases
-	RedactionAlgorithmV3                               // protects 'join_authorised_via_users_server'
+	RedactionAlgorithmV3                               // protects join rules 'allow' key
+	RedactionAlgorithmV4                               // protects membership 'join_authorised_via_users_server' key
 )
 
 var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
@@ -156,7 +157,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV2,
+		redactionAlgorithm:              RedactionAlgorithmV3,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -169,7 +170,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV3,
+		redactionAlgorithm:              RedactionAlgorithmV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
