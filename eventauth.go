@@ -36,6 +36,8 @@ const (
 	Invite = "invite"
 	// Knock is the string constant "knock"
 	Knock = "knock"
+	// Restricted is the string constant "restricted"
+	Restricted = "restricted"
 	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
 	Peek = "peek"
 	// Public is the string constant "public"
@@ -80,6 +82,8 @@ const (
 	MReceipt = "m.receipt"
 	// MPresence https://matrix.org/docs/spec/server_server/latest#m-presence-schema
 	MPresence = "m.presence"
+	// MRoomMembership https://github.com/matrix-org/matrix-doc/blob/clokep/restricted-rooms/proposals/3083-restricted-rooms.md
+	MRoomMembership = "m.room_membership"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
@@ -165,6 +169,9 @@ type membershipContent struct {
 	Membership string `json:"membership"`
 	// We use the third_party_invite key to special case thirdparty invites.
 	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
+	// The user that authorised the join, in the case that the restricted join
+	// rule is in effect.
+	AuthorizedVia string `json:"join_authorised_via_users_server,omitempty"`
 }
 
 // StateNeededForEventBuilder returns the event types and state_keys needed to authenticate the
@@ -230,6 +237,9 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L370
 		//  * And optionally may require a m.third_party_invite event
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
+		//  * If using a restricted join rule, we should also include the membership event
+		//    of the user nominated in the `join_authorised_via_users_server` key
+		//    https://github.com/matrix-org/matrix-doc/blob/clokep/restricted-rooms/proposals/3083-restricted-rooms.md
 		if content == nil {
 			err = errorf("missing memberContent for m.room.member event")
 			return
@@ -250,7 +260,9 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 			}
 			result.ThirdPartyInvite = append(result.ThirdPartyInvite, token)
 		}
-
+		if content.AuthorizedVia != "" {
+			result.Member = append(result.Member, content.AuthorizedVia)
+		}
 	default:
 		// All other events need:
 		//  * The membership of the sender.
@@ -967,6 +979,12 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		return m.membershipAllowedFromThirdPartyInvite()
 	}
 
+	if m.joinRule.JoinRule == Restricted {
+		if err := m.membershipAllowedForRestrictedJoin(); err != nil {
+			return errorf("Failed to process restricted join: %s", err)
+		}
+	}
+
 	if m.targetID == m.senderID {
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
@@ -974,6 +992,58 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	}
 	// Otherwise this is an attempt to modify the membership of somebody else.
 	return m.membershipAllowedOther()
+}
+
+func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
+	// Special case for restricted room joins, where we will check if the membership
+	// event is signed by one of the allowed servers in the join rule content.
+	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
+	if err != nil {
+		return err
+	}
+	if !allowsRestricted {
+		return fmt.Errorf("restricted joins are not supported in this room version")
+	}
+
+	// In the case that the user is already joined, invited or there is no
+	// authorised via server, we should treat the join rule as if it's invite.
+	if m.oldMember.Membership == Join || m.oldMember.Membership == Invite || m.newMember.AuthorisedVia == "" {
+		m.joinRule.JoinRule = Invite
+		return nil
+	}
+
+	// Otherwise, we have to work out if the server that produced the join was
+	// authorised to do so. This requires the membership event to contain a
+	// 'join_authorised_via_users_server' key, containing the user ID of a user
+	// in the room that should have a suitable power level to issue invites.
+	// If no such key is specified then we should reject the join.
+	if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
+		return fmt.Errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+	}
+
+	// If the nominated user ID is valid then there are two things that we
+	// need to check. First of all, is the user joined to the room?
+	otherMember, err := m.provider.Member(m.newMember.AuthorisedVia)
+	if err != nil {
+		return fmt.Errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+	}
+	otherMembership, err := otherMember.Membership()
+	if err != nil {
+		return fmt.Errorf("failed to find the membership status for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+	}
+	if otherMembership != Join {
+		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q is not joined to the room", m.newMember.AuthorisedVia)
+	}
+
+	// And secondly, does the user have the power to issue invites in the room?
+	if pl := m.powerLevels.UserLevel(m.newMember.AuthorisedVia); pl < m.powerLevels.Invite {
+		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
+	}
+
+	// At this point all of the checks have proceeded, so continue as if
+	// the room is a public room.
+	m.joinRule.JoinRule = Public
+	return nil
 }
 
 // membershipAllowedFronThirdPartyInvite determines if the member events is following
