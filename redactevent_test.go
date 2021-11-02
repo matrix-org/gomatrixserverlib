@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestRedactionAlgorithmV3(t *testing.T) {
-	// Specifically, the version 3 redaction algorithm used in room
+func TestRedactionAlgorithmV4(t *testing.T) {
+	// Specifically, the version 4 redaction algorithm used in room
 	// version 9 is ensuring that the `join_authorised_via_users_server`
 	// key doesn't get redacted.
 
