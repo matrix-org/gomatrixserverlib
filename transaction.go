@@ -5,7 +5,6 @@ import "encoding/json"
 // A Transaction is used to push data from one matrix server to another matrix
 // server.
 type Transaction struct {
-	verifier JSONVerifier
 	// The ID of the transaction.
 	TransactionID TransactionID `json:"transaction_id"`
 	// The server that sent the transaction.

@@ -10,7 +10,7 @@ import (
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
-func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState, verifier JSONVerifier) (
+func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
 	if ver, ok := SupportedRoomVersions()[event.RoomVersion]; !ok || !ver.Supported {
@@ -19,7 +19,6 @@ func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState, ver
 		}
 		return
 	}
-	request.verifier = verifier
 	request.fields.inviteV2RequestHeaders = inviteV2RequestHeaders{
 		RoomVersion:     event.RoomVersion,
 		InviteRoomState: state,
@@ -35,8 +34,7 @@ type inviteV2RequestHeaders struct {
 
 // InviteV2Request is used in the body of a /_matrix/federation/v2/invite request.
 type InviteV2Request struct {
-	verifier JSONVerifier
-	fields   struct {
+	fields struct {
 		inviteV2RequestHeaders
 		Event *Event `json:"event"`
 	}
@@ -62,7 +60,7 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 			Version: i.fields.RoomVersion,
 		}
 	}
-	i.fields.Event, err = NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion, i.verifier)
+	i.fields.Event, err = NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion)
 	return err
 }
 

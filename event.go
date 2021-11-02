@@ -17,7 +17,6 @@ package gomatrixserverlib
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -285,7 +284,7 @@ func (eb *EventBuilder) Build(
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion, verifier JSONVerifier) (result *Event, err error) {
+func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
 	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
@@ -331,12 +330,6 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion, verifi
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/crypto/event_signing.py#L57-L62
 	for _, key := range []string{"outlier", "destinations", "age_ts"} {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
-			return
-		}
-	}
-
-	if verifier != nil {
-		if err = result.VerifyEventSignatures(context.TODO(), verifier); err != nil {
 			return
 		}
 	}

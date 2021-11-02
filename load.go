@@ -50,7 +50,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	events := make([]*Event, 0, len(rawEvents))
 	errs := make([]error, 0, len(rawEvents))
 	for _, rawEv := range rawEvents {
-		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer, l.keyRing)
+		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer)
 		if err != nil {
 			errs = append(errs, err)
 			continue
