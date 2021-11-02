@@ -98,17 +98,6 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		*/
 	}
 
-	// Now check the signatures.
-	requests := map[PublicKeyLookupRequest]Timestamp{}
-	for serverName, byServerName := range e.Signatures {
-		if _, ok := needed[serverName]; !ok {
-			continue
-		}
-		for keyID := range byServerName {
-			requests[PublicKeyLookupRequest{serverName, keyID}] = e.OriginServerTS()
-		}
-	}
-
 	strictValidityChecking, err := e.roomVersion.StrictValidityChecking()
 	if err != nil {
 		return fmt.Errorf("failed to check strict validity checking: %w", err)
