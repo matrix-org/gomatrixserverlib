@@ -19,27 +19,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"sort"
 	"testing"
 
 	"golang.org/x/crypto/ed25519"
 )
-
-func TestEventSigning(t *testing.T) {
-	input := []byte(`{"sender":"@matthew:matrix.org","room_id":"!fYdzbImUrZpwqvQNRs:matrix.org","hashes":{"sha256":"vNLlxDT9Efl6f6xvHDq+rUesSAOBVUrBrXwsGfOeV68"},"signatures":{"matrix.org":{"ed25519:a_RXGa":"vSSYo+Tpy7rXUBQXz8sjICbz5WicmTBSqIZwfKDm75UImBnf6D9d6mSNHWPa6Lli3YLiwwHcyjI9Xgrpjh1aCQ"}},"content":{"join_rule":"restricted"},"type":"m.room.join_rules","state_key":"","depth":11,"prev_events":["$2I2ytZ76HXDUjAVVMsNvupgxL5ECcp_kChlvvDkVgNU"],"prev_state":[],"auth_events":["$xqdFE_yQkiG6lJDBhB87pHTc4xvvz-mzGXKnSNdpep0","$ZnbkQTY5-m2m0fYgP2OP8Y920S3IUKevclHk5h_B9sE","$Sz6THDBYO7oS-y2VEBW2LrdBNLFYO1n56IiOsj7LYw0"],"origin":"matrix.org","origin_server_ts":1632834923159}`)
-	origin, keyID, keyStr := `matrix.org`, KeyID(`ed25519:a_RXGa`), `gusQSADIDiAtI5sPfYWWBwwfnzew4/OaUTDihJmsPxQm7WJ24dL9uO+OOTdhEPkJ0hSUCl9D8Qlt6hAefxN/Dw`
-	key := make([]byte, ed25519.PublicKeySize)
-	if k, err := base64.RawStdEncoding.DecodeString(keyStr); err != nil {
-		t.Fatal(err)
-	} else {
-		copy(key, k)
-	}
-	fmt.Println("Public key:", key)
-	if err := VerifyJSON(origin, keyID, key, input); err != nil {
-		t.Fatal(err)
-	}
-}
 
 func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	// Check JSON verification using the test vectors from https://matrix.org/docs/spec/appendices.html
