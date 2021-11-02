@@ -490,10 +490,7 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	errors, err := VerifyEventSignatures(ctx, allEvents, keyRing)
-	if err != nil {
-		return err
-	}
+	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing)
 	if len(errors) != len(allEvents) {
 		return fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
 	}
