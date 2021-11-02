@@ -607,11 +607,6 @@ func (e *Event) KeyIDs(signingName string) []KeyID {
 	return keyIDs
 }
 
-// Verify checks a ed25519 signature
-func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
-	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON, e.roomVersion)
-}
-
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
 func (e *Event) StateKey() *string {
 	switch fields := e.fields.(type) {
