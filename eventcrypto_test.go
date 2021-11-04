@@ -41,14 +41,22 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyOK := func(input string) {
-		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input), RoomVersionV1)
+		redactedInput, err := redactEvent([]byte(input), RoomVersionV1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = VerifyJSON(entityName, keyID, publicKey, redactedInput)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	testVerifyNotOK := func(reason, input string) {
-		err := verifyEventSignature(entityName, keyID, publicKey, []byte(input), RoomVersionV1)
+		redactedInput, err := redactEvent([]byte(input), RoomVersionV1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = VerifyJSON(entityName, keyID, publicKey, redactedInput)
 		if err == nil {
 			t.Fatalf("Expected VerifyJSON to fail for input %v because %v", input, reason)
 		}
@@ -371,8 +379,11 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 	}
 
 	events := []*Event{event}
-	if err = VerifyAllEventSignatures(context.Background(), events, &verifier); err != nil {
-		t.Fatal(err)
+	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
+	for _, err := range errors {
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// There should be two verification requests
@@ -429,8 +440,11 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 	}
 
 	events := []*Event{event}
-	if err = VerifyAllEventSignatures(context.Background(), events, &verifier); err != nil {
-		t.Fatal(err)
+	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
+	for _, err := range errors {
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// There should be two verification requests

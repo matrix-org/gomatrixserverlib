@@ -27,6 +27,109 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSONVerifier) []error {
+	errors := make([]error, 0, len(events))
+	for _, e := range events {
+		errors = append(errors, e.VerifyEventSignatures(ctx, verifier))
+	}
+	return errors
+}
+
+func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
+	needed := map[ServerName]struct{}{}
+
+	// The sender should have signed the event in all cases.
+	_, serverName, err := SplitID('@', e.Sender())
+	if err != nil {
+		return fmt.Errorf("failed to split sender: %w", err)
+	}
+	needed[serverName] = struct{}{}
+
+	// TODO: This enables deprecation of the "origin" field as per MSC1664
+	// (https://github.com/matrix-org/matrix-doc/issues/1664) but really
+	// this has been done so that we can join rooms touched by Conduit again.
+	if serverName != e.Origin() && e.Origin() != "" {
+		needed[e.Origin()] = struct{}{}
+	}
+
+	// In room versions 1 and 2, we should also check that the server
+	// that created the event is included too. This is probably the
+	// same as the sender.
+	if format, err := e.roomVersion.EventIDFormat(); err != nil {
+		return fmt.Errorf("failed to get event ID format: %w", err)
+	} else if format == EventIDFormatV1 {
+		_, serverName, err = SplitID('$', e.EventID())
+		if err != nil {
+			return fmt.Errorf("failed to split event ID: %w", err)
+		}
+		needed[serverName] = struct{}{}
+	}
+
+	// Special checks for membership events.
+	if e.Type() == MRoomMember {
+		membership, err := e.Membership()
+		if err != nil {
+			return fmt.Errorf("failed to get membership of membership event: %w", err)
+		}
+
+		// For invites, the invited server should have signed the event.
+		if membership == Invite {
+			_, serverName, err = SplitID('@', *e.StateKey())
+			if err != nil {
+				return fmt.Errorf("failed to split state key: %w", err)
+			}
+			needed[serverName] = struct{}{}
+		}
+
+		// For restricted join rules, the authorising server should have signed.
+		if restricted, err := e.roomVersion.AllowRestrictedJoinsInEventAuth(); err != nil {
+			return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
+		} else if restricted && membership == Join {
+			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
+				_, serverName, err = SplitID('@', v.String())
+				if err != nil {
+					return fmt.Errorf("failed to split authorised server: %w", err)
+				}
+				needed[serverName] = struct{}{}
+			}
+		}
+	}
+
+	strictValidityChecking, err := e.roomVersion.StrictValidityChecking()
+	if err != nil {
+		return fmt.Errorf("failed to check strict validity checking: %w", err)
+	}
+
+	redactedJSON, err := redactEvent(e.eventJSON, e.roomVersion)
+	if err != nil {
+		return fmt.Errorf("failed to redact event: %w", err)
+	}
+
+	var toVerify []VerifyJSONRequest
+	for serverName := range needed {
+		v := VerifyJSONRequest{
+			Message:                redactedJSON,
+			AtTS:                   e.OriginServerTS(),
+			ServerName:             serverName,
+			StrictValidityChecking: strictValidityChecking,
+		}
+		toVerify = append(toVerify, v)
+	}
+
+	results, err := verifier.VerifyJSONs(ctx, toVerify)
+	if err != nil {
+		return fmt.Errorf("failed to verify JSONs: %w", err)
+	}
+
+	for _, result := range results {
+		if result.Error != nil {
+			return result.Error
+		}
+	}
+
+	return nil
+}
+
 // addContentHashesToEvent sets the "hashes" key of the event with a SHA-256 hash of the unredacted event content.
 // This hash is used to detect whether the unredacted content of the event is valid.
 // Returns the event JSON with a "hashes" key added to it.
@@ -193,143 +296,4 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 	event["signatures"] = signedEvent.Signatures
 
 	return json.Marshal(event)
-}
-
-// VerifyEventSignature checks if the event has been signed by the given ED25519 key.
-func verifyEventSignature(signingName string, keyID KeyID, publicKey ed25519.PublicKey, eventJSON []byte, roomVersion RoomVersion) error {
-	redactedJSON, err := redactEvent(eventJSON, roomVersion)
-	if err != nil {
-		return err
-	}
-
-	return VerifyJSON(signingName, keyID, publicKey, redactedJSON)
-}
-
-// VerifyEventSignatures checks that each event in a list of events has valid
-// signatures from the server that sent it.
-//
-// returns an array with either an error or nil for each event.
-func VerifyEventSignatures(ctx context.Context, events []*Event, keyRing JSONVerifier) ([]error, error) { // nolint: gocyclo
-	// we will end up doing at least as many verifications as we have events.
-	// some events require multiple verifications, as they are signed by multiple
-	// servers.
-	toVerify := make([]VerifyJSONRequest, 0, len(events))
-
-	// for each entry in 'events', a list of corresponding indexes in toVerify
-	verificationMap := make([][]int, len(events))
-
-	for evtIdx, event := range events {
-		redactedJSON, err := redactEvent(event.eventJSON, event.roomVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		domains := make(map[ServerName]bool)
-		// in general, we expect the domain of the sender id to be the
-		// same as the origin; however there was a bug in an old version
-		// of synapse which meant that some joins/leaves used the origin
-		// and event id supplied by the helping server instead of the
-		// joining/leaving server.
-		//
-		// That's ok, provided it's signed by the sender's server too.
-		//
-		// XXX we may have to exclude 3pid invites here, as per
-		// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L58-L64.
-		//
-		senderDomain, err := domainFromID(event.Sender())
-		if err != nil {
-			return nil, err
-		}
-		senderServer := ServerName(senderDomain)
-		domains[senderServer] = true
-		// Synapse requires that the event ID domain has a valid signature.
-		// https://github.com/matrix-org/synapse/blob/v1.20.1/synapse/event_auth.py#L98-L104
-		if format, _ := event.roomVersion.EventIDFormat(); format == EventIDFormatV1 {
-			eventIDDomain, err := domainFromID(event.EventID())
-			if err != nil {
-				return nil, err
-			}
-			eventIDServer := ServerName(eventIDDomain)
-			if senderServer != eventIDServer {
-				domains[eventIDServer] = true
-			}
-		}
-		// TODO: This enables deprecation of the "origin" field as per MSC1664
-		// (https://github.com/matrix-org/matrix-doc/issues/1664) but really
-		// this has been done so that we can join rooms touched by Conduit again.
-		if senderServer != event.Origin() && event.Origin() != "" {
-			domains[event.Origin()] = true
-		}
-
-		// MRoomMember invite events are signed by both the server sending
-		// the invite and the server the invite is for.
-		if event.Type() == MRoomMember && event.StateKey() != nil {
-			targetDomain, err := domainFromID(*event.StateKey())
-			if err != nil {
-				return nil, err
-			}
-			if ServerName(targetDomain) != event.Origin() {
-				c, err := NewMemberContentFromEvent(event)
-				if err != nil {
-					return nil, err
-				}
-				if c.Membership == Invite {
-					domains[ServerName(targetDomain)] = true
-				}
-			}
-		}
-
-		strictValidityChecking, err := event.roomVersion.StrictValidityChecking()
-		if err != nil {
-			return nil, err
-		}
-
-		for domain := range domains {
-			v := VerifyJSONRequest{
-				Message:                redactedJSON,
-				AtTS:                   event.OriginServerTS(),
-				ServerName:             domain,
-				StrictValidityChecking: strictValidityChecking,
-			}
-			verificationMap[evtIdx] = append(verificationMap[evtIdx], len(toVerify))
-			toVerify = append(toVerify, v)
-		}
-	}
-
-	results, err := keyRing.VerifyJSONs(ctx, toVerify)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check that all the event JSON was correctly signed
-	verificationErrors := make([]error, len(events))
-	for evtIdx := range events {
-		for _, verificationIdx := range verificationMap[evtIdx] {
-			result := results[verificationIdx]
-			if result.Error != nil {
-				verificationErrors[evtIdx] = result.Error
-				break // break inner loop; continue with outer
-			}
-		}
-	}
-
-	return verificationErrors, nil
-}
-
-// VerifyAllEventSignatures checks that each event in a list of events has valid
-// signatures from the server that sent it.
-//
-// returns an error if any event fails verifications
-func VerifyAllEventSignatures(ctx context.Context, events []*Event, keyRing JSONVerifier) error {
-	verificationErrors, err := VerifyEventSignatures(ctx, events, keyRing)
-	if err != nil {
-		return err
-	}
-	for idx := range events {
-		ve := verificationErrors[idx]
-		if ve != nil {
-			return ve
-		}
-	}
-	return nil
 }

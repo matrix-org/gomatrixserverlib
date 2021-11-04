@@ -33,10 +33,16 @@ const (
 	Leave = "leave"
 	// Invite is the string constant "invite"
 	Invite = "invite"
+	// Knock is the string constant "knock"
+	Knock = "knock"
+	// Restricted is the string constant "restricted"
+	Restricted = "restricted"
 	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
 	Peek = "peek"
 	// Public is the string constant "public"
 	Public = "public"
+	// WorldReadable is the string constant "world_readable"
+	WorldReadable = "world_readable"
 	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
 	MRoomCreate = "m.room.create"
 	// MRoomJoinRules https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules
@@ -45,6 +51,10 @@ const (
 	MRoomPowerLevels = "m.room.power_levels"
 	// MRoomName https://matrix.org/docs/spec/client_server/r0.6.0#m-room-name
 	MRoomName = "m.room.name"
+	// MRoomTopic https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-topic
+	MRoomTopic = "m.room.topic"
+	// MRoomAvatar https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-avatar
+	MRoomAvatar = "m.room.avatar"
 	// MRoomMember https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
 	MRoomMember = "m.room.member"
 	// MRoomThirdPartyInvite https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-third-party-invite
@@ -55,6 +65,10 @@ const (
 	MRoomCanonicalAlias = "m.room.canonical_alias"
 	// MRoomHistoryVisibility https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-history-visibility
 	MRoomHistoryVisibility = "m.room.history_visibility"
+	// MRoomGuestAccess https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-guest-access
+	MRoomGuestAccess = "m.room.guest_access"
+	// MRoomEncryption https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-encryption
+	MRoomEncryption = "m.room.encryption"
 	// MRoomRedaction https://matrix.org/docs/spec/client_server/r0.2.0.html#id21
 	MRoomRedaction = "m.room.redaction"
 	// MTyping https://matrix.org/docs/spec/client_server/r0.3.0.html#m-typing
@@ -65,6 +79,10 @@ const (
 	MDeviceListUpdate = "m.device_list_update"
 	// MReceipt https://matrix.org/docs/spec/server_server/r0.1.4#receipts
 	MReceipt = "m.receipt"
+	// MPresence https://matrix.org/docs/spec/server_server/latest#m-presence-schema
+	MPresence = "m.presence"
+	// MRoomMembership https://github.com/matrix-org/matrix-doc/blob/clokep/restricted-rooms/proposals/3083-restricted-rooms.md
+	MRoomMembership = "m.room_membership"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
@@ -150,6 +168,9 @@ type membershipContent struct {
 	Membership string `json:"membership"`
 	// We use the third_party_invite key to special case thirdparty invites.
 	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
+	// The user that authorised the join, in the case that the restricted join
+	// rule is in effect.
+	AuthorizedVia string `json:"join_authorised_via_users_server,omitempty"`
 }
 
 // StateNeededForEventBuilder returns the event types and state_keys needed to authenticate the
@@ -215,6 +236,9 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L370
 		//  * And optionally may require a m.third_party_invite event
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
+		//  * If using a restricted join rule, we should also include the membership event
+		//    of the user nominated in the `join_authorised_via_users_server` key
+		//    https://github.com/matrix-org/matrix-doc/blob/clokep/restricted-rooms/proposals/3083-restricted-rooms.md
 		if content == nil {
 			err = errorf("missing memberContent for m.room.member event")
 			return
@@ -224,7 +248,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		if stateKey != nil {
 			result.Member = append(result.Member, sender, *stateKey)
 		}
-		if content.Membership == Join {
+		if content.Membership == Join || content.Membership == Knock || content.Membership == Invite {
 			result.JoinRules = true
 		}
 		if content.ThirdPartyInvite != nil {
@@ -235,7 +259,9 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 			}
 			result.ThirdPartyInvite = append(result.ThirdPartyInvite, token)
 		}
-
+		if content.AuthorizedVia != "" {
+			result.Member = append(result.Member, content.AuthorizedVia)
+		}
 	default:
 		// All other events need:
 		//  * The membership of the sender.
@@ -335,29 +361,64 @@ func errorf(message string, args ...interface{}) error {
 	return &NotAllowed{Message: fmt.Sprintf(message, args...)}
 }
 
+// allowerContext allows auth checks to be run using cached create,
+// power level and join rule events. This can help when authing a large
+// state set for a specific room.
+type allowerContext struct {
+	// The auth event provider. This must be set.
+	provider AuthEventProvider
+	// The m.room.create content for the room.
+	create CreateContent
+	// The m.room.power_levels content for the room.
+	powerLevels PowerLevelContent
+	// The m.room.join_rules content for the room.
+	joinRule JoinRuleContent
+}
+
+func newAllowerContext(provider AuthEventProvider) *allowerContext {
+	create, _ := NewCreateContentFromAuthEvents(provider)
+	powerLevels, _ := NewPowerLevelContentFromAuthEvents(provider, create.Creator)
+	joinRule, _ := NewJoinRuleContentFromAuthEvents(provider)
+	return &allowerContext{
+		provider:    provider,
+		create:      create,
+		powerLevels: powerLevels,
+		joinRule:    joinRule,
+	}
+}
+
+// Allowed checks whether an event is allowed by the auth events, using the
+// create, power level and join events from the allowerContext. This is a
+// quick path designed to speed up state resolution.
+// It returns a NotAllowed error if the event is not allowed.
+// If there was an error loading the auth events then it returns that error.
+func (a *allowerContext) allowed(event *Event) error {
+	switch event.Type() {
+	case MRoomCreate:
+		return a.createEventAllowed(event)
+	case MRoomAliases:
+		return a.aliasEventAllowed(event)
+	case MRoomMember:
+		return a.memberEventAllowed(event)
+	case MRoomPowerLevels:
+		return a.powerLevelsEventAllowed(event)
+	case MRoomRedaction:
+		return a.redactEventAllowed(event)
+	default:
+		return a.defaultEventAllowed(event)
+	}
+}
+
 // Allowed checks whether an event is allowed by the auth events.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event *Event, authEvents AuthEventProvider) error {
-	switch event.Type() {
-	case MRoomCreate:
-		return createEventAllowed(event)
-	case MRoomAliases:
-		return aliasEventAllowed(event, authEvents)
-	case MRoomMember:
-		return memberEventAllowed(event, authEvents)
-	case MRoomPowerLevels:
-		return powerLevelsEventAllowed(event, authEvents)
-	case MRoomRedaction:
-		return redactEventAllowed(event, authEvents)
-	default:
-		return defaultEventAllowed(event, authEvents)
-	}
+	return newAllowerContext(authEvents).allowed(event)
 }
 
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
-func createEventAllowed(event *Event) error {
+func (a *allowerContext) createEventAllowed(event *Event) error {
 	if !event.StateKeyEquals("") {
 		return errorf("create event state key is not empty: %v", event.StateKey())
 	}
@@ -380,8 +441,8 @@ func createEventAllowed(event *Event) error {
 
 // memberEventAllowed checks whether the m.room.member event is allowed.
 // Membership events have different authentication rules to ordinary events.
-func memberEventAllowed(event *Event, authEvents AuthEventProvider) error {
-	allower, err := newMembershipAllower(authEvents, event)
+func (a *allowerContext) memberEventAllowed(event *Event) error {
+	allower, err := a.newMembershipAllower(a.provider, event)
 	if err != nil {
 		return err
 	}
@@ -390,28 +451,23 @@ func memberEventAllowed(event *Event, authEvents AuthEventProvider) error {
 
 // aliasEventAllowed checks whether the m.room.aliases event is allowed.
 // Alias events have different authentication rules to ordinary events.
-func aliasEventAllowed(event *Event, authEvents AuthEventProvider) error {
+func (a *allowerContext) aliasEventAllowed(event *Event) error {
 	// The alias events have different auth rules to ordinary events.
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
-
-	create, err := NewCreateContentFromAuthEvents(authEvents)
-	if err != nil {
-		return err
-	}
 
 	senderDomain, err := domainFromID(event.Sender())
 	if err != nil {
 		return err
 	}
 
-	if event.RoomID() != create.roomID {
-		return errorf("create event has different roomID: %q != %q", event.RoomID(), create.roomID)
+	if event.RoomID() != a.create.roomID {
+		return errorf("create event has different roomID: %q != %q", event.RoomID(), a.create.roomID)
 	}
 
 	// Check that server is allowed in the room by the m.room.federate flag.
-	if err := create.DomainAllowed(senderDomain); err != nil {
+	if err := a.create.DomainAllowed(senderDomain); err != nil {
 		return err
 	}
 
@@ -428,8 +484,8 @@ func aliasEventAllowed(event *Event, authEvents AuthEventProvider) error {
 // powerLevelsEventAllowed checks whether the m.room.power_levels event is allowed.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
-func powerLevelsEventAllowed(event *Event, authEvents AuthEventProvider) error {
-	allower, err := newEventAllower(authEvents, event.Sender())
+func (a *allowerContext) powerLevelsEventAllowed(event *Event) error {
+	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
 	}
@@ -454,19 +510,8 @@ func powerLevelsEventAllowed(event *Event, authEvents AuthEventProvider) error {
 		}
 	}
 
-	// Grab the old power level event so that we can check if the event existed.
-	var oldEvent *Event
-	if oldEvent, err = authEvents.PowerLevels(); err != nil {
-		return err
-	} else if oldEvent == nil {
-		// If this is the first power level event then it can set the levels to
-		// any value it wants to.
-		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1074
-		return nil
-	}
-
 	// Grab the old levels so that we can compare new the levels against them.
-	oldPowerLevels := allower.powerLevels
+	oldPowerLevels := a.powerLevels
 	senderLevel := oldPowerLevels.UserLevel(event.Sender())
 
 	// Check that the changes in event levels are allowed.
@@ -717,8 +762,8 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 // membership) on the event.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
-func redactEventAllowed(event *Event, authEvents AuthEventProvider) error {
-	allower, err := newEventAllower(authEvents, event.Sender())
+func (a *allowerContext) redactEventAllowed(event *Event) error {
+	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
 	}
@@ -775,36 +820,27 @@ func redactEventAllowed(event *Event, authEvents AuthEventProvider) error {
 // checks for events.
 // It returns an error if the event is not allowed or if there was a
 // problem loading the auth events needed.
-func defaultEventAllowed(event *Event, authEvents AuthEventProvider) error {
-	allower, err := newEventAllower(authEvents, event.Sender())
+func (a *allowerContext) defaultEventAllowed(event *Event) error {
+	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
 	}
-
 	return allower.commonChecks(event)
 }
 
 // An eventAllower has the information needed to authorise all events types
 // other than m.room.create, m.room.member and m.room.aliases which are special.
 type eventAllower struct {
-	// The content of the m.room.create.
-	create CreateContent
+	*allowerContext
 	// The content of the m.room.member event for the sender.
 	member MemberContent
-	// The content of the m.room.power_levels event for the room.
-	powerLevels PowerLevelContent
 }
 
 // newEventAllower loads the information needed to authorise an event sent
 // by a given user ID from the auth events.
-func newEventAllower(authEvents AuthEventProvider, senderID string) (e eventAllower, err error) {
-	if e.create, err = NewCreateContentFromAuthEvents(authEvents); err != nil {
-		return
-	}
-	if e.member, err = NewMemberContentFromAuthEvents(authEvents, senderID); err != nil {
-		return
-	}
-	if e.powerLevels, err = NewPowerLevelContentFromAuthEvents(authEvents, e.create.Creator); err != nil {
+func (a *allowerContext) newEventAllower(senderID string) (e eventAllower, err error) {
+	e.allowerContext = a
+	if e.member, err = NewMemberContentFromAuthEvents(a.provider, senderID); err != nil {
 		return
 	}
 	return
@@ -859,6 +895,10 @@ func (e *eventAllower) commonChecks(event *Event) error {
 
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
+	*allowerContext
+	roomVersion RoomVersion
+	// The m.room.third_party_invite content referenced by this event.
+	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
 	targetID string
 	// The user ID of the user who sent the membership event.
@@ -869,19 +909,13 @@ type membershipAllower struct {
 	oldMember MemberContent
 	// The new membership of the user if this event is accepted.
 	newMember MemberContent
-	// The m.room.create content for the room.
-	create CreateContent
-	// The m.room.power_levels content for the room.
-	powerLevels PowerLevelContent
-	// The m.room.join_rules content for the room.
-	joinRule JoinRuleContent
-	// The m.room.third_party_invite content referenced by this event.
-	thirdPartyInvite ThirdPartyInviteContent
 }
 
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
 // from the auth events.
-func newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
+func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
+	m.allowerContext = a
+	m.roomVersion = event.roomVersion
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
@@ -890,9 +924,6 @@ func newMembershipAllower(authEvents AuthEventProvider, event *Event) (m members
 	// TODO: Check that the IDs are valid user IDs.
 	m.targetID = *stateKey
 	m.senderID = event.Sender()
-	if m.create, err = NewCreateContentFromAuthEvents(authEvents); err != nil {
-		return
-	}
 	if m.newMember, err = NewMemberContentFromEvent(event); err != nil {
 		return
 	}
@@ -901,15 +932,6 @@ func newMembershipAllower(authEvents AuthEventProvider, event *Event) (m members
 	}
 	if m.senderMember, err = NewMemberContentFromAuthEvents(authEvents, m.senderID); err != nil {
 		return
-	}
-	if m.powerLevels, err = NewPowerLevelContentFromAuthEvents(authEvents, m.create.Creator); err != nil {
-		return
-	}
-	// We only need to check the join rules if the proposed membership is "join".
-	if m.newMember.Membership == "join" {
-		if m.joinRule, err = NewJoinRuleContentFromAuthEvents(authEvents); err != nil {
-			return
-		}
 	}
 	// If this event comes from a third_party_invite, we need to check it against the original event.
 	if m.newMember.ThirdPartyInvite != nil {
@@ -956,6 +978,12 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		return m.membershipAllowedFromThirdPartyInvite()
 	}
 
+	if m.joinRule.JoinRule == Restricted {
+		if err := m.membershipAllowedForRestrictedJoin(); err != nil {
+			return errorf("Failed to process restricted join: %s", err)
+		}
+	}
+
 	if m.targetID == m.senderID {
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
@@ -963,6 +991,58 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	}
 	// Otherwise this is an attempt to modify the membership of somebody else.
 	return m.membershipAllowedOther()
+}
+
+func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
+	// Special case for restricted room joins, where we will check if the membership
+	// event is signed by one of the allowed servers in the join rule content.
+	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
+	if err != nil {
+		return err
+	}
+	if !allowsRestricted {
+		return fmt.Errorf("restricted joins are not supported in this room version")
+	}
+
+	// In the case that the user is already joined, invited or there is no
+	// authorised via server, we should treat the join rule as if it's invite.
+	if m.oldMember.Membership == Join || m.oldMember.Membership == Invite || m.newMember.AuthorisedVia == "" {
+		m.joinRule.JoinRule = Invite
+		return nil
+	}
+
+	// Otherwise, we have to work out if the server that produced the join was
+	// authorised to do so. This requires the membership event to contain a
+	// 'join_authorised_via_users_server' key, containing the user ID of a user
+	// in the room that should have a suitable power level to issue invites.
+	// If no such key is specified then we should reject the join.
+	if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
+		return fmt.Errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+	}
+
+	// If the nominated user ID is valid then there are two things that we
+	// need to check. First of all, is the user joined to the room?
+	otherMember, err := m.provider.Member(m.newMember.AuthorisedVia)
+	if err != nil {
+		return fmt.Errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+	}
+	otherMembership, err := otherMember.Membership()
+	if err != nil {
+		return fmt.Errorf("failed to find the membership status for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+	}
+	if otherMembership != Join {
+		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q is not joined to the room", m.newMember.AuthorisedVia)
+	}
+
+	// And secondly, does the user have the power to issue invites in the room?
+	if pl := m.powerLevels.UserLevel(m.newMember.AuthorisedVia); pl < m.powerLevels.Invite {
+		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
+	}
+
+	// At this point all of the checks have proceeded, so continue as if
+	// the room is a public room.
+	m.joinRule.JoinRule = Public
+	return nil
 }
 
 // membershipAllowedFronThirdPartyInvite determines if the member events is following
@@ -1008,7 +1088,38 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	if m.oldMember.Membership == Leave && m.newMember.Membership == Leave {
 		return nil
 	}
-
+	if m.newMember.Membership == Knock {
+		if m.joinRule.JoinRule != Knock {
+			return errorf(
+				"%q is not allowed to change their membership from %q to %q as the join rule %q does not allow knocking",
+				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+			)
+		}
+		// A user that is not in the room is allowed to knock if the join
+		// rules are "knock" and they are not already joined to, invited to
+		// or banned from the room.
+		// Spec: https://spec.matrix.org/unstable/rooms/v7/
+		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
+		} else if !supported {
+			return errorf(
+				"%q is not allowed to change their membership from %q to %q as room version %q does not support knocking",
+				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+			)
+		}
+		switch m.oldMember.Membership {
+		case Join, Invite, Ban:
+			// The user is already joined, invited or banned, therefore they
+			// can't knock.
+			return errorf(
+				"%q is not allowed to change their membership from %q to %q as they are already joined/invited/banned",
+				m.targetID, m.oldMember.Membership, m.newMember.Membership,
+			)
+		default:
+			// A non-joined, non-invited, non-banned user is allowed to knock.
+			return nil
+		}
+	}
 	if m.newMember.Membership == Join {
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
@@ -1021,6 +1132,10 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		}
 		// An invited user is allowed to join if the join rules are "invite"
 		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Invite {
+			return nil
+		}
+		// An invited user is allowed to join if the join rules are "knock"
+		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Knock {
 			return nil
 		}
 		// A joined user is allowed to update their join.
@@ -1084,6 +1199,24 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		}
 		// A user may re-invite a user.
 		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.Invite {
+			return nil
+		}
+		// A user can invite in response to a knock.
+		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
+			if m.joinRule.JoinRule != Knock {
+				return errorf(
+					"%q is not allowed to change the membership of %q from %q to %q as the join rule %q does not allow knocking",
+					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+				)
+			}
+			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
+			} else if !supported {
+				return errorf(
+					"%q is not allowed to change the membership of %q from %q to %q as room version %q does not support knocking",
+					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+				)
+			}
 			return nil
 		}
 	}

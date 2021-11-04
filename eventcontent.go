@@ -122,6 +122,9 @@ type MemberContent struct {
 	IsDirect    bool   `json:"is_direct,omitempty"`
 	// We use the third_party_invite key to special case thirdparty invites.
 	ThirdPartyInvite *MemberThirdPartyInvite `json:"third_party_invite,omitempty"`
+	// Restricted join rules require a user with invite permission to be nominated,
+	// so that their membership can be included in the auth events.
+	AuthorisedVia string `json:"join_authorised_via_users_server,omitempty"`
 }
 
 // MemberThirdPartyInvite is the "Invite" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
@@ -213,7 +216,13 @@ type HistoryVisibilityContent struct {
 // See  https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules for descriptions of the fields.
 type JoinRuleContent struct {
 	// We use the join_rule key to check whether join m.room.member events are allowed.
-	JoinRule string `json:"join_rule"`
+	JoinRule string                     `json:"join_rule"`
+	Allow    []JoinRuleContentAllowRule `json:"allow,omitempty"`
+}
+
+type JoinRuleContentAllowRule struct {
+	Type   string `json:"type"`
+	RoomID string `json:"room_id"`
 }
 
 // NewJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
@@ -310,9 +319,11 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 	// If there is no power level event then the creator gets level 100
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
 	c.Users = map[string]int64{creatorUserID: 100}
-	// If there is no power level event then the state_default is level 0
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L997
-	c.StateDefault = 0
+	// If there is no power level event then the state_default is level 50
+	// https://github.com/matrix-org/synapse/blob/v1.38.0/synapse/event_auth.py#L437
+	// Previously it was 0, but this was changed in:
+	// https://github.com/matrix-org/synapse/commit/5c9afd6f80cf04367fe9b02c396af9f85e02a611
+	c.StateDefault = 50
 	return
 }
 
@@ -417,11 +428,11 @@ func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
 	var err error
 
 	// First try to unmarshal as an int64.
-	if err = json.Unmarshal(data, &int64Value); err != nil {
+	if int64Value, err = strconv.ParseInt(string(data), 10, 64); err != nil {
 		// If unmarshalling as an int64 fails try as a string.
 		if err = json.Unmarshal(data, &stringValue); err != nil {
 			// If unmarshalling as a string fails try as a float.
-			if err = json.Unmarshal(data, &floatValue); err != nil {
+			if floatValue, err = strconv.ParseFloat(string(data), 64); err != nil {
 				return err
 			}
 			int64Value = int64(floatValue)

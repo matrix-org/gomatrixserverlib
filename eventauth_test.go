@@ -163,6 +163,7 @@ func TestStateNeededForInvite(t *testing.T) {
 	}]`, &b, StateNeeded{
 		Create:      true,
 		PowerLevels: true,
+		JoinRules:   true,
 		Member:      []string{"@u1:a", "@u2:b"},
 	})
 }
@@ -197,6 +198,7 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 	}]`, &b, StateNeeded{
 		Create:           true,
 		PowerLevels:      true,
+		JoinRules:        true,
 		Member:           []string{"@u1:a", "@u2:b"},
 		ThirdPartyInvite: []string{"my_token"},
 	})

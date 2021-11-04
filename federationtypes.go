@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"io"
 	"net"
@@ -223,9 +224,11 @@ type respStateFields struct {
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevices struct {
-	UserID   string           `json:"user_id"`
-	StreamID int              `json:"stream_id"`
-	Devices  []RespUserDevice `json:"devices"`
+	UserID         string           `json:"user_id"`
+	StreamID       int              `json:"stream_id"`
+	Devices        []RespUserDevice `json:"devices"`
+	MasterKey      *CrossSigningKey `json:"master_key"`
+	SelfSigningKey *CrossSigningKey `json:"self_signing_key"`
 }
 
 // RespUserDevice are embedded in RespUserDevices
@@ -243,11 +246,11 @@ type RespUserDeviceKeys struct {
 	DeviceID   string   `json:"device_id"`
 	Algorithms []string `json:"algorithms"`
 	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
-	Keys map[string]string `json:"keys"`
+	Keys map[KeyID]Base64Bytes `json:"keys"`
 	// E.g "@alice:example.com": {
 	//	"ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
 	// }
-	Signatures map[string]map[string]string `json:"signatures"`
+	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
 }
 
 // UnmarshalJSON implements json.Unmarshaller
@@ -487,10 +490,7 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	errors, err := VerifyEventSignatures(ctx, allEvents, keyRing)
-	if err != nil {
-		return err
-	}
+	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing)
 	if len(errors) != len(allEvents) {
 		return fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
 	}
@@ -515,10 +515,8 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
-			return fmt.Errorf(
-				"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
-				event.EventID(), err,
-			)
+			logrus.WithError(err).Errorf("Event %q is not allowed by its auth events", event.EventID())
+			failures[event.EventID()] = err
 		}
 	}
 
@@ -876,7 +874,9 @@ type RespClaimKeys struct {
 
 // RespQueryKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
 type RespQueryKeys struct {
-	DeviceKeys map[string]map[string]DeviceKeys `json:"device_keys"`
+	DeviceKeys      map[string]map[string]DeviceKeys `json:"device_keys"`
+	MasterKeys      map[string]CrossSigningKey       `json:"master_keys"`
+	SelfSigningKeys map[string]CrossSigningKey       `json:"self_signing_keys"`
 }
 
 // DeviceKeys as per https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
@@ -887,8 +887,25 @@ type DeviceKeys struct {
 	Unsigned map[string]interface{} `json:"unsigned"`
 }
 
+func (s *DeviceKeys) isCrossSigningBody() {} // implements CrossSigningBody
+
+func (s *DeviceKeys) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case string:
+		return json.Unmarshal([]byte(v), s)
+	case []byte:
+		return json.Unmarshal(v, s)
+	}
+	return fmt.Errorf("unsupported source type")
+}
+
+func (s DeviceKeys) Value() (driver.Value, error) {
+	return json.Marshal(s)
+}
+
 // MSC2836EventRelationshipsRequest is a request to /event_relationships from
 // https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
+// nolint:maligned
 type MSC2836EventRelationshipsRequest struct {
 	EventID         string `json:"event_id"`
 	MaxDepth        int    `json:"max_depth"`
@@ -979,8 +996,8 @@ func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
 // MSC2946SpacesRequest is the HTTP body for the federated /unstable/spaces/{roomID} endpoint
 // See https://github.com/matrix-org/matrix-doc/pull/2946
 type MSC2946SpacesRequest struct {
-	ExcludeRooms     []string `json:"exclude_rooms"`
-	MaxRoomsPerSpace int      `json:"max_rooms_per_space"`
+	ExcludeRooms     []string `json:"exclude_rooms,omitempty"`
+	MaxRoomsPerSpace int      `json:"max_rooms_per_space,omitempty"`
 	Limit            int      `json:"limit"`
 	Batch            string   `json:"batch"`
 }

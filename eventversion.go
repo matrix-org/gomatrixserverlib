@@ -27,6 +27,9 @@ const (
 	RoomVersionV4 RoomVersion = "4"
 	RoomVersionV5 RoomVersion = "5"
 	RoomVersionV6 RoomVersion = "6"
+	RoomVersionV7 RoomVersion = "7"
+	RoomVersionV8 RoomVersion = "8"
+	RoomVersionV9 RoomVersion = "9"
 )
 
 // Event format constants.
@@ -52,6 +55,8 @@ const (
 const (
 	RedactionAlgorithmV1 RedactionAlgorithm = iota + 1 // default algorithm
 	RedactionAlgorithmV2                               // no special meaning for m.room.aliases
+	RedactionAlgorithmV3                               // protects join rules 'allow' key
+	RedactionAlgorithmV4                               // protects membership 'join_authorised_via_users_server' key
 )
 
 var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
@@ -65,6 +70,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
+		allowRestrictedJoinsInEventAuth: false,
 	},
 	RoomVersionV2: {
 		Supported:                       true,
@@ -76,6 +83,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
+		allowRestrictedJoinsInEventAuth: false,
 	},
 	RoomVersionV3: {
 		Supported:                       true,
@@ -87,6 +96,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
+		allowRestrictedJoinsInEventAuth: false,
 	},
 	RoomVersionV4: {
 		Supported:                       true,
@@ -98,6 +109,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
+		allowRestrictedJoinsInEventAuth: false,
 	},
 	RoomVersionV5: {
 		Supported:                       true,
@@ -109,6 +122,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
+		allowKnockingInEventAuth:        false,
+		allowRestrictedJoinsInEventAuth: false,
 	},
 	RoomVersionV6: {
 		Supported:                       true,
@@ -120,6 +135,47 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        false,
+		allowRestrictedJoinsInEventAuth: false,
+	},
+	RoomVersionV7: {
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV2,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
+		allowRestrictedJoinsInEventAuth: false,
+	},
+	RoomVersionV8: {
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV3,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
+		allowRestrictedJoinsInEventAuth: true,
+	},
+	RoomVersionV9: {
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV4,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
+		allowRestrictedJoinsInEventAuth: true,
 	},
 }
 
@@ -173,6 +229,8 @@ type RoomVersionDescription struct {
 	enforceSignatureChecks          bool
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
+	allowKnockingInEventAuth        bool
+	allowRestrictedJoinsInEventAuth bool
 	Supported                       bool
 	Stable                          bool
 }
@@ -223,6 +281,24 @@ func (v RoomVersion) StrictValidityChecking() (bool, error) {
 func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.powerLevelsIncludeNotifications, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// AllowKnockingInEventAuth returns true if the given room version allows for
+// the `knock` membership state or false otherwise.
+func (v RoomVersion) AllowKnockingInEventAuth() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.allowKnockingInEventAuth, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// AllowRestrictedJoinsInEventAuth returns true if the given room version allows
+// for memberships signed by servers in the restricted join rules.
+func (v RoomVersion) AllowRestrictedJoinsInEventAuth() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.allowRestrictedJoinsInEventAuth, nil
 	}
 	return false, UnsupportedRoomVersionError{v}
 }

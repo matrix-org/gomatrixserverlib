@@ -16,7 +16,9 @@
 package gomatrixserverlib
 
 import (
+	"database/sql/driver"
 	"encoding/base64"
+	"fmt"
 	"strings"
 )
 
@@ -25,6 +27,10 @@ import (
 //
 // The bytes encoded using base64 when marshalled as JSON.
 // When the bytes are unmarshalled from JSON they are decoded from base64.
+//
+// When scanning directly from a database, a string column will be
+// decoded from base64 automatically whereas a bytes column will be
+// copied as-is.
 type Base64Bytes []byte
 
 // Encode encodes the bytes as base64
@@ -43,6 +49,27 @@ func (b64 *Base64Bytes) Decode(str string) error {
 		*b64, err = base64.RawStdEncoding.DecodeString(str)
 	}
 	return err
+}
+
+// Implements sql.Scanner
+func (b64 *Base64Bytes) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case string:
+		return b64.Decode(v)
+	case []byte:
+		new := append(Base64Bytes{}, v...)
+		b64 = &new
+		return nil
+	case RawJSON:
+		return b64.UnmarshalJSON(v)
+	default:
+		return fmt.Errorf("unsupported source type")
+	}
+}
+
+// Implements sql.Valuer
+func (b64 Base64Bytes) Value() (driver.Value, error) {
+	return b64.Encode(), nil
 }
 
 // MarshalJSON encodes the bytes as base64 and then encodes the base64 as a JSON string.

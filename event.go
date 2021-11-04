@@ -157,6 +157,12 @@ func (eb *EventBuilder) Build(
 	now time.Time, origin ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	eventFormat, err := roomVersion.EventFormat()
 	if err != nil {
 		return result, err
@@ -277,6 +283,12 @@ func (eb *EventBuilder) Build(
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
 func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
@@ -356,6 +368,12 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
 func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
@@ -369,6 +387,12 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
 func NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+		return nil, UnsupportedRoomVersionError{
+			Version: roomVersion,
+		}
+	}
+
 	result = &Event{}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
@@ -580,11 +604,6 @@ func (e *Event) KeyIDs(signingName string) []KeyID {
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
 	return keyIDs
-}
-
-// Verify checks a ed25519 signature
-func (e *Event) Verify(signingName string, keyID KeyID, publicKey ed25519.PublicKey) error {
-	return verifyEventSignature(signingName, keyID, publicKey, e.eventJSON, e.roomVersion)
 }
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
@@ -905,7 +924,9 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
 func (e *Event) Membership() (string, error) {
-	var content MemberContent
+	var content struct {
+		Membership string `json:"membership"`
+	}
 	if err := e.extractContent(MRoomMember, &content); err != nil {
 		return "", err
 	}

@@ -212,6 +212,13 @@ func TestStateResolutionBase(t *testing.T) {
 	runStateResolutionV2(t, []*Event{}, expected)
 }
 
+func BenchmarkStateResolutionBanVsPowerLevel(b *testing.B) {
+	t := &testing.T{}
+	for i := 0; i < b.N; i++ {
+		TestStateResolutionBanVsPowerLevel(t)
+	}
+}
+
 func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 	expected := []string{
 		"$CREATE:example.com", "$IJR:example.com", "$PA:example.com",
