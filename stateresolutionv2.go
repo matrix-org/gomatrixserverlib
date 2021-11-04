@@ -533,7 +533,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 	// Now we need to work out which events don't have any incoming auth event
 	// dependencies. These will be placed into the graph first. Remove the event
 	// from the event map as this prevents us from processing it a second time.
-	var noIncoming stateResV2ConflictedPowerLevelHeap
+	noIncoming := make(stateResV2ConflictedPowerLevelHeap, 0, len(events))
 	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
@@ -623,7 +623,7 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 	// Now we need to work out which events don't have any incoming prev event
 	// dependencies. These will be placed into the graph first. Remove the event
 	// from the event map as this prevents us from processing it a second time.
-	var noIncoming stateResV2ConflictedOtherHeap
+	noIncoming := make(stateResV2ConflictedOtherHeap, 0, len(events))
 	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
