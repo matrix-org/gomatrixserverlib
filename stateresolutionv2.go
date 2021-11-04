@@ -31,16 +31,17 @@ const (
 )
 
 type stateResolverV2 struct {
-	authEventMap              map[string]*Event            // Map of all provided auth events
-	powerLevelMainline        []*Event                     // Power level events in mainline ordering
-	powerLevelMainlinePos     map[string]int               // Power level event positions in mainline
-	resolvedCreate            *Event                       // Resolved create event
-	resolvedPowerLevels       *Event                       // Resolved power level event
-	resolvedJoinRules         *Event                       // Resolved join rules event
-	resolvedThirdPartyInvites map[string]*Event            // Resolved third party invite events
-	resolvedMembers           map[string]*Event            // Resolved member events
-	resolvedOthers            map[string]map[string]*Event // Resolved other events
-	result                    []*Event                     // Final list of resolved events
+	authEventMap              map[string]*Event // Map of all provided auth events
+	authPowerLevels           map[string]int64  // A cache of user power levels
+	powerLevelMainline        []*Event          // Power level events in mainline ordering
+	powerLevelMainlinePos     map[string]int    // Power level event positions in mainline
+	resolvedCreate            *Event            // Resolved create event
+	resolvedPowerLevels       *Event            // Resolved power level event
+	resolvedJoinRules         *Event            // Resolved join rules event
+	resolvedThirdPartyInvites map[string]*Event // Resolved third party invite events
+	resolvedMembers           map[string]*Event // Resolved member events
+	resolvedOthers            map[string]*Event // Resolved other events
+	result                    []*Event          // Final list of resolved events
 }
 
 // Create implements AuthEventProvider
@@ -80,10 +81,11 @@ func ResolveStateConflictsV2(
 	conflictedOthers := make([]*Event, 0, len(conflicted))
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
+		authPowerLevels:           make(map[string]int64, len(conflicted)+len(unconflicted)),
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
 		resolvedMembers:           make(map[string]*Event, len(conflicted)),
-		resolvedOthers:            make(map[string]map[string]*Event, len(conflicted)),
+		resolvedOthers:            make(map[string]*Event, len(conflicted)),
 		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
 	}
 
@@ -156,9 +158,7 @@ func ResolveStateConflictsV2(
 		r.result = append(r.result, invite)
 	}
 	for _, other := range r.resolvedOthers {
-		for _, event := range other {
-			r.result = append(r.result, event)
-		}
+		r.result = append(r.result, other)
 	}
 
 	return r.result
@@ -214,13 +214,13 @@ func isControlEvent(e *Event) bool {
 		}
 		// Membership events are only control events if the "membership" key in the
 		// content is "leave" or "ban" so we need to extract the content.
-		var content map[string]interface{}
+		var content MemberContent
 		if err := json.Unmarshal(e.Content(), &content); err != nil {
 			break
 		}
 		// If the "membership" key is set and is set to either "leave" or "ban" then
 		// the event is a control event.
-		if m, ok := content["membership"]; ok && (m == "leave" || m == "ban") {
+		if content.Membership == Leave || content.Membership == Ban {
 			return true
 		}
 	default:
@@ -377,11 +377,8 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 		default:
 			// Doesn't match one of the core state types so store it by type and state
 			// key.
-			if _, ok := r.resolvedOthers[st]; !ok {
-				r.resolvedOthers[st] = make(map[string]*Event)
-			}
-			if sk != nil {
-				r.resolvedOthers[st][*sk] = event
+			if sk != nil && *sk != "" {
+				r.resolvedOthers[st+*sk] = event
 			}
 		}
 	}
@@ -435,7 +432,8 @@ func (r *stateResolverV2) wrapOtherEventsForSort(events []*Event) []*stateResV2C
 // reverseTopologicalOrdering takes a set of input events, prepares them using
 // wrapPowerLevelEventsForSort and then starts the Kahn's algorithm in order to
 // topologically sort them. The result that is returned is correctly ordered.
-func (r *stateResolverV2) reverseTopologicalOrdering(events []*Event, order TopologicalOrder) (result []*Event) {
+func (r *stateResolverV2) reverseTopologicalOrdering(events []*Event, order TopologicalOrder) []*Event {
+	result := make([]*Event, 0, len(events))
 	switch order {
 	case TopologicalOrderByAuthEvents:
 		block := r.wrapPowerLevelEventsForSort(events)
@@ -450,27 +448,34 @@ func (r *stateResolverV2) reverseTopologicalOrdering(events []*Event, order Topo
 	default:
 		panic(fmt.Sprintf("gomatrixserverlib.reverseTopologicalOrdering unknown Ordering %d", order))
 	}
-	return
+	return result
 }
 
 // mainlineOrdering takes a set of input events, prepares them using
 // wrapOtherEventsForSort and then sorts them based on mainline ordering. The
 // result that is returned is correctly ordered.
-func (r *stateResolverV2) mainlineOrdering(events []*Event) (result []*Event) {
+func (r *stateResolverV2) mainlineOrdering(events []*Event) []*Event {
 	block := r.wrapOtherEventsForSort(events)
+	result := make([]*Event, 0, len(block))
 	sort.Sort(stateResV2ConflictedOtherHeap(block))
 	for _, s := range block {
 		result = append(result, s.event)
 	}
-	return
+	return result
 }
 
 // getPowerLevelFromAuthEvents tries to determine the effective power level of
 // the sender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
 func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
+	user := event.Sender()
 	for _, authID := range event.AuthEventIDs() {
-		// First check and see if we have the auth event in the auth map, if not
+		// First, check if we have a cached value.
+		if pl, ok := r.authPowerLevels[event.Sender()]; ok {
+			return pl
+		}
+
+		// Then check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.
 		authEvent, ok := r.authEventMap[authID]
 		if !ok {
@@ -490,7 +495,10 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 
 		// Look up what the power level should be for this user. If the user is
 		// not in the list, the default user power level will be returned instead.
-		return content.UserLevel(event.Sender())
+		// Cache that value for future runs.
+		pl := content.UserLevel(user)
+		r.authPowerLevels[user] = pl
+		return pl
 	}
 
 	return 0
@@ -504,7 +512,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*stateResV2ConflictedPowerLevel {
 	eventMap := make(map[string]*stateResV2ConflictedPowerLevel, len(events))
 	graph := make([]*stateResV2ConflictedPowerLevel, 0, len(events))
-	inDegree := make(map[string]int)
+	inDegree := make(map[string]int, len(events))
 
 	for _, event := range events {
 		// For each event that we have been given, add it to the event map so that
@@ -520,13 +528,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 		// Find each of the auth events that this event depends on and make a note
 		// for each auth event that there's an additional incoming dependency.
 		for _, auth := range event.event.AuthEventIDs() {
-			if _, ok := inDegree[auth]; !ok {
-				// We don't know about this event yet - set an initial value.
-				inDegree[auth] = 1
-			} else {
-				// We've already encountered this event so increment instead.
-				inDegree[auth]++
-			}
+			inDegree[auth]++
 		}
 	}
 
@@ -550,7 +552,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append([]*stateResV2ConflictedPowerLevel{event}, graph...)
+		graph = append(graph[:0], append([]*stateResV2ConflictedPowerLevel{event}, graph...)...)
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
@@ -574,7 +576,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 
 	// If we have stray events left over then add them into the result.
 	if len(eventMap) > 0 {
-		var remaining stateResV2ConflictedPowerLevelHeap
+		remaining := make(stateResV2ConflictedPowerLevelHeap, 0, len(events))
 		for _, event := range eventMap {
 			heap.Push(&remaining, event)
 		}
@@ -594,7 +596,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*stateResV2ConflictedOther {
 	eventMap := make(map[string]*stateResV2ConflictedOther, len(events))
 	graph := make([]*stateResV2ConflictedOther, 0, len(events))
-	inDegree := make(map[string]int)
+	inDegree := make(map[string]int, len(events))
 
 	for _, event := range events {
 		// For each event that we have been given, add it to the event map so that
@@ -610,13 +612,7 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 		// Find each of the prev events that this event depends on and make a note
 		// for each prev event that there's an additional incoming dependency.
 		for _, prev := range event.event.PrevEventIDs() {
-			if _, ok := inDegree[prev]; !ok {
-				// We don't know about this event yet - set an initial value.
-				inDegree[prev] = 1
-			} else {
-				// We've already encountered this event so increment instead.
-				inDegree[prev]++
-			}
+			inDegree[prev]++
 		}
 	}
 
@@ -640,7 +636,7 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append([]*stateResV2ConflictedOther{event}, graph...)
+		graph = append(graph[:0], append([]*stateResV2ConflictedOther{event}, graph...)...)
 
 		// Now we should look at the outgoing prev dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing prev
@@ -664,7 +660,7 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 
 	// If we have stray events left over then add them into the result.
 	if len(eventMap) > 0 {
-		var remaining stateResV2ConflictedOtherHeap
+		remaining := make(stateResV2ConflictedOtherHeap, 0, len(events))
 		for _, event := range eventMap {
 			heap.Push(&remaining, event)
 		}

@@ -863,7 +863,7 @@ func (e *Event) PrevEvents() []EventReference {
 	case eventFormatV1Fields:
 		return fields.PrevEvents
 	case eventFormatV2Fields:
-		var result []EventReference
+		result := make([]EventReference, 0, len(fields.PrevEvents))
 		for _, id := range fields.PrevEvents {
 			// In the new event format, the event ID is already the hash of
 			// the event. Since we will have generated the event ID before
@@ -888,7 +888,7 @@ func (e *Event) PrevEvents() []EventReference {
 func (e *Event) PrevEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
-		var result []string
+		result := make([]string, 0, len(fields.PrevEvents))
 		for _, id := range fields.PrevEvents {
 			result = append(result, id.EventID)
 		}
@@ -988,7 +988,7 @@ func (e *Event) AuthEvents() []EventReference {
 	case eventFormatV1Fields:
 		return fields.AuthEvents
 	case eventFormatV2Fields:
-		var result []EventReference
+		result := make([]EventReference, 0, len(fields.AuthEvents))
 		for _, id := range fields.AuthEvents {
 			var sha Base64Bytes
 			if err := sha.Decode(id[1:]); err != nil {
@@ -1009,7 +1009,7 @@ func (e *Event) AuthEvents() []EventReference {
 func (e *Event) AuthEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
-		var result []string
+		result := make([]string, 0, len(fields.AuthEvents))
 		for _, id := range fields.AuthEvents {
 			result = append(result, id.EventID)
 		}
