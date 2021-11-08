@@ -471,7 +471,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 	user := event.Sender()
 	for _, authID := range event.AuthEventIDs() {
 		// First, check if we have a cached value.
-		if pl, ok := r.authPowerLevels[event.Sender()]; ok {
+		if pl, ok := r.authPowerLevels[authID]; ok {
 			return pl
 		}
 
@@ -497,7 +497,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 		// not in the list, the default user power level will be returned instead.
 		// Cache that value for future runs.
 		pl := content.UserLevel(user)
-		r.authPowerLevels[user] = pl
+		r.authPowerLevels[authID] = pl
 		return pl
 	}
 
