@@ -377,7 +377,7 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 		default:
 			// Doesn't match one of the core state types so store it by type and state
 			// key.
-			if sk != nil && *sk != "" {
+			if sk != nil {
 				r.resolvedOthers[st+*sk] = event
 			}
 		}
