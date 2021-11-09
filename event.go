@@ -580,22 +580,17 @@ func (e *Event) EventReference() EventReference {
 }
 
 // Sign returns a copy of the event with an additional signature.
-func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
+func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) (*Event, error) {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
+		return nil, fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON))
 	}
 	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
+		return nil, fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON))
 	}
-	return Event{
-		redacted:    e.redacted,
-		eventJSON:   eventJSON,
-		fields:      e.fields,
-		roomVersion: e.roomVersion,
-	}
+	return NewEventFromTrustedJSONWithEventID(e.EventID(), eventJSON, e.redacted, e.roomVersion)
 }
 
 // KeyIDs returns a list of key IDs that the named entity has signed the event with.
