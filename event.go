@@ -591,9 +591,10 @@ func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
 	return Event{
-		redacted:  e.redacted,
-		eventJSON: eventJSON,
-		fields:    e.fields,
+		redacted:    e.redacted,
+		eventJSON:   eventJSON,
+		fields:      e.fields,
+		roomVersion: e.roomVersion,
 	}
 }
 
