@@ -1027,6 +1027,9 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 	if err != nil {
 		return fmt.Errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
 	}
+	if otherMember == nil {
+		return fmt.Errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+	}
 	otherMembership, err := otherMember.Membership()
 	if err != nil {
 		return fmt.Errorf("failed to find the membership status for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
