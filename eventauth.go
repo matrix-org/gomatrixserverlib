@@ -983,7 +983,9 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		// If the room is set to restricted join, evaluate restricted join rules
 		// in addition to updating their own membership.
 		if m.joinRule.JoinRule == Restricted {
-			return m.membershipAllowedSelfForRestrictedJoin()
+			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
+				return fmt.Errorf("failed to process restricted join: %w", err)
+			}
 		}
 
 		// If the state_key and the sender are the same then this is an attempt
@@ -1046,7 +1048,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// At this point all of the checks have proceeded, so continue as if
 	// the room is a public room.
 	m.joinRule.JoinRule = Public
-	return m.membershipAllowedSelf()
+	return nil
 }
 
 // membershipAllowedFronThirdPartyInvite determines if the member events is following
