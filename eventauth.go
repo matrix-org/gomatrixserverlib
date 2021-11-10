@@ -979,13 +979,13 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		return m.membershipAllowedFromThirdPartyInvite()
 	}
 
-	if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
-		if err := m.membershipAllowedForRestrictedJoin(); err != nil {
-			return errorf("Failed to process restricted join: %s", err)
-		}
-	}
-
 	if m.targetID == m.senderID {
+		// If the room is set to restricted join, evaluate restricted join rules
+		// in addition to updating their own membership.
+		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
+			return m.membershipAllowedSelfForRestrictedJoin()
+		}
+
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
@@ -994,7 +994,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	return m.membershipAllowedOther()
 }
 
-func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
+func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
 	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
@@ -1046,7 +1046,7 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 	// At this point all of the checks have proceeded, so continue as if
 	// the room is a public room.
 	m.joinRule.JoinRule = Public
-	return nil
+	return m.membershipAllowedSelf()
 }
 
 // membershipAllowedFronThirdPartyInvite determines if the member events is following
@@ -1126,7 +1126,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	}
 	if m.newMember.Membership == Join {
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
-			return m.membershipAllowedForRestrictedJoin()
+			return m.membershipAllowedSelfForRestrictedJoin()
 		}
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
