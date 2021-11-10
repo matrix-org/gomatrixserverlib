@@ -982,7 +982,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	if m.targetID == m.senderID {
 		// If the room is set to restricted join, evaluate restricted join rules
 		// in addition to updating their own membership.
-		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
+		if m.joinRule.JoinRule == Restricted {
 			return m.membershipAllowedSelfForRestrictedJoin()
 		}
 
