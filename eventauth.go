@@ -979,13 +979,15 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		return m.membershipAllowedFromThirdPartyInvite()
 	}
 
-	if m.joinRule.JoinRule == Restricted {
-		if err := m.membershipAllowedForRestrictedJoin(); err != nil {
-			return errorf("Failed to process restricted join: %s", err)
-		}
-	}
-
 	if m.targetID == m.senderID {
+		// If the room is set to restricted join, evaluate restricted join rules
+		// in addition to updating their own membership.
+		if m.joinRule.JoinRule == Restricted {
+			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
+				return err
+			}
+		}
+
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
@@ -994,7 +996,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	return m.membershipAllowedOther()
 }
 
-func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
+func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
 	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
@@ -1002,7 +1004,7 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 		return err
 	}
 	if !allowsRestricted {
-		return fmt.Errorf("restricted joins are not supported in this room version")
+		return errorf("restricted joins are not supported in this room version")
 	}
 
 	// In the case that the user is already joined, invited or there is no
@@ -1018,26 +1020,29 @@ func (m *membershipAllower) membershipAllowedForRestrictedJoin() error {
 	// in the room that should have a suitable power level to issue invites.
 	// If no such key is specified then we should reject the join.
 	if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
-		return fmt.Errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+		return errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
 	}
 
 	// If the nominated user ID is valid then there are two things that we
 	// need to check. First of all, is the user joined to the room?
 	otherMember, err := m.provider.Member(m.newMember.AuthorisedVia)
 	if err != nil {
-		return fmt.Errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+		return errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+	}
+	if otherMember == nil {
+		return errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
 	}
 	otherMembership, err := otherMember.Membership()
 	if err != nil {
-		return fmt.Errorf("failed to find the membership status for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
+		return errorf("failed to find the membership status for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
 	}
 	if otherMembership != Join {
-		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q is not joined to the room", m.newMember.AuthorisedVia)
+		return errorf("the nominated 'join_authorised_via_users_server' user %q is not joined to the room", m.newMember.AuthorisedVia)
 	}
 
 	// And secondly, does the user have the power to issue invites in the room?
 	if pl := m.powerLevels.UserLevel(m.newMember.AuthorisedVia); pl < m.powerLevels.Invite {
-		return fmt.Errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
+		return errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
 	}
 
 	// At this point all of the checks have proceeded, so continue as if
@@ -1122,6 +1127,9 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		}
 	}
 	if m.newMember.Membership == Join {
+		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
+			return m.membershipAllowedSelfForRestrictedJoin()
+		}
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Public {
