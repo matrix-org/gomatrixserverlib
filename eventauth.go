@@ -979,12 +979,17 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		return m.membershipAllowedFromThirdPartyInvite()
 	}
 
+	if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
+		if err := m.membershipAllowedForRestrictedJoin(); err != nil {
+			return errorf("Failed to process restricted join: %s", err)
+		}
+	}
+
 	if m.targetID == m.senderID {
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
 	}
-
 	// Otherwise this is an attempt to modify the membership of somebody else.
 	return m.membershipAllowedOther()
 }
@@ -1120,8 +1125,6 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		}
 	}
 	if m.newMember.Membership == Join {
-		// A user that is not in a restricted room is allowed to join based
-		// on their membership of one or other rooms.
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
 			return m.membershipAllowedForRestrictedJoin()
 		}
