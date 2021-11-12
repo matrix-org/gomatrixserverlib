@@ -329,31 +329,18 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 }
 
 // Defaults sets the power levels to their default values.
+// See https://spec.matrix.org/v1.1/client-server-api/#mroompower_levels for defaults.
 func (c *PowerLevelContent) Defaults() {
-	// Default invite level is 0.
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L426
-	c.Invite = 0
-	// Default ban, kick and redacts levels are 50
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L376
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L456
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1041
+	c.Invite = 50
 	c.Ban = 50
 	c.Kick = 50
 	c.Redact = 50
-	// Default user level is 0
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L558
 	c.UsersDefault = 0
-	// Default event level is 0, Default state level is 50
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L987
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L991
 	c.EventsDefault = 0
 	c.StateDefault = 50
-	// Default room notification level is 50
-	// https://matrix.org/docs/spec/client_server/r0.6.1#m-room-power-levels
 	c.Notifications = map[string]int64{
 		"room": 50,
 	}
-
 }
 
 // NewPowerLevelContentFromEvent loads the power level content from an event.
