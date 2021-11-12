@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -30,66 +31,50 @@ type KeyID string
 
 // SignJSON signs a JSON object returning a copy signed with the given key.
 // https://matrix.org/docs/spec/server_server/unstable.html#signing-json
-func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, message []byte) ([]byte, error) {
-	// Unpack the top-level key of the JSON object without unpacking the contents of the keys.
-	// This allows us to add and remove the top-level keys from the JSON object.
-	// It also ensures that the JSON is actually a valid JSON object.
-	var object map[string]*json.RawMessage
-	var signatures map[string]map[KeyID]Base64Bytes
-	if err := json.Unmarshal(message, &object); err != nil {
+func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, message []byte) (signed []byte, err error) {
+	preserve := struct {
+		Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
+		Unsigned   RawJSON                          `json:"unsigned"`
+	}{
+		Signatures: map[string]map[KeyID]Base64Bytes{},
+	}
+	if err = json.Unmarshal(message, &preserve); err != nil {
 		return nil, err
 	}
-
-	// We don't sign the contents of the unsigned key so we remove it.
-	rawUnsigned, hasUnsigned := object["unsigned"]
-	delete(object, "unsigned")
-
-	// Parse the existing signatures if they exist.
-	// Signing a JSON object adds our signature to the existing
-	// signature rather than replacing it.
-	if rawSignatures := object["signatures"]; rawSignatures != nil {
-		if err := json.Unmarshal(*rawSignatures, &signatures); err != nil {
+	if message, err = sjson.DeleteBytes(message, "signatures"); err != nil {
+		return nil, err
+	}
+	if message, err = sjson.DeleteBytes(message, "unsigned"); err != nil {
+		return nil, err
+	}
+	canonical, err := CanonicalJSON(message)
+	if err != nil {
+		return nil, err
+	}
+	signature := Base64Bytes(ed25519.Sign(privateKey, canonical))
+	if _, ok := preserve.Signatures[signingName]; ok {
+		preserve.Signatures[signingName][keyID] = signature
+	} else {
+		preserve.Signatures[signingName] = map[KeyID]Base64Bytes{
+			keyID: signature,
+		}
+	}
+	signatures, err := json.Marshal(preserve.Signatures)
+	if err != nil {
+		return nil, err
+	}
+	if signed, err = sjson.SetRawBytes(canonical, "signatures", signatures); err != nil {
+		return nil, err
+	}
+	if len(preserve.Unsigned) > 0 {
+		if signed, err = sjson.SetRawBytes(signed, "unsigned", preserve.Unsigned); err != nil {
 			return nil, err
 		}
-		delete(object, "signatures")
-	} else {
-		signatures = map[string]map[KeyID]Base64Bytes{}
 	}
-
-	// Encode the JSON object without the "signatures" key or
-	// the "unsigned" key in the canonical format.
-	unsorted, err := json.Marshal(object)
-	if err != nil {
+	if signed, err = CanonicalJSON(signed); err != nil {
 		return nil, err
 	}
-	canonical, err := CanonicalJSON(unsorted)
-	if err != nil {
-		return nil, err
-	}
-
-	// Sign the canonical JSON with the ed25519 key.
-	signature := Base64Bytes(ed25519.Sign(privateKey, canonical))
-
-	// Add the signature to the "signature" key.
-	signaturesForEntity := signatures[signingName]
-	if signaturesForEntity != nil {
-		signaturesForEntity[keyID] = signature
-	} else {
-		signatures[signingName] = map[KeyID]Base64Bytes{keyID: signature}
-	}
-	var rawSignatures json.RawMessage
-	rawSignatures, err = json.Marshal(signatures)
-	if err != nil {
-		return nil, err
-	}
-	object["signatures"] = &rawSignatures
-
-	// Add the unsigned key back if it was present.
-	if hasUnsigned {
-		object["unsigned"] = rawUnsigned
-	}
-
-	return json.Marshal(object)
+	return
 }
 
 // ListKeyIDs lists the key IDs a given entity has signed a message with.
