@@ -259,8 +259,10 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = sjson.SetBytes(eventJSON, "signatures", event.Signatures); err != nil {
-		return
+	if len(event.Signatures) > 0 {
+		if eventJSON, err = sjson.SetBytes(eventJSON, "signatures", event.Signatures); err != nil {
+			return
+		}
 	}
 
 	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {
