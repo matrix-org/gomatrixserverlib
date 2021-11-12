@@ -88,6 +88,8 @@ type EventBuilder struct {
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
 	// The create event has a depth of 1.
 	Depth int64 `json:"depth"`
+	// The previous signatures of the event.
+	Signatures RawJSON `json:"signatures"`
 	// The JSON object for "content" key of the event.
 	Content RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
@@ -254,6 +256,10 @@ func (eb *EventBuilder) Build(
 	}
 
 	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {
+		return
+	}
+
+	if eventJSON, err = sjson.SetBytes(eventJSON, "signatures", event.Signatures); err != nil {
 		return
 	}
 
