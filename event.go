@@ -88,8 +88,8 @@ type EventBuilder struct {
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
 	// The create event has a depth of 1.
 	Depth int64 `json:"depth"`
-	// The JSON object for "signatures" key of the event.
-	Signatures RawJSON `json:"signatures,omitempty"`
+	// The JSON object for "signature" key of the event.
+	Signature RawJSON `json:"signatures,omitempty"`
 	// The JSON object for "content" key of the event.
 	Content RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
@@ -257,15 +257,6 @@ func (eb *EventBuilder) Build(
 
 	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {
 		return
-	}
-
-	// Preserve existing signatures from other servers. Necessary for
-	// restricted joins to work, since we unmarshal the make_join
-	// response straight into an EventBuilder.
-	if len(event.Signatures) > 0 {
-		if eventJSON, err = sjson.SetRawBytes(eventJSON, "signatures", event.Signatures); err != nil {
-			return
-		}
 	}
 
 	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {

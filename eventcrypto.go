@@ -142,6 +142,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	}
 
 	unsignedJSON := event["unsigned"]
+	signatures := event["signatures"]
 
 	delete(event, "signatures")
 	delete(event, "unsigned")
@@ -168,6 +169,9 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 
 	if len(unsignedJSON) > 0 {
 		event["unsigned"] = unsignedJSON
+	}
+	if len(signatures) > 0 {
+		event["signatures"] = signatures
 	}
 	event["hashes"] = RawJSON(hashesJSON)
 
@@ -267,7 +271,6 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 
 // SignEvent adds a ED25519 signature to the event for the given key.
 func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
-
 	// Redact the event before signing so signature that will remain valid even if the event is redacted.
 	redactedJSON, err := redactEvent(eventJSON, roomVersion)
 	if err != nil {
