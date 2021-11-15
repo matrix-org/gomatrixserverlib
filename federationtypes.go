@@ -561,6 +561,9 @@ type RespSendJoin struct {
 	AuthEvents []*Event `json:"auth_chain"`
 	// The server that originated the event.
 	Origin ServerName `json:"origin"`
+	// The returned join event from the remote server. Used for restricted joins,
+	// but not guaranteed to be present as it's only since MSC3083.
+	Event *Event `json:"event,omitempty"`
 }
 
 // MarshalJSON implements json.Marshaller
