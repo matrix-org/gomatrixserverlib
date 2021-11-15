@@ -88,6 +88,8 @@ type EventBuilder struct {
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
 	// The create event has a depth of 1.
 	Depth int64 `json:"depth"`
+	// The JSON object for "signatures" key of the event.
+	Signature RawJSON `json:"signatures,omitempty"`
 	// The JSON object for "content" key of the event.
 	Content RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
