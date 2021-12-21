@@ -392,6 +392,47 @@ func (ac *FederationClient) GetPublicRooms(
 	return
 }
 
+// searchTerm is used when querying e.g. remote public rooms
+type searchTerm struct {
+	GenericSearchTerm string `json:"generic_search_term,omitempty"`
+}
+
+// postPublicRoomsReq is a request to /publicRooms
+type postPublicRoomsReq struct {
+	PublicRoomsFilter    searchTerm `json:"filter,omitempty"`
+	Limit                int        `json:"limit,omitempty"`
+	IncludeAllNetwoorks  bool       `json:"include_all_networks,omitempty"`
+	ThirdPartyInstanceID string     `json:"third_party_instance_id,omitempty"`
+	Since                string     `json:"since,omitempty"`
+}
+
+// GetPublicRoomsFiltered gets a filtered public rooms list from the target homeserver's directory.
+// Spec: https://spec.matrix.org/v1.1/server-server-api/#post_matrixfederationv1publicrooms
+// thirdPartyInstanceID can only be non-empty if includeAllNetworks is false.
+func (ac *FederationClient) GetPublicRoomsFiltered(
+	ctx context.Context, s ServerName, limit int, since, filter string,
+	includeAllNetworks bool, thirdPartyInstanceID string,
+) (res RespPublicRooms, err error) {
+	if includeAllNetworks && thirdPartyInstanceID != "" {
+		panic("thirdPartyInstanceID can only be used if includeAllNetworks is false")
+	}
+
+	roomsReq := postPublicRoomsReq{
+		PublicRoomsFilter:    searchTerm{GenericSearchTerm: filter},
+		Limit:                limit,
+		IncludeAllNetwoorks:  includeAllNetworks,
+		ThirdPartyInstanceID: thirdPartyInstanceID,
+		Since:                since,
+	}
+	path := federationPathPrefixV1 + "/publicRooms"
+	req := NewFederationRequest("POST", s, path)
+	if err = req.SetContent(roomsReq); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // LookupProfile queries the profile of a user.
 // If field is empty, the server returns the full profile of the user.
 // Otherwise, it must be one of: ["displayname", "avatar_url"], indicating
