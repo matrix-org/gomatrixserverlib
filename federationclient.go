@@ -369,27 +369,7 @@ func (ac *FederationClient) GetPublicRooms(
 	ctx context.Context, s ServerName, limit int, since string,
 	includeAllNetworks bool, thirdPartyInstanceID string,
 ) (res RespPublicRooms, err error) {
-	if includeAllNetworks && thirdPartyInstanceID != "" {
-		panic("thirdPartyInstanceID can only be used if includeAllNetworks is false")
-	}
-
-	query := url.Values{}
-	query.Set("limit", strconv.Itoa(limit))
-	query.Set("since", since)
-	query.Set("include_all_networks", strconv.FormatBool(includeAllNetworks))
-	if !includeAllNetworks {
-		query.Set("third_party_instance_id", thirdPartyInstanceID)
-	}
-
-	u := url.URL{
-		Path:     federationPathPrefixV1 + "/publicRooms",
-		RawQuery: query.Encode(),
-	}
-	path := u.RequestURI()
-
-	req := NewFederationRequest("GET", s, path)
-	err = ac.doRequest(ctx, req, &res)
-	return
+	return ac.GetPublicRoomsFiltered(ctx, s, limit, since, "", includeAllNetworks, thirdPartyInstanceID)
 }
 
 // searchTerm is used when querying e.g. remote public rooms
