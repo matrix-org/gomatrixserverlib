@@ -10,7 +10,7 @@ require (
 	github.com/miekg/dns v1.1.25
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0 // indirect
-	github.com/tidwall/gjson v1.9.3
+	github.com/tidwall/gjson v1.12.1
 	github.com/tidwall/sjson v1.0.3
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect

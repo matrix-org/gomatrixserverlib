@@ -212,8 +212,31 @@ type PublicRoom struct {
 
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
 type RespEventAuth struct {
+	roomVersion RoomVersion
 	// A list of events needed to authenticate the state events.
 	AuthEvents []*Event `json:"auth_chain"`
+}
+
+// UnmarshalJSON implements json.Unmarshaller
+func (r *RespEventAuth) UnmarshalJSON(data []byte) error {
+	r.AuthEvents = []*Event{}
+	if _, err := r.roomVersion.EventFormat(); err != nil {
+		return err
+	}
+	var intermediate struct {
+		Events []json.RawMessage `json:"auth_chain"`
+	}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	for _, raw := range intermediate.Events {
+		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
+		if err != nil {
+			return err
+		}
+		r.AuthEvents = append(r.AuthEvents, event)
+	}
+	return nil
 }
 
 type respStateFields struct {
