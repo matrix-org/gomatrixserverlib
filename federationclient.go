@@ -381,7 +381,7 @@ type searchTerm struct {
 type postPublicRoomsReq struct {
 	PublicRoomsFilter    searchTerm `json:"filter,omitempty"`
 	Limit                int        `json:"limit,omitempty"`
-	IncludeAllNetwoorks  bool       `json:"include_all_networks,omitempty"`
+	IncludeAllNetworks   bool       `json:"include_all_networks,omitempty"`
 	ThirdPartyInstanceID string     `json:"third_party_instance_id,omitempty"`
 	Since                string     `json:"since,omitempty"`
 }
@@ -400,7 +400,7 @@ func (ac *FederationClient) GetPublicRoomsFiltered(
 	roomsReq := postPublicRoomsReq{
 		PublicRoomsFilter:    searchTerm{GenericSearchTerm: filter},
 		Limit:                limit,
-		IncludeAllNetwoorks:  includeAllNetworks,
+		IncludeAllNetworks:   includeAllNetworks,
 		ThirdPartyInstanceID: thirdPartyInstanceID,
 		Since:                since,
 	}
