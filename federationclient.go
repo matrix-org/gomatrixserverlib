@@ -394,7 +394,7 @@ func (ac *FederationClient) GetPublicRoomsFiltered(
 	includeAllNetworks bool, thirdPartyInstanceID string,
 ) (res RespPublicRooms, err error) {
 	if includeAllNetworks && thirdPartyInstanceID != "" {
-		panic("thirdPartyInstanceID can only be used if includeAllNetworks is false")
+		return res, fmt.Errorf("thirdPartyInstanceID can only be used if includeAllNetworks is false")
 	}
 
 	roomsReq := postPublicRoomsReq{
