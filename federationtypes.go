@@ -111,7 +111,7 @@ func splitServerName(serverName ServerName) (string, int) {
 // A RespSend is the content of a response to PUT /_matrix/federation/v1/send/{txnID}/
 type RespSend struct {
 	// Map of event ID to the result of processing that event.
-	PDUs map[string]PDUResult `json:"pdus"`
+	PDUs map[string]PDUResult `json:"pdus,omitempty"`
 }
 
 // A PDUResult is the result of processing a matrix room event.
