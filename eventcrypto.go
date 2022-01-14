@@ -37,20 +37,23 @@ func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSO
 }
 
 func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
-	needed := map[ServerName]struct{}{}
+	// The signatures we want to check. If true, the signature is essential.
+	// If false, the signature is not essential but check it anyway (for things
+	// like restricted room joins where we need to verify it later).
+	needed := map[ServerName]bool{}
 
 	// The sender should have signed the event in all cases.
 	_, serverName, err := SplitID('@', e.Sender())
 	if err != nil {
 		return fmt.Errorf("failed to split sender: %w", err)
 	}
-	needed[serverName] = struct{}{}
+	needed[serverName] = true
 
 	// TODO: This enables deprecation of the "origin" field as per MSC1664
 	// (https://github.com/matrix-org/matrix-doc/issues/1664) but really
 	// this has been done so that we can join rooms touched by Conduit again.
 	if serverName != e.Origin() && e.Origin() != "" {
-		needed[e.Origin()] = struct{}{}
+		needed[e.Origin()] = true
 	}
 
 	// In room versions 1 and 2, we should also check that the server
@@ -63,7 +66,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		if err != nil {
 			return fmt.Errorf("failed to split event ID: %w", err)
 		}
-		needed[serverName] = struct{}{}
+		needed[serverName] = true
 	}
 
 	// Special checks for membership events.
@@ -79,7 +82,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 			if err != nil {
 				return fmt.Errorf("failed to split state key: %w", err)
 			}
-			needed[serverName] = struct{}{}
+			needed[serverName] = true
 		}
 
 		// For restricted join rules, the authorising server should have signed.
@@ -91,7 +94,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 				if err != nil {
 					return fmt.Errorf("failed to split authorised server: %w", err)
 				}
-				needed[serverName] = struct{}{}
+				needed[serverName] = false
 			}
 		}
 	}
@@ -106,26 +109,21 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		return fmt.Errorf("failed to redact event: %w", err)
 	}
 
-	var toVerify []VerifyJSONRequest
-	for serverName := range needed {
+	for serverName, essential := range needed {
 		v := VerifyJSONRequest{
 			Message:                redactedJSON,
 			AtTS:                   e.OriginServerTS(),
 			ServerName:             serverName,
 			StrictValidityChecking: strictValidityChecking,
 		}
-		toVerify = append(toVerify, v)
-	}
-
-	results, err := verifier.VerifyJSONs(ctx, toVerify)
-	if err != nil {
-		return fmt.Errorf("failed to verify JSONs: %w", err)
-	}
-
-	for _, result := range results {
-		if result.Error != nil {
-			return result.Error
+		result, err := verifier.VerifyJSONs(ctx, []VerifyJSONRequest{v})
+		if err != nil || len(result) < 1 {
+			return fmt.Errorf("failed to get needed signature: %w", err)
 		}
+		if essential && result[0].Error != nil {
+			return fmt.Errorf("failed to get needed signature: %w", err)
+		}
+		e.signatures[serverName] = result[0].Error == nil
 	}
 
 	return nil

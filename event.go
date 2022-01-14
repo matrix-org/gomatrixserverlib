@@ -119,6 +119,7 @@ type Event struct {
 	eventJSON   []byte
 	fields      interface{}
 	roomVersion RoomVersion
+	signatures  map[ServerName]bool
 }
 
 type eventFields struct {
@@ -267,7 +268,9 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	result = &Event{}
+	result = &Event{
+		signatures: map[ServerName]bool{},
+	}
 	result.roomVersion = roomVersion
 
 	if err = result.populateFieldsFromJSON("", eventJSON); err != nil {
@@ -308,7 +311,9 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		}
 	}
 
-	result = &Event{}
+	result = &Event{
+		signatures: map[ServerName]bool{},
+	}
 	result.roomVersion = roomVersion
 
 	var eventFormat EventFormat
@@ -377,7 +382,9 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 		}
 	}
 
-	result = &Event{}
+	result = &Event{
+		signatures: map[ServerName]bool{},
+	}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
@@ -396,7 +403,9 @@ func NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redact
 		}
 	}
 
-	result = &Event{}
+	result = &Event{
+		signatures: map[ServerName]bool{},
+	}
 	result.roomVersion = roomVersion
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON(eventID, eventJSON)
@@ -486,6 +495,7 @@ func (e *Event) Redact() *Event {
 		redacted:    true,
 		roomVersion: e.roomVersion,
 		eventJSON:   eventJSON,
+		signatures:  map[ServerName]bool{},
 	}
 	err = result.populateFieldsFromJSON(e.EventID(), eventJSON)
 	if err != nil {
@@ -597,6 +607,7 @@ func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 		eventJSON:   eventJSON,
 		fields:      e.fields,
 		roomVersion: e.roomVersion,
+		signatures:  map[ServerName]bool{},
 	}
 }
 

@@ -910,6 +910,8 @@ type membershipAllower struct {
 	oldMember MemberContent
 	// The new membership of the user if this event is accepted.
 	newMember MemberContent
+	// The signatures of the new membership event
+	signatures map[ServerName]bool
 }
 
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
@@ -917,6 +919,7 @@ type membershipAllower struct {
 func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
 	m.roomVersion = event.roomVersion
+	m.signatures = event.signatures
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
@@ -1019,8 +1022,12 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// 'join_authorised_via_users_server' key, containing the user ID of a user
 	// in the room that should have a suitable power level to issue invites.
 	// If no such key is specified then we should reject the join.
-	if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
+	// We should also be sure that the server that authorised the join actually
+	// signed the event, otherwise we will reject the join too.
+	if _, domain, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
 		return errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+	} else if !m.signatures[domain] {
+		return errorf("the 'join_authorised_via_users_server' did not sign the event")
 	}
 
 	// If the nominated user ID is valid then there are two things that we
