@@ -268,7 +268,7 @@ func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
 	for _, raw := range intermediate.Events {
 		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
 		if err != nil {
-			return err
+			continue
 		}
 		r.Events = append(r.Events, event)
 	}
