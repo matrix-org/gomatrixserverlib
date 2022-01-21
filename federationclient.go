@@ -369,25 +369,46 @@ func (ac *FederationClient) GetPublicRooms(
 	ctx context.Context, s ServerName, limit int, since string,
 	includeAllNetworks bool, thirdPartyInstanceID string,
 ) (res RespPublicRooms, err error) {
+	return ac.GetPublicRoomsFiltered(ctx, s, limit, since, "", includeAllNetworks, thirdPartyInstanceID)
+}
+
+// searchTerm is used when querying e.g. remote public rooms
+type searchTerm struct {
+	GenericSearchTerm string `json:"generic_search_term,omitempty"`
+}
+
+// postPublicRoomsReq is a request to /publicRooms
+type postPublicRoomsReq struct {
+	PublicRoomsFilter    searchTerm `json:"filter,omitempty"`
+	Limit                int        `json:"limit,omitempty"`
+	IncludeAllNetworks   bool       `json:"include_all_networks,omitempty"`
+	ThirdPartyInstanceID string     `json:"third_party_instance_id,omitempty"`
+	Since                string     `json:"since,omitempty"`
+}
+
+// GetPublicRoomsFiltered gets a filtered public rooms list from the target homeserver's directory.
+// Spec: https://spec.matrix.org/v1.1/server-server-api/#post_matrixfederationv1publicrooms
+// thirdPartyInstanceID can only be non-empty if includeAllNetworks is false.
+func (ac *FederationClient) GetPublicRoomsFiltered(
+	ctx context.Context, s ServerName, limit int, since, filter string,
+	includeAllNetworks bool, thirdPartyInstanceID string,
+) (res RespPublicRooms, err error) {
 	if includeAllNetworks && thirdPartyInstanceID != "" {
-		panic("thirdPartyInstanceID can only be used if includeAllNetworks is false")
+		return res, fmt.Errorf("thirdPartyInstanceID can only be used if includeAllNetworks is false")
 	}
 
-	query := url.Values{}
-	query.Set("limit", strconv.Itoa(limit))
-	query.Set("since", since)
-	query.Set("include_all_networks", strconv.FormatBool(includeAllNetworks))
-	if !includeAllNetworks {
-		query.Set("third_party_instance_id", thirdPartyInstanceID)
+	roomsReq := postPublicRoomsReq{
+		PublicRoomsFilter:    searchTerm{GenericSearchTerm: filter},
+		Limit:                limit,
+		IncludeAllNetworks:   includeAllNetworks,
+		ThirdPartyInstanceID: thirdPartyInstanceID,
+		Since:                since,
 	}
-
-	u := url.URL{
-		Path:     federationPathPrefixV1 + "/publicRooms",
-		RawQuery: query.Encode(),
+	path := federationPathPrefixV1 + "/publicRooms"
+	req := NewFederationRequest("POST", s, path)
+	if err = req.SetContent(roomsReq); err != nil {
+		return
 	}
-	path := u.RequestURI()
-
-	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
