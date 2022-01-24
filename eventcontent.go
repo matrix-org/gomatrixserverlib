@@ -348,53 +348,65 @@ func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error
 	// Set the levels to their default values.
 	c.Defaults()
 
-	// We can't extract the JSON directly to the powerLevelContent because we
-	// need to convert string values to int values.
-	var content struct {
-		InviteLevel        levelJSONValue            `json:"invite"`
-		BanLevel           levelJSONValue            `json:"ban"`
-		KickLevel          levelJSONValue            `json:"kick"`
-		RedactLevel        levelJSONValue            `json:"redact"`
-		UserLevels         map[string]levelJSONValue `json:"users"`
-		UsersDefaultLevel  levelJSONValue            `json:"users_default"`
-		EventLevels        map[string]levelJSONValue `json:"events"`
-		StateDefaultLevel  levelJSONValue            `json:"state_default"`
-		EventDefaultLevel  levelJSONValue            `json:"event_default"`
-		NotificationLevels map[string]levelJSONValue `json:"notifications"`
-	}
-	if err = json.Unmarshal(event.Content(), &content); err != nil {
-		err = errorf("unparsable power_levels event content: %s", err.Error())
+	var strict bool
+	if strict, err = event.roomVersion.RequireIntegerPowerLevels(); err != nil {
 		return
-	}
-
-	// Update the levels with the values that are present in the event content.
-	content.InviteLevel.assignIfExists(&c.Invite)
-	content.BanLevel.assignIfExists(&c.Ban)
-	content.KickLevel.assignIfExists(&c.Kick)
-	content.RedactLevel.assignIfExists(&c.Redact)
-	content.UsersDefaultLevel.assignIfExists(&c.UsersDefault)
-	content.StateDefaultLevel.assignIfExists(&c.StateDefault)
-	content.EventDefaultLevel.assignIfExists(&c.EventsDefault)
-
-	for k, v := range content.UserLevels {
-		if c.Users == nil {
-			c.Users = make(map[string]int64)
+	} else if strict {
+		// Unmarshal directly to PowerLevelContent, since that will kick up an
+		// error if one of the power levels isn't an int64.
+		if err = json.Unmarshal(event.Content(), &c); err != nil {
+			err = errorf("unparsable power_levels event content: %s", err.Error())
+			return
 		}
-		c.Users[k] = v.value
-	}
-
-	for k, v := range content.EventLevels {
-		if c.Events == nil {
-			c.Events = make(map[string]int64)
+	} else {
+		// We can't extract the JSON directly to the powerLevelContent because we
+		// need to convert string values to int values.
+		var content struct {
+			InviteLevel        levelJSONValue            `json:"invite"`
+			BanLevel           levelJSONValue            `json:"ban"`
+			KickLevel          levelJSONValue            `json:"kick"`
+			RedactLevel        levelJSONValue            `json:"redact"`
+			UserLevels         map[string]levelJSONValue `json:"users"`
+			UsersDefaultLevel  levelJSONValue            `json:"users_default"`
+			EventLevels        map[string]levelJSONValue `json:"events"`
+			StateDefaultLevel  levelJSONValue            `json:"state_default"`
+			EventDefaultLevel  levelJSONValue            `json:"event_default"`
+			NotificationLevels map[string]levelJSONValue `json:"notifications"`
 		}
-		c.Events[k] = v.value
-	}
-
-	for k, v := range content.NotificationLevels {
-		if c.Notifications == nil {
-			c.Notifications = make(map[string]int64)
+		if err = json.Unmarshal(event.Content(), &content); err != nil {
+			err = errorf("unparsable power_levels event content: %s", err.Error())
+			return
 		}
-		c.Notifications[k] = v.value
+
+		// Update the levels with the values that are present in the event content.
+		content.InviteLevel.assignIfExists(&c.Invite)
+		content.BanLevel.assignIfExists(&c.Ban)
+		content.KickLevel.assignIfExists(&c.Kick)
+		content.RedactLevel.assignIfExists(&c.Redact)
+		content.UsersDefaultLevel.assignIfExists(&c.UsersDefault)
+		content.StateDefaultLevel.assignIfExists(&c.StateDefault)
+		content.EventDefaultLevel.assignIfExists(&c.EventsDefault)
+
+		for k, v := range content.UserLevels {
+			if c.Users == nil {
+				c.Users = make(map[string]int64)
+			}
+			c.Users[k] = v.value
+		}
+
+		for k, v := range content.EventLevels {
+			if c.Events == nil {
+				c.Events = make(map[string]int64)
+			}
+			c.Events[k] = v.value
+		}
+
+		for k, v := range content.NotificationLevels {
+			if c.Notifications == nil {
+				c.Notifications = make(map[string]int64)
+			}
+			c.Notifications[k] = v.value
+		}
 	}
 
 	return
