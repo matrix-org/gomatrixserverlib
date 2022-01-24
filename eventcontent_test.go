@@ -70,3 +70,24 @@ func TestLevelJSONValueInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestStrictPowerLevelContent(t *testing.T) {
+	// The event JSON has a "100" instead of a 100 in the power level. In
+	// room version 7, this is permissible, but it isn't in our new experimental
+	// room version.
+	eventJSON := `{"content":{"ban":50,"events":{"m.room.avatar":50,"m.room.canonical_alias":50,"m.room.encryption":100,"m.room.history_visibility":100,"m.room.name":50,"m.room.power_levels":100,"m.room.server_acl":100,"m.room.tombstone":100},"events_default":0,"historical":100,"invite":0,"kick":50,"redact":50,"state_default":50,"users":{"@neilalexander:matrix.org":"100"},"users_default":0},"origin_server_ts":1643017369993,"sender":"@neilalexander:matrix.org","state_key":"","type":"m.room.power_levels","unsigned":{"age":592},"event_id":"$2CT2RSF8B4XJyysh7i6Zdw0oYSs53JkIhTMrapIVYnw","room_id":"!CeUyQRqMxuBnjcxiIr:matrix.org"}`
+	goodEvent, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badEvent, err := NewEventFromTrustedJSON([]byte(eventJSON), false, "org.matrix.msc3667")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := goodEvent.PowerLevels(); err != nil {
+		t.Fatalf("good content should not have errored but did: %s", err)
+	}
+	if _, err := badEvent.PowerLevels(); err == nil {
+		t.Fatal("bad content should have errored but didn't")
+	}
+}

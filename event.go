@@ -978,11 +978,11 @@ func (e *Event) PowerLevels() (*PowerLevelContent, error) {
 	if !e.StateKeyEquals("") {
 		return nil, fmt.Errorf("gomatrixserverlib: PowerLevels() event is not a m.room.power_levels event, bad state key")
 	}
-	var content PowerLevelContent
-	if err := e.extractContent(MRoomPowerLevels, &content); err != nil {
+	c, err := NewPowerLevelContentFromEvent(e)
+	if err != nil {
 		return nil, err
 	}
-	return &content, nil
+	return &c, nil
 }
 
 // AuthEvents returns references to the events needed to auth the event.

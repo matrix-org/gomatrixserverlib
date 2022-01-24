@@ -72,6 +72,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        false,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV2: {
 		Supported:                       true,
@@ -85,6 +86,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        false,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV3: {
 		Supported:                       true,
@@ -98,6 +100,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        false,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV4: {
 		Supported:                       true,
@@ -111,6 +114,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        false,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV5: {
 		Supported:                       true,
@@ -124,6 +128,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        false,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV6: {
 		Supported:                       true,
@@ -137,6 +142,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        false,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV7: {
 		Supported:                       true,
@@ -150,6 +156,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        true,
 		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV8: {
 		Supported:                       true,
@@ -163,6 +170,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        true,
 		allowRestrictedJoinsInEventAuth: true,
+		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV9: {
 		Supported:                       true,
@@ -176,6 +184,21 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        true,
 		allowRestrictedJoinsInEventAuth: true,
+		requireIntegerPowerLevels:       false,
+	},
+	"org.matrix.msc3667": { // based on room version 7
+		Supported:                       true,
+		Stable:                          false,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV2,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
+		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       true,
 	},
 }
 
@@ -231,6 +254,7 @@ type RoomVersionDescription struct {
 	powerLevelsIncludeNotifications bool
 	allowKnockingInEventAuth        bool
 	allowRestrictedJoinsInEventAuth bool
+	requireIntegerPowerLevels       bool
 	Supported                       bool
 	Stable                          bool
 }
@@ -308,6 +332,15 @@ func (v RoomVersion) AllowRestrictedJoinsInEventAuth() (bool, error) {
 func (v RoomVersion) EnforceCanonicalJSON() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.enforceCanonicalJSON, nil
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// RequireIntegerPowerLevels returns true if the given room version calls for
+// power levels as integers only, false otherwise.
+func (v RoomVersion) RequireIntegerPowerLevels() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.requireIntegerPowerLevels, nil
 	}
 	return false, UnsupportedRoomVersionError{v}
 }
