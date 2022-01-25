@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 )
 
 // ResolutionResult is a result of looking up a Matrix homeserver according to
@@ -99,14 +100,27 @@ func resolveServer(ctx context.Context, serverName ServerName, checkWellKnown bo
 		}
 	}
 
-	return handleNoWellKnown(serverName), nil
+	return handleNoWellKnown(ctx, serverName), nil
+}
+
+// dnsResolver is a custom DNS resolver that allows us to use contexts and
+// strict timeout periods. This ensures we don't ever get wedged on a DNS
+// lookup request.
+var dnsResolver = net.Resolver{
+	PreferGo: true,
+	Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+		d := net.Dialer{
+			Timeout: time.Millisecond * time.Duration(10000),
+		}
+		return d.DialContext(ctx, network, address)
+	},
 }
 
 // handleNoWellKnown implements steps 4 and 5 of the resolution algorithm (as
 // well as 3.3 and 3.4)
-func handleNoWellKnown(serverName ServerName) (results []ResolutionResult) {
+func handleNoWellKnown(ctx context.Context, serverName ServerName) (results []ResolutionResult) {
 	// 4. If the /.well-known request resulted in an error response
-	_, records, err := net.LookupSRV("matrix", "tcp", string(serverName))
+	_, records, err := dnsResolver.LookupSRV(ctx, "matrix", "tcp", string(serverName))
 	if err == nil && len(records) > 0 {
 		for _, rec := range records {
 			// If the domain is a FQDN, remove the trailing dot at the end. This
