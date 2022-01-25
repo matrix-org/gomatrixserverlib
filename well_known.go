@@ -41,7 +41,7 @@ func (c *Client) LookupWellKnown(ctx context.Context, serverNameType ServerName)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.DoHTTPRequest(ctx, req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
