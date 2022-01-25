@@ -1,6 +1,7 @@
 package gomatrixserverlib
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +27,7 @@ type WellKnownResult struct {
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
 // found, it returns the server to redirect to.
-func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
+func (c *Client) LookupWellKnown(ctx context.Context, serverNameType ServerName) (*WellKnownResult, error) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"
@@ -35,7 +36,12 @@ func LookupWellKnown(serverNameType ServerName) (*WellKnownResult, error) {
 	wellKnownPath := "/.well-known/matrix/server"
 
 	// Request server's well-known record
-	resp, err := http.Get("https://" + serverName + wellKnownPath)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+serverName+wellKnownPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.DoHTTPRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
