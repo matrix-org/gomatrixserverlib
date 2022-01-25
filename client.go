@@ -63,7 +63,6 @@ type ClientOption func(*clientOptions)
 // which control the transport, timeout, TLS validation etc - see
 // WithTransport, WithTimeout, WithSkipVerify, WithDNSCache etc.
 func NewClient(options ...ClientOption) *Client {
-	client := &Client{}
 	clientOpts := &clientOptions{
 		timeout: requestTimeout,
 	}
@@ -72,15 +71,16 @@ func NewClient(options ...ClientOption) *Client {
 	}
 	if clientOpts.transport == nil {
 		clientOpts.transport = newFederationTripper(
-			client,
 			clientOpts.skipVerify,
 			clientOpts.dnsCache,
 			clientOpts.keepAlives,
 		)
 	}
-	client.client = http.Client{
-		Transport: clientOpts.transport,
-		Timeout:   clientOpts.timeout,
+	client := &Client{
+		client: http.Client{
+			Transport: clientOpts.transport,
+			Timeout:   clientOpts.timeout,
+		},
 	}
 	return client
 }
@@ -131,8 +131,8 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 
 // nolint:maligned
 type federationTripper struct {
-	client          *Client                      // needed for well-known lookup
-	transports      map[string]http.RoundTripper // transports maps an TLS server name with an HTTP transport.
+	// transports maps an TLS server name with an HTTP transport.
+	transports      map[string]http.RoundTripper
 	transportsMutex sync.Mutex
 	skipVerify      bool
 	resolutionCache sync.Map // serverName -> []ResolutionResult
@@ -140,9 +140,8 @@ type federationTripper struct {
 	keepAlives      bool
 }
 
-func newFederationTripper(client *Client, skipVerify bool, dnsCache *DNSCache, keepAlives bool) *federationTripper {
+func newFederationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) *federationTripper {
 	return &federationTripper{
-		client:     client,
 		transports: make(map[string]http.RoundTripper),
 		skipVerify: skipVerify,
 		dnsCache:   dnsCache,
