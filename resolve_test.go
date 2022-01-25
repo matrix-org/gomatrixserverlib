@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"reflect"
 	"testing"
 
@@ -28,10 +27,7 @@ func assertCritical(t *testing.T, val, expected interface{}) {
 // If one of them doesn't match, or the resolution function returned with an
 // error, it aborts the current test.
 func testResolve(t *testing.T, serverName ServerName, destination, host, certName string) {
-	client := NewClient(
-		WithTransport(http.DefaultTransport),
-	)
-	res, err := client.ResolveServer(context.Background(), serverName)
+	res, err := ResolveServer(context.Background(), serverName)
 	assertCritical(t, err, nil)
 	assertCritical(t, len(res), 1)
 	assertCritical(t, res[0].Destination, destination)

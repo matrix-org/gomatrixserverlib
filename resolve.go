@@ -35,14 +35,14 @@ type ResolutionResult struct {
 // Returns a slice of ResolutionResult that can be used to send a federation
 // request to the server using a given server name.
 // Returns an error if the server name isn't valid.
-func (c *Client) ResolveServer(ctx context.Context, serverName ServerName) (results []ResolutionResult, err error) {
-	return c.resolveServer(ctx, serverName, true)
+func ResolveServer(ctx context.Context, serverName ServerName) (results []ResolutionResult, err error) {
+	return resolveServer(ctx, serverName, true)
 }
 
 // resolveServer does the same thing as ResolveServer, except it also requires
 // the checkWellKnown parameter, which indicates whether a .well-known file
 // should be looked up.
-func (c *Client) resolveServer(ctx context.Context, serverName ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
+func resolveServer(ctx context.Context, serverName ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
 	host, port, valid := ParseAndValidateServerName(serverName)
 	if !valid {
 		err = fmt.Errorf("Invalid server name")
@@ -92,10 +92,10 @@ func (c *Client) resolveServer(ctx context.Context, serverName ServerName, check
 	if checkWellKnown {
 		// 3. If the hostname is not an IP literal
 		var result *WellKnownResult
-		result, err = c.LookupWellKnown(ctx, serverName)
+		result, err = LookupWellKnown(ctx, serverName)
 		if err == nil {
 			// We don't want to check .well-known on the result
-			return c.resolveServer(ctx, result.NewAddress, false)
+			return resolveServer(ctx, result.NewAddress, false)
 		}
 	}
 

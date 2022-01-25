@@ -27,7 +27,7 @@ type WellKnownResult struct {
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
 // found, it returns the server to redirect to.
-func (c *Client) LookupWellKnown(ctx context.Context, serverNameType ServerName) (*WellKnownResult, error) {
+func LookupWellKnown(ctx context.Context, serverNameType ServerName) (*WellKnownResult, error) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"
@@ -41,7 +41,7 @@ func (c *Client) LookupWellKnown(ctx context.Context, serverNameType ServerName)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
