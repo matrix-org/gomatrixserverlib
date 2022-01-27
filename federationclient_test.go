@@ -32,15 +32,9 @@ func TestSendJoinFallback(t *testing.T) {
 	_, privateKey, _ := ed25519.GenerateKey(nil)
 	roomVer := gomatrixserverlib.RoomVersionV1
 	// we don't care about the actual contents, just that it ferries data across fine.
-	retEv, err := gomatrixserverlib.NewEventFromTrustedJSON(
-		[]byte(`{"auth_events":[],"content":{"creator":"@userid:baba.is.you"},"depth":0,"event_id":"$WCraVpPZe5TtHAqs:baba.is.you","hashes":{"sha256":"EehWNbKy+oDOMC0vIvYl1FekdDxMNuabXKUVzV7DG74"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"08aF4/bYWKrdGPFdXmZCQU6IrOE1ulpevmWBM3kiShJPAbRbZ6Awk7buWkIxlMF6kX3kb4QpbAlZfHLQgncjCw"}},"state_key":"","type":"m.room.create"}`),
-		false, roomVer,
-	)
-	if err != nil {
-		t.Fatalf("failed to marshal RespSendJoin event: %s", err)
-	}
+	retEv := gomatrixserverlib.EventJSON(`{"auth_events":[],"content":{"creator":"@userid:baba.is.you"},"depth":0,"event_id":"$WCraVpPZe5TtHAqs:baba.is.you","hashes":{"sha256":"EehWNbKy+oDOMC0vIvYl1FekdDxMNuabXKUVzV7DG74"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"08aF4/bYWKrdGPFdXmZCQU6IrOE1ulpevmWBM3kiShJPAbRbZ6Awk7buWkIxlMF6kX3kb4QpbAlZfHLQgncjCw"}},"state_key":"","type":"m.room.create"}`)
 	wantRes := gomatrixserverlib.RespSendJoin{
-		StateEvents: []*gomatrixserverlib.Event{
+		StateEvents: gomatrixserverlib.EventJSONs{
 			retEv,
 		},
 	}
@@ -82,7 +76,7 @@ func TestSendJoinFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read event json: %s", err)
 	}
-	res, err := fc.SendJoin(context.Background(), targetServerName, ev, roomVer)
+	res, err := fc.SendJoin(context.Background(), targetServerName, ev)
 	if err != nil {
 		t.Fatalf("SendJoin returned an error: %s", err)
 	}

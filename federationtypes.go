@@ -12,7 +12,6 @@ import (
 
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 )
 
 // A ServerName is the name a matrix homeserver is identified by.
@@ -131,12 +130,10 @@ type RespStateIDs struct {
 
 // A RespState is the content of a response to GET /_matrix/federation/v1/state/{roomID}/{eventID}
 type RespState struct {
-	// The room version that dictates the format of the state events.
-	roomVersion RoomVersion
 	// A list of events giving the state of the room before the request event.
-	StateEvents []*Event `json:"pdus"`
+	StateEvents EventJSONs `json:"pdus"`
 	// A list of events needed to authenticate the state events.
-	AuthEvents []*Event `json:"auth_chain"`
+	AuthEvents EventJSONs `json:"auth_chain"`
 }
 
 // A RespPeek is the content of a response to GET /_matrix/federation/v1/peek/{roomID}/{peekID}
@@ -144,9 +141,9 @@ type RespPeek struct {
 	// How often should we renew the peek?
 	RenewalInterval int64 `json:"renewal_interval"`
 	// A list of events giving the state of the room at the point of the request
-	StateEvents []*Event `json:"state"`
+	StateEvents EventJSONs `json:"state"`
 	// A list of events needed to authenticate the state events.
-	AuthEvents []*Event `json:"auth_chain"`
+	AuthEvents EventJSONs `json:"auth_chain"`
 	// The room version that we're trying to peek.
 	RoomVersion RoomVersion `json:"room_version"`
 	// The ID of the event whose state snapshot this is - i.e. the
@@ -169,10 +166,8 @@ type MissingEvents struct {
 
 // A RespMissingEvents is the content of a response to GET /_matrix/federation/v1/get_missing_events/{roomID}
 type RespMissingEvents struct {
-	// The room version that dictates the format of the missing events.
-	roomVersion RoomVersion
 	// The returned set of missing events.
-	Events []*Event `json:"events"`
+	Events EventJSONs `json:"events"`
 }
 
 // RespPublicRooms is the content of a response to GET /_matrix/federation/v1/publicRooms
@@ -212,36 +207,13 @@ type PublicRoom struct {
 
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
 type RespEventAuth struct {
-	roomVersion RoomVersion
 	// A list of events needed to authenticate the state events.
-	AuthEvents []*Event `json:"auth_chain"`
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespEventAuth) UnmarshalJSON(data []byte) error {
-	r.AuthEvents = []*Event{}
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		Events []json.RawMessage `json:"auth_chain"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	for _, raw := range intermediate.Events {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.AuthEvents = append(r.AuthEvents, event)
-	}
-	return nil
+	AuthEvents EventJSONs `json:"auth_chain"`
 }
 
 type respStateFields struct {
-	StateEvents []*Event `json:"pdus"`
-	AuthEvents  []*Event `json:"auth_chain"`
+	StateEvents EventJSONs `json:"pdus"`
+	AuthEvents  EventJSONs `json:"auth_chain"`
 }
 
 // RespUserDevices contains a response to /_matrix/federation/v1/user/devices/{userID}
@@ -276,40 +248,18 @@ type RespUserDeviceKeys struct {
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
 }
 
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespMissingEvents) UnmarshalJSON(data []byte) error {
-	r.Events = []*Event{}
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		Events []json.RawMessage `json:"events"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	for _, raw := range intermediate.Events {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.Events = append(r.Events, event)
-	}
-	return nil
-}
-
 // MarshalJSON implements json.Marshaller
 func (r RespPeek) MarshalJSON() ([]byte, error) {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []*Event{}
+		r.StateEvents = EventJSONs{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []*Event{}
+		r.AuthEvents = EventJSONs{}
 	}
 	return json.Marshal(struct {
 		RenewalInterval int64       `json:"renewal_interval"`
-		StateEvents     []*Event    `json:"state"`
-		AuthEvents      []*Event    `json:"auth_chain"`
+		StateEvents     EventJSONs  `json:"state"`
+		AuthEvents      EventJSONs  `json:"auth_chain"`
 		RoomVersion     RoomVersion `json:"room_version"`
 		LatestEvent     *Event      `json:"latest_event"`
 	}{
@@ -321,54 +271,13 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespPeek) UnmarshalJSON(data []byte) error {
-	r.AuthEvents = []*Event{}
-	r.StateEvents = []*Event{}
-	var intermediate struct {
-		RoomVersion     RoomVersion       `json:"room_version"`
-		StateEvents     []json.RawMessage `json:"state"`
-		AuthEvents      []json.RawMessage `json:"auth_chain"`
-		RenewalInterval int64             `json:"renewal_interval"`
-		LatestEvent     json.RawMessage   `json:"latest_event"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return fmt.Errorf("RespPeek UnmarshalJSON(intermediate): %w", err)
-	}
-	r.RoomVersion = intermediate.RoomVersion
-	r.RenewalInterval = intermediate.RenewalInterval
-	if _, err := r.RoomVersion.EventFormat(); err != nil {
-		return fmt.Errorf("RespPeek UnmarshalJSON(roomversion): %w", err)
-	}
-	for _, raw := range intermediate.AuthEvents {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.RoomVersion)
-		if err != nil {
-			return fmt.Errorf("RespPeek UnmarshalJSON(AuthEvent): %w", err)
-		}
-		r.AuthEvents = append(r.AuthEvents, event)
-	}
-	for _, raw := range intermediate.StateEvents {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.RoomVersion)
-		if err != nil {
-			return fmt.Errorf("RespPeek UnmarshalJSON(StateEvent): %w", err)
-		}
-		r.StateEvents = append(r.StateEvents, event)
-	}
-	latestEvent, err := NewEventFromUntrustedJSON([]byte(intermediate.LatestEvent), r.RoomVersion)
-	if err != nil {
-		return fmt.Errorf("RespPeek UnmarshalJSON(StateEvent): %w", err)
-	}
-	r.LatestEvent = latestEvent
-	return nil
-}
-
 // MarshalJSON implements json.Marshaller
 func (r RespState) MarshalJSON() ([]byte, error) {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []*Event{}
+		r.StateEvents = EventJSONs{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []*Event{}
+		r.AuthEvents = EventJSONs{}
 	}
 	return json.Marshal(respStateFields{
 		StateEvents: r.StateEvents,
@@ -376,56 +285,22 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespState) UnmarshalJSON(data []byte) error {
-	r.AuthEvents = []*Event{}
-	r.StateEvents = []*Event{}
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		StateEvents []json.RawMessage `json:"pdus"`
-		AuthEvents  []json.RawMessage `json:"auth_chain"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	for _, raw := range intermediate.AuthEvents {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.AuthEvents = append(r.AuthEvents, event)
-	}
-	for _, raw := range intermediate.StateEvents {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.StateEvents = append(r.StateEvents, event)
-	}
-	return nil
-}
-
 // Events combines the auth events and the state events and returns
 // them in an order where every event comes after its auth events.
 // Each event will only appear once in the output list.
 // Returns an error if there are missing auth events or if there is
 // a cycle in the auth events.
-func (r RespState) Events() ([]*Event, error) {
-	if len(r.StateEvents) == 0 {
-		r.StateEvents = []*Event{}
-	}
-	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []*Event{}
-	}
-	eventsByID := map[string]*Event{}
+func (r RespState) Events(roomVersion RoomVersion) ([]*Event, error) {
+	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
+	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
+
 	// Collect a map of event reference to event
-	for i := range r.StateEvents {
-		eventsByID[r.StateEvents[i].EventID()] = r.StateEvents[i]
+	eventsByID := map[string]*Event{}
+	for i, event := range authEvents {
+		eventsByID[event.EventID()] = authEvents[i]
 	}
-	for i := range r.AuthEvents {
-		eventsByID[r.AuthEvents[i].EventID()] = r.AuthEvents[i]
+	for i, event := range stateEvents {
+		eventsByID[event.EventID()] = stateEvents[i]
 	}
 
 	queued := map[*Event]bool{}
@@ -485,10 +360,12 @@ func (r RespState) Events() ([]*Event, error) {
 // Check that a response to /state is valid. This function mutates
 // the RespState to remove any events from AuthEvents or StateEvents
 // that do not have valid signatures.
-func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
+func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
 	logger := util.GetLogger(ctx)
+	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
+	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
 	var allEvents []*Event
-	for _, event := range r.AuthEvents {
+	for _, event := range authEvents {
 		if event.StateKey() == nil {
 			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
@@ -496,7 +373,7 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	}
 
 	stateTuples := map[StateKeyTuple]bool{}
-	for _, event := range r.StateEvents {
+	for _, event := range stateEvents {
 		if event.StateKey() == nil {
 			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
@@ -549,13 +426,13 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 		logger.Warnf("Discarding %d auth/state event(s) due to invalid signatures", f)
 
 		for i := 0; i < len(r.AuthEvents); i++ {
-			if _, ok := failures[r.AuthEvents[i].EventID()]; ok {
+			if _, ok := failures[authEvents[i].EventID()]; ok {
 				r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
 				i--
 			}
 		}
 		for i := 0; i < len(r.StateEvents); i++ {
-			if _, ok := failures[r.StateEvents[i].EventID()]; ok {
+			if _, ok := failures[stateEvents[i].EventID()]; ok {
 				r.StateEvents = append(r.StateEvents[:i], r.StateEvents[i+1:]...)
 				i--
 			}
@@ -576,12 +453,10 @@ type RespMakeJoin struct {
 
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v2/send_join/{roomID}/{eventID}
 type RespSendJoin struct {
-	// The room version that dictates the format of the state events.
-	roomVersion RoomVersion
 	// A list of events giving the state of the room before the request event.
-	StateEvents []*Event `json:"state"`
+	StateEvents EventJSONs `json:"state"`
 	// A list of events needed to authenticate the state events.
-	AuthEvents []*Event `json:"auth_chain"`
+	AuthEvents EventJSONs `json:"auth_chain"`
 	// The server that originated the event.
 	Origin ServerName `json:"origin"`
 	// The returned join event from the remote server. Used for restricted joins,
@@ -597,74 +472,41 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 		Origin:      r.Origin,
 	}
 	if len(fields.AuthEvents) == 0 {
-		fields.AuthEvents = []*Event{}
+		fields.AuthEvents = EventJSONs{}
 	}
 	if len(fields.StateEvents) == 0 {
-		fields.StateEvents = []*Event{}
+		fields.StateEvents = EventJSONs{}
 	}
 	return json.Marshal(fields)
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespSendJoin) UnmarshalJSON(data []byte) error {
-	r.AuthEvents = []*Event{}
-	r.StateEvents = []*Event{}
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		StateEvents []json.RawMessage `json:"state"`
-		AuthEvents  []json.RawMessage `json:"auth_chain"`
-		Origin      ServerName        `json:"origin"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	for _, raw := range intermediate.AuthEvents {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.AuthEvents = append(r.AuthEvents, event)
-	}
-	for _, raw := range intermediate.StateEvents {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.StateEvents = append(r.StateEvents, event)
-	}
-	return nil
 }
 
 // ToRespState returns a new RespState with the same data from the given RespPeek
 func (r RespPeek) ToRespState() RespState {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []*Event{}
+		r.StateEvents = EventJSONs{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []*Event{}
+		r.AuthEvents = EventJSONs{}
 	}
 	return RespState{
-		roomVersion: r.RoomVersion,
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
 	}
 }
 
 type respSendJoinFields struct {
-	StateEvents []*Event   `json:"state"`
-	AuthEvents  []*Event   `json:"auth_chain"`
+	StateEvents EventJSONs `json:"state"`
+	AuthEvents  EventJSONs `json:"auth_chain"`
 	Origin      ServerName `json:"origin"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
 func (r RespSendJoin) ToRespState() RespState {
 	if len(r.StateEvents) == 0 {
-		r.StateEvents = []*Event{}
+		r.StateEvents = EventJSONs{}
 	}
 	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = []*Event{}
+		r.AuthEvents = EventJSONs{}
 	}
 	return RespState{
 		StateEvents: r.StateEvents,
@@ -679,14 +521,14 @@ func (r RespSendJoin) ToRespState() RespState {
 // This also checks that the join event is allowed by the state.
 // This function mutates the RespSendJoin to remove any events from
 // AuthEvents or StateEvents that do not have valid signatures.
-func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEvent *Event, missingAuth AuthChainProvider) (*RespState, error) {
+func (r *RespSendJoin) Check(ctx context.Context, roomVersion RoomVersion, keyRing JSONVerifier, joinEvent *Event, missingAuth AuthChainProvider) (*RespState, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
 	rs := r.ToRespState()
-	if err := rs.Check(ctx, keyRing, missingAuth); err != nil {
+	if err := rs.Check(ctx, roomVersion, keyRing, missingAuth); err != nil {
 		return nil, err
 	}
 
@@ -696,19 +538,21 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 	r.StateEvents = rs.StateEvents
 
 	eventsByID := map[string]*Event{}
+	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
+	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
 	authEventProvider := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references
 	// to all of the auth events.
-	for i, event := range r.AuthEvents {
-		eventsByID[event.EventID()] = r.AuthEvents[i]
+	for i, event := range authEvents {
+		eventsByID[event.EventID()] = authEvents[i]
 	}
 
 	// Then we add the current state events too, since our newly formed
 	// membership event will likely refer to these as auth events too.
-	for i, event := range r.StateEvents {
-		eventsByID[event.EventID()] = r.StateEvents[i]
+	for i, event := range stateEvents {
+		eventsByID[event.EventID()] = stateEvents[i]
 	}
 
 	// Now check that the join event is valid against its auth events.
@@ -723,7 +567,7 @@ func (r *RespSendJoin) Check(ctx context.Context, keyRing JSONVerifier, joinEven
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
 	for i := range r.StateEvents {
-		if err := authEventProvider.AddEvent(r.StateEvents[i]); err != nil {
+		if err := authEventProvider.AddEvent(stateEvents[i]); err != nil {
 			return nil, err
 		}
 	}
@@ -829,7 +673,7 @@ func checkAllowedByAuthEvents(event *Event, eventsByID map[string]*Event, missin
 // RespInvite is the content of a response to PUT /_matrix/federation/v1/invite/{roomID}/{eventID}
 type RespInvite struct {
 	// The invite event signed by recipient server.
-	Event *Event
+	Event EventJSON `json:"event"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -843,52 +687,25 @@ func (r RespInvite) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (r *RespInvite) UnmarshalJSON(data []byte) error {
-	var tuple []RawJSON
+	var tuple EventJSONs
 	if err := json.Unmarshal(data, &tuple); err != nil {
 		return err
 	}
 	if len(tuple) != 2 {
 		return fmt.Errorf("gomatrixserverlib: invalid invite response, invalid length: %d != 2", len(tuple))
 	}
-	if jr := gjson.GetBytes(tuple[1], "event"); jr.Exists() {
-		event, err := NewEventFromUntrustedJSON([]byte(jr.Raw), RoomVersionV1)
-		if err != nil {
-			return err
-		}
-		r.Event = event
-	}
+	r.Event = tuple[1]
 	return nil
 }
 
 type respInviteFields struct {
-	Event *Event `json:"event"`
+	Event EventJSON `json:"event"`
 }
 
 // RespInvite is the content of a response to PUT /_matrix/federation/v2/invite/{roomID}/{eventID}
 type RespInviteV2 struct {
-	// The room version that dictates the format of the state events.
-	roomVersion RoomVersion
 	// The invite event signed by recipient server.
-	Event *Event `json:"event"`
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *RespInviteV2) UnmarshalJSON(data []byte) error {
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		Event json.RawMessage `json:"event"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	event, err := NewEventFromUntrustedJSON([]byte(intermediate.Event), r.roomVersion)
-	if err != nil {
-		return err
-	}
-	r.Event = event
-	return nil
+	Event EventJSON `json:"event"`
 }
 
 // RespClaimKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
@@ -972,51 +789,10 @@ func (r *MSC2836EventRelationshipsRequest) Defaults() {
 // MSC2836EventRelationshipsResponse is a response to /event_relationships from
 // https://github.com/matrix-org/matrix-doc/blob/kegan/msc/threading/proposals/2836-threading.md
 type MSC2836EventRelationshipsResponse struct {
-	Events      []*Event `json:"events"`
-	NextBatch   string   `json:"next_batch"`
-	Limited     bool     `json:"limited"`
-	AuthChain   []*Event `json:"auth_chain"`
-	roomVersion RoomVersion
-}
-
-// SetRoomVersion can be called prior to unmarshalling JSON to control how events should be deserialised.
-func (r *MSC2836EventRelationshipsResponse) SetRoomVersion(roomVer RoomVersion) {
-	r.roomVersion = roomVer
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (r *MSC2836EventRelationshipsResponse) UnmarshalJSON(data []byte) error {
-	r.Events = []*Event{}
-	r.AuthChain = []*Event{}
-	if _, err := r.roomVersion.EventFormat(); err != nil {
-		return err
-	}
-	var intermediate struct {
-		Events    []json.RawMessage `json:"events"`
-		NextBatch string            `json:"next_batch"`
-		Limited   bool              `json:"limited"`
-		AuthChain []json.RawMessage `json:"auth_chain"`
-	}
-	if err := json.Unmarshal(data, &intermediate); err != nil {
-		return err
-	}
-	r.NextBatch = intermediate.NextBatch
-	r.Limited = intermediate.Limited
-	for _, raw := range intermediate.Events {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.Events = append(r.Events, event)
-	}
-	for _, raw := range intermediate.AuthChain {
-		event, err := NewEventFromUntrustedJSON([]byte(raw), r.roomVersion)
-		if err != nil {
-			return err
-		}
-		r.AuthChain = append(r.AuthChain, event)
-	}
-	return nil
+	Events    EventJSONs `json:"events"`
+	NextBatch string     `json:"next_batch"`
+	Limited   bool       `json:"limited"`
+	AuthChain EventJSONs `json:"auth_chain"`
 }
 
 // MSC2946SpacesRequest is the HTTP body for the federated /unstable/spaces/{roomID} endpoint

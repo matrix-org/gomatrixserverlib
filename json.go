@@ -25,6 +25,41 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type EventJSON RawJSON
+type EventJSONs []EventJSON
+
+func (e EventJSON) TrustedEvent(roomVersion RoomVersion, redacted bool) (*Event, error) {
+	return NewEventFromTrustedJSON(e, redacted, roomVersion)
+}
+
+func (e EventJSON) UntrustedEvent(roomVersion RoomVersion) (*Event, error) {
+	return NewEventFromUntrustedJSON(e, roomVersion)
+}
+
+func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Event {
+	events := make([]*Event, 0, len(e))
+	for _, js := range e {
+		event, err := NewEventFromTrustedJSON(js, redacted, roomVersion)
+		if err != nil {
+			continue
+		}
+		events = append(events, event)
+	}
+	return events
+}
+
+func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
+	events := make([]*Event, 0, len(e))
+	for _, js := range e {
+		event, err := NewEventFromUntrustedJSON(js, roomVersion)
+		if err != nil {
+			continue
+		}
+		events = append(events, event)
+	}
+	return events
+}
+
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
 // At present this function performs:
