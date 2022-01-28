@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -34,14 +35,14 @@ type ResolutionResult struct {
 // Returns a slice of ResolutionResult that can be used to send a federation
 // request to the server using a given server name.
 // Returns an error if the server name isn't valid.
-func ResolveServer(serverName ServerName) (results []ResolutionResult, err error) {
-	return resolveServer(serverName, true)
+func ResolveServer(ctx context.Context, serverName ServerName) (results []ResolutionResult, err error) {
+	return resolveServer(ctx, serverName, true)
 }
 
 // resolveServer does the same thing as ResolveServer, except it also requires
 // the checkWellKnown parameter, which indicates whether a .well-known file
 // should be looked up.
-func resolveServer(serverName ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
+func resolveServer(ctx context.Context, serverName ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
 	host, port, valid := ParseAndValidateServerName(serverName)
 	if !valid {
 		err = fmt.Errorf("Invalid server name")
@@ -64,7 +65,7 @@ func resolveServer(serverName ServerName, checkWellKnown bool) (results []Resolu
 		}
 
 		results = []ResolutionResult{
-			ResolutionResult{
+			{
 				Destination:   destination,
 				Host:          serverName,
 				TLSServerName: host,
@@ -78,7 +79,7 @@ func resolveServer(serverName ServerName, checkWellKnown bool) (results []Resolu
 	// explicit port
 	if port != -1 {
 		results = []ResolutionResult{
-			ResolutionResult{
+			{
 				Destination:   string(serverName),
 				Host:          serverName,
 				TLSServerName: host,
@@ -91,21 +92,21 @@ func resolveServer(serverName ServerName, checkWellKnown bool) (results []Resolu
 	if checkWellKnown {
 		// 3. If the hostname is not an IP literal
 		var result *WellKnownResult
-		result, err = LookupWellKnown(serverName)
+		result, err = LookupWellKnown(ctx, serverName)
 		if err == nil {
 			// We don't want to check .well-known on the result
-			return resolveServer(result.NewAddress, false)
+			return resolveServer(ctx, result.NewAddress, false)
 		}
 	}
 
-	return handleNoWellKnown(serverName), nil
+	return handleNoWellKnown(ctx, serverName), nil
 }
 
 // handleNoWellKnown implements steps 4 and 5 of the resolution algorithm (as
 // well as 3.3 and 3.4)
-func handleNoWellKnown(serverName ServerName) (results []ResolutionResult) {
+func handleNoWellKnown(ctx context.Context, serverName ServerName) (results []ResolutionResult) {
 	// 4. If the /.well-known request resulted in an error response
-	_, records, err := net.LookupSRV("matrix", "tcp", string(serverName))
+	_, records, err := net.DefaultResolver.LookupSRV(ctx, "matrix", "tcp", string(serverName))
 	if err == nil && len(records) > 0 {
 		for _, rec := range records {
 			// If the domain is a FQDN, remove the trailing dot at the end. This
@@ -130,7 +131,7 @@ func handleNoWellKnown(serverName ServerName) (results []ResolutionResult) {
 	// 5. If the /.well-known request returned an error response, and the SRV
 	// record was not found
 	results = []ResolutionResult{
-		ResolutionResult{
+		{
 			Destination:   fmt.Sprintf("%s:%d", serverName, 8448),
 			Host:          serverName,
 			TLSServerName: string(serverName),
