@@ -506,7 +506,7 @@ func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.R
 	start := time.Now()
 	resp, err := fc.client.Do(req.WithContext(newCtx))
 	if err != nil {
-		logger.WithField("error", err).Warn("Outgoing request failed")
+		logger.WithContext(ctx).WithField("error", err).Debug("Outgoing request failed")
 		return nil, err
 	}
 

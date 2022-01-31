@@ -522,7 +522,7 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	failures := map[string]error{}
 	for i, e := range allEvents {
 		if errors[i] != nil {
-			logrus.WithError(errors[i]).Errorf("Signature validation failed for event %q", e.EventID())
+			logrus.WithError(errors[i]).Warnf("Signature validation failed for event %q", e.EventID())
 			failures[e.EventID()] = errors[i]
 		}
 	}
@@ -538,7 +538,7 @@ func (r *RespState) Check(ctx context.Context, keyRing JSONVerifier, missingAuth
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
-			logrus.WithError(err).Errorf("Event %q is not allowed by its auth events", event.EventID())
+			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.EventID())
 			failures[event.EventID()] = err
 		}
 	}
