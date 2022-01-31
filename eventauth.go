@@ -464,7 +464,10 @@ func (a *allowerContext) aliasEventAllowed(event *Event) error {
 	}
 
 	if event.RoomID() != a.create.roomID {
-		return errorf("create event has different roomID: %q != %q", event.RoomID(), a.create.roomID)
+		return errorf(
+			"create event has different roomID: %q (%s) != %q (%s)",
+			event.RoomID(), event.EventID(), a.create.roomID, a.create.eventID,
+		)
 	}
 
 	// Check that server is allowed in the room by the m.room.federate flag.
@@ -851,7 +854,10 @@ func (a *allowerContext) newEventAllower(senderID string) (e eventAllower, err e
 // m.room.create, m.room.member, or m.room.alias.
 func (e *eventAllower) commonChecks(event *Event) error {
 	if event.RoomID() != e.create.roomID {
-		return errorf("create event has different roomID: %q != %q", event.RoomID(), e.create.roomID)
+		return errorf(
+			"create event has different roomID: %q (%s) != %q (%s)",
+			event.RoomID(), event.EventID(), e.create.roomID, e.create.eventID,
+		)
 	}
 
 	sender := event.Sender()
@@ -947,7 +953,10 @@ func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, even
 // membershipAllowed checks whether the membership event is allowed
 func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: gocyclo
 	if m.create.roomID != event.RoomID() {
-		return errorf("create event has different roomID: %q != %q", event.RoomID(), m.create.roomID)
+		return errorf(
+			"create event has different roomID: %q (%s) != %q (%s)",
+			event.RoomID(), event.EventID(), m.create.roomID, m.create.eventID,
+		)
 	}
 	if err := m.create.UserIDAllowed(m.senderID); err != nil {
 		return err

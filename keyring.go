@@ -256,7 +256,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		// Otherwise we risk spamming the servers we query the keys from.
 
 		fetcherLogger.WithField("num_key_requests", len(keyRequests)).
-			Info("Requesting keys from fetcher")
+			Debug("Requesting keys from fetcher")
 
 		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
@@ -270,7 +270,7 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 		}
 
 		fetcherLogger.WithField("num_keys_fetched", len(fetched)).
-			Info("Got keys from fetcher")
+			Debug("Got keys from fetcher")
 
 		// Hold the new keys and remove them from the request queue.
 		for req, res := range fetched {

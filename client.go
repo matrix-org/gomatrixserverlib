@@ -203,7 +203,7 @@ retryResolution:
 	// If the cache returned nothing then we'll have no results here,
 	// so go and hit the network.
 	if len(resolutionResults) == 0 {
-		resolutionResults, err = ResolveServer(serverName)
+		resolutionResults, err = ResolveServer(r.Context(), serverName)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +226,7 @@ retryResolution:
 		if err == nil {
 			return resp, nil
 		}
-		util.GetLogger(r.Context()).Warnf("Error sending request to %s: %v",
+		util.GetLogger(r.Context()).Debugf("Error sending request to %s: %v",
 			u.String(), err)
 	}
 
@@ -506,7 +506,7 @@ func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.R
 	start := time.Now()
 	resp, err := fc.client.Do(req.WithContext(newCtx))
 	if err != nil {
-		logger.WithField("error", err).Warn("Outgoing request failed")
+		logger.WithContext(ctx).WithField("error", err).Debug("Outgoing request failed")
 		return nil, err
 	}
 
