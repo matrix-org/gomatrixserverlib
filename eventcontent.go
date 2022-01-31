@@ -438,7 +438,7 @@ func (v *levelJSONValue) UnmarshalJSON(data []byte) error {
 			int64Value = int64(floatValue)
 		} else {
 			// If we managed to get a string, try parsing the string as an int.
-			int64Value, err = strconv.ParseInt(stringValue, 10, 64)
+			int64Value, err = strconv.ParseInt(strings.TrimSpace(stringValue), 10, 64)
 			if err != nil {
 				return err
 			}
