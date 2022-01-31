@@ -226,7 +226,7 @@ retryResolution:
 		if err == nil {
 			return resp, nil
 		}
-		util.GetLogger(r.Context()).Warnf("Error sending request to %s: %v",
+		util.GetLogger(r.Context()).Debugf("Error sending request to %s: %v",
 			u.String(), err)
 	}
 
