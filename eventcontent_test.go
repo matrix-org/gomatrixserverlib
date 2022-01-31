@@ -43,7 +43,9 @@ func BenchmarkLevelJSONValueString(b *testing.B) {
 
 func TestLevelJSONValueValid(t *testing.T) {
 	var values []levelJSONValue
-	input := `[0,"1",2.0]`
+	// thanks python: https://docs.python.org/3/library/functions.html#int
+	// "Optionally, the literal can be preceded by + or - (with no space in between) and surrounded by whitespace."
+	input := `[0,"1",2.0,"+3","  +4  "]`
 	if err := json.Unmarshal([]byte(input), &values); err != nil {
 		t.Fatal("Unexpected error unmarshalling ", input, ": ", err)
 	}
