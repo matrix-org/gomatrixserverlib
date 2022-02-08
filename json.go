@@ -60,6 +60,14 @@ func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
 	return events
 }
 
+func NewEventJSONsFromHeaderedEvents(he []*HeaderedEvent) EventJSONs {
+	events := make(EventJSONs, len(he))
+	for i := range he {
+		events[i] = he[i].JSON()
+	}
+	return events
+}
+
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
 // At present this function performs:
