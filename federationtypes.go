@@ -293,7 +293,15 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 func (r RespState) Events(roomVersion RoomVersion) ([]*Event, error) {
 	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
 	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
+	return OrderAuthAndStateEvents(authEvents, stateEvents, roomVersion)
+}
 
+// OrderAuthAndStateEvents combines the auth events and the state events and returns
+// them in an order where every event comes after its auth events.
+// Each event will only appear once in the output list.
+// Returns an error if there are missing auth events or if there is
+// a cycle in the auth events.
+func OrderAuthAndStateEvents(authEvents, stateEvents []*Event, roomVersion RoomVersion) ([]*Event, error) {
 	// Collect a map of event reference to event
 	eventsByID := map[string]*Event{}
 	for i, event := range authEvents {
