@@ -279,7 +279,7 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 	if len(r.AuthEvents) == 0 {
 		r.AuthEvents = EventJSONs{}
 	}
-	return json.Marshal(respStateFields{
+	return json.Marshal(respStateFields{ // nolint:gosimple
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
 	})
