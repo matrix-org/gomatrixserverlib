@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -149,6 +150,13 @@ func newFederationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) 
 	}
 }
 
+// federationTripperDialer enforces dial timeouts on the federation requests. If
+// the TCP connection doesn't complete within 5 seconds, it's probably just not
+// going to.
+var federationTripperDialer = &net.Dialer{
+	Timeout: time.Second * 5,
+}
+
 // getTransport returns a http.Transport instance with a TLS configuration using
 // the given server name for SNI. It also creates the instance if there isn't
 // any for this server name.
@@ -168,6 +176,8 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
 			},
+			Dial:        federationTripperDialer.Dial,
+			DialContext: federationTripperDialer.DialContext,
 		}
 		if f.dnsCache != nil {
 			tr.DialContext = f.dnsCache.DialContext
