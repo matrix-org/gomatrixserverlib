@@ -55,7 +55,6 @@ func TestParseServerName(t *testing.T) {
 func TestRespStateMarshalJSON(t *testing.T) {
 	inputData := `{"pdus":[],"auth_chain":[]}`
 	var input RespState
-	input.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +74,6 @@ func TestRespStateMarshalJSON(t *testing.T) {
 func TestRespStateUnmarshalJSON(t *testing.T) {
 	inputData := `{"pdus":[],"auth_chain":[]}`
 	var input RespState
-	input.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +92,6 @@ func TestRespStateUnmarshalJSON(t *testing.T) {
 func TestRespSendJoinMarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
-	input.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +111,6 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
-	input.roomVersion = RoomVersionV1
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}

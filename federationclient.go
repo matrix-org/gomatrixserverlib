@@ -100,9 +100,8 @@ func (ac *FederationClient) MakeJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) SendJoin(
-	ctx context.Context, s ServerName, event *Event, roomVersion RoomVersion,
+	ctx context.Context, s ServerName, event *Event,
 ) (res RespSendJoin, err error) {
-	res.roomVersion = roomVersion
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
@@ -110,29 +109,7 @@ func (ac *FederationClient) SendJoin(
 	if err = req.SetContent(event); err != nil {
 		return
 	}
-	var intermediate struct {
-		StateEvents []json.RawMessage `json:"state"`
-		AuthEvents  []json.RawMessage `json:"auth_chain"`
-		Origin      ServerName        `json:"origin"`
-	}
-	process := func() {
-		res.StateEvents = make([]*Event, 0, len(intermediate.StateEvents))
-		res.AuthEvents = make([]*Event, 0, len(intermediate.AuthEvents))
-		res.Origin = intermediate.Origin
-		for _, se := range intermediate.StateEvents {
-			if ev, err := NewEventFromUntrustedJSON(se, roomVersion); err == nil {
-				res.StateEvents = append(res.StateEvents, ev)
-			}
-		}
-		for _, ae := range intermediate.AuthEvents {
-			if ev, err := NewEventFromUntrustedJSON(ae, roomVersion); err == nil {
-				res.AuthEvents = append(res.AuthEvents, ev)
-			}
-		}
-	}
-	if err = ac.doRequest(ctx, req, &intermediate); err == nil {
-		process()
-	}
+	err = ac.doRequest(ctx, req, &res)
 	gerr, ok := err.(gomatrix.HTTPError)
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
@@ -146,10 +123,7 @@ func (ac *FederationClient) SendJoin(
 		var v1Res []json.RawMessage
 		err = ac.doRequest(ctx, v1req, &v1Res)
 		if err == nil && len(v1Res) == 2 {
-			if err = json.Unmarshal(v1Res[1], &intermediate); err != nil {
-				return
-			}
-			process()
+			err = json.Unmarshal(v1Res[1], &res)
 		}
 	}
 	return
@@ -227,7 +201,6 @@ func (ac *FederationClient) SendInvite(
 func (ac *FederationClient) SendInviteV2(
 	ctx context.Context, s ServerName, request InviteV2Request,
 ) (res RespInviteV2, err error) {
-	res.roomVersion = request.RoomVersion()
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
@@ -248,9 +221,8 @@ func (ac *FederationClient) SendInviteV2(
 		}
 		// assume v1 as per spec: https://matrix.org/docs/spec/server_server/latest#put-matrix-federation-v1-invite-roomid-eventid
 		// Servers which receive a v1 invite request must assume that the room version is either "1" or "2".
-		res = RespInviteV2{
-			Event:       resp.Event,
-			roomVersion: RoomVersionV1,
+		res = RespInviteV2{ // nolint:gosimple
+			Event: resp.Event,
 		}
 	}
 	return
@@ -280,7 +252,6 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 func (ac *FederationClient) LookupState(
 	ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 ) (res RespState, err error) {
-	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/state/" +
 		url.PathEscape(roomID) +
 		"?event_id=" +
@@ -311,7 +282,6 @@ func (ac *FederationClient) LookupMissingEvents(
 	ctx context.Context, s ServerName, roomID string,
 	missing MissingEvents, roomVersion RoomVersion,
 ) (res RespMissingEvents, err error) {
-	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/get_missing_events/" +
 		url.PathEscape(roomID)
 	req := NewFederationRequest("POST", s, path)
@@ -481,7 +451,6 @@ func (ac *FederationClient) GetEvent(
 func (ac *FederationClient) GetEventAuth(
 	ctx context.Context, s ServerName, roomVersion RoomVersion, roomID, eventID string,
 ) (res RespEventAuth, err error) {
-	res.roomVersion = roomVersion
 	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
@@ -530,7 +499,6 @@ func (ac *FederationClient) Backfill(
 func (ac *FederationClient) MSC2836EventRelationships(
 	ctx context.Context, dst ServerName, r MSC2836EventRelationshipsRequest, roomVersion RoomVersion,
 ) (res MSC2836EventRelationshipsResponse, err error) {
-	res.roomVersion = roomVersion
 	path := "/_matrix/federation/unstable/event_relationships"
 	req := NewFederationRequest("POST", dst, path)
 	if err = req.SetContent(r); err != nil {
