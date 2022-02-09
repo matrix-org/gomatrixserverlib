@@ -25,14 +25,13 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type EventJSON RawJSON
-type EventJSONs []EventJSON
+type EventJSONs []RawJSON
 
-func (e EventJSON) TrustedEvent(roomVersion RoomVersion, redacted bool) (*Event, error) {
+func (e RawJSON) TrustedEvent(roomVersion RoomVersion, redacted bool) (*Event, error) {
 	return NewEventFromTrustedJSON(e, redacted, roomVersion)
 }
 
-func (e EventJSON) UntrustedEvent(roomVersion RoomVersion) (*Event, error) {
+func (e RawJSON) UntrustedEvent(roomVersion RoomVersion) (*Event, error) {
 	return NewEventFromUntrustedJSON(e, roomVersion)
 }
 

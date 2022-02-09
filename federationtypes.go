@@ -681,7 +681,7 @@ func checkAllowedByAuthEvents(event *Event, eventsByID map[string]*Event, missin
 // RespInvite is the content of a response to PUT /_matrix/federation/v1/invite/{roomID}/{eventID}
 type RespInvite struct {
 	// The invite event signed by recipient server.
-	Event EventJSON `json:"event"`
+	Event RawJSON `json:"event"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -707,13 +707,13 @@ func (r *RespInvite) UnmarshalJSON(data []byte) error {
 }
 
 type respInviteFields struct {
-	Event EventJSON `json:"event"`
+	Event RawJSON `json:"event"`
 }
 
 // RespInvite is the content of a response to PUT /_matrix/federation/v2/invite/{roomID}/{eventID}
 type RespInviteV2 struct {
 	// The invite event signed by recipient server.
-	Event EventJSON `json:"event"`
+	Event RawJSON `json:"event"`
 }
 
 // RespClaimKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
