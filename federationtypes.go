@@ -433,19 +433,21 @@ func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing 
 	if f := len(failures); f > 0 {
 		logger.Warnf("Discarding %d auth/state event(s) due to invalid signatures", f)
 
-		for i := 0; i < len(r.AuthEvents); i++ {
+		for i := 0; i < len(authEvents); i++ {
 			if _, ok := failures[authEvents[i].EventID()]; ok {
-				r.AuthEvents = append(r.AuthEvents[:i], r.AuthEvents[i+1:]...)
+				authEvents = append(authEvents[:i], authEvents[i+1:]...)
 				i--
 			}
 		}
-		for i := 0; i < len(r.StateEvents); i++ {
+		for i := 0; i < len(stateEvents); i++ {
 			if _, ok := failures[stateEvents[i].EventID()]; ok {
-				r.StateEvents = append(r.StateEvents[:i], r.StateEvents[i+1:]...)
+				stateEvents = append(stateEvents[:i], stateEvents[i+1:]...)
 				i--
 			}
 		}
 	}
+	r.AuthEvents = NewEventJSONsFromEvents(authEvents)
+	r.StateEvents = NewEventJSONsFromEvents(stateEvents)
 
 	return nil
 }
