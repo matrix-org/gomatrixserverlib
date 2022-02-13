@@ -170,15 +170,14 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 
 	// Create the transport if we don't have any for this TLS server name.
 	if transport, ok = f.transports[tlsServerName]; !ok {
-		tr := &http.Transport{
-			DisableKeepAlives: !f.keepAlives,
-			TLSClientConfig: &tls.Config{
-				ServerName:         tlsServerName,
-				InsecureSkipVerify: f.skipVerify,
-			},
-			Dial:        federationTripperDialer.Dial,
-			DialContext: federationTripperDialer.DialContext,
+		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr.DisableKeepAlives = !f.keepAlives
+		tr.TLSClientConfig = &tls.Config{
+			ServerName:         tlsServerName,
+			InsecureSkipVerify: f.skipVerify,
 		}
+		tr.Dial = federationTripperDialer.Dial
+		tr.DialContext = federationTripperDialer.DialContext
 		if f.dnsCache != nil {
 			tr.DialContext = f.dnsCache.DialContext
 		}
