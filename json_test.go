@@ -16,6 +16,8 @@
 package gomatrixserverlib
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -126,4 +128,23 @@ func TestReadHex(t *testing.T) {
 	testReadHex(t, "CDEF", 0xCDEF)
 	testReadHex(t, "89ab", 0x89AB)
 	testReadHex(t, "cdef", 0xCDEF)
+}
+
+func TestEventJSON(t *testing.T) {
+	resp := struct {
+		Events EventJSONs
+	}{}
+	jsonValue := []byte(`{"events":[{"foo":"bar"}, {"baz":"quuz"}]}`)
+	if err := json.Unmarshal(jsonValue, &resp); err != nil {
+		t.Fatalf("failed to unmarshal: %s", err)
+	}
+	if len(resp.Events) != 2 {
+		t.Fatalf("got %d events, want 2", len(resp.Events))
+	}
+	if !reflect.DeepEqual([]byte(resp.Events[0]), []byte(`{"foo":"bar"}`)) {
+		t.Fatalf("first event wrong, got %s", string(resp.Events[0]))
+	}
+	if !reflect.DeepEqual([]byte(resp.Events[1]), []byte(`{"baz":"quuz"}`)) {
+		t.Fatalf("first event wrong, got %s", string(resp.Events[1]))
+	}
 }

@@ -55,14 +55,22 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 		return nil, err
 	}
 	if p.RememberAuthEvents {
-		for i := range res.AuthEvents {
-			p.AuthEventMap[res.AuthEvents[i].EventID()] = res.AuthEvents[i]
+		for _, js := range res.AuthEvents {
+			event, err := js.UntrustedEvent(roomVer)
+			if err != nil {
+				continue
+			}
+			p.AuthEventMap[event.EventID()] = event
 		}
 	}
 
 	result := make(map[string]*Event)
-	for i := range res.StateEvents {
-		result[res.StateEvents[i].EventID()] = res.StateEvents[i]
+	for _, js := range res.StateEvents {
+		event, err := js.UntrustedEvent(roomVer)
+		if err != nil {
+			continue
+		}
+		result[event.EventID()] = event
 	}
 	return result, nil
 }
