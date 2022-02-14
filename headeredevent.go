@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -49,7 +50,8 @@ func UnwrapEventHeaders(in []*HeaderedEvent) []*Event {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
-	return e.UnmarshalJSONWithEventID(data, "")
+	eventID := gjson.GetBytes(data, "_event_id").String()
+	return e.UnmarshalJSONWithEventID(data, eventID)
 }
 
 // UnmarshalJSONWithEventID allows lighter unmarshalling when the
@@ -119,6 +121,10 @@ func (e HeaderedEvent) MarshalJSON() ([]byte, error) {
 		); err != nil {
 			return []byte{}, err
 		}
+	}
+	content, err = sjson.SetBytes(content, "_event_id", e.Event.EventID())
+	if err != nil {
+		return []byte{}, err
 	}
 	// Return the newly marshalled JSON.
 	return content, nil
