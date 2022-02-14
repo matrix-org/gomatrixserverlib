@@ -2,7 +2,11 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+	"unicode"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 const emptyRespStateResponse = `{"pdus":[],"auth_chain":[]}`
@@ -90,29 +94,53 @@ func TestRespStateUnmarshalJSON(t *testing.T) {
 }
 
 func TestRespSendJoinMarshalJSON(t *testing.T) {
+	// we unmarshall and marshall an empty send-join response, and check it round-trips correctly.
 	inputData := `{"state":[],"auth_chain":[],"origin":""}`
 	var input RespSendJoin
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
 	}
 
+	want := RespSendJoin{
+		StateEvents: []RawJSON{},
+		AuthEvents:  []RawJSON{},
+		Origin:      "",
+	}
+	if !cmp.Equal(input, want, cmp.AllowUnexported(RespSendJoin{})) {
+		t.Errorf("json.Unmarshal(%s): wanted %+v, got %+v", inputData, want, input)
+	}
+
 	gotBytes, err := json.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	got := string(gotBytes)
-
 	if emptyRespSendJoinResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+		t.Errorf("json.Marshal(%+v): wanted '%s', got '%s'", input, emptyRespSendJoinResponse, got)
 	}
 }
 
-func TestRespSendJoinUnmarshalJSON(t *testing.T) {
-	inputData := `{"state":[],"auth_chain":[],"origin":""}`
+func TestRespSendJoinMarshalJSONPartialState(t *testing.T) {
+	inputData := `{
+        "state":[],"auth_chain":[],"origin":"o1",
+	    "org.matrix.msc3706.partial_state":true,
+        "org.matrix.msc3706.servers_in_room":["s1", "s2"]
+    }`
+
 	var input RespSendJoin
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
 		t.Fatal(err)
+	}
+
+	want := RespSendJoin{
+		StateEvents:   []RawJSON{},
+		AuthEvents:    []RawJSON{},
+		Origin:        "o1",
+		PartialState:  true,
+		ServersInRoom: []string{"s1", "s2"},
+	}
+	if !cmp.Equal(input, want, cmp.AllowUnexported(RespSendJoin{})) {
+		t.Errorf("json.Unmarshal(%s): wanted %+v, got %+v", inputData, want, input)
 	}
 
 	gotBytes, err := json.Marshal(input)
@@ -120,8 +148,14 @@ func TestRespSendJoinUnmarshalJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(gotBytes)
-
-	if emptyRespSendJoinResponse != got {
-		t.Errorf("json.Marshal(RespSendJoin(%q)): wanted %q, got %q", inputData, emptyRespStateResponse, got)
+	// the result should be the input, with spaces removed
+	wantJSON := strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, inputData)
+	if wantJSON != got {
+		t.Errorf("json.Marshal(%+v):\n  wanted: '%s'\n     got: '%s'", input, wantJSON, got)
 	}
 }

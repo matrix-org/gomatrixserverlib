@@ -102,9 +102,31 @@ func (ac *FederationClient) MakeJoin(
 func (ac *FederationClient) SendJoin(
 	ctx context.Context, s ServerName, event *Event,
 ) (res RespSendJoin, err error) {
+	return ac.sendJoin(ctx, s, event, false)
+}
+
+// SendJoinPartialState sends a join m.room.member event obtained using MakeJoin via a
+// remote matrix server, with a parameter indicating we support partial state in
+// the response.
+// This is used to join a room the local server isn't a member of.
+// See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
+func (ac *FederationClient) SendJoinPartialState(
+	ctx context.Context, s ServerName, event *Event,
+) (res RespSendJoin, err error) {
+	return ac.sendJoin(ctx, s, event, true)
+}
+
+// sendJoin is an internal implementation shared between SendJoin and SendJoinPartialState
+func (ac *FederationClient) sendJoin(
+	ctx context.Context, s ServerName, event *Event, partialState bool,
+) (res RespSendJoin, err error) {
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
+	if partialState {
+		path += "?org.matrix.msc3706.partial_state=true"
+	}
+
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(event); err != nil {
 		return
