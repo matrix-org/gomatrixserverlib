@@ -1072,10 +1072,8 @@ func (e Event) MarshalJSON() ([]byte, error) {
 // supplied headers.
 func (e *Event) Headered(roomVersion RoomVersion) *HeaderedEvent {
 	return &HeaderedEvent{
-		EventHeader: EventHeader{
-			RoomVersion: roomVersion,
-		},
-		Event: e,
+		RoomVersion: roomVersion,
+		Event:       e,
 	}
 }
 

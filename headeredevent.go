@@ -1,30 +1,15 @@
 package gomatrixserverlib
 
 import (
-	"encoding/json"
-	"reflect"
-	"strings"
-
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
-
-// HeaderedEventHeader contains header fields for an event that contains
-// additional metadata, e.g. room version. IMPORTANT NOTE: All fields in
-// this struct must have a "json:" name tag or otherwise the reflection
-// code for marshalling and unmarshalling headered events will not work.
-// They must be unique and not overlap with a name tag from the Event
-// struct or otherwise panics may occur, so header  name tags are instead
-// prefixed with an underscore.
-type EventHeader struct {
-	RoomVersion RoomVersion `json:"_room_version,omitempty"`
-}
 
 // HeaderedEvent is a wrapper around an Event that contains information
 // about the room version. All header fields will be added into the event
 // when marshalling into JSON and will be separated out when unmarshalling.
 type HeaderedEvent struct {
-	EventHeader
+	RoomVersion RoomVersion `json:"-"`
 	*Event
 }
 
@@ -59,22 +44,10 @@ func (e *HeaderedEvent) UnmarshalJSON(data []byte) error {
 // it again. If it isn't, supply "" instead.
 func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) error {
 	var err error
-	// First extract the headers from the JSON.
-	var m EventHeader
-	if err = json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-	e.EventHeader = m
-	// Now strip any of the header fields from the JSON input data.
-	fields := reflect.TypeOf(e.EventHeader)
-	for i := 0; i < fields.NumField(); i++ {
-		tag := strings.Split(fields.Field(i).Tag.Get("json"), ",")[0]
-		if data, err = sjson.DeleteBytes(data, tag); err != nil {
-			return err
-		}
-	}
+	// First extract the room version from the JSON.
+	e.RoomVersion = RoomVersion(gjson.GetBytes(data, "_room_version").String())
 	// Get the event field format.
-	eventFormat, err := m.RoomVersion.EventFormat()
+	eventFormat, err := e.RoomVersion.EventFormat()
 	if err != nil {
 		return err
 	}
@@ -89,11 +62,13 @@ func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) er
 	case EventFormatV2:
 		e.fields = eventFormatV2Fields{}
 	default:
-		return UnsupportedRoomVersionError{m.RoomVersion}
+		return UnsupportedRoomVersionError{e.RoomVersion}
 	}
 	// Finally, unmarshal the remaining event JSON (less the headers)
 	// into the event struct.
-	if e.Event, err = NewEventFromTrustedJSONWithEventID(eventID, data, false, m.RoomVersion); err != nil {
+	data, _ = sjson.DeleteBytes(data, "_room_version")
+	data, _ = sjson.DeleteBytes(data, "_event_id")
+	if e.Event, err = NewEventFromTrustedJSONWithEventID(eventID, data, false, e.RoomVersion); err != nil {
 		return err
 	}
 	// At this point unmarshalling is complete.
@@ -105,22 +80,10 @@ func (e HeaderedEvent) MarshalJSON() ([]byte, error) {
 	var err error
 	// First marshal the event struct itself.
 	content := e.Event.JSON()
-	// Now jump through the fields of the header struct and add them
-	// in separately. This is needed because of the way that Go handles
-	// function overloading on embedded types, since Event also
-	// implements custom marshalling and unmarshalling functions.
-	// Doing this also ensures the least number of changes to Event
-	// references elsewhere.
-	fields := reflect.TypeOf(e.EventHeader)
-	values := reflect.ValueOf(e.EventHeader)
-	for i := 0; i < fields.NumField(); i++ {
-		tag := strings.Split(fields.Field(i).Tag.Get("json"), ",")[0]
-		if content, err = sjson.SetBytes(
-			content, tag,
-			values.Field(i).Interface(),
-		); err != nil {
-			return []byte{}, err
-		}
+	// Then add the fields.
+	content, err = sjson.SetBytes(content, "_room_version", e.RoomVersion)
+	if err != nil {
+		return []byte{}, err
 	}
 	content, err = sjson.SetBytes(content, "_event_id", e.Event.EventID())
 	if err != nil {
