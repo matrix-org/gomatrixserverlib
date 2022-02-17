@@ -473,6 +473,10 @@ type RespSendJoin struct {
 	// The returned join event from the remote server. Used for restricted joins,
 	// but not guaranteed to be present as it's only since MSC3083.
 	Event *Event `json:"event,omitempty"`
+	// true if the state is incomplete
+	PartialState bool `json:"org.matrix.msc3706.partial_state"`
+	// a list of servers in the room. Only returned if partial_state is set.
+	ServersInRoom []string `json:"org.matrix.msc3706.servers_in_room"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -488,7 +492,17 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	if len(fields.StateEvents) == 0 {
 		fields.StateEvents = EventJSONs{}
 	}
-	return json.Marshal(fields)
+
+	if !r.PartialState {
+		return json.Marshal(fields)
+	}
+
+	partialJoinFields := respSendJoinPartialStateFields{
+		respSendJoinFields: fields,
+		PartialState:       true,
+		ServersInRoom:      r.ServersInRoom,
+	}
+	return json.Marshal(partialJoinFields)
 }
 
 // ToRespState returns a new RespState with the same data from the given RespPeek
@@ -505,10 +519,19 @@ func (r RespPeek) ToRespState() RespState {
 	}
 }
 
+// respSendJoinFields is an intermediate struct used in RespSendJoin.MarshalJSON
 type respSendJoinFields struct {
 	StateEvents EventJSONs `json:"state"`
 	AuthEvents  EventJSONs `json:"auth_chain"`
 	Origin      ServerName `json:"origin"`
+}
+
+// respSendJoinPartialStateFields extends respSendJoinFields with the fields added
+// when the response has incomplete state.
+type respSendJoinPartialStateFields struct {
+	respSendJoinFields
+	PartialState  bool     `json:"org.matrix.msc3706.partial_state"`
+	ServersInRoom []string `json:"org.matrix.msc3706.servers_in_room"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
