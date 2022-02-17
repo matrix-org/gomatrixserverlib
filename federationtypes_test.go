@@ -122,10 +122,10 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 
 func TestRespSendJoinMarshalJSONPartialState(t *testing.T) {
 	inputData := `{
-        "state":[],"auth_chain":[],"origin":"o1",
-	    "org.matrix.msc3706.partial_state":true,
-        "org.matrix.msc3706.servers_in_room":["s1", "s2"]
-    }`
+		"state":[],"auth_chain":[],"origin":"o1",
+		"org.matrix.msc3706.partial_state":true,
+		"org.matrix.msc3706.servers_in_room":["s1", "s2"]
+	}`
 
 	var input RespSendJoin
 	if err := json.Unmarshal([]byte(inputData), &input); err != nil {
