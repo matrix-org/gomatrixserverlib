@@ -242,7 +242,9 @@ func (r *stateResolverV2) createPowerLevelMainline() []*Event {
 	var iter func(event *Event)
 	iter = func(event *Event) {
 		// Append this event to the beginning of the mainline.
-		mainline = append([]*Event{event}, mainline...)
+		mainline = append(mainline, nil)
+		copy(mainline[1:], mainline)
+		mainline[0] = event
 		// Work through all of the auth event IDs that this event refers to.
 		for _, authEventID := range event.AuthEventIDs() {
 			// Check that we actually have the auth event in our map - we need this so
@@ -552,7 +554,9 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append(graph[:0], append([]*stateResV2ConflictedPowerLevel{event}, graph...)...)
+		graph = append(graph, nil)
+		copy(graph[1:], graph)
+		graph[0] = event
 
 		// Now we should look at the outgoing auth dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing auth
@@ -636,7 +640,9 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
-		graph = append(graph[:0], append([]*stateResV2ConflictedOther{event}, graph...)...)
+		graph = append(graph, nil)
+		copy(graph[1:], graph)
+		graph[0] = event
 
 		// Now we should look at the outgoing prev dependencies that this event has.
 		// Since this event is now in the graph, the event's outgoing prev
