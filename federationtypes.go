@@ -289,12 +289,21 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 // Events combines the auth events and the state events and returns
 // them in an order where every event comes after its auth events.
 // Each event will only appear once in the output list.
-// Returns an error if there are missing auth events or if there is
-// a cycle in the auth events.
-func (r RespState) Events(roomVersion RoomVersion) ([]*Event, error) {
+func (r RespState) Events(roomVersion RoomVersion) []*Event {
 	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
 	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
-	return OrderAuthAndStateEvents(authEvents, stateEvents, roomVersion)
+	eventsByID := make(map[string]*Event, len(authEvents)+len(stateEvents))
+	for i, event := range authEvents {
+		eventsByID[event.EventID()] = authEvents[i]
+	}
+	for i, event := range stateEvents {
+		eventsByID[event.EventID()] = stateEvents[i]
+	}
+	allEvents := make([]*Event, 0, len(eventsByID))
+	for _, event := range eventsByID {
+		allEvents = append(allEvents, event)
+	}
+	return ReverseTopologicalOrdering(allEvents, TopologicalOrderByAuthEvents)
 }
 
 // OrderAuthAndStateEvents combines the auth events and the state events and returns
