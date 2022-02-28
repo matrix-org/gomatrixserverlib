@@ -531,13 +531,25 @@ func (ac *FederationClient) MSC2836EventRelationships(
 }
 
 func (ac *FederationClient) MSC2946Spaces(
-	ctx context.Context, dst ServerName, roomID string, r MSC2946SpacesRequest,
+	ctx context.Context, dst ServerName, roomID string, suggestedOnly bool,
 ) (res MSC2946SpacesResponse, err error) {
-	path := "/_matrix/federation/unstable/org.matrix.msc2946/spaces/" + url.PathEscape(roomID)
-	req := NewFederationRequest("POST", dst, path)
-	if err = req.SetContent(r); err != nil {
-		return
+	path := "/_matrix/federation/v1/hierarchy/" + url.PathEscape(roomID)
+	if suggestedOnly {
+		path += "?suggested_only=true"
 	}
+	req := NewFederationRequest("GET", dst, path)
 	err = ac.doRequest(ctx, req, &res)
+	if err != nil {
+		gerr, ok := err.(gomatrix.HTTPError)
+		if ok && gerr.Code == 404 {
+			// fallback to unstable endpoint
+			path = "/_matrix/federation/unstable/org.matrix.msc2946/hierarchy/" + url.PathEscape(roomID)
+			if suggestedOnly {
+				path += "?suggested_only=true"
+			}
+			req := NewFederationRequest("GET", dst, path)
+			err = ac.doRequest(ctx, req, &res)
+		}
+	}
 	return
 }
