@@ -774,9 +774,9 @@ type MSC2836EventRelationshipsResponse struct {
 // MSC2946Room represents a public room with additional metadata on the space directory
 type MSC2946Room struct {
 	PublicRoom
-	ChildrenState  []MSC2946StrippedEvent `json:"children_state,omitempty"`
+	ChildrenState  []MSC2946StrippedEvent `json:"children_state"`
 	AllowedRoomIDs []string               `json:"allowed_room_ids,omitempty"`
-	RoomType       string                 `json:"room_type,omitempty"`
+	RoomType       string                 `json:"room_type"`
 }
 
 // MSC2946SpacesResponse is the HTTP response body for the federation /unstable/spaces/{roomID} endpoint
