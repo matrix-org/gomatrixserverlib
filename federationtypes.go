@@ -771,35 +771,28 @@ type MSC2836EventRelationshipsResponse struct {
 	AuthChain EventJSONs `json:"auth_chain"`
 }
 
-// MSC2946SpacesRequest is the HTTP body for the federated /unstable/spaces/{roomID} endpoint
-// See https://github.com/matrix-org/matrix-doc/pull/2946
-type MSC2946SpacesRequest struct {
-	ExcludeRooms     []string `json:"exclude_rooms,omitempty"`
-	MaxRoomsPerSpace int      `json:"max_rooms_per_space,omitempty"`
-	Limit            int      `json:"limit"`
-	Batch            string   `json:"batch"`
-}
-
 // MSC2946Room represents a public room with additional metadata on the space directory
 type MSC2946Room struct {
 	PublicRoom
-	NumRefs  int    `json:"num_refs"`
-	RoomType string `json:"room_type,omitempty"`
+	ChildrenState  []MSC2946StrippedEvent `json:"children_state,omitempty"`
+	AllowedRoomIDs []string               `json:"allowed_room_ids,omitempty"`
+	RoomType       string                 `json:"room_type,omitempty"`
 }
 
 // MSC2946SpacesResponse is the HTTP response body for the federation /unstable/spaces/{roomID} endpoint
 // See https://github.com/matrix-org/matrix-doc/pull/2946
 type MSC2946SpacesResponse struct {
-	Rooms     []MSC2946Room          `json:"rooms"`
-	Events    []MSC2946StrippedEvent `json:"events"`
-	NextBatch string                 `json:"next_batch"`
+	Room                 MSC2946Room   `json:"room"`
+	Children             []MSC2946Room `json:"children"`
+	InaccessibleChildren []string      `json:"inaccessible_children"`
 }
 
 // MSC2946StrippedEvent is the format of events returned in the HTTP response body
 type MSC2946StrippedEvent struct {
-	Type     string          `json:"type"`
-	StateKey string          `json:"state_key"`
-	Content  json.RawMessage `json:"content"`
-	Sender   string          `json:"sender"`
-	RoomID   string          `json:"room_id"`
+	Type           string          `json:"type"`
+	StateKey       string          `json:"state_key"`
+	Content        json.RawMessage `json:"content"`
+	Sender         string          `json:"sender"`
+	RoomID         string          `json:"room_id"`
+	OriginServerTS Timestamp       `json:"origin_server_ts"`
 }
