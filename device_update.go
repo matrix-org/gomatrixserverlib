@@ -7,8 +7,8 @@ type DeviceListUpdateEvent struct {
 	UserID            string          `json:"user_id"`
 	DeviceID          string          `json:"device_id"`
 	DeviceDisplayName string          `json:"device_display_name"`
-	StreamID          int             `json:"stream_id"`
-	PrevID            []int           `json:"prev_id"`
+	StreamID          int64           `json:"stream_id"`
+	PrevID            []int64         `json:"prev_id"`
 	Deleted           bool            `json:"deleted"`
 	Keys              json.RawMessage `json:"keys"`
 }
