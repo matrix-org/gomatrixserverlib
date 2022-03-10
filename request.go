@@ -285,7 +285,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	}
 
 	for _, authorization := range req.Header["Authorization"] {
-		scheme, origin, key, sig := parseAuthorization(authorization)
+		scheme, origin, destination, key, sig := parseAuthorization(authorization)
 		if scheme != "X-Matrix" {
 			// Ignore unknown types of Authorization.
 			continue
@@ -297,6 +297,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 			return nil, fmt.Errorf("gomatrixserverlib: different origins in X-Matrix authorization headers")
 		}
 		result.fields.Origin = origin
+		result.fields.Destination = destination
 		if result.fields.Signatures == nil {
 			result.fields.Signatures = map[ServerName]map[KeyID]string{origin: {key: sig}}
 		} else {
@@ -307,7 +308,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	return &result, nil
 }
 
-func parseAuthorization(header string) (scheme string, origin ServerName, key KeyID, sig string) {
+func parseAuthorization(header string) (scheme string, origin, destination ServerName, key KeyID, sig string) {
 	parts := strings.SplitN(header, " ", 2)
 	scheme = parts[0]
 	if scheme != "X-Matrix" {
@@ -331,6 +332,9 @@ func parseAuthorization(header string) (scheme string, origin ServerName, key Ke
 		}
 		if name == "sig" {
 			sig = value
+		}
+		if name == "destination" {
+			destination = ServerName(value)
 		}
 	}
 	return
