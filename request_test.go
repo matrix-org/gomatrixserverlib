@@ -19,6 +19,7 @@ const exampleGetRequest = "GET /_matrix/federation/v1/query/directory?room_alias
 	" origin=\"localhost:8800\"" +
 	",key=\"ed25519:a_Obwu\"" +
 	",sig=\"7vt4vP/w8zYB3Zg77nuTPwie3TxEy2OHZQMsSa4nsXZzL4/qw+DguXbyMy3BF77XvSJmBt+Gw+fU6T4HId7fBg\"" +
+	",destination=\"localhost:44033\"" +
 	"\r\n" +
 	"\r\n"
 
@@ -31,6 +32,7 @@ const examplePutRequest = "PUT /_matrix/federation/v1/send/1493385816575/ HTTP/1
 	" origin=\"localhost:8800\"" +
 	",key=\"ed25519:a_Obwu\"" +
 	",sig=\"+hmW6UjEXx7vMt2+MXO/EImSfdEYdBsZEOmpiz3evYktAgGNpGuNMBYXIA969WGubmceREKA/r1phasUFHBpDg\"" +
+	",destination=\"localhost:44033\"" +
 	"\r\n" +
 	"Content-Type: application/json\r\n" +
 	"\r\n" +
