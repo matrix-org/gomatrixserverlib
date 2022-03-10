@@ -77,6 +77,11 @@ func (r *FederationRequest) Origin() ServerName {
 	return r.fields.Origin
 }
 
+// Destination returns the server that the request was targeted to.
+func (r *FederationRequest) Destination() ServerName {
+	return r.fields.Destination
+}
+
 // RequestURI returns the path and query sections of the HTTP request URL.
 func (r *FederationRequest) RequestURI() string {
 	return r.fields.RequestURI
@@ -144,8 +149,11 @@ func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 		if !isSafeInHTTPQuotedString(string(keyID)) {
 			return nil, fmt.Errorf("gomatrixserverlib: Request key ID isn't safe to include in an HTTP header")
 		}
+		if !isSafeInHTTPQuotedString(string(r.fields.Destination)) {
+			return nil, fmt.Errorf("gomatrixserverlib: Request Destination isn't safe to include in an HTTP header")
+		}
 		httpReq.Header.Add("Authorization", fmt.Sprintf(
-			"X-Matrix origin=\"%s\",key=\"%s\",sig=\"%s\"", r.fields.Origin, keyID, sig,
+			"X-Matrix origin=\"%s\",key=\"%s\",sig=\"%s\",destination=\"%s\"", r.fields.Origin, keyID, sig, r.fields.Destination,
 		))
 	}
 
@@ -201,7 +209,13 @@ func VerifyHTTPRequest(
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing HTTP headers")
 		return nil, util.MessageResponse(400, "Bad Request")
 	}
-	request.fields.Destination = destination
+	if request.fields.Destination != "" && request.fields.Destination != destination {
+		message := "Unrecognised server name for Destination"
+		util.GetLogger(req.Context()).WithError(err).Print(message)
+		return nil, util.MessageResponse(400, message)
+	} else if request.fields.Destination == "" {
+		request.fields.Destination = destination
+	}
 
 	// The request fields are already in the form required by the specification
 	// So we can just serialise the request fields using the default marshaller
