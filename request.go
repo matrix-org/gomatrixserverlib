@@ -285,7 +285,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	}
 
 	for _, authorization := range req.Header["Authorization"] {
-		scheme, origin, destination, key, sig := parseAuthorization(authorization)
+		scheme, origin, destination, key, sig := ParseAuthorization(authorization)
 		if scheme != "X-Matrix" {
 			// Ignore unknown types of Authorization.
 			continue
@@ -308,7 +308,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	return &result, nil
 }
 
-func parseAuthorization(header string) (scheme string, origin, destination ServerName, key KeyID, sig string) {
+func ParseAuthorization(header string) (scheme string, origin, destination ServerName, key KeyID, sig string) {
 	parts := strings.SplitN(header, " ", 2)
 	scheme = parts[0]
 	if scheme != "X-Matrix" {
