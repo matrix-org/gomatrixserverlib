@@ -175,6 +175,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 			TLSClientConfig: &tls.Config{
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
+				ClientSessionCache: tls.NewLRUClientSessionCache(0),
 			},
 			Dial:        federationTripperDialer.Dial, // nolint: staticcheck
 			DialContext: federationTripperDialer.DialContext,
