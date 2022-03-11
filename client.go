@@ -173,6 +173,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 		tr := &http.Transport{
 			DisableKeepAlives:   false, // !f.keepAlives,
 			MaxIdleConnsPerHost: 1,
+			IdleConnTimeout:     time.Minute * 5,
 			TLSClientConfig: &tls.Config{
 				ServerName:         tlsServerName,
 				InsecureSkipVerify: f.skipVerify,
