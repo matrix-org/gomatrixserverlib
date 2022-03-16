@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/matrix-org/gomatrix"
@@ -130,10 +131,13 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 	}
 }
 
+const federationTripperLifetime = time.Minute * 5 // how long to keep an entry
+const federationTripperReapInterval = time.Minute // how often to check for dead entries
+
 // nolint:maligned
 type federationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
-	transports      map[string]http.RoundTripper
+	transports      map[string]*federationTripperTransport
 	transportsMutex sync.Mutex
 	skipVerify      bool
 	resolutionCache sync.Map // serverName -> []ResolutionResult
@@ -142,12 +146,30 @@ type federationTripper struct {
 }
 
 func newFederationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) *federationTripper {
-	return &federationTripper{
-		transports: make(map[string]http.RoundTripper),
+	tripper := &federationTripper{
+		transports: make(map[string]*federationTripperTransport),
 		skipVerify: skipVerify,
 		dnsCache:   dnsCache,
 		keepAlives: keepAlives,
 	}
+	time.AfterFunc(federationTripperReapInterval, tripper.reaper)
+	return tripper
+}
+
+// reaper will remove round-trippers for remote servers that haven't been used
+// in a while, otherwise we will just collect these in memory forever.
+func (f *federationTripper) reaper() {
+	f.transportsMutex.Lock()
+	defer f.transportsMutex.Unlock()
+
+	for serverName, transport := range f.transports {
+		since := transport.lastUsed.Load().(time.Time)
+		if time.Since(since) > federationTripperLifetime {
+			delete(f.transports, serverName)
+		}
+	}
+
+	time.AfterFunc(federationTripperReapInterval, f.reaper)
 }
 
 // federationTripperDialer enforces dial timeouts on the federation requests. If
@@ -157,28 +179,39 @@ var federationTripperDialer = &net.Dialer{
 	Timeout: time.Second * 5,
 }
 
+type federationTripperTransport struct {
+	*http.Transport
+	lastUsed atomic.Value // time.Time
+}
+
 // getTransport returns a http.Transport instance with a TLS configuration using
 // the given server name for SNI. It also creates the instance if there isn't
 // any for this server name.
 // We need to use one transport per TLS server name (instead of giving our round
 // tripper a single transport) because there is no way to specify the TLS
 // ServerName on a per-connection basis.
-func (f *federationTripper) getTransport(tlsServerName string) (transport http.RoundTripper) {
-	var ok bool
-
+func (f *federationTripper) getTransport(tlsServerName string) http.RoundTripper {
 	f.transportsMutex.Lock()
+	defer f.transportsMutex.Unlock()
 
 	// Create the transport if we don't have any for this TLS server name.
-	if transport, ok = f.transports[tlsServerName]; !ok {
-		tr := &http.Transport{
-			DisableKeepAlives: !f.keepAlives,
-			TLSClientConfig: &tls.Config{
-				ServerName:         tlsServerName,
-				InsecureSkipVerify: f.skipVerify,
+	transport, ok := f.transports[tlsServerName]
+	if !ok {
+		tr := &federationTripperTransport{
+			Transport: &http.Transport{
+				DisableKeepAlives:   !f.keepAlives,
+				MaxIdleConnsPerHost: 1,                         // only used if keepalives enabled
+				IdleConnTimeout:     federationTripperLifetime, // only used if keepalives enabled
+				TLSClientConfig: &tls.Config{
+					ServerName:         tlsServerName,
+					InsecureSkipVerify: f.skipVerify,
+					ClientSessionCache: tls.NewLRUClientSessionCache(0), // 0 = use default
+				},
+				Dial:              federationTripperDialer.Dial, // nolint: staticcheck
+				DialContext:       federationTripperDialer.DialContext,
+				Proxy:             http.ProxyFromEnvironment,
+				ForceAttemptHTTP2: true, // if we can multiplex requests over HTTP/2, we should
 			},
-			Dial:        federationTripperDialer.Dial, // nolint: staticcheck
-			DialContext: federationTripperDialer.DialContext,
-			Proxy:       http.ProxyFromEnvironment,
 		}
 		if f.dnsCache != nil {
 			tr.DialContext = f.dnsCache.DialContext
@@ -186,8 +219,7 @@ func (f *federationTripper) getTransport(tlsServerName string) (transport http.R
 		transport, f.transports[tlsServerName] = tr, tr
 	}
 
-	f.transportsMutex.Unlock()
-
+	transport.lastUsed.Store(time.Now())
 	return transport
 }
 
