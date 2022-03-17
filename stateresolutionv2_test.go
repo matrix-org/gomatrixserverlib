@@ -82,8 +82,8 @@ func getBaseStateResV2Graph() []*Event {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$CREATE:example.com",
 				eventFields: eventFields{
-					EventID:        "$CREATE:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomCreate,
 					OriginServerTS: 1,
@@ -96,8 +96,8 @@ func getBaseStateResV2Graph() []*Event {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IMA:example.com",
 				eventFields: eventFields{
-					EventID:        "$IMA:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomMember,
 					OriginServerTS: 2,
@@ -116,8 +116,8 @@ func getBaseStateResV2Graph() []*Event {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IPOWER:example.com",
 				eventFields: eventFields{
-					EventID:        "$IPOWER:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomPowerLevels,
 					OriginServerTS: 3,
@@ -137,8 +137,8 @@ func getBaseStateResV2Graph() []*Event {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IJR:example.com",
 				eventFields: eventFields{
-					EventID:        "$IJR:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomJoinRules,
 					OriginServerTS: 4,
@@ -159,8 +159,8 @@ func getBaseStateResV2Graph() []*Event {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IMB:example.com",
 				eventFields: eventFields{
-					EventID:        "$IMB:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomMember,
 					OriginServerTS: 5,
@@ -181,8 +181,8 @@ func getBaseStateResV2Graph() []*Event {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IMC:example.com",
 				eventFields: eventFields{
-					EventID:        "$IMC:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomMember,
 					OriginServerTS: 6,
@@ -230,8 +230,8 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$PA:example.com",
 				eventFields: eventFields{
-					EventID:        "$PA:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomPowerLevels,
 					OriginServerTS: 7,
@@ -255,8 +255,8 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$PB:example.com",
 				eventFields: eventFields{
-					EventID:        "$PB:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomPowerLevels,
 					OriginServerTS: 8,
@@ -280,8 +280,8 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$MB:example.com",
 				eventFields: eventFields{
-					EventID:        "$MB:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomMember,
 					OriginServerTS: 9,
@@ -302,8 +302,8 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IME:example.com",
 				eventFields: eventFields{
-					EventID:        "$IME:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomMember,
 					OriginServerTS: 10,
@@ -335,8 +335,8 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$JR:example.com",
 				eventFields: eventFields{
-					EventID:        "$JR:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomJoinRules,
 					OriginServerTS: 8,
@@ -357,8 +357,8 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 		{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
+				EventID: "$IMZ:example.com",
 				eventFields: eventFields{
-					EventID:        "$IMZ:example.com",
 					RoomID:         "!ROOM:example.com",
 					Type:           MRoomMember,
 					OriginServerTS: 9,
