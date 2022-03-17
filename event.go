@@ -116,13 +116,13 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 // eventFormatV1Fields, eventFormatV2Fields.
 type Event struct {
 	redacted    bool
+	eventID     string
 	eventJSON   []byte
 	fields      interface{}
 	roomVersion RoomVersion
 }
 
 type eventFields struct {
-	EventID        string     `json:"event_id,omitempty"`
 	RoomID         string     `json:"room_id"`
 	Sender         string     `json:"sender"`
 	Type           string     `json:"type"`
@@ -138,6 +138,7 @@ type eventFields struct {
 // Fields for room versions 1, 2.
 type eventFormatV1Fields struct {
 	eventFields
+	EventID    string           `json:"event_id,omitempty"`
 	PrevEvents []EventReference `json:"prev_events"`
 	AuthEvents []EventReference `json:"auth_events"`
 }
@@ -428,12 +429,10 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		// Populate the fields of the received object.
 		fields.fixNilSlices()
 		e.fields = fields
+		e.eventID = fields.EventID
 	case EventFormatV2:
 		// Later room versions don't have the event_id field so if it is
 		// present, remove it.
-		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return err
-		}
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
@@ -442,12 +441,9 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		}
 		// Generate a hash of the event which forms the event ID.
 		if eventIDIfKnown != "" {
-			fields.EventID = eventIDIfKnown
-		} else {
-			fields.EventID, err = e.generateEventID()
-			if err != nil {
-				return err
-			}
+			e.eventID = eventIDIfKnown
+		} else if e.eventID, err = e.generateEventID(); err != nil {
+			return err
 		}
 		// Populate the fields of the received object.
 		fields.fixNilSlices()
@@ -775,9 +771,8 @@ func (e *Event) generateEventID() (eventID string, err error) {
 	case EventFormatV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
 	case EventFormatV2:
-		eventJSON := e.eventJSON
 		var reference EventReference
-		reference, err = referenceOfEvent(eventJSON, e.roomVersion)
+		reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
 		if err != nil {
 			return
 		}
@@ -794,7 +789,7 @@ func (e *Event) EventID() string {
 	case eventFormatV1Fields:
 		return fields.EventID
 	case eventFormatV2Fields:
-		return fields.EventID
+		return e.eventID
 	default:
 		panic(e.invalidFieldType())
 	}
