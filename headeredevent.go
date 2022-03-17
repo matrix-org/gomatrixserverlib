@@ -20,6 +20,7 @@ func (e *HeaderedEvent) Unwrap() *Event {
 		panic("gomatrixserverlib: malformed HeaderedEvent doesn't contain room version")
 	}
 	event := e.Event
+	event.eventID = e.eventID
 	event.roomVersion = e.RoomVersion
 	return event
 }
