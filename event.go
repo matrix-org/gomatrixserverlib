@@ -429,17 +429,19 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		// Populate the fields of the received object.
 		fields.fixNilSlices()
 		e.fields = fields
+		// In room versions 1 and 2, we will use the event_id from the
+		// event itself.
 		e.eventID = fields.EventID
 	case EventFormatV2:
-		// Later room versions don't have the event_id field so if it is
-		// present, remove it.
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
 		if err := json.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
-		// Generate a hash of the event which forms the event ID.
+		// Generate a hash of the event which forms the event ID. There
+		// is no event_id field in room versions 3 and later so we will
+		// always generate our own.
 		if eventIDIfKnown != "" {
 			e.eventID = eventIDIfKnown
 		} else if e.eventID, err = e.generateEventID(); err != nil {
