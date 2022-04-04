@@ -319,7 +319,9 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 	c.Defaults()
 	// If there is no power level event then the creator gets level 100
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L569
-	c.Users = map[string]int64{creatorUserID: 100}
+	// If we want users to be able to set PLs > 100 with power_level_content_override
+	// then we need to set the upper bound: maximum allowable JSON value is (2^53)-1.
+	c.Users = map[string]int64{creatorUserID: 9007199254740991}
 	// If there is no power level event then the state_default is level 50
 	// https://github.com/matrix-org/synapse/blob/v1.38.0/synapse/event_auth.py#L437
 	// Previously it was 0, but this was changed in:
