@@ -318,6 +318,9 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		return
 	}
 
+	if eventJSON, err = sjson.DeleteBytes(eventJSON, "unsigned"); err != nil {
+		return
+	}
 	if eventFormat == EventFormatV2 {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
