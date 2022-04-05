@@ -308,15 +308,17 @@ func (r RespState) Events(roomVersion RoomVersion) []*Event {
 
 // Check that a response to /state is valid. This function mutates
 // the RespState to remove any events from AuthEvents or StateEvents
-// that do not have valid signatures.
-func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing JSONVerifier, missingAuth AuthChainProvider) error {
+// that do not have valid signatures, and also returns the unmarshalled
+// auth events (first return parameter) and state events (second
+// return parameter).
+func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing JSONVerifier, missingAuth AuthChainProvider) ([]*Event, []*Event, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
 	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
 	var allEvents []*Event
 	for _, event := range authEvents {
 		if event.StateKey() == nil {
-			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
 		allEvents = append(allEvents, event)
 	}
@@ -324,11 +326,11 @@ func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing 
 	stateTuples := map[StateKeyTuple]bool{}
 	for _, event := range stateEvents {
 		if event.StateKey() == nil {
-			return fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
 		stateTuple := StateKeyTuple{event.Type(), *event.StateKey()}
 		if stateTuples[stateTuple] {
-			return fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
 				event.Type(), *event.StateKey(),
 			)
@@ -341,7 +343,7 @@ func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing 
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
 	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing)
 	if len(errors) != len(allEvents) {
-		return fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
+		return nil, nil, fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
 	}
 
 	// Work out which events failed the signature checks.
@@ -390,7 +392,7 @@ func (r *RespState) Check(ctx context.Context, roomVersion RoomVersion, keyRing 
 	r.AuthEvents = NewEventJSONsFromEvents(authEvents)
 	r.StateEvents = NewEventJSONsFromEvents(stateEvents)
 
-	return nil
+	return authEvents, stateEvents, nil
 }
 
 // A RespMakeJoin is the content of a response to GET /_matrix/federation/v2/make_join/{roomID}/{userID}
@@ -502,7 +504,8 @@ func (r *RespSendJoin) Check(ctx context.Context, roomVersion RoomVersion, keyRi
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
 	rs := r.ToRespState()
-	if err := rs.Check(ctx, roomVersion, keyRing, missingAuth); err != nil {
+	authEvents, stateEvents, err := rs.Check(ctx, roomVersion, keyRing, missingAuth)
+	if err != nil {
 		return nil, err
 	}
 
@@ -512,8 +515,6 @@ func (r *RespSendJoin) Check(ctx context.Context, roomVersion RoomVersion, keyRi
 	r.StateEvents = rs.StateEvents
 
 	eventsByID := map[string]*Event{}
-	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
-	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
 	authEventProvider := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
