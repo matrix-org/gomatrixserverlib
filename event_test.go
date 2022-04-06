@@ -20,6 +20,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
@@ -179,4 +181,83 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
 		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
 	}
+}
+
+func TestSplitID(t *testing.T) {
+	t.Run("To short id",
+		func(t *testing.T) {
+			_, _, err := SplitID('@', "")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+		})
+	t.Run("Mismatch Sigil",
+		func(t *testing.T) {
+			_, _, err := SplitID('@', "#1234abcd:test")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"#1234abcd:test\" doesn't start with '@'", "Mismatch Sigil incorrect error")
+		})
+}
+func TestSplitIDWithSigil(t *testing.T) {
+	t.Run("To short id",
+		func(t *testing.T) {
+			_, _, err := SplitIDWithSigil("")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+		})
+	t.Run("Invalid Sigil",
+		func(t *testing.T) {
+			_, _, err := SplitIDWithSigil("%1234abcd:test")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid sigil '%'", "Invalid Sigil incorrect error")
+		})
+
+	t.Run("No ServerName",
+		func(t *testing.T) {
+			_, _, err := SplitIDWithSigil("@1234abcd_test")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"@1234abcd_test\" missing ':'", "No ServerName incorrect error")
+		})
+
+	t.Run("UserID",
+		func(t *testing.T) {
+			localpart, domain, err := SplitIDWithSigil("@1234abcd:test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, "1234abcd", localpart, "The localpart should parse")
+			assert.Equal(t, ServerName("test"), domain, "The domain should parse")
+		})
+	t.Run("UserID - Missing :",
+		func(t *testing.T) {
+			_, _, err := SplitIDWithSigil("@1234Abcdtest")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"@1234Abcdtest\" missing ':'", "No : in UserID")
+
+		})
+	t.Run("UserID - Invalid",
+		func(t *testing.T) {
+			_, _, err := SplitIDWithSigil("@1234Abcd:test")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid local ID \"1234Abcd\"", "Error should be: %v, got: %v", "gomatrixserverlib: invalid local ID \"1234Abcd\"", err)
+
+		})
+	t.Run("GroupID",
+		func(t *testing.T) {
+			localpart, domain, err := SplitIDWithSigil("+group/=_-.123:my.domain")
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, "group/=_-.123", localpart, "The localpart should parse")
+			assert.Equal(t, ServerName("my.domain"), domain, "The domain should parse")
+		})
+	t.Run("GroupID - Missing :",
+		func(t *testing.T) {
+			_, _, err := SplitIDWithSigil("+group/=_-.123my.domain")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"+group/=_-.123my.domain\" missing ':'", "No : in UserID")
+
+		})
+
+	t.Run("RoomAlias",
+
+		func(t *testing.T) {
+			localpart, domain, err := SplitIDWithSigil("#channel:test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, "channel", localpart, "The localpart should parse")
+			assert.Equal(t, ServerName("test"), domain, "The domain should parse")
+		})
 }

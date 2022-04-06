@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -1111,20 +1112,66 @@ func (er EventReference) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&tuple)
 }
 
-// SplitID splits a matrix ID into a local part and a server name.
-func SplitID(sigil byte, id string) (local string, domain ServerName, err error) {
-	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
-	// Split on the first ":" character since the domain can contain ":"
-	// characters.
-	if len(id) == 0 || id[0] != sigil {
-		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q doesn't start with %q", id, sigil)
-	}
+const UserIDSigil = '@'
+const RoomAliasSigil = '#'
+const RoomIDSigil = '!'
+const EventIDSigil = '$'
+const GroupIDSigil = '+'
+
+var IsValidMXID = regexp.MustCompile(`^[a-z0-9\_\-\.\/\=]+$`).MatchString
+
+func splitId(id string) (local string, domain ServerName, err error) {
 	parts := strings.SplitN(id, ":", 2)
 	if len(parts) != 2 {
 		// The ID must have a ":" character.
 		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q missing ':'", id)
 	}
 	return parts[0][1:], ServerName(parts[1]), nil
+}
+
+// Deprecated: Replaced with SplitIDWithSigil
+// SplitID splits a matrix ID into a local part and a server name.
+func SplitID(unusedSigil byte, id string) (local string, domain ServerName, err error) {
+	if len(id) == 0 {
+		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q", id)
+	}
+	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
+	// Split on the first ":" character since the domain can contain ":"
+	// characters.
+	sigil := id[0]
+	if unusedSigil != sigil {
+		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q doesn't start with %q", id, unusedSigil)
+	}
+	return SplitIDWithSigil(id)
+}
+
+// SplitID splits a matrix ID into a local part and a server name.
+func SplitIDWithSigil(id string) (local string, domain ServerName, err error) {
+	if len(id) == 0 {
+		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q", id)
+	}
+	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
+	// Split on the first ":" character since the domain can contain ":"
+	// characters.
+	sigil := id[0]
+	switch sigil {
+	case UserIDSigil:
+		{
+			local, domain, err = splitId(id)
+			if err == nil {
+				if IsValidMXID(local) {
+					return local, domain, nil
+				}
+				// The Local portion of the User must be only a valid characters.
+				return "", "", fmt.Errorf("gomatrixserverlib: invalid local ID %q", local)
+			}
+			return
+		}
+	case RoomAliasSigil, RoomIDSigil, EventIDSigil, GroupIDSigil:
+		return splitId(id)
+	default:
+		return "", "", fmt.Errorf("gomatrixserverlib: invalid sigil %q", sigil)
+	}
 }
 
 // fixNilSlices corrects cases where nil slices end up with "null" in the
