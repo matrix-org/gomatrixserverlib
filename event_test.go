@@ -16,12 +16,14 @@
 package gomatrixserverlib
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ed25519"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
@@ -196,10 +198,10 @@ func TestSplitID(t *testing.T) {
 		})
 }
 func TestSplitIDWithSigil(t *testing.T) {
-	t.Run("To short id",
+	t.Run("Too short id",
 		func(t *testing.T) {
 			_, _, err := SplitIDWithSigil("")
-			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "Too short id")
 		})
 	t.Run("Invalid Sigil",
 		func(t *testing.T) {
@@ -234,6 +236,27 @@ func TestSplitIDWithSigil(t *testing.T) {
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid local ID \"1234Abcd\"", "Error should be: %v, got: %v", "gomatrixserverlib: invalid local ID \"1234Abcd\"", err)
 
 		})
+
+	t.Run("UserID - UPK",
+		func(t *testing.T) {
+			pubKey, _, err := ed25519.GenerateKey(nil)
+			encodedKey := base64.URLEncoding.EncodeToString(pubKey)
+			localpart, domain, err := SplitIDWithSigil("~1" + encodedKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, encodedKey, localpart, "The localpart should parse")
+			assert.Equal(t, ServerName(""), domain, "The domain should parse")
+		})
+
+	t.Run("UserID - Unsupported UPK version",
+		func(t *testing.T) {
+			pubKey, _, err := ed25519.GenerateKey(nil)
+			encodedKey := base64.URLEncoding.EncodeToString(pubKey)
+			_, _, err = SplitIDWithSigil("~2" + encodedKey)
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid UPK version '2'", "Only version 1 supported at this time")
+		})
+
 	t.Run("GroupID",
 		func(t *testing.T) {
 			localpart, domain, err := SplitIDWithSigil("+group/=_-.123:my.domain")

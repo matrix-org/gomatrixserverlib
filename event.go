@@ -1117,10 +1117,14 @@ const RoomAliasSigil = '#'
 const RoomIDSigil = '!'
 const EventIDSigil = '$'
 const GroupIDSigil = '+'
+const UserPermanentKeySigil = '~'
+const UserDelegatedKeySigil = '^'
 
 var IsValidMXID = regexp.MustCompile(`^[a-z0-9\_\-\.\/\=]+$`).MatchString
 
 func splitId(id string) (local string, domain ServerName, err error) {
+	// Split on the first ":" character since the domain can contain ":"
+	// characters.
 	parts := strings.SplitN(id, ":", 2)
 	if len(parts) != 2 {
 		// The ID must have a ":" character.
@@ -1151,10 +1155,19 @@ func SplitIDWithSigil(id string) (local string, domain ServerName, err error) {
 		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q", id)
 	}
 	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
-	// Split on the first ":" character since the domain can contain ":"
-	// characters.
 	sigil := id[0]
 	switch sigil {
+	case UserPermanentKeySigil:
+		{
+			version := id[1]
+			if version == '1' {
+				// UPK, the whole ID is the local portion
+				return id[2:], "", err
+
+			}
+			return "", "", fmt.Errorf("gomatrixserverlib: invalid UPK version %q", version)
+
+		}
 	case UserIDSigil:
 		{
 			local, domain, err = splitId(id)
