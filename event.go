@@ -1122,7 +1122,7 @@ const UserDelegatedKeySigil = '^'
 
 var IsValidMXID = regexp.MustCompile(`^[a-z0-9\_\-\.\/\=]+$`).MatchString
 
-func splitId(id string) (local string, domain ServerName, err error) {
+func splitID(id string) (local string, domain ServerName, err error) {
 	// Split on the first ":" character since the domain can contain ":"
 	// characters.
 	parts := strings.SplitN(id, ":", 2)
@@ -1170,7 +1170,7 @@ func SplitIDWithSigil(id string) (local string, domain ServerName, err error) {
 		}
 	case UserIDSigil:
 		{
-			local, domain, err = splitId(id)
+			local, domain, err = splitID(id)
 			if err == nil {
 				if IsValidMXID(local) {
 					return local, domain, nil
@@ -1181,7 +1181,7 @@ func SplitIDWithSigil(id string) (local string, domain ServerName, err error) {
 			return
 		}
 	case RoomAliasSigil, RoomIDSigil, EventIDSigil, GroupIDSigil:
-		return splitId(id)
+		return splitID(id)
 	default:
 		return "", "", fmt.Errorf("gomatrixserverlib: invalid sigil %q", sigil)
 	}

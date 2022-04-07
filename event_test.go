@@ -240,6 +240,9 @@ func TestSplitIDWithSigil(t *testing.T) {
 	t.Run("UserID - UPK",
 		func(t *testing.T) {
 			pubKey, _, err := ed25519.GenerateKey(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			encodedKey := base64.URLEncoding.EncodeToString(pubKey)
 			localpart, domain, err := SplitIDWithSigil("~1" + encodedKey)
 			if err != nil {
@@ -252,6 +255,9 @@ func TestSplitIDWithSigil(t *testing.T) {
 	t.Run("UserID - Unsupported UPK version",
 		func(t *testing.T) {
 			pubKey, _, err := ed25519.GenerateKey(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			encodedKey := base64.URLEncoding.EncodeToString(pubKey)
 			_, _, err = SplitIDWithSigil("~2" + encodedKey)
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid UPK version '2'", "Only version 1 supported at this time")
