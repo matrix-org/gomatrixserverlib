@@ -197,27 +197,170 @@ func TestSplitID(t *testing.T) {
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"#1234abcd:test\" doesn't start with '@'", "Mismatch Sigil incorrect error")
 		})
 }
+
+func difference(slice1 []rune, slice2 []rune) []rune {
+	diffStr := []rune{}
+	m := map[rune]int{}
+
+	for _, s1Val := range slice1 {
+		m[s1Val] = 1
+	}
+	for _, s2Val := range slice2 {
+		m[s2Val] = m[s2Val] + 1
+	}
+
+	for mKey, mVal := range m {
+		if mVal == 1 {
+			diffStr = append(diffStr, mKey)
+		}
+	}
+
+	return diffStr
+}
+func TestSplitUserID(t *testing.T) {
+	testFunction := SplitUserID
+	supportedSigils := GetUserSigils()
+	t.Run("To short id",
+		func(t *testing.T) {
+			_, _, err := testFunction("")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+		})
+	t.Run("Mismatch Sigil",
+		func(t *testing.T) {
+			notUserSigil := difference(GetSupportedSigils(), supportedSigils)
+			for _, sigil := range notUserSigil {
+				_, _, err := testFunction(string(sigil) + "1234abcd:test")
+				assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \""+string(sigil)+"1234abcd:test\" doesn't start with valid sigil '"+string(sigil)+"'", "Mismatch Sigil incorrect error")
+			}
+		})
+	t.Run("Matching Sigil",
+		func(t *testing.T) {
+			for _, sigil := range supportedSigils {
+				localpart, domain, err := testFunction(string(sigil) + "1234abcd:test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if sigil == UserIDSigil {
+					assert.Equal(t, "1234abcd", localpart, "The localpart should parse for sigil"+string(sigil))
+					assert.Equal(t, ServerName("test"), domain, "The domain should parse for sigil"+string(sigil))
+
+				} else {
+					assert.Equal(t, "234abcd:test", localpart, "The localpart should parse for sigil"+string(sigil))
+					assert.Equal(t, ServerName(""), domain, "The domain should parse for sigil"+string(sigil))
+
+				}
+			}
+		})
+}
+
+func TestSplitRoomID(t *testing.T) {
+	testFunction := SplitRoomID
+	supportedSigils := GetRoomSigils()
+	t.Run("To short id",
+		func(t *testing.T) {
+			_, _, err := testFunction("")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+		})
+	t.Run("Mismatch Sigil",
+		func(t *testing.T) {
+			notRoomSigil := difference(GetSupportedSigils(), supportedSigils)
+			for _, sigil := range notRoomSigil {
+				_, _, err := testFunction(string(sigil) + "1234abcd:test")
+				assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \""+string(sigil)+"1234abcd:test\" doesn't start with valid sigil '"+string(sigil)+"'", "Mismatch Sigil incorrect error")
+			}
+		})
+	t.Run("Matching Sigil",
+		func(t *testing.T) {
+			for _, sigil := range supportedSigils {
+				localpart, domain, err := testFunction(string(sigil) + "1234abcd:test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.Equal(t, "1234abcd", localpart, "The localpart should parse for sigil"+string(sigil))
+				assert.Equal(t, ServerName("test"), domain, "The domain should parse for sigil"+string(sigil))
+			}
+		})
+}
+
+func TestSplitGroupID(t *testing.T) {
+	testFunction := SplitGroupID
+	supportedSigils := []rune{GroupIDSigil}
+	t.Run("To short id",
+		func(t *testing.T) {
+			_, _, err := testFunction("")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+		})
+	t.Run("Mismatch Sigil",
+		func(t *testing.T) {
+			notGroupSigil := difference(GetSupportedSigils(), supportedSigils)
+			for _, sigil := range notGroupSigil {
+				_, _, err := testFunction(string(sigil) + "1234abcd:test")
+				assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \""+string(sigil)+"1234abcd:test\" doesn't start with valid sigil '"+string(sigil)+"'", "Mismatch Sigil incorrect error")
+			}
+		})
+	t.Run("Matching Sigil",
+		func(t *testing.T) {
+			for _, sigil := range supportedSigils {
+				localpart, domain, err := testFunction(string(sigil) + "1234abcd:test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.Equal(t, "1234abcd", localpart, "The localpart should parse for sigil"+string(sigil))
+				assert.Equal(t, ServerName("test"), domain, "The domain should parse for sigil"+string(sigil))
+			}
+		})
+}
+
+func TestSplitEventID(t *testing.T) {
+	testFunction := SplitEventID
+	supportedSigils := []rune{EventIDSigil}
+	t.Run("To short id",
+		func(t *testing.T) {
+			_, _, err := testFunction("")
+			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "To short id")
+		})
+	t.Run("Mismatch Sigil",
+		func(t *testing.T) {
+			notGroupSigil := difference(GetSupportedSigils(), supportedSigils)
+			for _, sigil := range notGroupSigil {
+				_, _, err := testFunction(string(sigil) + "1234abcd:test")
+				assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \""+string(sigil)+"1234abcd:test\" doesn't start with valid sigil '"+string(sigil)+"'", "Mismatch Sigil incorrect error")
+			}
+		})
+	t.Run("Matching Sigil",
+		func(t *testing.T) {
+			for _, sigil := range supportedSigils {
+				localpart, domain, err := testFunction(string(sigil) + "1234abcd:test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.Equal(t, "1234abcd", localpart, "The localpart should parse for sigil"+string(sigil))
+				assert.Equal(t, ServerName("test"), domain, "The domain should parse for sigil"+string(sigil))
+			}
+		})
+}
+
 func TestSplitIDWithSigil(t *testing.T) {
 	t.Run("Too short id",
 		func(t *testing.T) {
-			_, _, err := SplitIDWithSigil("")
+			_, _, err := splitIDWithSigil("")
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"\"", "Too short id")
 		})
 	t.Run("Invalid Sigil",
 		func(t *testing.T) {
-			_, _, err := SplitIDWithSigil("%1234abcd:test")
+			_, _, err := splitIDWithSigil("%1234abcd:test")
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid sigil '%'", "Invalid Sigil incorrect error")
 		})
 
 	t.Run("No ServerName",
 		func(t *testing.T) {
-			_, _, err := SplitIDWithSigil("@1234abcd_test")
+			_, _, err := splitIDWithSigil("@1234abcd_test")
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"@1234abcd_test\" missing ':'", "No ServerName incorrect error")
 		})
 
 	t.Run("UserID",
 		func(t *testing.T) {
-			localpart, domain, err := SplitIDWithSigil("@1234abcd:test")
+			localpart, domain, err := splitIDWithSigil("@1234abcd:test")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -226,13 +369,13 @@ func TestSplitIDWithSigil(t *testing.T) {
 		})
 	t.Run("UserID - Missing :",
 		func(t *testing.T) {
-			_, _, err := SplitIDWithSigil("@1234Abcdtest")
+			_, _, err := splitIDWithSigil("@1234Abcdtest")
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"@1234Abcdtest\" missing ':'", "No : in UserID")
 
 		})
 	t.Run("UserID - Invalid",
 		func(t *testing.T) {
-			_, _, err := SplitIDWithSigil("@1234Abcd:test")
+			_, _, err := splitIDWithSigil("@1234Abcd:test")
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid local ID \"1234Abcd\"", "Error should be: %v, got: %v", "gomatrixserverlib: invalid local ID \"1234Abcd\"", err)
 
 		})
@@ -244,7 +387,7 @@ func TestSplitIDWithSigil(t *testing.T) {
 				t.Fatal(err)
 			}
 			encodedKey := base64.URLEncoding.EncodeToString(pubKey)
-			localpart, domain, err := SplitIDWithSigil("~1" + encodedKey)
+			localpart, domain, err := splitIDWithSigil("~1" + encodedKey)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -259,13 +402,13 @@ func TestSplitIDWithSigil(t *testing.T) {
 				t.Fatal(err)
 			}
 			encodedKey := base64.URLEncoding.EncodeToString(pubKey)
-			_, _, err = SplitIDWithSigil("~2" + encodedKey)
+			_, _, err = splitIDWithSigil("~2" + encodedKey)
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid UPK version '2'", "Only version 1 supported at this time")
 		})
 
 	t.Run("GroupID",
 		func(t *testing.T) {
-			localpart, domain, err := SplitIDWithSigil("+group/=_-.123:my.domain")
+			localpart, domain, err := splitIDWithSigil("+group/=_-.123:my.domain")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -274,7 +417,7 @@ func TestSplitIDWithSigil(t *testing.T) {
 		})
 	t.Run("GroupID - Missing :",
 		func(t *testing.T) {
-			_, _, err := SplitIDWithSigil("+group/=_-.123my.domain")
+			_, _, err := splitIDWithSigil("+group/=_-.123my.domain")
 			assert.EqualErrorf(t, err, "gomatrixserverlib: invalid ID \"+group/=_-.123my.domain\" missing ':'", "No : in UserID")
 
 		})
@@ -282,7 +425,7 @@ func TestSplitIDWithSigil(t *testing.T) {
 	t.Run("RoomAlias",
 
 		func(t *testing.T) {
-			localpart, domain, err := SplitIDWithSigil("#channel:test")
+			localpart, domain, err := splitIDWithSigil("#channel:test")
 			if err != nil {
 				t.Fatal(err)
 			}
