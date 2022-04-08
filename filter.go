@@ -31,17 +31,17 @@ type Filter struct {
 
 // EventFilter is used to define filtering rules for events
 type EventFilter struct {
-	Limit      int      `json:"limit,omitempty"`
-	NotSenders []string `json:"not_senders,omitempty"`
-	NotTypes   []string `json:"not_types,omitempty"`
-	Senders    []string `json:"senders,omitempty"`
-	Types      []string `json:"types,omitempty"`
+	Limit      int       `json:"limit,omitempty"`
+	NotSenders *[]string `json:"not_senders,omitempty"`
+	NotTypes   *[]string `json:"not_types,omitempty"`
+	Senders    *[]string `json:"senders,omitempty"`
+	Types      *[]string `json:"types,omitempty"`
 }
 
 // RoomFilter is used to define filtering rules for room-related events
 type RoomFilter struct {
-	NotRooms     []string        `json:"not_rooms,omitempty"`
-	Rooms        []string        `json:"rooms,omitempty"`
+	NotRooms     *[]string       `json:"not_rooms,omitempty"`
+	Rooms        *[]string       `json:"rooms,omitempty"`
 	Ephemeral    RoomEventFilter `json:"ephemeral,omitempty"`
 	IncludeLeave bool            `json:"include_leave,omitempty"`
 	State        StateFilter     `json:"state,omitempty"`
@@ -51,30 +51,30 @@ type RoomFilter struct {
 
 // StateFilter is used to define filtering rules for state events
 type StateFilter struct {
-	Limit                   int      `json:"limit,omitempty"`
-	NotSenders              []string `json:"not_senders,omitempty"`
-	NotTypes                []string `json:"not_types,omitempty"`
-	Senders                 []string `json:"senders,omitempty"`
-	Types                   []string `json:"types,omitempty"`
-	LazyLoadMembers         bool     `json:"lazy_load_members,omitempty"`
-	IncludeRedundantMembers bool     `json:"include_redundant_members,omitempty"`
-	NotRooms                []string `json:"not_rooms,omitempty"`
-	Rooms                   []string `json:"rooms,omitempty"`
-	ContainsURL             *bool    `json:"contains_url,omitempty"`
+	Limit                   int       `json:"limit,omitempty"`
+	NotSenders              *[]string `json:"not_senders,omitempty"`
+	NotTypes                *[]string `json:"not_types,omitempty"`
+	Senders                 *[]string `json:"senders,omitempty"`
+	Types                   *[]string `json:"types,omitempty"`
+	LazyLoadMembers         bool      `json:"lazy_load_members,omitempty"`
+	IncludeRedundantMembers bool      `json:"include_redundant_members,omitempty"`
+	NotRooms                *[]string `json:"not_rooms,omitempty"`
+	Rooms                   *[]string `json:"rooms,omitempty"`
+	ContainsURL             *bool     `json:"contains_url,omitempty"`
 }
 
 // RoomEventFilter is used to define filtering rules for events in rooms
 type RoomEventFilter struct {
-	Limit                   int      `json:"limit,omitempty"`
-	NotSenders              []string `json:"not_senders,omitempty"`
-	NotTypes                []string `json:"not_types,omitempty"`
-	Senders                 []string `json:"senders,omitempty"`
-	Types                   []string `json:"types,omitempty"`
-	LazyLoadMembers         bool     `json:"lazy_load_members,omitempty"`
-	IncludeRedundantMembers bool     `json:"include_redundant_members,omitempty"`
-	NotRooms                []string `json:"not_rooms,omitempty"`
-	Rooms                   []string `json:"rooms,omitempty"`
-	ContainsURL             *bool    `json:"contains_url,omitempty"`
+	Limit                   int       `json:"limit,omitempty"`
+	NotSenders              *[]string `json:"not_senders,omitempty"`
+	NotTypes                *[]string `json:"not_types,omitempty"`
+	Senders                 *[]string `json:"senders,omitempty"`
+	Types                   *[]string `json:"types,omitempty"`
+	LazyLoadMembers         bool      `json:"lazy_load_members,omitempty"`
+	IncludeRedundantMembers bool      `json:"include_redundant_members,omitempty"`
+	NotRooms                *[]string `json:"not_rooms,omitempty"`
+	Rooms                   *[]string `json:"rooms,omitempty"`
+	ContainsURL             *bool     `json:"contains_url,omitempty"`
 }
 
 // Validate checks if the filter contains valid property values
