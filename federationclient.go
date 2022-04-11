@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -19,6 +21,26 @@ type FederationClient struct {
 	serverName       ServerName
 	serverKeyID      KeyID
 	serverPrivateKey ed25519.PrivateKey
+}
+
+// RoundTrip performs a signed federation request to the given host.
+func (ac *FederationClient) RoundTrip(req *http.Request) (*http.Response, error) {
+	r := NewFederationRequest(req.Method, ServerName(req.Host), req.RequestURI)
+	if body, err := io.ReadAll(req.Body); err == nil {
+		if err = r.SetContent(json.RawMessage(body)); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, err
+	}
+	if err := r.Sign(ac.serverName, ac.serverKeyID, ac.serverPrivateKey); err != nil {
+		return nil, err
+	}
+	req, err := r.HTTPRequest()
+	if err != nil {
+		return nil, err
+	}
+	return ac.DoHTTPRequest(req.Context(), req)
 }
 
 // NewFederationClient makes a new FederationClient. You can supply
