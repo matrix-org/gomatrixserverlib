@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/brianathere/gomatrixserverlib"
 )
 
 // A basic sanity check of a linear sequence of common events
