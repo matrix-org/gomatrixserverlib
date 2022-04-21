@@ -36,6 +36,7 @@ const (
 const (
 	EventFormatV1 EventFormat = iota + 1 // prev_events and auth_events as event references
 	EventFormatV2                        // prev_events and auth_events as string array of event IDs
+	EventFormatV3                        // state DAG
 )
 
 // Event ID format constants.
@@ -191,6 +192,20 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV2,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        true,
+		allowRestrictedJoinsInEventAuth: false,
+		requireIntegerPowerLevels:       true,
+	},
+	"org.matrix.statedag.v1": {
+		Supported:                       true,
+		Stable:                          false,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV3,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV2,
 		enforceSignatureChecks:          true,

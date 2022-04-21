@@ -150,6 +150,12 @@ type eventFormatV2Fields struct {
 	AuthEvents []string `json:"auth_events"`
 }
 
+type eventFormatV3Fields struct {
+	eventFields
+	PrevEvents      []string `json:"prev_events"`
+	PrevStateEvents []string `json:"prev_state_events"`
+}
+
 var emptyEventReferenceList = []EventReference{}
 
 // Build a new Event.
@@ -453,6 +459,24 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		// Populate the fields of the received object.
 		fields.fixNilSlices()
 		e.fields = fields
+	case EventFormatV3:
+		e.eventJSON = eventJSON
+		// Unmarshal the event fields.
+		fields := eventFormatV3Fields{}
+		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+			return err
+		}
+		// Generate a hash of the event which forms the event ID. There
+		// is no event_id field in room versions 3 and later so we will
+		// always generate our own.
+		if eventIDIfKnown != "" {
+			e.eventID = eventIDIfKnown
+		} else if e.eventID, err = e.generateEventID(); err != nil {
+			return err
+		}
+		// Populate the fields of the received object.
+		fields.fixNilSlices()
+		e.fields = fields
 	default:
 		return errors.New("gomatrixserverlib: room version not supported")
 	}
@@ -564,6 +588,10 @@ func (e *Event) updateUnsignedFields(unsigned []byte) error {
 		fields.Unsigned = unsigned
 		fields.fixNilSlices()
 		e.fields = fields
+	case eventFormatV3Fields:
+		fields.Unsigned = unsigned
+		fields.fixNilSlices()
+		e.fields = fields
 	default:
 		return UnsupportedRoomVersionError{Version: e.roomVersion}
 	}
@@ -619,6 +647,8 @@ func (e *Event) StateKey() *string {
 		return fields.StateKey
 	case eventFormatV2Fields:
 		return fields.StateKey
+	case eventFormatV3Fields:
+		return fields.StateKey
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -631,6 +661,8 @@ func (e *Event) StateKeyEquals(stateKey string) bool {
 	case eventFormatV1Fields:
 		sk = fields.StateKey
 	case eventFormatV2Fields:
+		sk = fields.StateKey
+	case eventFormatV3Fields:
 		sk = fields.StateKey
 	default:
 		panic(e.invalidFieldType())
@@ -667,6 +699,11 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	case eventFormatV2Fields:
 		if f.AuthEvents == nil || f.PrevEvents == nil {
 			return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
+		}
+		fields = f.eventFields
+	case eventFormatV3Fields:
+		if f.PrevEvents == nil || f.PrevStateEvents == nil {
+			return errors.New("gomatrixserverlib: prev events and prev state events must not be nil")
 		}
 		fields = f.eventFields
 	default:
@@ -762,6 +799,8 @@ func (e *Event) Origin() ServerName {
 		return fields.Origin
 	case eventFormatV2Fields:
 		return fields.Origin
+	case eventFormatV3Fields:
+		return fields.Origin
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -796,6 +835,8 @@ func (e *Event) EventID() string {
 		return fields.EventID
 	case eventFormatV2Fields:
 		return e.eventID
+	case eventFormatV3Fields:
+		return e.eventID
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -807,6 +848,8 @@ func (e *Event) Sender() string {
 	case eventFormatV1Fields:
 		return fields.Sender
 	case eventFormatV2Fields:
+		return fields.Sender
+	case eventFormatV3Fields:
 		return fields.Sender
 	default:
 		panic(e.invalidFieldType())
@@ -820,6 +863,8 @@ func (e *Event) Type() string {
 		return fields.Type
 	case eventFormatV2Fields:
 		return fields.Type
+	case eventFormatV3Fields:
+		return fields.Type
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -831,6 +876,8 @@ func (e *Event) OriginServerTS() Timestamp {
 	case eventFormatV1Fields:
 		return fields.OriginServerTS
 	case eventFormatV2Fields:
+		return fields.OriginServerTS
+	case eventFormatV3Fields:
 		return fields.OriginServerTS
 	default:
 		panic(e.invalidFieldType())
@@ -844,6 +891,8 @@ func (e *Event) Unsigned() []byte {
 		return fields.Unsigned
 	case eventFormatV2Fields:
 		return fields.Unsigned
+	case eventFormatV3Fields:
+		return fields.Unsigned
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -856,6 +905,8 @@ func (e *Event) Content() []byte {
 		return []byte(fields.Content)
 	case eventFormatV2Fields:
 		return []byte(fields.Content)
+	case eventFormatV3Fields:
+		return []byte(fields.Content)
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -867,6 +918,23 @@ func (e *Event) PrevEvents() []EventReference {
 	case eventFormatV1Fields:
 		return fields.PrevEvents
 	case eventFormatV2Fields:
+		result := make([]EventReference, 0, len(fields.PrevEvents))
+		for _, id := range fields.PrevEvents {
+			// In the new event format, the event ID is already the hash of
+			// the event. Since we will have generated the event ID before
+			// now, we can just knock the sigil $ off the front and use that
+			// as the event SHA256.
+			var sha Base64Bytes
+			if err := sha.Decode(id[1:]); err != nil {
+				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
+			}
+			result = append(result, EventReference{
+				EventID:     id,
+				EventSHA256: sha,
+			})
+		}
+		return result
+	case eventFormatV3Fields:
 		result := make([]EventReference, 0, len(fields.PrevEvents))
 		for _, id := range fields.PrevEvents {
 			// In the new event format, the event ID is already the hash of
@@ -899,6 +967,18 @@ func (e *Event) PrevEventIDs() []string {
 		return result
 	case eventFormatV2Fields:
 		return fields.PrevEvents
+	case eventFormatV3Fields:
+		return fields.PrevEvents
+	default:
+		panic(e.invalidFieldType())
+	}
+}
+
+// PrevStateEventIDs returns the event IDs of the direct state ancestors of the event.
+func (e *Event) PrevStateEventIDs() []string {
+	switch fields := e.fields.(type) {
+	case eventFormatV3Fields:
+		return fields.PrevEvents
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -915,6 +995,8 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 		fields = e.fields.(eventFormatV1Fields).eventFields
 	case EventFormatV2:
 		fields = e.fields.(eventFormatV2Fields).eventFields
+	case EventFormatV3:
+		fields = e.fields.(eventFormatV3Fields).eventFields
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1032,6 +1114,8 @@ func (e *Event) Redacts() string {
 		return fields.Redacts
 	case eventFormatV2Fields:
 		return fields.Redacts
+	case eventFormatV3Fields:
+		return fields.Redacts
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1044,6 +1128,8 @@ func (e *Event) RoomID() string {
 		return fields.RoomID
 	case eventFormatV2Fields:
 		return fields.RoomID
+	case eventFormatV3Fields:
+		return fields.RoomID
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1055,6 +1141,8 @@ func (e *Event) Depth() int64 {
 	case eventFormatV1Fields:
 		return fields.Depth
 	case eventFormatV2Fields:
+		return fields.Depth
+	case eventFormatV3Fields:
 		return fields.Depth
 	default:
 		panic(e.invalidFieldType())
@@ -1145,6 +1233,18 @@ func (f *eventFormatV1Fields) fixNilSlices() {
 func (f *eventFormatV2Fields) fixNilSlices() {
 	if f.AuthEvents == nil {
 		f.AuthEvents = []string{}
+	}
+	if f.PrevEvents == nil {
+		f.PrevEvents = []string{}
+	}
+}
+
+// fixNilSlices corrects cases where nil slices end up with "null" in the
+// marshalled JSON because Go stupidly doesn't care about the type in this
+// situation.
+func (f *eventFormatV3Fields) fixNilSlices() {
+	if f.PrevStateEvents == nil {
+		f.PrevStateEvents = []string{}
 	}
 	if f.PrevEvents == nil {
 		f.PrevEvents = []string{}
