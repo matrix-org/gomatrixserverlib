@@ -237,16 +237,17 @@ type RespUserDevice struct {
 
 // RespUserDeviceKeys are embedded in RespUserDevice
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
+// ORDER OF THESE KEYS IS IMPORTANT, DON'T CHANGE THEM!
 type RespUserDeviceKeys struct {
-	UserID     string   `json:"user_id"`
-	DeviceID   string   `json:"device_id"`
 	Algorithms []string `json:"algorithms"`
+	DeviceID   string   `json:"device_id"`
 	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
 	Keys map[KeyID]Base64Bytes `json:"keys"`
 	// E.g "@alice:example.com": {
 	//	"ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
 	// }
 	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
+	UserID     string                           `json:"user_id"`
 }
 
 // MarshalJSON implements json.Marshaller

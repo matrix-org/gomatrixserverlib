@@ -35,9 +35,10 @@ type CrossSigningKeys struct {
 }
 
 // https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keysdevice_signingupload
+// ORDER OF THESE KEYS IS IMPORTANT, DON'T CHANGE THEM!
 type CrossSigningKey struct {
-	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 	Keys       map[KeyID]Base64Bytes            `json:"keys"`
+	Signatures map[string]map[KeyID]Base64Bytes `json:"signatures,omitempty"`
 	Usage      []CrossSigningKeyPurpose         `json:"usage"`
 	UserID     string                           `json:"user_id"`
 }
