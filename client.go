@@ -52,11 +52,12 @@ type UserInfo struct {
 }
 
 type clientOptions struct {
-	transport  http.RoundTripper
-	dnsCache   *DNSCache
-	timeout    time.Duration
-	skipVerify bool
-	keepAlives bool
+	transport    http.RoundTripper
+	dnsCache     *DNSCache
+	timeout      time.Duration
+	skipVerify   bool
+	keepAlives   bool
+	wellKnownSRV bool
 }
 
 // ClientOption are supplied to NewClient or NewFederationClient.
@@ -77,6 +78,7 @@ func NewClient(options ...ClientOption) *Client {
 			clientOpts.skipVerify,
 			clientOpts.dnsCache,
 			clientOpts.keepAlives,
+			clientOpts.wellKnownSRV,
 		)
 	}
 	client := &Client{
@@ -132,6 +134,13 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 	}
 }
 
+// WithWellKnownSRVLookups enables federation lookups of well-known and SRV records.
+func WithWellKnownSRVLookups(wellKnownSRV bool) ClientOption {
+	return func(options *clientOptions) {
+		options.wellKnownSRV = wellKnownSRV
+	}
+}
+
 const destinationTripperLifetime = time.Minute * 5 // how long to keep an entry
 const destinationTripperReapInterval = time.Minute // how often to check for dead entries
 
@@ -144,14 +153,16 @@ type destinationTripper struct {
 	resolutionCache sync.Map // serverName -> []ResolutionResult
 	dnsCache        *DNSCache
 	keepAlives      bool
+	wellKnownSRV    bool
 }
 
-func newDestinationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) *destinationTripper {
+func newDestinationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives, wellKnownSRV bool) *destinationTripper {
 	tripper := &destinationTripper{
-		transports: make(map[string]*destinationTripperTransport),
-		skipVerify: skipVerify,
-		dnsCache:   dnsCache,
-		keepAlives: keepAlives,
+		transports:   make(map[string]*destinationTripperTransport),
+		skipVerify:   skipVerify,
+		dnsCache:     dnsCache,
+		keepAlives:   keepAlives,
+		wellKnownSRV: wellKnownSRV,
 	}
 	time.AfterFunc(destinationTripperReapInterval, tripper.reaper)
 	return tripper
@@ -238,20 +249,28 @@ func (f *destinationTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 	resolutionResults := []ResolutionResult{}
 
 retryResolution:
-	if cached, ok := f.resolutionCache.Load(serverName); ok {
-		if results, ok := cached.([]ResolutionResult); ok {
-			resolutionResults = results
+	if f.wellKnownSRV {
+		if cached, ok := f.resolutionCache.Load(serverName); ok {
+			if results, ok := cached.([]ResolutionResult); ok {
+				resolutionResults = results
+			}
 		}
-	}
 
-	// If the cache returned nothing then we'll have no results here,
-	// so go and hit the network.
-	if len(resolutionResults) == 0 {
-		resolutionResults, err = ResolveServer(r.Context(), serverName)
-		if err != nil {
-			return nil, err
+		// If the cache returned nothing then we'll have no results here,
+		// so go and hit the network.
+		if len(resolutionResults) == 0 {
+			resolutionResults, err = ResolveServer(r.Context(), serverName)
+			if err != nil {
+				return nil, err
+			}
+			f.resolutionCache.Store(serverName, resolutionResults)
 		}
-		f.resolutionCache.Store(serverName, resolutionResults)
+	} else {
+		resolutionResults = append(resolutionResults, ResolutionResult{
+			Destination:   r.URL.Host,
+			Host:          ServerName(r.Host),
+			TLSServerName: r.Host,
+		})
 	}
 
 	// If we still have no results at this point, even after possibly
