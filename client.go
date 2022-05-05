@@ -38,8 +38,9 @@ import (
 // Default HTTPS request timeout
 const requestTimeout time.Duration = time.Duration(30) * time.Second
 
-// A Client makes request to the federation listeners of matrix
-// homeservers
+// A Client makes HTTP requests to remote servers. It is used to
+// centralise a number of configurable options, such as DNS caching,
+// timeouts etc.
 type Client struct {
 	client    http.Client
 	userAgent string
@@ -72,7 +73,7 @@ func NewClient(options ...ClientOption) *Client {
 		option(clientOpts)
 	}
 	if clientOpts.transport == nil {
-		clientOpts.transport = newFederationTripper(
+		clientOpts.transport = newDestinationTripper(
 			clientOpts.skipVerify,
 			clientOpts.dnsCache,
 			clientOpts.keepAlives,
@@ -131,13 +132,13 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 	}
 }
 
-const federationTripperLifetime = time.Minute * 5 // how long to keep an entry
-const federationTripperReapInterval = time.Minute // how often to check for dead entries
+const destinationTripperLifetime = time.Minute * 5 // how long to keep an entry
+const destinationTripperReapInterval = time.Minute // how often to check for dead entries
 
 // nolint:maligned
-type federationTripper struct {
+type destinationTripper struct {
 	// transports maps an TLS server name with an HTTP transport.
-	transports      map[string]*federationTripperTransport
+	transports      map[string]*destinationTripperTransport
 	transportsMutex sync.Mutex
 	skipVerify      bool
 	resolutionCache sync.Map // serverName -> []ResolutionResult
@@ -145,41 +146,41 @@ type federationTripper struct {
 	keepAlives      bool
 }
 
-func newFederationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) *federationTripper {
-	tripper := &federationTripper{
-		transports: make(map[string]*federationTripperTransport),
+func newDestinationTripper(skipVerify bool, dnsCache *DNSCache, keepAlives bool) *destinationTripper {
+	tripper := &destinationTripper{
+		transports: make(map[string]*destinationTripperTransport),
 		skipVerify: skipVerify,
 		dnsCache:   dnsCache,
 		keepAlives: keepAlives,
 	}
-	time.AfterFunc(federationTripperReapInterval, tripper.reaper)
+	time.AfterFunc(destinationTripperReapInterval, tripper.reaper)
 	return tripper
 }
 
 // reaper will remove round-trippers for remote servers that haven't been used
 // in a while, otherwise we will just collect these in memory forever.
-func (f *federationTripper) reaper() {
+func (f *destinationTripper) reaper() {
 	f.transportsMutex.Lock()
 	defer f.transportsMutex.Unlock()
 
 	for serverName, transport := range f.transports {
 		since := transport.lastUsed.Load().(time.Time)
-		if time.Since(since) > federationTripperLifetime {
+		if time.Since(since) > destinationTripperLifetime {
 			delete(f.transports, serverName)
 		}
 	}
 
-	time.AfterFunc(federationTripperReapInterval, f.reaper)
+	time.AfterFunc(destinationTripperReapInterval, f.reaper)
 }
 
-// federationTripperDialer enforces dial timeouts on the federation requests. If
+// destinationTripperDialer enforces dial timeouts on the federation requests. If
 // the TCP connection doesn't complete within 5 seconds, it's probably just not
 // going to.
-var federationTripperDialer = &net.Dialer{
+var destinationTripperDialer = &net.Dialer{
 	Timeout: time.Second * 5,
 }
 
-type federationTripperTransport struct {
+type destinationTripperTransport struct {
 	*http.Transport
 	lastUsed atomic.Value // time.Time
 }
@@ -190,25 +191,25 @@ type federationTripperTransport struct {
 // We need to use one transport per TLS server name (instead of giving our round
 // tripper a single transport) because there is no way to specify the TLS
 // ServerName on a per-connection basis.
-func (f *federationTripper) getTransport(tlsServerName string) http.RoundTripper {
+func (f *destinationTripper) getTransport(tlsServerName string) http.RoundTripper {
 	f.transportsMutex.Lock()
 	defer f.transportsMutex.Unlock()
 
 	// Create the transport if we don't have any for this TLS server name.
 	transport, ok := f.transports[tlsServerName]
 	if !ok {
-		tr := &federationTripperTransport{
+		tr := &destinationTripperTransport{
 			Transport: &http.Transport{
 				DisableKeepAlives:   !f.keepAlives,
-				MaxIdleConnsPerHost: 1,                         // only used if keepalives enabled
-				IdleConnTimeout:     federationTripperLifetime, // only used if keepalives enabled
+				MaxIdleConnsPerHost: 1,                          // only used if keepalives enabled
+				IdleConnTimeout:     destinationTripperLifetime, // only used if keepalives enabled
 				TLSClientConfig: &tls.Config{
 					ServerName:         tlsServerName,
 					InsecureSkipVerify: f.skipVerify,
 					ClientSessionCache: tls.NewLRUClientSessionCache(0), // 0 = use default
 				},
-				Dial:              federationTripperDialer.Dial, // nolint: staticcheck
-				DialContext:       federationTripperDialer.DialContext,
+				Dial:              destinationTripperDialer.Dial, // nolint: staticcheck
+				DialContext:       destinationTripperDialer.DialContext,
 				Proxy:             http.ProxyFromEnvironment,
 				ForceAttemptHTTP2: true, // if we can multiplex requests over HTTP/2, we should
 			},
@@ -230,7 +231,7 @@ func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {
 	return
 }
 
-func (f *federationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (f *destinationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	var err error
 	serverName := ServerName(r.URL.Host)
 	resolutionRetried := false
