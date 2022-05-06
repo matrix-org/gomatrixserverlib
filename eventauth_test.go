@@ -1080,7 +1080,7 @@ var powerLevelTestRoom = &testAuthEvents{
 	},
 }
 
-func TestDemoteUserDefaultPowerLeveBelowOwnl(t *testing.T) {
+func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
 	powerChangeShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
