@@ -669,9 +669,9 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		// Check if the user is trying to set any of the levels to above their own.
 		if senderLevel < level.new {
 			return errorf(
-				"sender with level %d is not allowed change user level from %d to %d"+
+				"sender %q with level %d is not allowed change user %q level from %d to %d"+
 					" because the new level is above the level of the sender",
-				senderLevel, level.old, level.new,
+				senderID, senderLevel, level.userID, level.old, level.new,
 			)
 		}
 
@@ -685,9 +685,9 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		// Check if the user is changing the level that was above or the same as their own.
 		if senderLevel <= level.old {
 			return errorf(
-				"sender with level %d is not allowed to change user level from %d to %d"+
+				"sender %q with level %d is not allowed to change user %q level from %d to %d"+
 					" because the old level is equal to or above the level of the sender",
-				senderLevel, level.old, level.new,
+				senderID, senderLevel, level.userID, level.old, level.new,
 			)
 		}
 	}
@@ -1261,6 +1261,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			}
 			return nil
 		}
+
 		return m.membershipFailed(
 			"sender has insufficient power to invite (sender level %d, target level %d, invite level %d)",
 			senderLevel, targetLevel, m.powerLevels.Invite,
