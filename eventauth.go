@@ -1103,11 +1103,12 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	if m.oldMember.Membership == Leave && m.newMember.Membership == Leave {
 		return nil
 	}
-	if m.newMember.Membership == Knock {
+
+	switch m.newMember.Membership {
+	case Knock:
 		if m.joinRule.JoinRule != Knock {
-			return errorf(
-				"%q is not allowed to change their membership from %q to %q as the join rule %q does not allow knocking",
-				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+			return m.membershipFailed(
+				"join rule %q does not allow knocking", m.joinRule.JoinRule,
 			)
 		}
 		// A user that is not in the room is allowed to knock if the join
@@ -1117,25 +1118,23 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 		} else if !supported {
-			return errorf(
-				"%q is not allowed to change their membership from %q to %q as room version %q does not support knocking",
-				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+			return m.membershipFailed(
+				"room version %q does not support knocking", m.roomVersion,
 			)
 		}
 		switch m.oldMember.Membership {
 		case Join, Invite, Ban:
 			// The user is already joined, invited or banned, therefore they
 			// can't knock.
-			return errorf(
-				"%q is not allowed to change their membership from %q to %q as they are already joined/invited/banned",
-				m.targetID, m.oldMember.Membership, m.newMember.Membership,
+			return m.membershipFailed(
+				"sender is already joined/invited/banned",
 			)
 		default:
 			// A non-joined, non-invited, non-banned user is allowed to knock.
 			return nil
 		}
-	}
-	if m.newMember.Membership == Join {
+
+	case Join:
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
 			return m.membershipAllowedSelfForRestrictedJoin()
 		}
@@ -1160,8 +1159,11 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if m.oldMember.Membership == Join {
 			return nil
 		}
-	}
-	if m.newMember.Membership == Leave {
+		return m.membershipFailed(
+			"join rule %q forbids it", m.joinRule.JoinRule,
+		)
+
+	case Leave:
 		// A joined user is allowed to leave the room.
 		if m.oldMember.Membership == Join {
 			return nil
@@ -1170,8 +1172,20 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if m.oldMember.Membership == Invite {
 			return nil
 		}
+		return m.membershipFailed(
+			"sender cannot leave from this state",
+		)
+
+	case Invite, Ban:
+		return m.membershipFailed(
+			"sender cannot set their own membership to %q", m.newMember.Membership,
+		)
+
+	default:
+		return m.membershipFailed(
+			"membership %q is unknown", m.newMember.Membership,
+		)
 	}
-	return m.membershipFailed()
 }
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.
@@ -1184,32 +1198,44 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		return errorf("sender %q is not in the room", m.senderID)
 	}
 
-	if m.newMember.Membership == Ban {
+	switch m.newMember.Membership {
+	case Ban:
 		// A user may ban another user if their level is high enough
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
-		if senderLevel >= m.powerLevels.Ban &&
-			senderLevel > targetLevel {
+		if senderLevel >= m.powerLevels.Ban && senderLevel > targetLevel {
 			return nil
 		}
-	}
-	if m.newMember.Membership == Leave {
+		return m.membershipFailed(
+			"sender has insufficient power to ban (sender level %d, target level %d, ban level %d)",
+			senderLevel, targetLevel, m.powerLevels.Ban,
+		)
+
+	case Leave:
 		// A user may unban another user if their level is high enough.
 		// This is doesn't require the same power_level checks as banning.
 		// You can unban someone with higher power_level than you.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
-		if m.oldMember.Membership == Ban && senderLevel >= m.powerLevels.Ban {
-			return nil
+		if m.oldMember.Membership == Ban {
+			if senderLevel >= m.powerLevels.Ban {
+				return nil
+			}
+			return m.membershipFailed(
+				"sender has insufficient power to unban (sender level %d, target level %d, ban level %d)",
+				senderLevel, targetLevel, m.powerLevels.Ban,
+			)
 		}
 		// A user may kick another user if their level is high enough.
 		// TODO: You can kick a user that was already kicked, or has left the room, or was
 		// never in the room in the first place. Do we want to allow these redundant kicks?
-		if m.oldMember.Membership != Ban &&
-			senderLevel >= m.powerLevels.Kick &&
-			senderLevel > targetLevel {
+		if senderLevel >= m.powerLevels.Kick && senderLevel > targetLevel {
 			return nil
 		}
-	}
-	if m.newMember.Membership == Invite {
+		return m.membershipFailed(
+			"sender has insufficient power to kick (sender level %d, target level %d, kick level %d)",
+			senderLevel, targetLevel, m.powerLevels.Kick,
+		)
+
+	case Invite:
 		// A user may invite another user if the user has left the room.
 		// and their level is high enough.
 		if m.oldMember.Membership == Leave && senderLevel >= m.powerLevels.Invite {
@@ -1222,37 +1248,47 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		// A user can invite in response to a knock.
 		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
 			if m.joinRule.JoinRule != Knock {
-				return errorf(
-					"%q is not allowed to change the membership of %q from %q to %q as the join rule %q does not allow knocking",
-					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+				return m.membershipFailed(
+					"join rule %q does not allow knocking", m.joinRule.JoinRule,
 				)
 			}
 			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
 				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 			} else if !supported {
-				return errorf(
-					"%q is not allowed to change the membership of %q from %q to %q as room version %q does not support knocking",
-					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+				return m.membershipFailed(
+					"room version %q does not allow knocking", m.roomVersion,
 				)
 			}
 			return nil
 		}
-	}
+		return m.membershipFailed(
+			"sender has insufficient power to invite (sender level %d, target level %d, invite level %d)",
+			senderLevel, targetLevel, m.powerLevels.Invite,
+		)
 
-	return m.membershipFailed()
+	case Knock, Join:
+		return m.membershipFailed(
+			"sender cannot set membership of another user to %q", m.newMember.Membership,
+		)
+
+	default:
+		return m.membershipFailed(
+			"membership %q is unknown", m.newMember.Membership,
+		)
+	}
 }
 
 // membershipFailed returns a error explaining why the membership change was disallowed.
-func (m *membershipAllower) membershipFailed() error {
+func (m *membershipAllower) membershipFailed(format string, args ...interface{}) error {
 	if m.senderID == m.targetID {
 		return errorf(
-			"%q is not allowed to change their membership from %q to %q",
-			m.targetID, m.oldMember.Membership, m.newMember.Membership,
+			"%q is not allowed to change their membership from %q to %q as "+format,
+			append([]interface{}{m.targetID, m.oldMember.Membership, m.newMember.Membership}, args...)...,
 		)
 	}
 
 	return errorf(
-		"%q is not allowed to change the membership of %q from %q to %q",
-		m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership,
+		"%q is not allowed to change the membership of %q from %q to %q as "+format,
+		append([]interface{}{m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership}, args...)...,
 	)
 }
