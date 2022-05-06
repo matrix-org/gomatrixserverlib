@@ -620,38 +620,21 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLev
 // checkUserLevels checks that the changes in user levels are allowed.
 func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	type levelPair struct {
-		old    int64
-		new    int64
-		userID string
+		old int64
+		new int64
 	}
 
 	// Build a list of user levels to check.
-	// This differs slightly in behaviour from the code in synapse because it will use the
-	// default value if a level is not present in one of the old or new events.
-
-	// First add the user default level.
-	userLevelChecks := []levelPair{
-		{oldPowerLevels.UsersDefault, newPowerLevels.UsersDefault, ""},
-	}
-
-	// Then add checks for each user key in the new levels.
+	userLevelChecks := map[string]levelPair{}
 	for userID := range newPowerLevels.Users {
-		userLevelChecks = append(userLevelChecks, levelPair{
-			oldPowerLevels.UserLevel(userID), newPowerLevels.UserLevel(userID), userID,
-		})
-	}
-
-	// Then add checks for each user key in the old levels.
-	// Some of these will be duplicates of the ones added using the keys from
-	// the new levels. But it doesn't hurt to run the checks twice for the same level.
-	for userID := range oldPowerLevels.Users {
-		userLevelChecks = append(userLevelChecks, levelPair{
-			oldPowerLevels.UserLevel(userID), newPowerLevels.UserLevel(userID), userID,
-		})
+		userLevelChecks[userID] = levelPair{
+			old: oldPowerLevels.Users[userID],
+			new: newPowerLevels.Users[userID],
+		}
 	}
 
 	// Check each of the levels in the list.
-	for _, level := range userLevelChecks {
+	for userID, level := range userLevelChecks {
 		// Check if the level is being changed.
 		if level.old == level.new {
 			// Levels are always allowed to stay the same.
@@ -671,12 +654,12 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 			return errorf(
 				"sender %q with level %d is not allowed change user %q level from %d to %d"+
 					" because the new level is above the level of the sender",
-				senderID, senderLevel, level.userID, level.old, level.new,
+				senderID, senderLevel, userID, level.old, level.new,
 			)
 		}
 
 		// Check if the user is changing their own user level.
-		if level.userID == senderID {
+		if userID == senderID {
 			// Users are always allowed to reduce their own user level.
 			// We know that the user is reducing their level because of the previous checks.
 			continue
@@ -687,7 +670,7 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 			return errorf(
 				"sender %q with level %d is not allowed to change user %q level from %d to %d"+
 					" because the old level is equal to or above the level of the sender",
-				senderID, senderLevel, level.userID, level.old, level.new,
+				senderID, senderLevel, userID, level.old, level.new,
 			)
 		}
 	}
