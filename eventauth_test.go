@@ -1040,6 +1040,97 @@ func TestAuthEvents(t *testing.T) {
 	}
 }
 
+var powerLevelTestRoom = &testAuthEvents{
+	CreateJSON: json.RawMessage(`{
+		"type": "m.room.create",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e1:a",
+		"content": {
+			"room_version": "1"
+		}
+	}`),
+	PowerLevelsJSON: json.RawMessage(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e3:a",
+		"content": {
+			"users_default": 100,
+			"state_default": 0,
+			"users": {
+				"@u1:a": 100
+			},
+			"redact": 100
+		}
+	}`),
+	MemberJSON: map[string]json.RawMessage{
+		"@u1:a": json.RawMessage(`{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"content": {
+				"membership": "join"
+			}
+		}`),
+	},
+}
+
+func TestDemoteUserDefaultPowerLeveBelowOwnl(t *testing.T) {
+	// User should be able to demote the user default level
+	// below their own effective level.
+	powerChangeShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"users_default": 50,
+			"users": {
+				"@u1:a": 100
+			},
+			"redact": 100
+		}
+	}`), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = Allowed(powerChangeShouldSucceed, powerLevelTestRoom); err != nil {
+		t.Error("TestDemoteUserDefaultPowerLevel should have succeeded but it didn't:", err)
+	}
+}
+
+func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
+	// User shouldn't be able to promote the user default
+	// level above their own effective level.
+	powerChangeShouldFail, err := NewEventFromTrustedJSON(RawJSON(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u2:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"users_default": 500,
+			"state_default": 0,
+			"users": {
+				"@u1:a": 100
+			},
+			"redact": 100
+		}
+	}`), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = Allowed(powerChangeShouldFail, powerLevelTestRoom); err == nil {
+		t.Error("TestPromoteUserDefaultLevelAboveOwn event should have failed but it didn't")
+	}
+}
+
 func newMemberContent(
 	membership string, thirdPartyInvite *MemberThirdPartyInvite,
 ) MemberContent {
