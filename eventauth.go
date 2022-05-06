@@ -1176,9 +1176,14 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 			"sender cannot leave from this state",
 		)
 
-	default:
+	case Invite, Ban:
 		return m.membershipFailed(
 			"sender cannot set their own membership to %q", m.newMember.Membership,
+		)
+
+	default:
+		return m.membershipFailed(
+			"membership %q is unknown", m.newMember.Membership,
 		)
 	}
 }
@@ -1261,9 +1266,14 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			senderLevel, targetLevel, m.powerLevels.Invite,
 		)
 
-	default:
+	case Knock, Join:
 		return m.membershipFailed(
 			"sender cannot set membership of another user to %q", m.newMember.Membership,
+		)
+
+	default:
+		return m.membershipFailed(
+			"membership %q is unknown", m.newMember.Membership,
 		)
 	}
 }
