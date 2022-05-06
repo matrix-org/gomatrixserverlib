@@ -1059,7 +1059,6 @@ var powerLevelTestRoom = &testAuthEvents{
 		"event_id": "$e3:a",
 		"content": {
 			"users_default": 100,
-			"state_default": 0,
 			"users": {
 				"@u1:a": 100
 			},
@@ -1116,7 +1115,6 @@ func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 		"event_id": "$e5:a",
 		"content": {
 			"users_default": 500,
-			"state_default": 0,
 			"users": {
 				"@u1:a": 100
 			},
