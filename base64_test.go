@@ -157,7 +157,7 @@ func TestScanBase64(t *testing.T) {
 
 	inputStr := "VGhpcyBpcyBhIHRlc3Qgc3RyaW5n"
 	inputJSON := RawJSON(`"` + inputStr + `"`)
-	inputBytes := []byte(inputStr)
+	inputBytes := []byte(expecting)
 	inputInt := 3
 
 	var b Base64Bytes
