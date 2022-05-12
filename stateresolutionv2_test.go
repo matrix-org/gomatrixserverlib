@@ -450,7 +450,7 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
-func TestStateResolutionFromSytestTest(t *testing.T) {
+func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 	eventJSONs := []string{
 		/* create event            */ `{"auth_events":[],"content":{"creator":"@anon-20220512_124253-1:localhost:8800","room_version":"6"},"depth":1,"hashes":{"sha256":"ej3MHt4EnQemwqnfLhgwN6RBArYc5JnWcZt1PI3m4hE"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":[],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"7Pu9f39yDWJtl8msrnz+sPSBEA2jOJ4tJsZ1Zb6Bi+vZQMzMWwT/U6GZipxQqaeJr0TpVMa7zq/YhivArRRbAA"}},"state_key":"","type":"m.room.create"}`,
 		/* first user joins        */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8"],"content":{"displayname":"anon-20220512_124253-1","membership":"join"},"depth":2,"hashes":{"sha256":"L3aLzAakLKWzl9IlhjO6CAqAaANjyV6W5mI8XlD8XR8"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"1lRHwVx5kFAfeUdndh3/hhAe5S3uugA+FwPR2ZiXBxr4DkjcfDb4TRCobEv3G9IBWPPbQxKw20x3LlTsstunAw"}},"state_key":"@anon-20220512_124253-1:localhost:8800","type":"m.room.member"}`,
