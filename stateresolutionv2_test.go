@@ -15,7 +15,6 @@
 package gomatrixserverlib
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 )
@@ -471,17 +470,17 @@ func TestStateResolutionFromSytestTest(t *testing.T) {
 		events = append(events, event)
 	}
 	conflicted, unconflicted := separate(events)
-	fmt.Println("Unconflicted:")
+	t.Log("Unconflicted:")
 	for _, v := range unconflicted {
-		fmt.Println("-", v.EventID())
-		fmt.Println("  ", v.Type(), *v.StateKey())
-		fmt.Println("  ", string(v.Content()))
+		t.Log("-", v.EventID())
+		t.Log("  ", v.Type(), *v.StateKey())
+		t.Log("  ", string(v.Content()))
 	}
-	fmt.Println("Conflicted:")
+	t.Log("Conflicted:")
 	for _, v := range conflicted {
-		fmt.Println("-", v.EventID())
-		fmt.Println("  ", v.Type(), *v.StateKey())
-		fmt.Println("  ", string(v.Content()))
+		t.Log("-", v.EventID())
+		t.Log("  ", v.Type(), *v.StateKey())
+		t.Log("  ", string(v.Content()))
 	}
 	result := ResolveStateConflictsV2(
 		conflicted,   // conflicted set
@@ -489,9 +488,9 @@ func TestStateResolutionFromSytestTest(t *testing.T) {
 		events,       // full auth set
 		nil,          // auth difference
 	)
-	fmt.Println("Resolved:")
+	t.Log("Resolved:")
 	for k, v := range result {
-		fmt.Println("-", k, v.EventID())
+		t.Log("-", k, v.EventID())
 	}
 	found := false
 	for _, v := range result {
