@@ -450,6 +450,60 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	}
 }
 
+func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
+	eventJSONs := []string{
+		/* create event            */ `{"auth_events":[],"content":{"creator":"@anon-20220512_124253-1:localhost:8800","room_version":"6"},"depth":1,"hashes":{"sha256":"ej3MHt4EnQemwqnfLhgwN6RBArYc5JnWcZt1PI3m4hE"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":[],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"7Pu9f39yDWJtl8msrnz+sPSBEA2jOJ4tJsZ1Zb6Bi+vZQMzMWwT/U6GZipxQqaeJr0TpVMa7zq/YhivArRRbAA"}},"state_key":"","type":"m.room.create"}`,
+		/* first user joins        */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8"],"content":{"displayname":"anon-20220512_124253-1","membership":"join"},"depth":2,"hashes":{"sha256":"L3aLzAakLKWzl9IlhjO6CAqAaANjyV6W5mI8XlD8XR8"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"1lRHwVx5kFAfeUdndh3/hhAe5S3uugA+FwPR2ZiXBxr4DkjcfDb4TRCobEv3G9IBWPPbQxKw20x3LlTsstunAw"}},"state_key":"@anon-20220512_124253-1:localhost:8800","type":"m.room.member"}`,
+		/* power levels            */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E"],"content":{"ban":50,"events":{"m.room.avatar":50,"m.room.canonical_alias":50,"m.room.history_visibility":100,"m.room.name":50,"m.room.power_levels":100},"events_default":0,"invite":50,"kick":50,"notifications":{"room":50},"redact":50,"state_default":50,"users":{"@anon-20220512_124253-1:localhost:8800":100},"users_default":0},"depth":3,"hashes":{"sha256":"6yG8CSKC31H0GJlUdSuML3XGZLrIL/hS5aF8n6kLWaU"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":["$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"4chQhuq4KYyJdQDA+ym/SswbSwtQYACvdFUPravvLHSzkJISCQ+6t76Hj90AgWo0TTiOIkJxsgmakkUiWQnYAg"}},"state_key":"","type":"m.room.power_levels"}`,
+		/* join rules = public     */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI","$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E"],"content":{"join_rule":"public"},"depth":4,"hashes":{"sha256":"YqSmumeFsCepwGoOFzcdQoHHM1aY8Ddk9r2XhYOM9wY"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":["$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"C2k2CVlsgXYYDI8XQtwR0su/e9ujrp4hVjZ9zI1f7EEGDV8r6BLR46Y0I858vuA+kkGNiOz+HxutxcZY26OFDw"}},"state_key":"","type":"m.room.join_rules"}`,
+		/* history vis = shared    */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI","$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E"],"content":{"history_visibility":"shared"},"depth":5,"hashes":{"sha256":"+PfJAGh4ZC2h44a91vvIjC1atM9zUqSUhX1P6n1o0hM"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":["$RTbObai9XOoujyGg2pz90sbOZHJ1807sF9ic-mqSGL8"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"Kmvs8/Mh4LllCO5BqJLmq7deRPb8UM07MOK9RYdZYSoqn0vhTOEet2zkPHVi8kFXCQR0Fwlx2qfN5RYSk1d/CA"}},"state_key":"","type":"m.room.history_visibility"}`,
+		/* aliases                 */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI","$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E"],"content":{"alias":"#test-20220512_124253-2:localhost:8800"},"depth":6,"hashes":{"sha256":"PRniKNpqRwT8OhqqGLlWohAZwlBAW/Ls+tfzkFwWGWo"},"origin":"localhost:8800","origin_server_ts":1652359375504,"prev_events":["$NfX__HuszWh6DvwNaUZBY0ZYhEoYHRnkF4yJT3dfaww"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"NPZw/aGT+NykXTloRi/1SxalTdJBYmgwiy+SbsQkRGyKkAIqo3JkSgvUBb618ZtGxfJwgvsvQlBu53Tu+SAUCQ"}},"state_key":"","type":"m.room.canonical_alias"}`,
+		/* second user joins       */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$RTbObai9XOoujyGg2pz90sbOZHJ1807sF9ic-mqSGL8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI"],"content":{"avatar_url":"","displayname":"anon-20220512_124253-2","membership":"join"},"depth":7,"hashes":{"sha256":"BLec3G4mLa99dr8K1NaVvGh1pDWCOHZd10/mcVc7hMA"},"origin":"localhost:8800","origin_server_ts":1652359375689,"prev_events":["$oUu8vxS4Sikr6tUITnHbnMrW-8fQpJWnLfO0sNB7kW4"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-2:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"gyF1Qph/s1Z94Ne3QI42FsOLjiZs7DbEB6+vAu59XEY5SkoCdm5THqXfrIkbOIcebKcE2HntSjNZOyhGXSETBQ"}},"state_key":"@anon-20220512_124253-2:localhost:8800","type":"m.room.member","unsigned":{}}`,
+		/* first user kicks second */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI","$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E","$Djpz6XCVAF39psdQSwgZdiYyDDwKEPBgs9M6Bmbw11s"],"content":{"displayname":"anon-20220512_124253-2","membership":"leave","reason":"testing"},"depth":8,"hashes":{"sha256":"I9EXGDXtPo6WRVpbr06ppeQYEJtEkx/pxsveNR8pmj0"},"origin":"localhost:8800","origin_server_ts":1652359375738,"prev_events":["$Djpz6XCVAF39psdQSwgZdiYyDDwKEPBgs9M6Bmbw11s"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"ho7JrdMV3FgFD94grYNmdgS7lbuenE180ATVGYlae14IH7IsS071Vg7HMjihGc+2KXiaM5Njwy9+9VUXvbiJBA"}},"state_key":"@anon-20220512_124253-2:localhost:8800","type":"m.room.member"}`,
+	}
+	events := make([]*Event, 0, len(eventJSONs))
+	for _, eventJSON := range eventJSONs {
+		event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV6)
+		if err != nil {
+			t.Fatal(err)
+		}
+		events = append(events, event)
+	}
+	conflicted, unconflicted := separate(events)
+	t.Log("Unconflicted:")
+	for _, v := range unconflicted {
+		t.Log("-", v.EventID())
+		t.Log("  ", v.Type(), *v.StateKey())
+		t.Log("  ", string(v.Content()))
+	}
+	t.Log("Conflicted:")
+	for _, v := range conflicted {
+		t.Log("-", v.EventID())
+		t.Log("  ", v.Type(), *v.StateKey())
+		t.Log("  ", string(v.Content()))
+	}
+	result := ResolveStateConflictsV2(
+		conflicted,   // conflicted set
+		unconflicted, // unconflicted set
+		events,       // full auth set
+		nil,          // auth difference
+	)
+	t.Log("Resolved:")
+	for k, v := range result {
+		t.Log("-", k, v.EventID())
+	}
+	found := false
+	for _, v := range result {
+		if v.EventID() == events[len(eventJSONs)-1].eventID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("Expected to find the last event in the resolved set")
+	}
+}
+
 func runStateResolutionV2(t *testing.T, additional []*Event, expected []string) {
 	input := append(getBaseStateResV2Graph(), additional...)
 	conflicted, unconflicted := separate(input)
