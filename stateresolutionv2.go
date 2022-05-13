@@ -107,13 +107,18 @@ func ResolveStateConflictsV2(
 	// events that also happen to appear in the conflicted set. This will
 	// effectively allow us to pull in all related events for any control
 	// event, even if those related events are themselves not control events.
+	visited := make(map[string]struct{}, len(conflicted)+len(authEvents))
 	var fullControlSet func(event *Event) []*Event
 	fullControlSet = func(event *Event) []*Event {
 		events := []*Event{event}
 		for _, authEventID := range event.AuthEventIDs() {
+			if _, ok := visited[authEventID]; ok {
+				continue
+			}
 			if event, ok := r.conflictedEventMap[authEventID]; ok {
 				events = append(events, fullControlSet(event)...)
 			}
+			visited[authEventID] = struct{}{}
 		}
 		return events
 	}
