@@ -285,11 +285,11 @@ type RoomVersionDescription struct {
 	eventFormat                     EventFormat
 	eventIDFormat                   EventIDFormat
 	redactionAlgorithm              RedactionAlgorithm
+	allowKnockingInEventAuth        JoinRulesPermittingKnockInEventAuth
+	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
 	enforceSignatureChecks          bool
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
-	allowKnockingInEventAuth        JoinRulesPermittingKnockInEventAuth
-	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
 	requireIntegerPowerLevels       bool
 	Supported                       bool
 	Stable                          bool
