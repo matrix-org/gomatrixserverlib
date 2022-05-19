@@ -994,7 +994,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
-	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
+	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
 	if err != nil {
 		return err
 	}

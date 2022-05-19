@@ -83,7 +83,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		}
 
 		// For restricted join rules, the authorising server should have signed.
-		if restricted, err := e.roomVersion.AllowRestrictedJoinsInEventAuth(); err != nil {
+		if restricted, err := e.roomVersion.MayAllowRestrictedJoinsInEventAuth(); err != nil {
 			return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
 		} else if restricted && membership == Join {
 			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
