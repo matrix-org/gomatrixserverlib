@@ -38,6 +38,9 @@ const (
 	Knock = "knock"
 	// Restricted is the string constant "restricted"
 	Restricted = "restricted"
+	// NOTSPEC: Restricted is the string constant "knock_restricted" (MSC3787)
+	// REVIEW: the MSC is merged though... so is this specced? Idk.
+	KnockRestricted = "knock_restricted"
 	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
 	Peek = "peek"
 	// Public is the string constant "public"
@@ -1089,7 +1092,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 
 	switch m.newMember.Membership {
 	case Knock:
-		if m.joinRule.JoinRule != Knock {
+		if m.joinRule.JoinRule != Knock && m.joinRule.JoinRule != KnockRestricted {
 			return m.membershipFailed(
 				"join rule %q does not allow knocking", m.joinRule.JoinRule,
 			)
@@ -1098,11 +1101,16 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// rules are "knock" and they are not already joined to, invited to
 		// or banned from the room.
 		// Spec: https://spec.matrix.org/unstable/rooms/v7/
-		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+		// MSC3787 extends this: the behaviour above is also permitted if the
+		// join rules are "knock_restricted"
+		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
+		if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
 			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 		} else if !supported {
 			return m.membershipFailed(
-				"room version %q does not support knocking", m.roomVersion,
+				"room version %q does not support knocking on rooms with join rule %q",
+				m.roomVersion,
+				m.joinRule.JoinRule,
 			)
 		}
 		switch m.oldMember.Membership {
@@ -1230,16 +1238,18 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		}
 		// A user can invite in response to a knock.
 		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
-			if m.joinRule.JoinRule != Knock {
+			if m.joinRule.JoinRule != Knock && m.joinRule.JoinRule != KnockRestricted {
 				return m.membershipFailed(
 					"join rule %q does not allow knocking", m.joinRule.JoinRule,
 				)
 			}
-			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+			if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
 				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 			} else if !supported {
 				return m.membershipFailed(
-					"room version %q does not allow knocking", m.roomVersion,
+					"room version %q does not support knocking on rooms with join rule %q",
+					m.roomVersion,
+					m.joinRule.JoinRule,
 				)
 			}
 			return nil
