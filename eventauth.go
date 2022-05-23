@@ -994,6 +994,10 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// In the case that the user is already joined, invited or there is no
 	// authorised via server, we should treat the join rule as if it's invite.
 	if m.oldMember.Membership == Join || m.oldMember.Membership == Invite || m.newMember.AuthorisedVia == "" {
+		fmt.Println("Old membership:", m.oldMember.Membership)
+		fmt.Println("New membership:", m.newMember.Membership)
+		fmt.Println("Authorised via:", m.newMember.AuthorisedVia)
+		fmt.Println("Changing join rule to invite")
 		m.joinRule.JoinRule = Invite
 		return nil
 	}
@@ -1031,6 +1035,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 
 	// At this point all of the checks have proceeded, so continue as if
 	// the room is a public room.
+	fmt.Println("Changing join rule to public")
 	m.joinRule.JoinRule = Public
 	return nil
 }
