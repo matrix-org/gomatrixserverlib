@@ -17,6 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -229,17 +230,21 @@ type JoinRuleContentAllowRule struct {
 // NewJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
 // Returns an error if there was an error loading the join rule event or parsing the content.
 func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleContent, err error) {
-	var joinRulesEvent *Event
-	if joinRulesEvent, err = authEvents.JoinRules(); err != nil {
+	joinRulesEvent, err := authEvents.JoinRules()
+	if err != nil {
+		fmt.Println("authEvents.JoinRules:", err)
 		return
 	}
 	if joinRulesEvent == nil {
+		fmt.Println("authEvents.JoinRules is nil!")
 		// Default to "invite"
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L368
 		c.JoinRule = Invite
 		return
 	}
 	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
+		fmt.Println("authEvents.JoinRules content:", string(joinRulesEvent.Content()))
+		fmt.Println("... but error parsing it:", err)
 		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
