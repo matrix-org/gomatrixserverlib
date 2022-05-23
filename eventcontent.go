@@ -230,6 +230,10 @@ type JoinRuleContentAllowRule struct {
 // NewJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
 // Returns an error if there was an error loading the join rule event or parsing the content.
 func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleContent, err error) {
+	// Start off with "invite" as the default. Hopefully the unmarshal
+	// step later will replace it with a better value.
+	c.JoinRule = Invite
+	// Then see if the specified join event contains something better.
 	joinRulesEvent, err := authEvents.JoinRules()
 	if err != nil {
 		fmt.Println("authEvents.JoinRules:", err)
@@ -237,9 +241,6 @@ func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleC
 	}
 	if joinRulesEvent == nil {
 		fmt.Println("authEvents.JoinRules is nil!")
-		// Default to "invite"
-		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L368
-		c.JoinRule = Invite
 		return
 	}
 	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
@@ -248,6 +249,7 @@ func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleC
 		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
+	fmt.Println("gmsl: join rule is:", c)
 	return
 }
 
