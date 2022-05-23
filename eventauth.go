@@ -972,14 +972,6 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	}
 
 	if m.targetID == m.senderID {
-		// If the room is set to restricted join, evaluate restricted join rules
-		// in addition to updating their own membership.
-		if m.joinRule.JoinRule == Restricted {
-			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
-				return err
-			}
-		}
-
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
@@ -1119,7 +1111,9 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 
 	case Join:
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
-			return m.membershipAllowedSelfForRestrictedJoin()
+			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
+				return err
+			}
 		}
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
