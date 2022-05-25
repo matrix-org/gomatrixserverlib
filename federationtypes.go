@@ -414,7 +414,7 @@ type RespSendJoin struct {
 	Origin ServerName `json:"origin"`
 	// The returned join event from the remote server. Used for restricted joins,
 	// but not guaranteed to be present as it's only since MSC3083.
-	Event *Event `json:"event,omitempty"`
+	Event RawJSON `json:"event,omitempty"`
 	// true if the state is incomplete
 	PartialState bool `json:"org.matrix.msc3706.partial_state"`
 	// a list of servers in the room. Only returned if partial_state is set.
@@ -427,6 +427,7 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 		StateEvents: r.StateEvents,
 		AuthEvents:  r.AuthEvents,
 		Origin:      r.Origin,
+		Event:       r.Event,
 	}
 	if len(fields.AuthEvents) == 0 {
 		fields.AuthEvents = EventJSONs{}
@@ -466,6 +467,7 @@ type respSendJoinFields struct {
 	StateEvents EventJSONs `json:"state"`
 	AuthEvents  EventJSONs `json:"auth_chain"`
 	Origin      ServerName `json:"origin"`
+	Event       RawJSON    `json:"event,omitempty"`
 }
 
 // respSendJoinPartialStateFields extends respSendJoinFields with the fields added
