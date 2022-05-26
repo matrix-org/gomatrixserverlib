@@ -385,10 +385,9 @@ func (v RoomVersion) MayAllowRestrictedJoinsInEventAuth() (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		switch r.allowRestrictedJoinsInEventAuth {
 		case NoRestrictedJoins:
-			return false, nil
-		case RestrictedOnly:
-		case RestrictedOrKnockRestricted:
-			return true, nil
+ 			return false, nil
+		case RestrictedOnly, RestrictedOrKnockRestricted:
+ 			return true, nil
 		}
 	}
 	return false, UnsupportedRoomVersionError{v}
