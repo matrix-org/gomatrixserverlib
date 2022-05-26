@@ -294,8 +294,7 @@ func CompactJSON(input, output []byte) []byte {
 }
 
 // compactUnicodeEscape unpacks a 4 byte unicode escape starting at index.
-// If the escape is a surrogate pair then decode the 6 byte \uXXXX escape
-// that follows. Returns the output slice and a new input index.
+// Returns the output slice and a new input index.
 func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 	const (
 		ESCAPES = "uuuuuuuubtnufruuuuuuuuuuuuuuuuuu"
@@ -306,7 +305,7 @@ func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 		return output, len(input)
 	}
 	// Decode the 4 hex digits.
-	c := readHexDigits(input[index:])
+	c := readHexDigits(input[index : index+4])
 	index += 4
 	if c < ' ' {
 		// If the character is less than SPACE 0x20 then it will need escaping.
@@ -318,26 +317,9 @@ func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 	} else if c == '\\' || c == '"' {
 		// Otherwise the character only needs escaping if it is a QUOTE '"' or BACKSLASH '\\'.
 		output = append(output, '\\', byte(c))
-	} else if c < 0xD800 || c >= 0xE000 {
-		// If the character isn't a surrogate pair then encoded it directly as UTF-8.
+	} else {
 		var buffer [4]byte
 		n := utf8.EncodeRune(buffer[:], rune(c))
-		output = append(output, buffer[:n]...)
-	} else {
-		// Otherwise the escaped character was the first part of a UTF-16 style surrogate pair.
-		// The next 6 bytes MUST be a '\uXXXX'.
-		// If there aren't enough bytes to decode the hex escape then return.
-		if len(input)-index < 6 {
-			return output, len(input)
-		}
-		// Decode the 4 hex digits from the '\uXXXX'.
-		surrogate := readHexDigits(input[index+2:])
-		index += 6
-		// Reconstruct the UCS4 codepoint from the surrogates.
-		codepoint := 0x10000 + (((c & 0x3FF) << 10) | (surrogate & 0x3FF))
-		// Encode the charater as UTF-8.
-		var buffer [4]byte
-		n := utf8.EncodeRune(buffer[:], rune(codepoint))
 		output = append(output, buffer[:n]...)
 	}
 	return output, index
