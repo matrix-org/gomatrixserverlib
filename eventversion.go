@@ -17,6 +17,14 @@ type EventIDFormat int
 // RedactionAlgorithm refers to the redaction algorithm used in a room version.
 type RedactionAlgorithm int
 
+// JoinRulesPermittingKnockInEventAuth specifies which kinds of join_rule allow
+// a room to be knocked upon.
+type JoinRulesPermittingKnockInEventAuth int
+
+// JoinRulesPermittingRestrictedJoinInEventAuth specifies which kinds of join_rule allow
+// a room to be joined via a space.
+type JoinRulesPermittingRestrictedJoinInEventAuth int
+
 // Room version constants. These are strings because the version grammar
 // allows for future expansion.
 // https://matrix.org/docs/spec/#room-version-grammar
@@ -59,6 +67,20 @@ const (
 	RedactionAlgorithmV4                               // protects membership 'join_authorised_via_users_server' key
 )
 
+// Which join_rules permit knocking?
+const (
+	KnocksForbidden        JoinRulesPermittingKnockInEventAuth = iota + 1 // no rooms can be knocked upon
+	KnockOnly                                                             // rooms with join_rule "knock" can be knocked upon
+	KnockOrKnockRestricted                                                // rooms with join_rule "knock" or "knock_restricted" can be knocked upon
+)
+
+// Which join_rules permit restricted joins?
+const (
+	NoRestrictedJoins           JoinRulesPermittingRestrictedJoinInEventAuth = iota + 1 // no rooms can be joined via a space
+	RestrictedOnly                                                                      // rooms with join_rule "restricted" can be joined via a space
+	RestrictedOrKnockRestricted                                                         // rooms with join_rule "restricted" or "knock_restricted" can be joined via a space
+)
+
 var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 	RoomVersionV1: {
 		Supported:                       true,
@@ -70,8 +92,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
-		allowKnockingInEventAuth:        false,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV2: {
@@ -84,8 +106,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
-		allowKnockingInEventAuth:        false,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV3: {
@@ -98,8 +120,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
-		allowKnockingInEventAuth:        false,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV4: {
@@ -112,8 +134,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
-		allowKnockingInEventAuth:        false,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV5: {
@@ -126,8 +148,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
-		allowKnockingInEventAuth:        false,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV6: {
@@ -140,8 +162,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
-		allowKnockingInEventAuth:        false,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV7: {
@@ -154,8 +176,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
-		allowKnockingInEventAuth:        true,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnockOnly,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV8: {
@@ -168,8 +190,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
-		allowKnockingInEventAuth:        true,
-		allowRestrictedJoinsInEventAuth: true,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV9: {
@@ -182,8 +204,8 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
-		allowKnockingInEventAuth:        true,
-		allowRestrictedJoinsInEventAuth: true,
+		allowKnockingInEventAuth:        KnocksForbidden,
+		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
 	},
 	"org.matrix.msc3667": { // based on room version 7
@@ -196,9 +218,23 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
-		allowKnockingInEventAuth:        true,
-		allowRestrictedJoinsInEventAuth: false,
+		allowKnockingInEventAuth:        KnockOnly,
+		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       true,
+	},
+	"org.matrix.msc3787": { // roughly, the union of v7 and v9
+		Supported:                       true,
+		Stable:                          false,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV4,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        KnockOrKnockRestricted,
+		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
+		requireIntegerPowerLevels:       false,
 	},
 }
 
@@ -249,11 +285,11 @@ type RoomVersionDescription struct {
 	eventFormat                     EventFormat
 	eventIDFormat                   EventIDFormat
 	redactionAlgorithm              RedactionAlgorithm
+	allowKnockingInEventAuth        JoinRulesPermittingKnockInEventAuth
+	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
 	enforceSignatureChecks          bool
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
-	allowKnockingInEventAuth        bool
-	allowRestrictedJoinsInEventAuth bool
 	requireIntegerPowerLevels       bool
 	Supported                       bool
 	Stable                          bool
@@ -309,20 +345,50 @@ func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
 	return false, UnsupportedRoomVersionError{v}
 }
 
-// AllowKnockingInEventAuth returns true if the given room version allows for
-// the `knock` membership state or false otherwise.
-func (v RoomVersion) AllowKnockingInEventAuth() (bool, error) {
+// AllowKnockingInEventAuth returns true if the given room version and given
+// join rule allows for the `knock` membership state or false otherwise.
+func (v RoomVersion) AllowKnockingInEventAuth(joinRule string) (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.allowKnockingInEventAuth, nil
+		switch r.allowKnockingInEventAuth {
+		case KnockOnly:
+			return joinRule == Knock, nil
+		case KnockOrKnockRestricted:
+			return (joinRule == Knock || joinRule == KnockRestricted), nil
+		case KnocksForbidden:
+			return false, nil
+		}
 	}
 	return false, UnsupportedRoomVersionError{v}
 }
 
-// AllowRestrictedJoinsInEventAuth returns true if the given room version allows
-// for memberships signed by servers in the restricted join rules.
-func (v RoomVersion) AllowRestrictedJoinsInEventAuth() (bool, error) {
+// AllowRestrictedJoinsInEventAuth returns true if the given room version and
+// join rule allows for memberships signed by servers in the restricted join rules.
+func (v RoomVersion) AllowRestrictedJoinsInEventAuth(joinRule string) (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.allowRestrictedJoinsInEventAuth, nil
+		switch r.allowRestrictedJoinsInEventAuth {
+		case NoRestrictedJoins:
+			return false, nil
+		case RestrictedOnly:
+			return joinRule == Restricted, nil
+		case RestrictedOrKnockRestricted:
+			return (joinRule == Restricted || joinRule == KnockRestricted), nil
+		}
+	}
+	return false, UnsupportedRoomVersionError{v}
+}
+
+// MayAllowRestrictedJoinsInEventAuth returns true if the given room version
+// might allow for memberships signed by servers in the restricted join rules.
+// (For an authoritative answer, the room's join rules must be known. If they
+// are, use AllowRestrictedJoinsInEventAuth.)
+func (v RoomVersion) MayAllowRestrictedJoinsInEventAuth() (bool, error) {
+	if r, ok := roomVersionMeta[v]; ok {
+		switch r.allowRestrictedJoinsInEventAuth {
+		case NoRestrictedJoins:
+			return false, nil
+		case RestrictedOnly, RestrictedOrKnockRestricted:
+			return true, nil
+		}
 	}
 	return false, UnsupportedRoomVersionError{v}
 }
