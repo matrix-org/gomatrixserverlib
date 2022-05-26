@@ -182,7 +182,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 	},
 	RoomVersionV8: {
 		Supported:                       true,
-		Stable:                          false,
+		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -196,7 +196,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 	},
 	RoomVersionV9: {
 		Supported:                       true,
-		Stable:                          false,
+		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
