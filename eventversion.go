@@ -29,15 +29,16 @@ type JoinRulesPermittingRestrictedJoinInEventAuth int
 // allows for future expansion.
 // https://matrix.org/docs/spec/#room-version-grammar
 const (
-	RoomVersionV1 RoomVersion = "1"
-	RoomVersionV2 RoomVersion = "2"
-	RoomVersionV3 RoomVersion = "3"
-	RoomVersionV4 RoomVersion = "4"
-	RoomVersionV5 RoomVersion = "5"
-	RoomVersionV6 RoomVersion = "6"
-	RoomVersionV7 RoomVersion = "7"
-	RoomVersionV8 RoomVersion = "8"
-	RoomVersionV9 RoomVersion = "9"
+	RoomVersionV1  RoomVersion = "1"
+	RoomVersionV2  RoomVersion = "2"
+	RoomVersionV3  RoomVersion = "3"
+	RoomVersionV4  RoomVersion = "4"
+	RoomVersionV5  RoomVersion = "5"
+	RoomVersionV6  RoomVersion = "6"
+	RoomVersionV7  RoomVersion = "7"
+	RoomVersionV8  RoomVersion = "8"
+	RoomVersionV9  RoomVersion = "9"
+	RoomVersionV10 RoomVersion = "10"
 )
 
 // Event format constants.
@@ -207,6 +208,20 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
+	},
+	RoomVersionV10: {
+		Supported:                       true,
+		Stable:                          true,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV4,
+		enforceSignatureChecks:          true,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        KnockOrKnockRestricted,
+		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
+		requireIntegerPowerLevels:       true,
 	},
 	"org.matrix.msc3667": { // based on room version 7
 		Supported:                       true,
