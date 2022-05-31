@@ -387,18 +387,6 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
 		if err := allower.allowed(event); err != nil {
-			fmt.Println()
-			fmt.Println(event.EventID(), "not allowed:", err)
-			fmt.Println("Create:", allower.create)
-			fmt.Println("Join rule:", allower.joinRule)
-			fmt.Println("Power level:", allower.powerLevels)
-			m, err := allower.provider.Member(*event.StateKey())
-			if err == nil && m != nil {
-				fmt.Println("Membership:", string(m.Content()))
-			} else {
-				fmt.Println("Membership:", err)
-			}
-			fmt.Println()
 			continue
 		}
 		// Apply the newly authed event to the partial state. We need to do this
