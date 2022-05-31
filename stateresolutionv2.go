@@ -153,8 +153,15 @@ func ResolveStateConflictsV2(
 		}
 	}
 
-	// Start with the unconflicted events by ordering them topologically and then
-	// authing them. The successfully authed events will form the initial partial
+	// Before we can do anything with the conflicted and unconflicted sets, we
+	// first need to auth and apply the entire auth chain in order. This is so that
+	// when we come to auth any future events against the partial state, we'll have
+	// the knowledge from the auth chain to help us to make a correct decision.
+	authEvents = r.reverseTopologicalOrdering(authEvents, TopologicalOrderByAuthEvents)
+	r.authAndApplyEvents(authEvents)
+
+	// Then process the unconflicted events by ordering them topologically and then
+	// authing them. The successfully authed events will form the real initial partial
 	// state. We will then keep the successfully authed unconflicted events so that
 	// they can be reapplied later.
 	unconflicted = r.reverseTopologicalOrdering(unconflicted, TopologicalOrderByAuthEvents)
