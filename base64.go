@@ -58,8 +58,7 @@ func (b64 *Base64Bytes) Scan(src interface{}) error {
 	case string:
 		return b64.Decode(v)
 	case []byte:
-		new := append(Base64Bytes{}, v...)
-		b64 = &new
+		*b64 = append(Base64Bytes{}, v...)
 		return nil
 	case RawJSON:
 		return b64.UnmarshalJSON(v)

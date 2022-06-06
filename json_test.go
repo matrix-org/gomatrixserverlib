@@ -80,7 +80,7 @@ func TestSortJSON(t *testing.T) {
 func testCompactJSON(t *testing.T, input, want string) {
 	got := string(CompactJSON([]byte(input), nil))
 	if got != want {
-		t.Errorf("CompactJSON(%q): want %q got %q", input, want, got)
+		t.Errorf("CompactJSON(%q):\n want: %q\n got: %q", input, want, got)
 	}
 }
 
@@ -108,8 +108,6 @@ func TestCompactJSON(t *testing.T) {
 	testCompactJSON(t, `["\u0FFF"]`, "[\"\u0FFF\"]")
 	testCompactJSON(t, `["\u1820"]`, "[\"\u1820\"]")
 	testCompactJSON(t, `["\uFFFF"]`, "[\"\uFFFF\"]")
-	testCompactJSON(t, `["\uD842\uDC20"]`, "[\"\U00020820\"]")
-	testCompactJSON(t, `["\uDBFF\uDFFF"]`, "[\"\U0010FFFF\"]")
 
 	testCompactJSON(t, `["\"\\\/"]`, `["\"\\/"]`)
 }

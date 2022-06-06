@@ -38,6 +38,9 @@ const (
 	Knock = "knock"
 	// Restricted is the string constant "restricted"
 	Restricted = "restricted"
+	// NOTSPEC: Restricted is the string constant "knock_restricted" (MSC3787)
+	// REVIEW: the MSC is merged though... so is this specced? Idk.
+	KnockRestricted = "knock_restricted"
 	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
 	Peek = "peek"
 	// Public is the string constant "public"
@@ -620,38 +623,21 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLev
 // checkUserLevels checks that the changes in user levels are allowed.
 func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	type levelPair struct {
-		old    int64
-		new    int64
-		userID string
+		old int64
+		new int64
 	}
 
 	// Build a list of user levels to check.
-	// This differs slightly in behaviour from the code in synapse because it will use the
-	// default value if a level is not present in one of the old or new events.
-
-	// First add the user default level.
-	userLevelChecks := []levelPair{
-		{oldPowerLevels.UsersDefault, newPowerLevels.UsersDefault, ""},
-	}
-
-	// Then add checks for each user key in the new levels.
+	userLevelChecks := map[string]levelPair{}
 	for userID := range newPowerLevels.Users {
-		userLevelChecks = append(userLevelChecks, levelPair{
-			oldPowerLevels.UserLevel(userID), newPowerLevels.UserLevel(userID), userID,
-		})
-	}
-
-	// Then add checks for each user key in the old levels.
-	// Some of these will be duplicates of the ones added using the keys from
-	// the new levels. But it doesn't hurt to run the checks twice for the same level.
-	for userID := range oldPowerLevels.Users {
-		userLevelChecks = append(userLevelChecks, levelPair{
-			oldPowerLevels.UserLevel(userID), newPowerLevels.UserLevel(userID), userID,
-		})
+		userLevelChecks[userID] = levelPair{
+			old: oldPowerLevels.Users[userID],
+			new: newPowerLevels.Users[userID],
+		}
 	}
 
 	// Check each of the levels in the list.
-	for _, level := range userLevelChecks {
+	for userID, level := range userLevelChecks {
 		// Check if the level is being changed.
 		if level.old == level.new {
 			// Levels are always allowed to stay the same.
@@ -669,14 +655,14 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		// Check if the user is trying to set any of the levels to above their own.
 		if senderLevel < level.new {
 			return errorf(
-				"sender with level %d is not allowed change user level from %d to %d"+
+				"sender %q with level %d is not allowed change user %q level from %d to %d"+
 					" because the new level is above the level of the sender",
-				senderLevel, level.old, level.new,
+				senderID, senderLevel, userID, level.old, level.new,
 			)
 		}
 
 		// Check if the user is changing their own user level.
-		if level.userID == senderID {
+		if userID == senderID {
 			// Users are always allowed to reduce their own user level.
 			// We know that the user is reducing their level because of the previous checks.
 			continue
@@ -685,9 +671,9 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		// Check if the user is changing the level that was above or the same as their own.
 		if senderLevel <= level.old {
 			return errorf(
-				"sender with level %d is not allowed to change user level from %d to %d"+
+				"sender %q with level %d is not allowed to change user %q level from %d to %d"+
 					" because the old level is equal to or above the level of the sender",
-				senderLevel, level.old, level.new,
+				senderID, senderLevel, userID, level.old, level.new,
 			)
 		}
 	}
@@ -989,14 +975,6 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	}
 
 	if m.targetID == m.senderID {
-		// If the room is set to restricted join, evaluate restricted join rules
-		// in addition to updating their own membership.
-		if m.joinRule.JoinRule == Restricted {
-			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
-				return err
-			}
-		}
-
 		// If the state_key and the sender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
@@ -1008,7 +986,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
-	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth()
+	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
 	if err != nil {
 		return err
 	}
@@ -1103,65 +1081,66 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	if m.oldMember.Membership == Leave && m.newMember.Membership == Leave {
 		return nil
 	}
-	if m.newMember.Membership == Knock {
-		if m.joinRule.JoinRule != Knock {
-			return errorf(
-				"%q is not allowed to change their membership from %q to %q as the join rule %q does not allow knocking",
-				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+
+	switch m.newMember.Membership {
+	case Knock:
+		if m.joinRule.JoinRule != Knock && m.joinRule.JoinRule != KnockRestricted {
+			return m.membershipFailed(
+				"join rule %q does not allow knocking", m.joinRule.JoinRule,
 			)
 		}
 		// A user that is not in the room is allowed to knock if the join
 		// rules are "knock" and they are not already joined to, invited to
 		// or banned from the room.
 		// Spec: https://spec.matrix.org/unstable/rooms/v7/
-		if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+		// MSC3787 extends this: the behaviour above is also permitted if the
+		// join rules are "knock_restricted"
+		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
+		if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
 			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 		} else if !supported {
-			return errorf(
-				"%q is not allowed to change their membership from %q to %q as room version %q does not support knocking",
-				m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+			return m.membershipFailed(
+				"room version %q does not support knocking on rooms with join rule %q",
+				m.roomVersion,
+				m.joinRule.JoinRule,
 			)
 		}
 		switch m.oldMember.Membership {
 		case Join, Invite, Ban:
 			// The user is already joined, invited or banned, therefore they
 			// can't knock.
-			return errorf(
-				"%q is not allowed to change their membership from %q to %q as they are already joined/invited/banned",
-				m.targetID, m.oldMember.Membership, m.newMember.Membership,
+			return m.membershipFailed(
+				"sender is already joined/invited/banned",
 			)
 		default:
 			// A non-joined, non-invited, non-banned user is allowed to knock.
 			return nil
 		}
-	}
-	if m.newMember.Membership == Join {
+
+	case Join:
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
-			return m.membershipAllowedSelfForRestrictedJoin()
+			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
+				return err
+			}
 		}
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
 		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Public {
 			return nil
 		}
-		// An invited user is allowed to join if the join rules are "public"
-		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Public {
-			return nil
-		}
-		// An invited user is allowed to join if the join rules are "invite"
-		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Invite {
-			return nil
-		}
-		// An invited user is allowed to join if the join rules are "knock"
-		if m.oldMember.Membership == Invite && m.joinRule.JoinRule == Knock {
+		// An invited user is always allowed to join, regardless of the join rule
+		if m.oldMember.Membership == Invite {
 			return nil
 		}
 		// A joined user is allowed to update their join.
 		if m.oldMember.Membership == Join {
 			return nil
 		}
-	}
-	if m.newMember.Membership == Leave {
+		return m.membershipFailed(
+			"join rule %q forbids it", m.joinRule.JoinRule,
+		)
+
+	case Leave:
 		// A joined user is allowed to leave the room.
 		if m.oldMember.Membership == Join {
 			return nil
@@ -1170,8 +1149,20 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if m.oldMember.Membership == Invite {
 			return nil
 		}
+		return m.membershipFailed(
+			"sender cannot leave from this state",
+		)
+
+	case Invite, Ban:
+		return m.membershipFailed(
+			"sender cannot set their own membership to %q", m.newMember.Membership,
+		)
+
+	default:
+		return m.membershipFailed(
+			"membership %q is unknown", m.newMember.Membership,
+		)
 	}
-	return m.membershipFailed()
 }
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.
@@ -1184,32 +1175,44 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		return errorf("sender %q is not in the room", m.senderID)
 	}
 
-	if m.newMember.Membership == Ban {
+	switch m.newMember.Membership {
+	case Ban:
 		// A user may ban another user if their level is high enough
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
-		if senderLevel >= m.powerLevels.Ban &&
-			senderLevel > targetLevel {
+		if senderLevel >= m.powerLevels.Ban && senderLevel > targetLevel {
 			return nil
 		}
-	}
-	if m.newMember.Membership == Leave {
+		return m.membershipFailed(
+			"sender has insufficient power to ban (sender level %d, target level %d, ban level %d)",
+			senderLevel, targetLevel, m.powerLevels.Ban,
+		)
+
+	case Leave:
 		// A user may unban another user if their level is high enough.
 		// This is doesn't require the same power_level checks as banning.
 		// You can unban someone with higher power_level than you.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
-		if m.oldMember.Membership == Ban && senderLevel >= m.powerLevels.Ban {
-			return nil
+		if m.oldMember.Membership == Ban {
+			if senderLevel >= m.powerLevels.Ban {
+				return nil
+			}
+			return m.membershipFailed(
+				"sender has insufficient power to unban (sender level %d, target level %d, ban level %d)",
+				senderLevel, targetLevel, m.powerLevels.Ban,
+			)
 		}
 		// A user may kick another user if their level is high enough.
 		// TODO: You can kick a user that was already kicked, or has left the room, or was
 		// never in the room in the first place. Do we want to allow these redundant kicks?
-		if m.oldMember.Membership != Ban &&
-			senderLevel >= m.powerLevels.Kick &&
-			senderLevel > targetLevel {
+		if senderLevel >= m.powerLevels.Kick && senderLevel > targetLevel {
 			return nil
 		}
-	}
-	if m.newMember.Membership == Invite {
+		return m.membershipFailed(
+			"sender has insufficient power to kick (sender level %d, target level %d, kick level %d)",
+			senderLevel, targetLevel, m.powerLevels.Kick,
+		)
+
+	case Invite:
 		// A user may invite another user if the user has left the room.
 		// and their level is high enough.
 		if m.oldMember.Membership == Leave && senderLevel >= m.powerLevels.Invite {
@@ -1221,38 +1224,51 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		}
 		// A user can invite in response to a knock.
 		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
-			if m.joinRule.JoinRule != Knock {
-				return errorf(
-					"%q is not allowed to change the membership of %q from %q to %q as the join rule %q does not allow knocking",
-					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.joinRule.JoinRule,
+			if m.joinRule.JoinRule != Knock && m.joinRule.JoinRule != KnockRestricted {
+				return m.membershipFailed(
+					"join rule %q does not allow knocking", m.joinRule.JoinRule,
 				)
 			}
-			if supported, err := m.roomVersion.AllowKnockingInEventAuth(); err != nil {
+			if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
 				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
 			} else if !supported {
-				return errorf(
-					"%q is not allowed to change the membership of %q from %q to %q as room version %q does not support knocking",
-					m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership, m.roomVersion,
+				return m.membershipFailed(
+					"room version %q does not support knocking on rooms with join rule %q",
+					m.roomVersion,
+					m.joinRule.JoinRule,
 				)
 			}
 			return nil
 		}
-	}
 
-	return m.membershipFailed()
+		return m.membershipFailed(
+			"sender has insufficient power to invite (sender level %d, target level %d, invite level %d)",
+			senderLevel, targetLevel, m.powerLevels.Invite,
+		)
+
+	case Knock, Join:
+		return m.membershipFailed(
+			"sender cannot set membership of another user to %q", m.newMember.Membership,
+		)
+
+	default:
+		return m.membershipFailed(
+			"membership %q is unknown", m.newMember.Membership,
+		)
+	}
 }
 
 // membershipFailed returns a error explaining why the membership change was disallowed.
-func (m *membershipAllower) membershipFailed() error {
+func (m *membershipAllower) membershipFailed(format string, args ...interface{}) error {
 	if m.senderID == m.targetID {
 		return errorf(
-			"%q is not allowed to change their membership from %q to %q",
-			m.targetID, m.oldMember.Membership, m.newMember.Membership,
+			"%q is not allowed to change their membership from %q to %q as "+format,
+			append([]interface{}{m.targetID, m.oldMember.Membership, m.newMember.Membership}, args...)...,
 		)
 	}
 
 	return errorf(
-		"%q is not allowed to change the membership of %q from %q to %q",
-		m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership,
+		"%q is not allowed to change the membership of %q from %q to %q as "+format,
+		append([]interface{}{m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership}, args...)...,
 	)
 }

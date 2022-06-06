@@ -32,6 +32,7 @@ const (
 
 type stateResolverV2 struct {
 	authEventMap              map[string]*Event // Map of all provided auth events
+	conflictedEventMap        map[string]*Event // Map of all provided conflicted events
 	authPowerLevels           map[string]int64  // A cache of user power levels
 	powerLevelMainline        []*Event          // Power level events in mainline ordering
 	powerLevelMainlinePos     map[string]int    // Power level event positions in mainline
@@ -81,6 +82,7 @@ func ResolveStateConflictsV2(
 	conflictedOthers := make([]*Event, 0, len(conflicted))
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
+		conflictedEventMap:        eventMapFromEvents(conflicted),
 		authPowerLevels:           make(map[string]int64, len(conflicted)+len(unconflicted)),
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
@@ -97,22 +99,69 @@ func ResolveStateConflictsV2(
 		isUnconflicted[u.EventID()] = struct{}{}
 	}
 
-	// Separate out control events from the rest of the events. This is necessary
-	// because we perform topological ordering of the control events separately,
-	// and then the mainline ordering of all other events depends on that
-	// ordering.
-	for _, p := range append(conflicted, authDifference...) {
-		if _, unconflicted := isUnconflicted[p.EventID()]; !unconflicted {
-			if isControlEvent(p) {
-				conflictedControlEvents = append(conflictedControlEvents, p)
-			} else {
-				conflictedOthers = append(conflictedOthers, p)
+	// Get the full conflicted set, that is the conflicted events and the
+	// auth difference (events that don't appear in all auth chains).
+	fullConflictedSet := append(conflicted, authDifference...)
+
+	// The full power set function returns the event and all of its auth
+	// events that also happen to appear in the conflicted set. This will
+	// effectively allow us to pull in all related events for any control
+	// event, even if those related events are themselves not control events.
+	visited := make(map[string]struct{}, len(conflicted)+len(authEvents))
+	var fullControlSet func(event *Event) []*Event
+	fullControlSet = func(event *Event) []*Event {
+		events := []*Event{event}
+		for _, authEventID := range event.AuthEventIDs() {
+			if _, ok := visited[authEventID]; ok {
+				continue
 			}
+			if event, ok := r.conflictedEventMap[authEventID]; ok {
+				events = append(events, fullControlSet(event)...)
+			}
+			visited[authEventID] = struct{}{}
+		}
+		return events
+	}
+
+	// First of all, work through the full conflicted set. Ignoring any
+	// events which are unconflicted (from the auth difference, for example),
+	// pull in the control events and any events directly related to them.
+	conflictedPulledIn := make(map[string]struct{}, len(conflicted)+len(authEvents))
+	for _, p := range fullConflictedSet {
+		if _, unconflicted := isUnconflicted[p.EventID()]; unconflicted {
+			continue
+		}
+		if isControlEvent(p) {
+			relatedEvents := fullControlSet(p)
+			for _, event := range relatedEvents {
+				conflictedPulledIn[event.EventID()] = struct{}{}
+			}
+			conflictedControlEvents = append(conflictedControlEvents, relatedEvents...)
 		}
 	}
 
-	// Start with the unconflicted events by ordering them topologically and then
-	// authing them. The successfully authed events will form the initial partial
+	// Then work through the set again, this time looking for any events
+	// that were left over from the last loop — that is, events that are
+	// either not control events or weren't pulled in to the control set.
+	for _, p := range fullConflictedSet {
+		eventID := p.EventID()
+		if _, unconflicted := isUnconflicted[eventID]; unconflicted || isControlEvent(p) {
+			continue
+		}
+		if _, ok := conflictedPulledIn[eventID]; !ok {
+			conflictedOthers = append(conflictedOthers, p)
+		}
+	}
+
+	// Before we can do anything with the conflicted and unconflicted sets, we
+	// first need to auth and apply the entire auth chain in order. This is so that
+	// when we come to auth any future events against the partial state, we'll have
+	// the knowledge from the auth chain to help us to make a correct decision.
+	authEvents = r.reverseTopologicalOrdering(authEvents, TopologicalOrderByAuthEvents)
+	r.authAndApplyEvents(authEvents)
+
+	// Then process the unconflicted events by ordering them topologically and then
+	// authing them. The successfully authed events will form the real initial partial
 	// state. We will then keep the successfully authed unconflicted events so that
 	// they can be reapplied later.
 	unconflicted = r.reverseTopologicalOrdering(unconflicted, TopologicalOrderByAuthEvents)
@@ -251,7 +300,7 @@ func (r *stateResolverV2) createPowerLevelMainline() []*Event {
 			// that we can look up the event type.
 			if authEvent, ok := r.authEventMap[authEventID]; ok {
 				// Is the event a power event?
-				if authEvent.Type() == MRoomPowerLevels {
+				if authEvent.Type() == MRoomPowerLevels && authEvent.StateKeyEquals("") {
 					// We found a power level event in the event's auth events - start
 					// the iterator from this new event.
 					iter(authEvent)
@@ -300,7 +349,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 			// that we can look up the event type.
 			if authEvent, ok := r.authEventMap[authEventID]; ok {
 				// Is the event a power level event?
-				if authEvent.Type() == MRoomPowerLevels {
+				if authEvent.Type() == MRoomPowerLevels && authEvent.StateKeyEquals("") {
 					// Is the event in the mainline?
 					if isIn, pos := isInMainline(authEvent); isIn {
 						// It is - take a note of the event and position and stop the
@@ -343,6 +392,12 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
 		r.applyEvents([]*Event{event})
+		// If we've just applied an event that is going to change the contents of
+		// the allower then we will need to update that too.
+		switch event.Type() {
+		case MRoomCreate, MRoomPowerLevels, MRoomJoinRules, MRoomMember:
+			allower = newAllowerContext(r)
+		}
 	}
 }
 

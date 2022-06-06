@@ -30,7 +30,9 @@ func NewFederationClient(
 	options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
-		Client:           *NewClient(options...),
+		Client: *NewClient(
+			append(options, WithWellKnownSRVLookups(true))...,
+		),
 		serverName:       serverName,
 		serverKeyID:      keyID,
 		serverPrivateKey: privateKey,
