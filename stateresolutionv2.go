@@ -31,18 +31,18 @@ const (
 )
 
 type stateResolverV2 struct {
-	authEventMap              map[string]*Event // Map of all provided auth events
-	conflictedEventMap        map[string]*Event // Map of all provided conflicted events
-	authPowerLevels           map[string]int64  // A cache of user power levels
-	powerLevelMainline        []*Event          // Power level events in mainline ordering
-	powerLevelMainlinePos     map[string]int    // Power level event positions in mainline
-	resolvedCreate            *Event            // Resolved create event
-	resolvedPowerLevels       *Event            // Resolved power level event
-	resolvedJoinRules         *Event            // Resolved join rules event
-	resolvedThirdPartyInvites map[string]*Event // Resolved third party invite events
-	resolvedMembers           map[string]*Event // Resolved member events
-	resolvedOthers            map[string]*Event // Resolved other events
-	result                    []*Event          // Final list of resolved events
+	authEventMap              map[string]*Event             // Map of all provided auth events
+	conflictedEventMap        map[string]*Event             // Map of all provided conflicted events
+	powerLevelContents        map[string]*PowerLevelContent // A cache of all power level contents
+	powerLevelMainline        []*Event                      // Power level events in mainline ordering
+	powerLevelMainlinePos     map[string]int                // Power level event positions in mainline
+	resolvedCreate            *Event                        // Resolved create event
+	resolvedPowerLevels       *Event                        // Resolved power level event
+	resolvedJoinRules         *Event                        // Resolved join rules event
+	resolvedThirdPartyInvites map[string]*Event             // Resolved third party invite events
+	resolvedMembers           map[string]*Event             // Resolved member events
+	resolvedOthers            map[string]*Event             // Resolved other events
+	result                    []*Event                      // Final list of resolved events
 }
 
 // Create implements AuthEventProvider
@@ -83,7 +83,7 @@ func ResolveStateConflictsV2(
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		conflictedEventMap:        eventMapFromEvents(conflicted),
-		authPowerLevels:           make(map[string]int64, len(conflicted)+len(unconflicted)),
+		powerLevelContents:        make(map[string]*PowerLevelContent),
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
 		resolvedMembers:           make(map[string]*Event, len(conflicted)),
@@ -527,16 +527,11 @@ func (r *stateResolverV2) mainlineOrdering(events []*Event) []*Event {
 func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 	user := event.Sender()
 	for _, authID := range event.AuthEventIDs() {
-		// First, check if we have a cached value.
-		if pl, ok := r.authPowerLevels[authID+user]; ok {
-			return pl
-		}
-
 		// Then check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.
 		authEvent, ok := r.authEventMap[authID]
 		if !ok {
-			return 0
+			continue
 		}
 
 		// Ignore the auth event if it isn't a power level event.
@@ -544,18 +539,24 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 			continue
 		}
 
-		// Try and parse the content of the event.
-		content, err := NewPowerLevelContentFromEvent(authEvent)
-		if err != nil {
-			return 0
+		// See if we have a cached copy of the power level content
+		// for this event ID already in memory.
+		content, ok := r.powerLevelContents[authID]
+		if !ok {
+			// Try and parse the content of the event.
+			parsed, err := NewPowerLevelContentFromEvent(authEvent)
+			if err != nil {
+				return 0
+			}
+			content = &parsed
+
+			// Cache it in memory.
+			r.powerLevelContents[authID] = content
 		}
 
 		// Look up what the power level should be for this user. If the user is
 		// not in the list, the default user power level will be returned instead.
-		// Cache that value for future runs.
-		pl := content.UserLevel(user)
-		r.authPowerLevels[authID+user] = pl
-		return pl
+		return content.UserLevel(user)
 	}
 
 	return 0
