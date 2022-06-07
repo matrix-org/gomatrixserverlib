@@ -152,8 +152,9 @@ type eventFormatV2Fields struct {
 
 type eventFormatV3Fields struct {
 	eventFields
-	PrevEvents      []string `json:"prev_events"`
-	PrevStateEvents []string `json:"prev_state_events"`
+	PrevControlEvents  []string `json:"prev_control"`
+	PrevStateEvents    []string `json:"prev_state"`
+	PrevTimelineEvents []string `json:"prev_timeline"`
 }
 
 var emptyEventReferenceList = []EventReference{}
@@ -683,6 +684,68 @@ const (
 	maxEventLength = 65536
 )
 
+func (e *Event) IsStateEvent() bool {
+	return e.StateKey() != nil
+}
+
+func (e *Event) IsControlEvent() bool {
+	if !e.IsStateEvent() {
+		return false
+	}
+	switch e.Type() {
+	case MRoomCreate, MRoomPowerLevels, MRoomJoinRules:
+		return true
+	case MRoomMember:
+		return true
+	default:
+		return false
+	}
+}
+
+func (e *Event) checkStateDAGFields(f *eventFormatV3Fields) error {
+	switch {
+	case e.Type() == MRoomCreate:
+		// Special case: no predecessors of any kind.
+		if len(f.PrevControlEvents) > 0 || len(f.PrevStateEvents) > 0 || len(f.PrevTimelineEvents) > 0 {
+			return fmt.Errorf("gomatrixserverlib: create events must not have predecessors")
+		}
+	case e.IsControlEvent():
+		// Control events have:
+		// * one or more reference to a previous control event
+		// * exactly one reference to a previous state event
+		// * zero or more references to previous timeline events
+		if len(f.PrevControlEvents) < 1 {
+			return fmt.Errorf("gomatrixserverlib: control events must reference at least one control event")
+		}
+		if len(f.PrevStateEvents) != 1 {
+			return fmt.Errorf("gomatrixserverlib: control events must reference one prev state event")
+		}
+		if len(f.PrevTimelineEvents) > 0 {
+			return fmt.Errorf("gomatrixserverlib: control events must not reference timeline events")
+		}
+	case e.IsStateEvent():
+		// Non-control state events have:
+		// * exactly one reference to a previous control event
+		// * zero or more references to a previous state event
+		// * zero or more references to a previous timeline event
+		if len(f.PrevControlEvents) != 1 {
+			return fmt.Errorf("gomatrixserverlib: state events must reference exactly one control event")
+		}
+		if len(f.PrevTimelineEvents) > 0 {
+			return fmt.Errorf("gomatrixserverlib: state events must not reference timeline events")
+		}
+	default:
+		// Timeline events have:
+		// * exactly one reference to a previous control event
+		// * zero or more references to a previous state event
+		// * zero or more references to a previous timeline event
+		if len(f.PrevControlEvents) != 1 {
+			return fmt.Errorf("gomatrixserverlib: timeline events must reference exactly one control event")
+		}
+	}
+	return nil
+}
+
 // CheckFields checks that the event fields are valid.
 // Returns an error if the IDs have the wrong format or too long.
 // Returns an error if the total length of the event JSON is too long.
@@ -702,8 +765,8 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		}
 		fields = f.eventFields
 	case eventFormatV3Fields:
-		if f.PrevEvents == nil || f.PrevStateEvents == nil {
-			return errors.New("gomatrixserverlib: prev events and prev state events must not be nil")
+		if err := e.checkStateDAGFields(&f); err != nil {
+			return err
 		}
 		fields = f.eventFields
 	default:
@@ -935,8 +998,8 @@ func (e *Event) PrevEvents() []EventReference {
 		}
 		return result
 	case eventFormatV3Fields:
-		result := make([]EventReference, 0, len(fields.PrevEvents))
-		for _, id := range fields.PrevEvents {
+		result := make([]EventReference, 0, len(fields.PrevControlEvents))
+		for _, id := range fields.PrevControlEvents {
 			// In the new event format, the event ID is already the hash of
 			// the event. Since we will have generated the event ID before
 			// now, we can just knock the sigil $ off the front and use that
@@ -968,7 +1031,7 @@ func (e *Event) PrevEventIDs() []string {
 	case eventFormatV2Fields:
 		return fields.PrevEvents
 	case eventFormatV3Fields:
-		return fields.PrevEvents
+		return fields.PrevControlEvents
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -978,7 +1041,7 @@ func (e *Event) PrevEventIDs() []string {
 func (e *Event) PrevStateEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFormatV3Fields:
-		return fields.PrevEvents
+		return fields.PrevControlEvents
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1246,8 +1309,8 @@ func (f *eventFormatV3Fields) fixNilSlices() {
 	if f.PrevStateEvents == nil {
 		f.PrevStateEvents = []string{}
 	}
-	if f.PrevEvents == nil {
-		f.PrevEvents = []string{}
+	if f.PrevControlEvents == nil {
+		f.PrevControlEvents = []string{}
 	}
 }
 
