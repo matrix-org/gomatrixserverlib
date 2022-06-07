@@ -31,6 +31,7 @@ const (
 )
 
 type stateResolverV2 struct {
+	allower                   *allowerContext               // Used to auth and apply events
 	authEventMap              map[string]*Event             // Map of all provided auth events
 	conflictedEventMap        map[string]*Event             // Map of all provided conflicted events
 	powerLevelContents        map[string]*PowerLevelContent // A cache of all power level contents
@@ -90,6 +91,7 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[string]*Event, len(conflicted)),
 		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
 	}
+	r.allower = newAllowerContext(&r)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
@@ -382,11 +384,10 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
 func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
-	allower := newAllowerContext(r)
 	for _, event := range events {
 		// Check if the event is allowed based on the current partial state. If the
 		// event isn't allowed then simply ignore it and process the next one.
-		if err := allower.allowed(event); err != nil {
+		if err := r.allower.allowed(event); err != nil {
 			continue
 		}
 		// Apply the newly authed event to the partial state. We need to do this
@@ -395,8 +396,8 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 		// If we've just applied an event that is going to change the contents of
 		// the allower then we will need to update that too.
 		switch event.Type() {
-		case MRoomCreate, MRoomPowerLevels, MRoomJoinRules, MRoomMember:
-			allower = newAllowerContext(r)
+		case MRoomCreate, MRoomPowerLevels, MRoomJoinRules:
+			r.allower = newAllowerContext(r)
 		}
 	}
 }
