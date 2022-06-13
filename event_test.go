@@ -142,7 +142,7 @@ func TestEventHistoryVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "shared"
+	want := HistoryVisibilityShared
 	if got != want {
 		t.Errorf("history visibility: got %s want %s", got, want)
 	}
