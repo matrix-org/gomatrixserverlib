@@ -210,7 +210,29 @@ func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 // HistoryVisibilityContent is the JSON content of a m.room.history_visibility event.
 // See https://matrix.org/docs/spec/client_server/r0.6.0#room-history-visibility for descriptions of the fields.
 type HistoryVisibilityContent struct {
-	HistoryVisibility string `json:"history_visibility"`
+	HistoryVisibility HistoryVisibility `json:"history_visibility"`
+}
+
+type HistoryVisibility string
+
+const (
+	HistoryVisibilityWorldReadable HistoryVisibility = "world_readable"
+	HistoryVisibilityShared        HistoryVisibility = "shared"
+	HistoryVisibilityInvited       HistoryVisibility = "invited"
+	HistoryVisibilityJoined        HistoryVisibility = "joined"
+)
+
+// Value returns the history visibility. If an unknown value is set then
+// it will return "joined".
+func (h HistoryVisibility) Value() HistoryVisibility {
+	switch h {
+	case HistoryVisibilityWorldReadable, HistoryVisibilityShared:
+		return h
+	case HistoryVisibilityInvited, HistoryVisibilityJoined:
+		return h
+	default:
+		return HistoryVisibilityJoined
+	}
 }
 
 // JoinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.

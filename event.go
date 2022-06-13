@@ -960,7 +960,7 @@ func (e *Event) JoinRule() (string, error) {
 // is an "m.room.history_visibility" event.
 // Returns an error if the event is not a m.room.history_visibility event or if the content
 // is not valid m.room.history_visibility content.
-func (e *Event) HistoryVisibility() (string, error) {
+func (e *Event) HistoryVisibility() (HistoryVisibility, error) {
 	if !e.StateKeyEquals("") {
 		return "", fmt.Errorf("gomatrixserverlib: HistoryVisibility() event is not a m.room.history_visibility event, bad state key")
 	}
@@ -968,7 +968,7 @@ func (e *Event) HistoryVisibility() (string, error) {
 	if err := e.extractContent(MRoomHistoryVisibility, &content); err != nil {
 		return "", err
 	}
-	return content.HistoryVisibility, nil
+	return content.HistoryVisibility.Value(), nil
 }
 
 // PowerLevels returns the power levels content if this event
