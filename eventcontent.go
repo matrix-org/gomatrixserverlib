@@ -222,9 +222,9 @@ const (
 	HistoryVisibilityJoined        HistoryVisibility = "joined"
 )
 
-// SaneValue returns the history visibility. If an unknown value is set then
+// Value returns the history visibility. If an unknown value is set then
 // it will return "joined".
-func (h HistoryVisibility) SaneValue() HistoryVisibility {
+func (h HistoryVisibility) Value() HistoryVisibility {
 	switch h {
 	case HistoryVisibilityWorldReadable, HistoryVisibilityShared:
 		return h
