@@ -968,7 +968,7 @@ func (e *Event) HistoryVisibility() (HistoryVisibility, error) {
 	if err := e.extractContent(MRoomHistoryVisibility, &content); err != nil {
 		return "", err
 	}
-	return content.HistoryVisibility, nil
+	return content.HistoryVisibility.SaneValue(), nil
 }
 
 // PowerLevels returns the power levels content if this event
