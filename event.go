@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"
@@ -148,6 +149,14 @@ type eventFormatV2Fields struct {
 	eventFields
 	PrevEvents []string `json:"prev_events"`
 	AuthEvents []string `json:"auth_events"`
+}
+
+func (e *Event) CacheCost() int {
+	return int(unsafe.Sizeof(*e)) +
+		len(e.eventID) +
+		(len(e.eventJSON) * 2) +
+		len(e.roomVersion) +
+		1 // redacted bool
 }
 
 var emptyEventReferenceList = []EventReference{}
