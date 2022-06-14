@@ -236,17 +236,17 @@ func (h HistoryVisibility) Value() HistoryVisibility {
 }
 
 var hisVisStringToIntMapping = map[HistoryVisibility]uint8{
-	HistoryVisibilityWorldReadable: 0,
-	HistoryVisibilityShared:        1,
-	HistoryVisibilityInvited:       2,
-	HistoryVisibilityJoined:        3,
+	HistoryVisibilityWorldReadable: 1, // Starting at 1, to avoid confusions with Go default values
+	HistoryVisibilityShared:        2,
+	HistoryVisibilityInvited:       3,
+	HistoryVisibilityJoined:        4,
 }
 
 var hisVisIntToStringMapping = map[uint8]HistoryVisibility{
-	0: HistoryVisibilityWorldReadable,
-	1: HistoryVisibilityShared,
-	2: HistoryVisibilityInvited,
-	3: HistoryVisibilityJoined,
+	1: HistoryVisibilityWorldReadable, // Starting at 1, to avoid confusions with Go default values
+	2: HistoryVisibilityShared,
+	3: HistoryVisibilityInvited,
+	4: HistoryVisibilityJoined,
 }
 
 // NumericValue returns the numeric value of the HistoryVisibility.

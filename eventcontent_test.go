@@ -107,7 +107,7 @@ func TestHistoryVisibilityFromInt(t *testing.T) {
 		},
 		{
 			name: "known value returns correct visibility",
-			args: 0,
+			args: 1,
 			want: HistoryVisibilityWorldReadable,
 		},
 	}
@@ -129,17 +129,17 @@ func TestHistoryVisibility_NumericValue(t *testing.T) {
 		{
 			name: "unknown history visibility defaults to shared",
 			h:    HistoryVisibility("doesNotExist"),
-			want: 1,
+			want: 2,
 		},
 		{
 			name: "history visibility returns correct value",
 			h:    HistoryVisibilityJoined,
-			want: 3,
+			want: 4,
 		},
 		{
 			name: "history visibility returns correct value 2",
 			h:    HistoryVisibilityShared,
-			want: 1,
+			want: 2,
 		},
 	}
 	for _, tt := range tests {
