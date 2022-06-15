@@ -24,8 +24,8 @@ type EDU struct {
 	Content     RawJSON `json:"content,omitempty"`
 }
 
-func (e EDU) CacheCost() int {
-	return int(unsafe.Sizeof(e)) +
+func (e *EDU) CacheCost() int {
+	return int(unsafe.Sizeof(*e)) +
 		len(e.Type) +
 		len(e.Origin) +
 		len(e.Destination) +
