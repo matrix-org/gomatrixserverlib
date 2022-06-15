@@ -151,8 +151,8 @@ type eventFormatV2Fields struct {
 	AuthEvents []string `json:"auth_events"`
 }
 
-func (e *Event) CacheCost() int {
-	return int(unsafe.Sizeof(*e)) +
+func (e Event) CacheCost() int {
+	return int(unsafe.Sizeof(e)) +
 		len(e.eventID) +
 		(len(e.eventJSON) * 2) +
 		len(e.roomVersion) +

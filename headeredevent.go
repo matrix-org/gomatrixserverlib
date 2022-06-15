@@ -15,8 +15,8 @@ type HeaderedEvent struct {
 	*Event
 }
 
-func (e *HeaderedEvent) CacheCost() int {
-	return int(unsafe.Sizeof(*e)) +
+func (e HeaderedEvent) CacheCost() int {
+	return int(unsafe.Sizeof(e)) +
 		len(e.RoomVersion) +
 		e.Event.CacheCost()
 }
