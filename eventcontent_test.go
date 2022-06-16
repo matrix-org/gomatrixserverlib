@@ -93,3 +93,60 @@ func TestStrictPowerLevelContent(t *testing.T) {
 		t.Fatal("bad content should have errored but didn't")
 	}
 }
+
+func TestHistoryVisibilityFromInt(t *testing.T) {
+	tests := []struct {
+		name string
+		args uint8
+		want HistoryVisibility
+	}{
+		{
+			name: "unknown value returns shared visibility",
+			args: 100,
+			want: HistoryVisibilityShared,
+		},
+		{
+			name: "known value returns correct visibility",
+			args: 1,
+			want: HistoryVisibilityWorldReadable,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := HistoryVisibilityFromInt(tt.args); got != tt.want {
+				t.Errorf("HistoryVisibilityFromInt() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHistoryVisibility_NumericValue(t *testing.T) {
+	tests := []struct {
+		name string
+		h    HistoryVisibility
+		want uint8
+	}{
+		{
+			name: "unknown history visibility defaults to shared",
+			h:    HistoryVisibility("doesNotExist"),
+			want: 2,
+		},
+		{
+			name: "history visibility returns correct value",
+			h:    HistoryVisibilityJoined,
+			want: 4,
+		},
+		{
+			name: "history visibility returns correct value 2",
+			h:    HistoryVisibilityShared,
+			want: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.h.NumericValue(); got != tt.want {
+				t.Errorf("NumericValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

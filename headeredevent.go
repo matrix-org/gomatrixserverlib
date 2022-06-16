@@ -9,7 +9,8 @@ import (
 // about the room version. All header fields will be added into the event
 // when marshalling into JSON and will be separated out when unmarshalling.
 type HeaderedEvent struct {
-	RoomVersion RoomVersion `json:"-"`
+	RoomVersion RoomVersion       `json:"-"`
+	Visibility  HistoryVisibility `json:"-"`
 	*Event
 }
 
