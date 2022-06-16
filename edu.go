@@ -29,5 +29,5 @@ func (e *EDU) CacheCost() int {
 		len(e.Type) +
 		len(e.Origin) +
 		len(e.Destination) +
-		len(e.Content)
+		cap(e.Content)
 }

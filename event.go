@@ -116,10 +116,12 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 // The fields have different formats depending on the room version - see
 // eventFormatV1Fields, eventFormatV2Fields.
 type Event struct {
-	redacted    bool
-	eventID     string
-	eventJSON   []byte
-	fields      interface{}
+	redacted  bool
+	eventID   string
+	eventJSON []byte
+	fields    interface {
+		CacheCost() int
+	}
 	roomVersion RoomVersion
 }
 
@@ -154,9 +156,52 @@ type eventFormatV2Fields struct {
 func (e *Event) CacheCost() int {
 	return int(unsafe.Sizeof(*e)) +
 		len(e.eventID) +
-		(len(e.eventJSON) * 2) +
+		(cap(e.eventJSON) * 2) +
 		len(e.roomVersion) +
-		1 // redacted bool
+		1 + // redacted bool
+		e.fields.CacheCost()
+}
+
+func (e *eventFields) CacheCost() int {
+	cost := int(unsafe.Sizeof(*e)) +
+		len(e.RoomID) +
+		len(e.Sender) +
+		len(e.Type) +
+		cap(e.Content) +
+		len(e.Redacts) +
+		4 + // depth int64
+		cap(e.Unsigned) +
+		4 + // originserverts timestamp as uint64
+		len(e.Origin)
+	if e.StateKey != nil {
+		cost += len(*e.StateKey)
+	}
+	return cost
+}
+
+func (e eventFormatV1Fields) CacheCost() int {
+	cost := e.eventFields.CacheCost() +
+		int(unsafe.Sizeof(e)) +
+		len(e.EventID)
+	for _, v := range e.PrevEvents {
+		cost += len(v.EventID) + cap(v.EventSHA256)
+	}
+	for _, v := range e.AuthEvents {
+		cost += len(v.EventID) + cap(v.EventSHA256)
+	}
+	return cost
+}
+
+func (e eventFormatV2Fields) CacheCost() int {
+	cost := e.eventFields.CacheCost() +
+		int(unsafe.Sizeof(e))
+	for _, v := range e.PrevEvents {
+		cost += len(v)
+	}
+	for _, v := range e.AuthEvents {
+		cost += len(v)
+	}
+	return cost
 }
 
 var emptyEventReferenceList = []EventReference{}
