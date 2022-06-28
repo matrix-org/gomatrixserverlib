@@ -77,20 +77,22 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
 	}
 	for i := range events {
+		h := events[i].Headered(l.roomVer)
 		if eventErr := failures[i]; eventErr != nil {
 			if results[i].Error == nil { // could have failed earlier
 				results[i] = EventLoadResult{
 					Error: eventErr,
+					Event: h,
 				}
 				continue
 			}
 		}
-		h := events[i].Headered(l.roomVer)
 		// 4. Passes authorization rules based on the event's auth events, otherwise it is rejected.
 		if err := VerifyEventAuthChain(ctx, h, l.provider); err != nil {
 			if results[i].Error == nil { // could have failed earlier
 				results[i] = EventLoadResult{
 					Error: err,
+					Event: h,
 				}
 				continue
 			}
@@ -101,6 +103,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 			if results[i].Error == nil { // could have failed earlier
 				results[i] = EventLoadResult{
 					Error: err,
+					Event: h,
 				}
 				continue
 			}
