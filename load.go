@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // EventLoadResult is the result of loading and verifying an event in the EventsLoader.
@@ -83,14 +84,14 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		}
 		if eventErr := failures[i]; eventErr != nil {
 			if results[i].Error == nil { // could have failed earlier
-				results[i].Error = eventErr
+				results[i].Error = SignatureErr{eventErr}
 				continue
 			}
 		}
 		// 4. Passes authorization rules based on the event's auth events, otherwise it is rejected.
 		if err := VerifyEventAuthChain(ctx, h, l.provider); err != nil {
 			if results[i].Error == nil { // could have failed earlier
-				results[i].Error = err
+				results[i].Error = AuthChainErr{err}
 				continue
 			}
 		}
@@ -98,7 +99,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
 		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, true); err != nil {
 			if results[i].Error == nil { // could have failed earlier
-				results[i].Error = err
+				results[i].Error = AuthRulesErr{err}
 				continue
 			}
 		}
@@ -106,4 +107,40 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 
 	// TODO: performSoftFailCheck, needs forward extremity
 	return results, nil
+}
+
+type SignatureErr struct {
+	err error
+}
+
+func (se SignatureErr) Error() string {
+	return fmt.Sprintf("SignatureErr: %s", se.err)
+}
+
+func (se SignatureErr) Is(target error) bool {
+	return strings.HasPrefix(target.Error(), "SignatureErr")
+}
+
+type AuthChainErr struct {
+	err error
+}
+
+func (se AuthChainErr) Error() string {
+	return fmt.Sprintf("AuthChainErr: %s", se.err)
+}
+
+func (se AuthChainErr) Is(target error) bool {
+	return strings.HasPrefix(target.Error(), "AuthChainErr")
+}
+
+type AuthRulesErr struct {
+	err error
+}
+
+func (se AuthRulesErr) Error() string {
+	return fmt.Sprintf("AuthRulesErr: %s", se.err)
+}
+
+func (se AuthRulesErr) Is(target error) bool {
+	return strings.HasPrefix(target.Error(), "AuthRulesErr")
 }
