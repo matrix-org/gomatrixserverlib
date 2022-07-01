@@ -223,7 +223,7 @@ const (
 )
 
 // Value returns the history visibility. If an unknown value is set then
-// it will return "joined".
+// it will return "shared".
 func (h HistoryVisibility) Value() HistoryVisibility {
 	switch h {
 	case HistoryVisibilityWorldReadable, HistoryVisibilityShared:
@@ -231,8 +231,37 @@ func (h HistoryVisibility) Value() HistoryVisibility {
 	case HistoryVisibilityInvited, HistoryVisibilityJoined:
 		return h
 	default:
-		return HistoryVisibilityJoined
+		return HistoryVisibilityShared
 	}
+}
+
+var hisVisStringToIntMapping = map[HistoryVisibility]uint8{
+	HistoryVisibilityWorldReadable: 1, // Starting at 1, to avoid confusions with Go default values
+	HistoryVisibilityShared:        2,
+	HistoryVisibilityInvited:       3,
+	HistoryVisibilityJoined:        4,
+}
+
+var hisVisIntToStringMapping = map[uint8]HistoryVisibility{
+	1: HistoryVisibilityWorldReadable, // Starting at 1, to avoid confusions with Go default values
+	2: HistoryVisibilityShared,
+	3: HistoryVisibilityInvited,
+	4: HistoryVisibilityJoined,
+}
+
+// NumericValue returns the numeric value of the HistoryVisibility.
+func (h HistoryVisibility) NumericValue() uint8 {
+	return hisVisStringToIntMapping[h.Value()]
+}
+
+// HistoryVisibilityFromInt gets the HistoryVisibility given an uint8.
+// If there is no match, it returns "shared".
+func HistoryVisibilityFromInt(n uint8) HistoryVisibility {
+	vis, ok := hisVisIntToStringMapping[n]
+	if !ok {
+		return HistoryVisibilityShared
+	}
+	return vis
 }
 
 // JoinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.

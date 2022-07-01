@@ -77,8 +77,14 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 			continue // try the next server
 		}
 		for _, res := range loadResults {
-			if res.Error != nil {
-				continue // skip this event
+			switch res.Error.(type) {
+			case nil, SignatureErr:
+				// The signature of the event might not be valid anymore, for example if
+				// the key ID was reused with a different signature.
+			case AuthChainErr, AuthRulesErr:
+				continue
+			default:
+				continue
 			}
 			if haveEventIDs[res.Event.EventID()] {
 				continue // we got this event from a different server
