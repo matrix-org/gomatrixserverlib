@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"
@@ -115,10 +116,12 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 // The fields have different formats depending on the room version - see
 // eventFormatV1Fields, eventFormatV2Fields.
 type Event struct {
-	redacted    bool
-	eventID     string
-	eventJSON   []byte
-	fields      interface{}
+	redacted  bool
+	eventID   string
+	eventJSON []byte
+	fields    interface {
+		CacheCost() int
+	}
 	roomVersion RoomVersion
 }
 
@@ -148,6 +151,57 @@ type eventFormatV2Fields struct {
 	eventFields
 	PrevEvents []string `json:"prev_events"`
 	AuthEvents []string `json:"auth_events"`
+}
+
+func (e *Event) CacheCost() int {
+	return int(unsafe.Sizeof(*e)) +
+		len(e.eventID) +
+		(cap(e.eventJSON) * 2) +
+		len(e.roomVersion) +
+		1 + // redacted bool
+		e.fields.CacheCost()
+}
+
+func (e *eventFields) CacheCost() int {
+	cost := int(unsafe.Sizeof(*e)) +
+		len(e.RoomID) +
+		len(e.Sender) +
+		len(e.Type) +
+		cap(e.Content) +
+		len(e.Redacts) +
+		4 + // depth int64
+		cap(e.Unsigned) +
+		4 + // originserverts timestamp as uint64
+		len(e.Origin)
+	if e.StateKey != nil {
+		cost += len(*e.StateKey)
+	}
+	return cost
+}
+
+func (e eventFormatV1Fields) CacheCost() int {
+	cost := e.eventFields.CacheCost() +
+		int(unsafe.Sizeof(e)) +
+		len(e.EventID)
+	for _, v := range e.PrevEvents {
+		cost += len(v.EventID) + cap(v.EventSHA256)
+	}
+	for _, v := range e.AuthEvents {
+		cost += len(v.EventID) + cap(v.EventSHA256)
+	}
+	return cost
+}
+
+func (e eventFormatV2Fields) CacheCost() int {
+	cost := e.eventFields.CacheCost() +
+		int(unsafe.Sizeof(e))
+	for _, v := range e.PrevEvents {
+		cost += len(v)
+	}
+	for _, v := range e.AuthEvents {
+		cost += len(v)
+	}
+	return cost
 }
 
 var emptyEventReferenceList = []EventReference{}
@@ -1130,24 +1184,24 @@ func SplitID(sigil byte, id string) (local string, domain ServerName, err error)
 // fixNilSlices corrects cases where nil slices end up with "null" in the
 // marshalled JSON because Go stupidly doesn't care about the type in this
 // situation.
-func (f *eventFormatV1Fields) fixNilSlices() {
-	if f.AuthEvents == nil {
-		f.AuthEvents = []EventReference{}
+func (e *eventFormatV1Fields) fixNilSlices() {
+	if e.AuthEvents == nil {
+		e.AuthEvents = []EventReference{}
 	}
-	if f.PrevEvents == nil {
-		f.PrevEvents = []EventReference{}
+	if e.PrevEvents == nil {
+		e.PrevEvents = []EventReference{}
 	}
 }
 
 // fixNilSlices corrects cases where nil slices end up with "null" in the
 // marshalled JSON because Go stupidly doesn't care about the type in this
 // situation.
-func (f *eventFormatV2Fields) fixNilSlices() {
-	if f.AuthEvents == nil {
-		f.AuthEvents = []string{}
+func (e *eventFormatV2Fields) fixNilSlices() {
+	if e.AuthEvents == nil {
+		e.AuthEvents = []string{}
 	}
-	if f.PrevEvents == nil {
-		f.PrevEvents = []string{}
+	if e.PrevEvents == nil {
+		e.PrevEvents = []string{}
 	}
 }
 

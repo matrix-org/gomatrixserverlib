@@ -1,6 +1,8 @@
 package gomatrixserverlib
 
 import (
+	"unsafe"
+
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -12,6 +14,12 @@ type HeaderedEvent struct {
 	RoomVersion RoomVersion       `json:"-"`
 	Visibility  HistoryVisibility `json:"-"`
 	*Event
+}
+
+func (e *HeaderedEvent) CacheCost() int {
+	return int(unsafe.Sizeof(*e)) +
+		len(e.RoomVersion) +
+		e.Event.CacheCost()
 }
 
 // Unwrap extracts the event object from the headered event.

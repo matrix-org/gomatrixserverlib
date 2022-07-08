@@ -13,6 +13,8 @@
 
 package gomatrixserverlib
 
+import "unsafe"
+
 // EDU represents a EDU received via federation
 // https://matrix.org/docs/spec/server_server/unstable.html#edus
 type EDU struct {
@@ -20,4 +22,12 @@ type EDU struct {
 	Origin      string  `json:"origin"`
 	Destination string  `json:"destination,omitempty"`
 	Content     RawJSON `json:"content,omitempty"`
+}
+
+func (e *EDU) CacheCost() int {
+	return int(unsafe.Sizeof(*e)) +
+		len(e.Type) +
+		len(e.Origin) +
+		len(e.Destination) +
+		cap(e.Content)
 }
