@@ -1184,24 +1184,24 @@ func SplitID(sigil byte, id string) (local string, domain ServerName, err error)
 // fixNilSlices corrects cases where nil slices end up with "null" in the
 // marshalled JSON because Go stupidly doesn't care about the type in this
 // situation.
-func (f *eventFormatV1Fields) fixNilSlices() {
-	if f.AuthEvents == nil {
-		f.AuthEvents = []EventReference{}
+func (e *eventFormatV1Fields) fixNilSlices() {
+	if e.AuthEvents == nil {
+		e.AuthEvents = []EventReference{}
 	}
-	if f.PrevEvents == nil {
-		f.PrevEvents = []EventReference{}
+	if e.PrevEvents == nil {
+		e.PrevEvents = []EventReference{}
 	}
 }
 
 // fixNilSlices corrects cases where nil slices end up with "null" in the
 // marshalled JSON because Go stupidly doesn't care about the type in this
 // situation.
-func (f *eventFormatV2Fields) fixNilSlices() {
-	if f.AuthEvents == nil {
-		f.AuthEvents = []string{}
+func (e *eventFormatV2Fields) fixNilSlices() {
+	if e.AuthEvents == nil {
+		e.AuthEvents = []string{}
 	}
-	if f.PrevEvents == nil {
-		f.PrevEvents = []string{}
+	if e.PrevEvents == nil {
+		e.PrevEvents = []string{}
 	}
 }
 
