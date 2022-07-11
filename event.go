@@ -540,6 +540,7 @@ func (e *Event) Redact() {
 	if err = e.populateFieldsFromJSON(e.EventID(), eventJSON); err != nil {
 		panic(fmt.Errorf("gomatrixserverlib: populateFieldsFromJSON failed %v", err))
 	}
+	e.redacted = true
 }
 
 // SetUnsigned sets the unsigned key of the event.
