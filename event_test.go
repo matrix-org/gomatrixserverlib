@@ -83,7 +83,7 @@ func TestRedact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	event = event.Redact()
+	event.Redact()
 	if !reflect.DeepEqual([]byte(`{}`), event.Content()) {
 		t.Fatalf("content not redacted: %s", string(event.Content()))
 	}
@@ -94,7 +94,7 @@ func TestRedact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	event = event.Redact()
+	event.Redact()
 	if !reflect.DeepEqual([]byte(`{}`), event.Content()) {
 		t.Fatalf("content not redacted: %s", string(event.Content()))
 	}
