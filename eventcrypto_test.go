@@ -41,7 +41,7 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyOK := func(input string) {
-		redactedInput, err := redactEvent([]byte(input), RoomVersionV1)
+		redactedInput, err := RedactEventJSON([]byte(input), RoomVersionV1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyNotOK := func(reason, input string) {
-		redactedInput, err := redactEvent([]byte(input), RoomVersionV1)
+		redactedInput, err := RedactEventJSON([]byte(input), RoomVersionV1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -390,7 +390,7 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 	if len(verifier.requests) != 2 {
 		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
 	}
-	wantContent, err := redactEvent(eventJSON, RoomVersionV1)
+	wantContent, err := RedactEventJSON(eventJSON, RoomVersionV1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +451,7 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 	if len(verifier.requests) != 2 {
 		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
 	}
-	wantContent, err := redactEvent(eventJSON, RoomVersionV1)
+	wantContent, err := RedactEventJSON(eventJSON, RoomVersionV1)
 	if err != nil {
 		t.Fatal(err)
 	}

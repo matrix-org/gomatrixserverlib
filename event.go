@@ -402,7 +402,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		// If the content hash doesn't match then we have to discard all non-essential fields
 		// because they've been tampered with.
 		var redactedJSON []byte
-		if redactedJSON, err = redactEvent(eventJSON, roomVersion); err != nil {
+		if redactedJSON, err = RedactEventJSON(eventJSON, roomVersion); err != nil {
 			return
 		}
 
@@ -523,12 +523,12 @@ func (e *Event) Version() RoomVersion { return e.roomVersion }
 // JSON returns the JSON bytes for the event.
 func (e *Event) JSON() []byte { return e.eventJSON }
 
-// Redact returns a redacted copy of the event.
-func (e *Event) Redact() *Event {
+// Redact redacts the event.
+func (e *Event) Redact() {
 	if e.redacted {
-		return e
+		return
 	}
-	eventJSON, err := redactEvent(e.eventJSON, e.roomVersion)
+	eventJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
@@ -537,16 +537,10 @@ func (e *Event) Redact() *Event {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
-	result := Event{
-		redacted:    true,
-		roomVersion: e.roomVersion,
-		eventJSON:   eventJSON,
-	}
-	err = result.populateFieldsFromJSON(e.EventID(), eventJSON)
-	if err != nil {
+	if err = e.populateFieldsFromJSON(e.EventID(), eventJSON); err != nil {
 		panic(fmt.Errorf("gomatrixserverlib: populateFieldsFromJSON failed %v", err))
 	}
-	return &result
+	e.redacted = true
 }
 
 // SetUnsigned sets the unsigned key of the event.

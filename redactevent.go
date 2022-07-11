@@ -50,9 +50,9 @@ func (r *RawJSON) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// redactEvent strips the user controlled fields from an event, but leaves the
+// RedactEventJSON strips the user controlled fields from an event, but leaves the
 // fields necessary for authenticating the event.
-func redactEvent(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
+func RedactEventJSON(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 
 	// createContent keeps the fields needed in a m.room.create event.
 	// Create events need to keep the creator.
