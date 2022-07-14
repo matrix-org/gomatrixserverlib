@@ -174,3 +174,185 @@ func TestHistoryVisibility_Scan(t *testing.T) {
 		})
 	}
 }
+
+func TestIsValidUserID(t *testing.T) {
+	tests := []struct {
+		name   string
+		userID string
+		want   bool
+	}{
+		{
+			name:   "invalid sigil",
+			userID: "&alice:matrix",
+			want:   false,
+		},
+		{
+			name:   "missing domain",
+			userID: "@alice",
+			want:   false,
+		},
+		{
+			name:   "empty localpart",
+			userID: "@:matrix",
+			want:   false,
+		},
+		{
+			name:   "empty domain",
+			userID: "@alice:",
+			want:   false,
+		},
+		{
+			name:   "localpart with whitespace",
+			userID: "@ali ce:matrix.org",
+			want:   false,
+		},
+		{
+			name:   "domain with whitespace",
+			userID: "@alice:matrix org",
+			want:   false,
+		},
+		{
+			name:   "valid",
+			userID: "@alice:matrix.org",
+			want:   true,
+		},
+		{
+			name:   "localpart with expanded char set",
+			userID: "@alice*(}:matrix.org",
+			want:   true,
+		},
+		{
+			name:   "domain with port",
+			userID: "@alice:matrix.org:8080",
+			want:   true,
+		},
+		{
+			name:   "domain IPV4",
+			userID: "@alice:1.2.3.4",
+			want:   true,
+		},
+		{
+			name:   "domain IPV4 with port",
+			userID: "@alice:1.2.3.4:8080",
+			want:   true,
+		},
+		{
+			name:   "IPV6 domain",
+			userID: "@alice:[1234:5678::abcd]",
+			want:   true,
+		},
+		{
+			name:   "IPV6 domain without square brackets",
+			userID: "@alice:1234:5678::abcd",
+			want:   false,
+		},
+		{
+			name:   "IPV6 domain with partial square brackets",
+			userID: "@alice:[1234:5678::abcd",
+			want:   false,
+		},
+		{
+			name:   "IPV6 domain with port",
+			userID: "@alice:[1234:5678::abcd]:5678",
+			want:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidUserID(tt.userID); got != tt.want {
+				t.Errorf("IsvalidUserId(%v) = %v, want %v", tt.userID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsValidRoomID(t *testing.T) {
+	tests := []struct {
+		name   string
+		roomID string
+		want   bool
+	}{
+		{
+			name:   "invalid sigil",
+			roomID: "*room:matrix",
+			want:   false,
+		},
+		{
+			name:   "missing domain",
+			roomID: "!room",
+			want:   false,
+		},
+		{
+			name:   "empty localpart",
+			roomID: "!:matrix",
+			want:   false,
+		},
+		{
+			name:   "empty domain",
+			roomID: "!room:",
+			want:   false,
+		},
+		{
+			name:   "localpart with whitespace",
+			roomID: "!roo m:matrix.org",
+			want:   false,
+		},
+		{
+			name:   "domain with whitespace",
+			roomID: "!room:matrix org",
+			want:   false,
+		},
+		{
+			name:   "valid",
+			roomID: "!room:matrix.org",
+			want:   true,
+		},
+		{
+			name:   "localpart with expanded char set",
+			roomID: "!room*(}:matrix.org",
+			want:   true,
+		},
+		{
+			name:   "domain with port",
+			roomID: "!room:matrix.org:8080",
+			want:   true,
+		},
+		{
+			name:   "domain IPV4",
+			roomID: "!room:1.2.3.4",
+			want:   true,
+		},
+		{
+			name:   "domain IPV4 with port",
+			roomID: "!room:1.2.3.4:8080",
+			want:   true,
+		},
+		{
+			name:   "IPV6 domain",
+			roomID: "!room:[1234:5678::abcd]",
+			want:   true,
+		},
+		{
+			name:   "IPV6 domain without brackets",
+			roomID: "!room:1234:5678::abcd",
+			want:   false,
+		},
+		{
+			name:   "IPV6 domain with partial square brackets",
+			roomID: "!room:[1234:5678::abcd",
+			want:   false,
+		},
+		{
+			name:   "IPV6 domain with port",
+			roomID: "!room:[1234:5678::abcd]:5678",
+			want:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidRoomID(tt.roomID); got != tt.want {
+				t.Errorf("IsvalidUserId(%v) = %v, want %v", tt.roomID, got, tt.want)
+			}
+		})
+	}
+}
