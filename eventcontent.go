@@ -16,7 +16,9 @@
 package gomatrixserverlib
 
 import (
+	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -222,17 +224,37 @@ const (
 	HistoryVisibilityJoined        HistoryVisibility = "joined"
 )
 
-// Value returns the history visibility. If an unknown value is set then
-// it will return "shared".
-func (h HistoryVisibility) Value() HistoryVisibility {
-	switch h {
-	case HistoryVisibilityWorldReadable, HistoryVisibilityShared:
-		return h
-	case HistoryVisibilityInvited, HistoryVisibilityJoined:
-		return h
+// Scan implements sql.Scanner
+func (h *HistoryVisibility) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case int64:
+		s, ok := hisVisIntToStringMapping[uint8(v)]
+		if !ok { // history visibility is unknown, default to shared
+			*h = HistoryVisibilityShared
+			return nil
+		}
+		*h = s
+		return nil
+	case float64:
+		s, ok := hisVisIntToStringMapping[uint8(v)]
+		if !ok { // history visibility is unknown, default to shared
+			*h = HistoryVisibilityShared
+			return nil
+		}
+		*h = s
+		return nil
 	default:
-		return HistoryVisibilityShared
+		return fmt.Errorf("unknown source type: %T for HistoryVisibilty", src)
 	}
+}
+
+// Value implements sql.Valuer
+func (h HistoryVisibility) Value() (driver.Value, error) {
+	v, ok := hisVisStringToIntMapping[h]
+	if !ok {
+		return int64(hisVisStringToIntMapping[HistoryVisibilityShared]), nil
+	}
+	return int64(v), nil
 }
 
 var hisVisStringToIntMapping = map[HistoryVisibility]uint8{
@@ -247,21 +269,6 @@ var hisVisIntToStringMapping = map[uint8]HistoryVisibility{
 	2: HistoryVisibilityShared,
 	3: HistoryVisibilityInvited,
 	4: HistoryVisibilityJoined,
-}
-
-// NumericValue returns the numeric value of the HistoryVisibility.
-func (h HistoryVisibility) NumericValue() uint8 {
-	return hisVisStringToIntMapping[h.Value()]
-}
-
-// HistoryVisibilityFromInt gets the HistoryVisibility given an uint8.
-// If there is no match, it returns "shared".
-func HistoryVisibilityFromInt(n uint8) HistoryVisibility {
-	vis, ok := hisVisIntToStringMapping[n]
-	if !ok {
-		return HistoryVisibilityShared
-	}
-	return vis
 }
 
 // JoinRuleContent is the JSON content of a m.room.join_rules event needed for auth checks.
