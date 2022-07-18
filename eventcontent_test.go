@@ -99,7 +99,7 @@ func TestHistoryVisibility_Value(t *testing.T) {
 	tests := []struct {
 		name    string
 		h       HistoryVisibility
-		want    uint8
+		want    int64
 		wantErr bool
 	}{
 		{
