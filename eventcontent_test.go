@@ -17,6 +17,7 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -94,59 +95,82 @@ func TestStrictPowerLevelContent(t *testing.T) {
 	}
 }
 
-func TestHistoryVisibilityFromInt(t *testing.T) {
+func TestHistoryVisibility_Value(t *testing.T) {
 	tests := []struct {
-		name string
-		args uint8
-		want HistoryVisibility
+		name    string
+		h       HistoryVisibility
+		want    uint8
+		wantErr bool
 	}{
 		{
-			name: "unknown value returns shared visibility",
-			args: 100,
-			want: HistoryVisibilityShared,
+			name: "unknown value defaults to shared visibility",
+			h:    "doesNotExist",
+			want: 2,
 		},
 		{
 			name: "known value returns correct visibility",
-			args: 1,
-			want: HistoryVisibilityWorldReadable,
+			h:    HistoryVisibilityJoined,
+			want: 4,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := HistoryVisibilityFromInt(tt.args); got != tt.want {
-				t.Errorf("HistoryVisibilityFromInt() = %v, want %v", got, tt.want)
+			got, err := tt.h.Value()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Value() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Value() got = %v (%T), want %v (%T)", got, got, tt.want, tt.want)
 			}
 		})
 	}
 }
 
-func TestHistoryVisibility_NumericValue(t *testing.T) {
+func TestHistoryVisibility_Scan(t *testing.T) {
 	tests := []struct {
-		name string
-		h    HistoryVisibility
-		want uint8
+		name           string
+		h              HistoryVisibility
+		src            interface{}
+		wantErr        bool
+		wantVisibility HistoryVisibility
 	}{
 		{
-			name: "unknown history visibility defaults to shared",
-			h:    HistoryVisibility("doesNotExist"),
-			want: 2,
+			name:    "unknown input type defaults to shared visibility",
+			src:     "doesNotExist",
+			wantErr: true,
 		},
 		{
-			name: "history visibility returns correct value",
-			h:    HistoryVisibilityJoined,
-			want: 4,
+			name:           "unknown int64 value defaults to shared visibility",
+			src:            int64(-1),
+			wantVisibility: HistoryVisibilityShared,
 		},
 		{
-			name: "history visibility returns correct value 2",
-			h:    HistoryVisibilityShared,
-			want: 2,
+			name:           "unknown float64 value defaults to shared visibility",
+			src:            float64(-1),
+			wantVisibility: HistoryVisibilityShared,
+		},
+		{
+			name:           "known int64 value returns correct visibility",
+			src:            int64(1),
+			wantVisibility: HistoryVisibilityWorldReadable,
+		},
+		{
+			name:           "known float64 value returns correct visibility",
+			src:            float64(1),
+			wantVisibility: HistoryVisibilityWorldReadable,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.h.NumericValue(); got != tt.want {
-				t.Errorf("NumericValue() = %v, want %v", got, tt.want)
+			err := tt.h.Scan(tt.src)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Scan() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			if !tt.wantErr && tt.h != tt.wantVisibility {
+				t.Errorf("Scan() want = %v, got %v", tt.wantVisibility, tt.h)
+			}
+
 		})
 	}
 }
