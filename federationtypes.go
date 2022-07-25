@@ -796,6 +796,5 @@ type MSC2946StrippedEvent struct {
 	StateKey       string          `json:"state_key"`
 	Content        json.RawMessage `json:"content"`
 	Sender         string          `json:"sender"`
-	RoomID         string          `json:"room_id"`
 	OriginServerTS Timestamp       `json:"origin_server_ts"`
 }
