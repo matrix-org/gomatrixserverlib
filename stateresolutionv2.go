@@ -231,7 +231,7 @@ func ReverseTopologicalOrdering(input []*Event, order TopologicalOrder) []*Event
 func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order TopologicalOrder) []*HeaderedEvent {
 	r := stateResolverV2{}
 	input := make([]*Event, len(events))
-	hisVis := make(map[string]HistoryVisibility)
+	hisVis := make(map[string]HistoryVisibility, len(events))
 	for i := range events {
 		unwrapped := events[i].Unwrap()
 		input[i] = unwrapped
