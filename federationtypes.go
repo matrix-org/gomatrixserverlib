@@ -448,6 +448,12 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	return json.Marshal(partialJoinFields)
 }
 
+// A RespSendKnock is the content of a response to PUT /_matrix/federation/v2/send_knock/{roomID}/{eventID}
+type RespSendKnock struct {
+	// A list of stripped state events to help the initiator of the knock identify the room.
+	KnockRoomState EventJSONs `json:"knock_room_state"`
+}
+
 // ToRespState returns a new RespState with the same data from the given RespPeek
 func (r RespPeek) ToRespState() RespState {
 	if len(r.StateEvents) == 0 {

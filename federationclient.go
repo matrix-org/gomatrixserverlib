@@ -153,6 +153,37 @@ func (ac *FederationClient) sendJoin(
 	return
 }
 
+// SendKnock sends a join m.room.member event obtained using MakeKnock via a
+// remote matrix server.
+// This is used to ask to join a room the local server isn't a member of.
+// See https://spec.matrix.org/v1.3/server-server-api/#knocking-upon-a-room
+func (ac *FederationClient) SendKnock(
+	ctx context.Context, s ServerName, event *Event,
+) (res RespSendKnock, err error) {
+	path := federationPathPrefixV2 + "/send_knock/" +
+		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.EventID())
+
+	req := NewFederationRequest("PUT", s, path)
+	if err = req.SetContent(event); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	gerr, ok := err.(gomatrix.HTTPError)
+	if ok && gerr.Code == 404 {
+		// fallback to v1
+		v1path := federationPathPrefixV1 + "/send_knock/" +
+			url.PathEscape(event.RoomID()) + "/" +
+			url.PathEscape(event.EventID())
+		v1req := NewFederationRequest("PUT", s, v1path)
+		if err = v1req.SetContent(event); err != nil {
+			return
+		}
+		err = ac.doRequest(ctx, v1req, &res)
+	}
+	return
+}
+
 // MakeLeave makes a leave m.room.member event for a room on a remote matrix server.
 // This is used to reject a remote invite and is similar to MakeJoin.
 // If this successfully returns an acceptable event we will sign it, replace
