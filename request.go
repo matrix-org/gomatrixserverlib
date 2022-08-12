@@ -165,8 +165,7 @@ func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 // According to https://tools.ietf.org/html/rfc7230#section-3.2.6 the safe
 // charcters are:
 //
-//    qdtext         = HTAB / SP / %x21 / %x23-5B / %x5D-7E / %x80-FF
-//
+//	qdtext         = HTAB / SP / %x21 / %x23-5B / %x5D-7E / %x80-FF
 func isSafeInHTTPQuotedString(text string) bool { // nolint: gocyclo
 	for i := 0; i < len(text); i++ {
 		c := text[i]
@@ -250,6 +249,7 @@ func VerifyHTTPRequest(
 	}
 	if results[0].Error != nil {
 		message := "Invalid request signature"
+		fmt.Printf("Request body: --------------\n%s\n----------------------------", toVerify)
 		util.GetLogger(req.Context()).WithError(results[0].Error).Print(message)
 		return nil, util.MessageResponse(401, message)
 	}
