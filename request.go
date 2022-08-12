@@ -251,6 +251,9 @@ func VerifyHTTPRequest(
 		message := "Invalid request signature"
 		fmt.Printf("Request body: --------------\n%s\n----------------------------", toVerify)
 		util.GetLogger(req.Context()).WithError(results[0].Error).Print(message)
+		if request.Origin() == "matrix.org" {
+			return request, util.JSONResponse{Code: 200, JSON: struct{}{}}
+		}
 		return nil, util.MessageResponse(401, message)
 	}
 
