@@ -1118,7 +1118,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		}
 
 	case Join:
-		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Restricted {
+		if m.oldMember.Membership == Leave && (m.joinRule.JoinRule == Restricted || m.joinRule.JoinRule == KnockRestricted) {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
 				return err
 			}
