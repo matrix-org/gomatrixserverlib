@@ -1137,3 +1137,62 @@ func newMemberContent(
 		ThirdPartyInvite: thirdPartyInvite,
 	}
 }
+
+var negativePowerLevelTestRoom = &testAuthEvents{
+	CreateJSON: json.RawMessage(`{
+		"type": "m.room.create",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e1:a",
+		"content": {
+			"room_version": "10"
+		}
+	}`),
+	PowerLevelsJSON: json.RawMessage(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e3:a",
+		"content": {
+			"events_default": -9007199254740990,
+			"state_default": -9007199254740990,
+			"users_default": -9007199254740990,
+			"users": {
+			}
+		}
+	}`),
+	MemberJSON: map[string]json.RawMessage{
+		"@u1:a": json.RawMessage(`{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"content": {
+				"membership": "join"
+			}
+		}`),
+	},
+}
+
+func TestNegativePowerLevels(t *testing.T) {
+	// User should be able to demote the user default level
+	// below their own effective level.
+	eventShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
+		"type": "m.room.message",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"stuff": "i am a message event"
+		}
+	}`), false, RoomVersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = Allowed(eventShouldSucceed, negativePowerLevelTestRoom); err != nil {
+		t.Error("TestNegativePowerLevels should have succeeded but it didn't:", err)
+	}
+}

@@ -431,7 +431,7 @@ func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error
 			UsersDefaultLevel  levelJSONValue            `json:"users_default"`
 			EventLevels        map[string]levelJSONValue `json:"events"`
 			StateDefaultLevel  levelJSONValue            `json:"state_default"`
-			EventDefaultLevel  levelJSONValue            `json:"event_default"`
+			EventDefaultLevel  levelJSONValue            `json:"events_default"`
 			NotificationLevels map[string]levelJSONValue `json:"notifications"`
 		}
 		if err = json.Unmarshal(event.Content(), &content); err != nil {
