@@ -74,7 +74,7 @@ func (ac *FederationClient) SendTransaction(
 func makeVersionQueryString(roomVersions []RoomVersion) string {
 	versionQueryString := ""
 	if len(roomVersions) > 0 {
-		var vqs []string
+		vqs := make([]string, 0, len(roomVersions))
 		for _, v := range roomVersions {
 			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
 		}
