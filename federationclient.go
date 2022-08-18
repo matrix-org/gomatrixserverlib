@@ -68,6 +68,21 @@ func (ac *FederationClient) SendTransaction(
 	return
 }
 
+// Creates a version query string with all the specified room versions, typically
+// the list of all supported room versions.
+// Needed when making a /make_knock or /make_join request.
+func makeVersionQueryString(roomVersions []RoomVersion) string {
+	versionQueryString := ""
+	if len(roomVersions) > 0 {
+		vqs := make([]string, 0, len(roomVersions))
+		for _, v := range roomVersions {
+			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
+		}
+		versionQueryString = "?" + strings.Join(vqs, "&")
+	}
+	return versionQueryString
+}
+
 // MakeJoin makes a join m.room.member event for a room on a remote matrix server.
 // This is used to join a room the local server isn't a member of.
 // We need to query a remote server because if we aren't in the room we don't
@@ -81,14 +96,7 @@ func (ac *FederationClient) MakeJoin(
 	ctx context.Context, s ServerName, roomID, userID string,
 	roomVersions []RoomVersion,
 ) (res RespMakeJoin, err error) {
-	versionQueryString := ""
-	if len(roomVersions) > 0 {
-		var vqs []string
-		for _, v := range roomVersions {
-			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
-		}
-		versionQueryString = "?" + strings.Join(vqs, "&")
-	}
+	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
@@ -150,6 +158,27 @@ func (ac *FederationClient) sendJoin(
 			err = json.Unmarshal(v1Res[1], &res)
 		}
 	}
+	return
+}
+
+// MakeKnock makes a join m.room.member event for a room on a remote matrix server.
+// This is used to knock upon a room the local server isn't a member of.
+// We need to query a remote server because if we aren't in the room we don't
+// know what to use for the `prev_events` and `auth_events` in the knock event.
+// The remote server should return us a populated m.room.member event for our local user.
+// If this successfully returns an acceptable event we will sign it with our
+// server's key and pass it to SendKnock.
+// See https://spec.matrix.org/v1.3/server-server-api/#knocking-upon-a-room
+func (ac *FederationClient) MakeKnock(
+	ctx context.Context, s ServerName, roomID, userID string,
+	roomVersions []RoomVersion,
+) (res RespMakeKnock, err error) {
+	versionQueryString := makeVersionQueryString(roomVersions)
+	path := federationPathPrefixV1 + "/make_knock/" +
+		url.PathEscape(roomID) + "/" +
+		url.PathEscape(userID) + versionQueryString
+	req := NewFederationRequest("GET", s, path)
+	err = ac.doRequest(ctx, req, &res)
 	return
 }
 
