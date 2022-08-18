@@ -68,6 +68,21 @@ func (ac *FederationClient) SendTransaction(
 	return
 }
 
+// Creates a version query string with all the specified room versions, typically
+// the list of all supported room versions.
+// Needed when making a /make_knock or /make_join request.
+func makeVersionQueryString(roomVersions []RoomVersion) string {
+	versionQueryString := ""
+	if len(roomVersions) > 0 {
+		var vqs []string
+		for _, v := range roomVersions {
+			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
+		}
+		versionQueryString = "?" + strings.Join(vqs, "&")
+	}
+	return versionQueryString
+}
+
 // MakeJoin makes a join m.room.member event for a room on a remote matrix server.
 // This is used to join a room the local server isn't a member of.
 // We need to query a remote server because if we aren't in the room we don't
@@ -81,14 +96,7 @@ func (ac *FederationClient) MakeJoin(
 	ctx context.Context, s ServerName, roomID, userID string,
 	roomVersions []RoomVersion,
 ) (res RespMakeJoin, err error) {
-	versionQueryString := ""
-	if len(roomVersions) > 0 {
-		var vqs []string
-		for _, v := range roomVersions {
-			vqs = append(vqs, fmt.Sprintf("ver=%s", url.QueryEscape(string(v))))
-		}
-		versionQueryString = "?" + strings.Join(vqs, "&")
-	}
+	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
