@@ -189,7 +189,7 @@ func (ac *FederationClient) MakeKnock(
 func (ac *FederationClient) SendKnock(
 	ctx context.Context, s ServerName, event *Event,
 ) (res RespSendKnock, err error) {
-	path := federationPathPrefixV2 + "/send_knock/" +
+	path := federationPathPrefixV1 + "/send_knock/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
 
@@ -198,18 +198,6 @@ func (ac *FederationClient) SendKnock(
 		return
 	}
 	err = ac.doRequest(ctx, req, &res)
-	gerr, ok := err.(gomatrix.HTTPError)
-	if ok && gerr.Code == 404 {
-		// fallback to v1
-		v1path := federationPathPrefixV1 + "/send_knock/" +
-			url.PathEscape(event.RoomID()) + "/" +
-			url.PathEscape(event.EventID())
-		v1req := NewFederationRequest("PUT", s, v1path)
-		if err = v1req.SetContent(event); err != nil {
-			return
-		}
-		err = ac.doRequest(ctx, v1req, &res)
-	}
 	return
 }
 
