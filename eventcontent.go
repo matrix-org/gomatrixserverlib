@@ -19,9 +19,32 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var userIDRegexp *regexp.Regexp
+var roomIDRegexp *regexp.Regexp
+
+func init() {
+	// https://spec.matrix.org/v1.3/appendices/#server-name
+	IPV4AddressExpr := `\d{1,3}\.\d{1,3}.\d{1,3}.\d{1,3}`
+	IPV6AddressExpr := `\[[\d\x41-\x46\x61-\x66\:\.]{2,45}\]`
+	dnsNameExpr := `[\w\-\.]{1,255}`
+	portExpr := `\:\d{1,5}`
+	servernameExpr := fmt.Sprintf(`(%s|%s|%s)(%s)?`, IPV4AddressExpr, IPV6AddressExpr, dnsNameExpr, portExpr)
+
+	// Regexp from https://spec.matrix.org/v1.3/appendices/#user-identifiers
+	// and https://spec.matrix.org/v1.3/appendices/#historical-user-ids
+	localpartExpr := `[\x21-\x39\x3B-\x7E]+`
+
+	userIDExpr := fmt.Sprint(`^@`, localpartExpr, `\:`, servernameExpr, `$`)
+	userIDRegexp = regexp.MustCompile(userIDExpr)
+
+	roomIDExpr := fmt.Sprint(`^!`, localpartExpr, `\:`, servernameExpr, `$`)
+	roomIDRegexp = regexp.MustCompile(roomIDExpr)
+}
 
 // CreateContent is the JSON content of a m.room.create event along with
 // the top level keys needed for auth.
@@ -519,6 +542,10 @@ func (v *levelJSONValue) assignIfExists(to *int64) {
 
 // Check if the user ID is a valid user ID.
 func isValidUserID(userID string) bool {
-	// TODO: Do we want to add anymore checks beyond checking the sigil and that it has a domain part?
-	return userID[0] == '@' && strings.IndexByte(userID, ':') != -1
+	return userIDRegexp.MatchString(userID)
+}
+
+// Check if the room ID is a valid room ID.
+func isValidRoomID(roomID string) bool {
+	return roomIDRegexp.MatchString(roomID)
 }
