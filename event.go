@@ -721,29 +721,30 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		panic(e.invalidFieldType())
 	}
 
-	if len(e.eventJSON) > maxEventLength {
+	if l := len(e.eventJSON); l > maxEventLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,
-			Message: fmt.Sprintf("gomatrixserverlib: event is too long, length %d > maximum %d", len(e.eventJSON), maxEventLength),
+			Message: fmt.Sprintf("gomatrixserverlib: event is too long, length %d bytes > maximum %d bytes", l, maxEventLength),
 		}
 	}
 
-	if len(fields.Type) > maxIDLength {
+	if l := len([]rune(fields.Type)); l > maxIDLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,
-			Message: fmt.Sprintf("gomatrixserverlib: event type is too long, length %d > maximum %d", len(fields.Type), maxIDLength),
+			Message: fmt.Sprintf("gomatrixserverlib: event type is too long, length %d codepoints > maximum %d codepoints", l, maxIDLength),
 		}
 	}
 
-	if fields.StateKey != nil && len(*fields.StateKey) > maxIDLength {
-		return EventValidationError{
-			Code:    EventValidationTooLarge,
-			Message: fmt.Sprintf("gomatrixserverlib: state key is too long, length %d > maximum %d", len(*fields.StateKey), maxIDLength),
+	if fields.StateKey != nil {
+		if l := len([]rune(*fields.StateKey)); l > maxIDLength {
+			return EventValidationError{
+				Code:    EventValidationTooLarge,
+				Message: fmt.Sprintf("gomatrixserverlib: state key is too long, length %d codepoints > maximum %d codepoints", l, maxIDLength),
+			}
 		}
 	}
 
-	_, err := checkID(fields.RoomID, "room", '!')
-	if err != nil {
+	if _, err := checkID(fields.RoomID, "room", '!'); err != nil {
 		return err
 	}
 
@@ -793,11 +794,11 @@ func checkID(id, kind string, sigil byte) (domain string, err error) {
 		)
 		return
 	}
-	if len(id) > maxIDLength {
-		err = fmt.Errorf(
-			"gomatrixserverlib: %s ID is too long, length %d > maximum %d",
-			kind, len(id), maxIDLength,
-		)
+	if l := len([]rune(id)); l > maxIDLength {
+		err = EventValidationError{
+			Code:    EventValidationTooLarge,
+			Message: fmt.Sprintf("gomatrixserverlib: %s ID is too long, length %d codepoints > maximum %d codepoints", kind, l, maxIDLength),
+		}
 		return
 	}
 	return
