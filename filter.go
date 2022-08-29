@@ -16,7 +16,6 @@ package gomatrixserverlib
 
 import (
 	"errors"
-	"math"
 )
 
 // Filter is used by clients to specify how the server should filter responses to e.g. sync requests
@@ -121,7 +120,7 @@ func DefaultEventFilter() EventFilter {
 // is provided in the request
 func DefaultStateFilter() StateFilter {
 	return StateFilter{
-		Limit:                   math.MaxInt32,
+		Limit:                   20,
 		NotSenders:              nil,
 		NotTypes:                nil,
 		Senders:                 nil,
