@@ -98,8 +98,8 @@ func (ac *FederationClient) MakeJoin(
 ) (res RespMakeJoin, err error) {
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
-		url.PathEscape(roomID) + "/" +
-		url.PathEscape(userID) + versionQueryString
+		url.QueryEscape(roomID) + "/" +
+		url.QueryEscape(userID) + versionQueryString
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
@@ -131,8 +131,8 @@ func (ac *FederationClient) sendJoin(
 	ctx context.Context, s ServerName, event *Event, partialState bool,
 ) (res RespSendJoin, err error) {
 	path := federationPathPrefixV2 + "/send_join/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.RoomID()) + "/" +
+		url.QueryEscape(event.EventID())
 	if partialState {
 		path += "?org.matrix.msc3706.partial_state=true"
 	}
@@ -146,8 +146,8 @@ func (ac *FederationClient) sendJoin(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_join/" +
-			url.PathEscape(event.RoomID()) + "/" +
-			url.PathEscape(event.EventID())
+			url.QueryEscape(event.RoomID()) + "/" +
+			url.QueryEscape(event.EventID())
 		v1req := NewFederationRequest("PUT", s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
@@ -210,8 +210,8 @@ func (ac *FederationClient) MakeLeave(
 	ctx context.Context, s ServerName, roomID, userID string,
 ) (res RespMakeLeave, err error) {
 	path := federationPathPrefixV1 + "/make_leave/" +
-		url.PathEscape(roomID) + "/" +
-		url.PathEscape(userID)
+		url.QueryEscape(roomID) + "/" +
+		url.QueryEscape(userID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
@@ -225,8 +225,8 @@ func (ac *FederationClient) SendLeave(
 	ctx context.Context, s ServerName, event *Event,
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.RoomID()) + "/" +
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(event); err != nil {
 		return
@@ -237,8 +237,8 @@ func (ac *FederationClient) SendLeave(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_leave/" +
-			url.PathEscape(event.RoomID()) + "/" +
-			url.PathEscape(event.EventID())
+			url.QueryEscape(event.RoomID()) + "/" +
+			url.QueryEscape(event.EventID())
 		v1req := NewFederationRequest("PUT", s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
@@ -258,8 +258,8 @@ func (ac *FederationClient) SendInvite(
 	ctx context.Context, s ServerName, event *Event,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.RoomID()) + "/" +
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(event); err != nil {
 		return
@@ -275,8 +275,8 @@ func (ac *FederationClient) SendInviteV2(
 ) (res RespInviteV2, err error) {
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.QueryEscape(event.RoomID()) + "/" +
+		url.QueryEscape(event.EventID())
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(request); err != nil {
 		return
@@ -309,7 +309,7 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 	ctx context.Context, s ServerName, builder EventBuilder,
 ) (err error) {
 	path := federationPathPrefixV1 + "/exchange_third_party_invite/" +
-		url.PathEscape(builder.RoomID)
+		url.QueryEscape(builder.RoomID)
 	req := NewFederationRequest("PUT", s, path)
 	if err = req.SetContent(builder); err != nil {
 		return
@@ -325,7 +325,7 @@ func (ac *FederationClient) LookupState(
 	ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 ) (res RespState, err error) {
 	path := federationPathPrefixV1 + "/state/" +
-		url.PathEscape(roomID) +
+		url.QueryEscape(roomID) +
 		"?event_id=" +
 		url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
@@ -339,7 +339,7 @@ func (ac *FederationClient) LookupStateIDs(
 	ctx context.Context, s ServerName, roomID, eventID string,
 ) (res RespStateIDs, err error) {
 	path := federationPathPrefixV1 + "/state_ids/" +
-		url.PathEscape(roomID) +
+		url.QueryEscape(roomID) +
 		"?event_id=" +
 		url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
@@ -355,7 +355,7 @@ func (ac *FederationClient) LookupMissingEvents(
 	missing MissingEvents, roomVersion RoomVersion,
 ) (res RespMissingEvents, err error) {
 	path := federationPathPrefixV1 + "/get_missing_events/" +
-		url.PathEscape(roomID)
+		url.QueryEscape(roomID)
 	req := NewFederationRequest("POST", s, path)
 	if err = req.SetContent(missing); err != nil {
 		return
@@ -378,8 +378,8 @@ func (ac *FederationClient) Peek(
 		versionQueryString = "?" + strings.Join(vqs, "&")
 	}
 	path := federationPathPrefixV1 + "/peek/" +
-		url.PathEscape(roomID) + "/" +
-		url.PathEscape(peekID) + versionQueryString
+		url.QueryEscape(roomID) + "/" +
+		url.QueryEscape(peekID) + versionQueryString
 	req := NewFederationRequest("PUT", s, path)
 	var empty struct{}
 	if err = req.SetContent(empty); err != nil {
@@ -512,7 +512,7 @@ func (ac *FederationClient) QueryKeys(ctx context.Context, s ServerName, keys ma
 func (ac *FederationClient) GetEvent(
 	ctx context.Context, s ServerName, eventID string,
 ) (res Transaction, err error) {
-	path := federationPathPrefixV1 + "/event/" + url.PathEscape(eventID)
+	path := federationPathPrefixV1 + "/event/" + url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
@@ -523,7 +523,7 @@ func (ac *FederationClient) GetEvent(
 func (ac *FederationClient) GetEventAuth(
 	ctx context.Context, s ServerName, roomVersion RoomVersion, roomID, eventID string,
 ) (res RespEventAuth, err error) {
-	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
+	path := federationPathPrefixV1 + "/event_auth/" + url.QueryEscape(roomID) + "/" + url.QueryEscape(eventID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
@@ -534,7 +534,7 @@ func (ac *FederationClient) GetEventAuth(
 func (ac *FederationClient) GetUserDevices(
 	ctx context.Context, s ServerName, userID string,
 ) (res RespUserDevices, err error) {
-	path := federationPathPrefixV1 + "/user/devices/" + url.PathEscape(userID)
+	path := federationPathPrefixV1 + "/user/devices/" + url.QueryEscape(userID)
 	req := NewFederationRequest("GET", s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
@@ -583,7 +583,7 @@ func (ac *FederationClient) MSC2836EventRelationships(
 func (ac *FederationClient) MSC2946Spaces(
 	ctx context.Context, dst ServerName, roomID string, suggestedOnly bool,
 ) (res MSC2946SpacesResponse, err error) {
-	path := "/_matrix/federation/v1/hierarchy/" + url.PathEscape(roomID)
+	path := "/_matrix/federation/v1/hierarchy/" + url.QueryEscape(roomID)
 	if suggestedOnly {
 		path += "?suggested_only=true"
 	}
@@ -593,7 +593,7 @@ func (ac *FederationClient) MSC2946Spaces(
 		gerr, ok := err.(gomatrix.HTTPError)
 		if ok && gerr.Code == 404 {
 			// fallback to unstable endpoint
-			path = "/_matrix/federation/unstable/org.matrix.msc2946/hierarchy/" + url.PathEscape(roomID)
+			path = "/_matrix/federation/unstable/org.matrix.msc2946/hierarchy/" + url.QueryEscape(roomID)
 			if suggestedOnly {
 				path += "?suggested_only=true"
 			}
