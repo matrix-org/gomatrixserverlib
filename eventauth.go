@@ -440,6 +440,13 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 	if len(event.PrevEvents()) > 0 {
 		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
 	}
+	c := map[string]json.RawMessage{}
+	if err := json.Unmarshal(event.Content(), &c); err != nil {
+		return errorf("create event has invalid content: %s", err.Error())
+	}
+	if _, ok := c["creator"]; !ok {
+		return errorf("create event has no creator field")
+	}
 	return nil
 }
 
