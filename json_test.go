@@ -108,11 +108,24 @@ func TestCompactJSON(t *testing.T) {
 	testCompactJSON(t, `["\u0FFF"]`, "[\"\u0FFF\"]")
 	testCompactJSON(t, `["\u1820"]`, "[\"\u1820\"]")
 	testCompactJSON(t, `["\uFFFF"]`, "[\"\uFFFF\"]")
+	testCompactJSON(t, `["\uD842\uDC20"]`, "[\"\U00020820\"]")
+	testCompactJSON(t, `["\uDBFF\uDFFF"]`, "[\"\U0010FFFF\"]")
 
 	testCompactJSON(t, `["\"\\\/"]`, `["\"\\/"]`)
 }
 
-func testReadHex(t *testing.T, input string, want uint32) {
+func TestCompactUnicodeEscapeWithUTF16Surrogate(t *testing.T) {
+	input := []byte(`\ud83d\udc08`)
+	output, n := compactUnicodeEscape(input[2:], nil, 0)
+	if n != 10 {
+		t.Fatalf("should have consumed 10 bytes but consumed only %d bytes", n)
+	}
+	if string(output) != "🐈" {
+		t.Fatalf("expected a cat emoji")
+	}
+}
+
+func testReadHex(t *testing.T, input string, want rune) {
 	got := readHexDigits([]byte(input))
 	if want != got {
 		t.Errorf("readHexDigits(%q): want 0x%x got 0x%x", input, want, got)
