@@ -20,6 +20,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/tidwall/gjson"
@@ -78,8 +79,9 @@ func NewEventJSONsFromEvents(he []*Event) EventJSONs {
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
 // At present this function performs:
-// * shortest encoding, sorted lexicographically by UTF-8 codepoint:
-//   https://matrix.org/docs/spec/appendices#canonical-json
+//   - shortest encoding, sorted lexicographically by UTF-8 codepoint:
+//     https://matrix.org/docs/spec/appendices#canonical-json
+//
 // Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func CanonicalJSON(input []byte) ([]byte, error) {
 	if !gjson.Valid(string(input)) {
@@ -91,10 +93,11 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 
 // Returns a gomatrixserverlib.BadJSONError if the canonical JSON fails enforced
 // checks or if JSON validation fails. At present this function performs:
-// * integer bounds checking for room version 6 and above:
-//   https://matrix.org/docs/spec/rooms/v6#canonical-json
-// * shortest encoding, sorted lexicographically by UTF-8 codepoint:
-//   https://matrix.org/docs/spec/appendices#canonical-json
+//   - integer bounds checking for room version 6 and above:
+//     https://matrix.org/docs/spec/rooms/v6#canonical-json
+//   - shortest encoding, sorted lexicographically by UTF-8 codepoint:
+//     https://matrix.org/docs/spec/appendices#canonical-json
+//
 // Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
 	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
@@ -296,6 +299,11 @@ func CompactJSON(input, output []byte) []byte {
 // compactUnicodeEscape unpacks a 4 byte unicode escape starting at index.
 // Returns the output slice and a new input index.
 func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
+	appendUTF8 := func(c rune) {
+		var buffer [4]byte
+		n := utf8.EncodeRune(buffer[:], c)
+		output = append(output, buffer[:n]...)
+	}
 	const (
 		ESCAPES = "uuuuuuuubtnufruuuuuuuuuuuuuuuuuu"
 		HEX     = "0123456789ABCDEF"
@@ -317,17 +325,26 @@ func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 	} else if c == '\\' || c == '"' {
 		// Otherwise the character only needs escaping if it is a QUOTE '"' or BACKSLASH '\\'.
 		output = append(output, '\\', byte(c))
+	} else if utf16.IsSurrogate(c) {
+		if input[index] != '\\' && input[index+1] != 'u' {
+			return output, index
+		}
+		index += 2 // skip the \u"
+		if len(input)-index < 4 {
+			return output, index
+		}
+		c2 := readHexDigits(input[index : index+4])
+		index += 4
+		appendUTF8(utf16.DecodeRune(c, c2))
 	} else {
-		var buffer [4]byte
-		n := utf8.EncodeRune(buffer[:], rune(c))
-		output = append(output, buffer[:n]...)
+		appendUTF8(c)
 	}
 	return output, index
 }
 
 // Read 4 hex digits from the input slice.
 // Taken from https://github.com/NegativeMjark/indolentjson-rust/blob/8b959791fe2656a88f189c5d60d153be05fe3deb/src/readhex.rs#L21
-func readHexDigits(input []byte) uint32 {
+func readHexDigits(input []byte) rune {
 	hex := binary.BigEndian.Uint32(input)
 	// subtract '0'
 	hex -= 0x30303030
@@ -341,7 +358,7 @@ func readHexDigits(input []byte) uint32 {
 	hex |= hex >> 4
 	hex &= 0xFF00FF
 	hex |= hex >> 8
-	return hex & 0xFFFF
+	return rune(hex & 0xFFFF)
 }
 
 // RawJSONFromResult extracts the raw JSON bytes pointed to by result.
