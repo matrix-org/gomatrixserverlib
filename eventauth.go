@@ -426,6 +426,9 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 	if !event.StateKeyEquals("") {
 		return errorf("create event state key is not empty: %v", event.StateKey())
 	}
+	if len(event.PrevEvents()) > 0 {
+		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
+	}
 	roomIDDomain, err := domainFromID(event.RoomID())
 	if err != nil {
 		return err
@@ -437,15 +440,20 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 	if senderDomain != roomIDDomain {
 		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
 	}
-	if len(event.PrevEvents()) > 0 {
-		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
-	}
-	c := map[string]json.RawMessage{}
+	c := struct {
+		Creator     *string      `json:"creator"`
+		RoomVersion *RoomVersion `json:"room_version"`
+	}{}
 	if err := json.Unmarshal(event.Content(), &c); err != nil {
 		return errorf("create event has invalid content: %s", err.Error())
 	}
-	if _, ok := c["creator"]; !ok {
+	if c.Creator == nil {
 		return errorf("create event has no creator field")
+	}
+	if c.RoomVersion != nil {
+		if _, err := c.RoomVersion.EventFormat(); err != nil {
+			return errorf("create event has unrecognised room version %q", *c.RoomVersion)
+		}
 	}
 	return nil
 }
