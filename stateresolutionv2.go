@@ -42,7 +42,7 @@ type stateResolverV2 struct {
 	resolvedJoinRules         *Event                        // Resolved join rules event
 	resolvedThirdPartyInvites map[string]*Event             // Resolved third party invite events
 	resolvedMembers           map[string]*Event             // Resolved member events
-	resolvedOthers            map[string]*Event             // Resolved other events
+	resolvedOthers            map[StateKeyTuple]*Event      // Resolved other events
 	result                    []*Event                      // Final list of resolved events
 }
 
@@ -88,7 +88,7 @@ func ResolveStateConflictsV2(
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
 		resolvedMembers:           make(map[string]*Event, len(conflicted)),
-		resolvedOthers:            make(map[string]*Event, len(conflicted)),
+		resolvedOthers:            make(map[StateKeyTuple]*Event, len(conflicted)),
 		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
 	}
 	r.allower = newAllowerContext(&r)
@@ -251,19 +251,19 @@ func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order Topologic
 func isControlEvent(e *Event) bool {
 	switch e.Type() {
 	case MRoomPowerLevels:
-		// Power level events are control events.
-		return true
+		// Power level events with an empty state key are control events.
+		return e.StateKeyEquals("")
 	case MRoomJoinRules:
-		// Join rule events are control events.
-		return true
+		// Join rule events with an empty state key are control events.
+		return e.StateKeyEquals("")
 	case MRoomMember:
 		// Membership events must not have an empty state key.
-		if e.StateKey() == nil || *e.StateKey() == "" {
+		if e.StateKey() == nil || e.StateKeyEquals("") {
 			break
 		}
 		// Membership events are only control events if the sender does not match
 		// the state key, i.e. because the event is caused by an admin or moderator.
-		if e.Sender() == *e.StateKey() {
+		if e.StateKeyEquals(e.Sender()) {
 			break
 		}
 		// Membership events are only control events if the "membership" key in the
@@ -408,38 +408,33 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 // applyEvents applies the events on top of the partial state.
 func (r *stateResolverV2) applyEvents(events []*Event) {
 	for _, event := range events {
-		st, sk := event.Type(), event.StateKey()
-		switch st {
-		case MRoomCreate:
-			// Room creation events are only valid with an empty state key.
-			if sk != nil && *sk == "" {
+		if st, sk := event.Type(), event.StateKey(); sk == nil {
+			continue
+		} else if *sk == "" {
+			// Some events with empty state keys are special,
+			// i.e. create events, power level events, join rules.
+			// Otherwise, they go in the "others".
+			switch st {
+			case MRoomCreate:
 				r.resolvedCreate = event
-			}
-		case MRoomPowerLevels:
-			// Power level events are only valid with an empty state key.
-			if sk != nil && *sk == "" {
+			case MRoomPowerLevels:
 				r.resolvedPowerLevels = event
-			}
-		case MRoomJoinRules:
-			// Join rule events are only valid with an empty state key.
-			if sk != nil && *sk == "" {
+			case MRoomJoinRules:
 				r.resolvedJoinRules = event
+			default:
+				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
 			}
-		case MRoomThirdPartyInvite:
-			// Third party invite events are only valid with a non-empty state key.
-			if sk != nil && *sk != "" {
+		} else {
+			// Some events with non-empty state keys are special,
+			// i.e. membership events and 3PID invites. Otherwise,
+			// they go in the "others".
+			switch st {
+			case MRoomThirdPartyInvite:
 				r.resolvedThirdPartyInvites[*sk] = event
-			}
-		case MRoomMember:
-			// Membership events are only valid with a non-empty state key.
-			if sk != nil && *sk != "" {
+			case MRoomMember:
 				r.resolvedMembers[*sk] = event
-			}
-		default:
-			// Doesn't match one of the core state types so store it by type and state
-			// key.
-			if sk != nil {
-				r.resolvedOthers[st+*sk] = event
+			default:
+				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
 			}
 		}
 	}
