@@ -408,38 +408,33 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 // applyEvents applies the events on top of the partial state.
 func (r *stateResolverV2) applyEvents(events []*Event) {
 	for _, event := range events {
-		st, sk := event.Type(), event.StateKey()
-		switch st {
-		case MRoomCreate:
-			// Room creation events are only valid with an empty state key.
-			if sk != nil && *sk == "" {
+		if st, sk := event.Type(), event.StateKey(); sk == nil {
+			continue
+		} else if *sk == "" {
+			// Some events with empty state keys are special,
+			// i.e. create events, power level events, join rules.
+			// Otherwise, they go in the "others".
+			switch st {
+			case MRoomCreate:
 				r.resolvedCreate = event
-			}
-		case MRoomPowerLevels:
-			// Power level events are only valid with an empty state key.
-			if sk != nil && *sk == "" {
+			case MRoomPowerLevels:
 				r.resolvedPowerLevels = event
-			}
-		case MRoomJoinRules:
-			// Join rule events are only valid with an empty state key.
-			if sk != nil && *sk == "" {
+			case MRoomJoinRules:
 				r.resolvedJoinRules = event
+			default:
+				r.resolvedOthers[st+"\000"+*sk] = event
 			}
-		case MRoomThirdPartyInvite:
-			// Third party invite events are only valid with a non-empty state key.
-			if sk != nil && *sk != "" {
+		} else {
+			// Some events with non-empty state keys are special,
+			// i.e. membership events and 3PID invites. Otherwise,
+			// they go in the "others".
+			switch st {
+			case MRoomThirdPartyInvite:
 				r.resolvedThirdPartyInvites[*sk] = event
-			}
-		case MRoomMember:
-			// Membership events are only valid with a non-empty state key.
-			if sk != nil && *sk != "" {
+			case MRoomMember:
 				r.resolvedMembers[*sk] = event
-			}
-		default:
-			// Doesn't match one of the core state types so store it by type and state
-			// key.
-			if sk != nil {
-				r.resolvedOthers[st+*sk] = event
+			default:
+				r.resolvedOthers[st+"\000"+*sk] = event
 			}
 		}
 	}
