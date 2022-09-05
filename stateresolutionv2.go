@@ -42,7 +42,7 @@ type stateResolverV2 struct {
 	resolvedJoinRules         *Event                        // Resolved join rules event
 	resolvedThirdPartyInvites map[string]*Event             // Resolved third party invite events
 	resolvedMembers           map[string]*Event             // Resolved member events
-	resolvedOthers            map[string]*Event             // Resolved other events
+	resolvedOthers            map[StateKeyTuple]*Event      // Resolved other events
 	result                    []*Event                      // Final list of resolved events
 }
 
@@ -88,7 +88,7 @@ func ResolveStateConflictsV2(
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
 		resolvedMembers:           make(map[string]*Event, len(conflicted)),
-		resolvedOthers:            make(map[string]*Event, len(conflicted)),
+		resolvedOthers:            make(map[StateKeyTuple]*Event, len(conflicted)),
 		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
 	}
 	r.allower = newAllowerContext(&r)
@@ -422,7 +422,7 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 			case MRoomJoinRules:
 				r.resolvedJoinRules = event
 			default:
-				r.resolvedOthers[st+"\000"+*sk] = event
+				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
 			}
 		} else {
 			// Some events with non-empty state keys are special,
@@ -434,7 +434,7 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 			case MRoomMember:
 				r.resolvedMembers[*sk] = event
 			default:
-				r.resolvedOthers[st+"\000"+*sk] = event
+				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
 			}
 		}
 	}
