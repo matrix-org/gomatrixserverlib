@@ -251,19 +251,19 @@ func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order Topologic
 func isControlEvent(e *Event) bool {
 	switch e.Type() {
 	case MRoomPowerLevels:
-		// Power level events are control events.
-		return true
+		// Power level events with an empty state key are control events.
+		return e.StateKeyEquals("")
 	case MRoomJoinRules:
-		// Join rule events are control events.
-		return true
+		// Join rule events with an empty state key are control events.
+		return e.StateKeyEquals("")
 	case MRoomMember:
 		// Membership events must not have an empty state key.
-		if e.StateKey() == nil || *e.StateKey() == "" {
+		if e.StateKey() == nil || e.StateKeyEquals("") {
 			break
 		}
 		// Membership events are only control events if the sender does not match
 		// the state key, i.e. because the event is caused by an admin or moderator.
-		if e.Sender() == *e.StateKey() {
+		if e.StateKeyEquals(e.Sender()) {
 			break
 		}
 		// Membership events are only control events if the "membership" key in the
