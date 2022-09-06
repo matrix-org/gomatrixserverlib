@@ -399,6 +399,13 @@ func (c *PowerLevelContent) Defaults() {
 	c.UsersDefault = 0
 	c.EventsDefault = 0
 	c.StateDefault = 50
+	c.Events = map[string]int64{
+		"m.room.tombstone":          100,
+		"m.room.power_levels":       100,
+		"m.room.server_acl":         100,
+		"m.room.encryption":         100,
+		"m.room.history_visibility": 100,
+	}
 	c.Notifications = map[string]int64{
 		"room": 50,
 	}
