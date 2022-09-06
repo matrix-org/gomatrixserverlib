@@ -32,6 +32,7 @@ const (
 
 type stateResolverV2 struct {
 	allower                   *allowerContext               // Used to auth and apply events
+	authProvider              AuthEvents                    // Used in the allower
 	authEventMap              map[string]*Event             // Map of all provided auth events
 	conflictedEventMap        map[string]*Event             // Map of all provided conflicted events
 	powerLevelContents        map[string]*PowerLevelContent // A cache of all power level contents
@@ -46,31 +47,6 @@ type stateResolverV2 struct {
 	result                    []*Event                      // Final list of resolved events
 }
 
-// Create implements AuthEventProvider
-func (r *stateResolverV2) Create() (*Event, error) {
-	return r.resolvedCreate, nil
-}
-
-// PowerLevels implements AuthEventProvider
-func (r *stateResolverV2) PowerLevels() (*Event, error) {
-	return r.resolvedPowerLevels, nil
-}
-
-// JoinRules implements AuthEventProvider
-func (r *stateResolverV2) JoinRules() (*Event, error) {
-	return r.resolvedJoinRules, nil
-}
-
-// ThirdPartyInvite implements AuthEventProvider
-func (r *stateResolverV2) ThirdPartyInvite(key string) (*Event, error) {
-	return r.resolvedThirdPartyInvites[key], nil
-}
-
-// Member implements AuthEventProvider
-func (r *stateResolverV2) Member(key string) (*Event, error) {
-	return r.resolvedMembers[key], nil
-}
-
 // ResolveStateConflicts takes a list of state events with conflicting state
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
@@ -83,6 +59,7 @@ func ResolveStateConflictsV2(
 	conflictedOthers := make([]*Event, 0, len(conflicted))
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
+		authProvider:              NewAuthEvents(nil),
 		conflictedEventMap:        eventMapFromEvents(conflicted),
 		powerLevelContents:        make(map[string]*PowerLevelContent),
 		powerLevelMainlinePos:     make(map[string]int),
@@ -91,7 +68,7 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[StateKeyTuple]*Event, len(conflicted)),
 		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
 	}
-	r.allower = newAllowerContext(&r)
+	r.allower = newAllowerContext(&r.authProvider)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
@@ -154,13 +131,6 @@ func ResolveStateConflictsV2(
 			conflictedOthers = append(conflictedOthers, p)
 		}
 	}
-
-	// Before we can do anything with the conflicted and unconflicted sets, we
-	// first need to auth and apply the entire auth chain in order. This is so that
-	// when we come to auth any future events against the partial state, we'll have
-	// the knowledge from the auth chain to help us to make a correct decision.
-	authEvents = r.reverseTopologicalOrdering(authEvents, TopologicalOrderByAuthEvents)
-	r.authAndApplyEvents(authEvents)
 
 	// Then process the unconflicted events by ordering them topologically and then
 	// authing them. The successfully authed events will form the real initial partial
@@ -388,20 +358,38 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 // accepted (authed) events and the second contains the rejected events.
 func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 	for _, event := range events {
-		// Check if the event is allowed based on the current partial state. If the
-		// event isn't allowed then simply ignore it and process the next one.
+		// Collect together the auth events. We'll start by collecting the
+		// auth event IDs from the event itself. These are our fallback if
+		// no partial state events are known.
+		r.authProvider.Clear()
+		for _, authEventID := range event.AuthEventIDs() {
+			if authEvent := r.authEventMap[authEventID]; authEvent != nil {
+				_ = r.authProvider.AddEvent(authEvent)
+			}
+		}
+
+		// Now layer on the partial state events that we do know. This should
+		// mean that we make forward progress.
+		for _, event := range []*Event{
+			r.resolvedCreate, r.resolvedJoinRules, r.resolvedPowerLevels,
+			r.resolvedMembers[event.Sender()], r.resolvedThirdPartyInvites[event.Sender()],
+		} {
+			if event != nil {
+				_ = r.authProvider.AddEvent(event)
+			}
+		}
+
+		// Check if the event is allowed based on the current partial state.
+		r.allower.update(&r.authProvider)
 		if err := r.allower.allowed(event); err != nil {
+			// The event was not allowed by the partial state and/or relevant
+			// auth events from the event, so skip it.
 			continue
 		}
+
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
 		r.applyEvents([]*Event{event})
-		// If we've just applied an event that is going to change the contents of
-		// the allower then we will need to update that too.
-		switch event.Type() {
-		case MRoomCreate, MRoomPowerLevels, MRoomJoinRules:
-			r.allower = newAllowerContext(r)
-		}
 	}
 }
 
