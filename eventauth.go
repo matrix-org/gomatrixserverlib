@@ -378,23 +378,44 @@ func errorf(message string, args ...interface{}) error {
 type allowerContext struct {
 	// The auth event provider. This must be set.
 	provider AuthEventProvider
-	// The m.room.create content for the room.
-	create CreateContent
-	// The m.room.power_levels content for the room.
-	powerLevels PowerLevelContent
-	// The m.room.join_rules content for the room.
-	joinRule JoinRuleContent
+
+	// Event references used to see when we need to update.
+	createEvent      *Event // The m.room.create event for the room.
+	powerLevelsEvent *Event // The m.room.power_levels event for the room.
+	joinRuleEvent    *Event // The m.room.join_rules event for the room.
+
+	// Event contents used for quick lookup.
+	create      CreateContent     // The m.room.create content for the room.
+	powerLevels PowerLevelContent // The m.room.power_levels content for the room.
+	joinRule    JoinRuleContent   // The m.room.join_rules content for the room.
 }
 
 func newAllowerContext(provider AuthEventProvider) *allowerContext {
-	create, _ := NewCreateContentFromAuthEvents(provider)
-	powerLevels, _ := NewPowerLevelContentFromAuthEvents(provider, create.Creator)
-	joinRule, _ := NewJoinRuleContentFromAuthEvents(provider)
-	return &allowerContext{
-		provider:    provider,
-		create:      create,
-		powerLevels: powerLevels,
-		joinRule:    joinRule,
+	a := &allowerContext{}
+	a.update(provider)
+	return a
+}
+
+// update updates the auth event provider with new event contents.
+// It will wipe the state if a new provider is given. If the same provider
+// is given then it will only unmarshal event contents if the provided events
+// have changed, to reduce allocations in state resolution.
+func (a *allowerContext) update(provider AuthEventProvider) {
+	if provider != a.provider {
+		a.provider = provider
+		a.createEvent, a.powerLevelsEvent, a.joinRuleEvent = nil, nil, nil
+	}
+	if e, _ := provider.Create(); a.createEvent != e {
+		a.createEvent = e
+		a.create, _ = NewCreateContentFromAuthEvents(provider)
+	}
+	if e, _ := provider.PowerLevels(); a.powerLevelsEvent != e {
+		a.powerLevelsEvent = e
+		a.powerLevels, _ = NewPowerLevelContentFromAuthEvents(provider, a.create.Creator)
+	}
+	if e, _ := provider.JoinRules(); a.joinRuleEvent != e {
+		a.joinRuleEvent, _ = provider.JoinRules()
+		a.joinRule, _ = NewJoinRuleContentFromAuthEvents(provider)
 	}
 }
 
