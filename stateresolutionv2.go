@@ -155,13 +155,6 @@ func ResolveStateConflictsV2(
 		}
 	}
 
-	// Before we can do anything with the conflicted and unconflicted sets, we
-	// first need to auth and apply the entire auth chain in order. This is so that
-	// when we come to auth any future events against the partial state, we'll have
-	// the knowledge from the auth chain to help us to make a correct decision.
-	authEvents = r.reverseTopologicalOrdering(authEvents, TopologicalOrderByAuthEvents)
-	r.authAndApplyEvents(authEvents)
-
 	// Then process the unconflicted events by ordering them topologically and then
 	// authing them. The successfully authed events will form the real initial partial
 	// state. We will then keep the successfully authed unconflicted events so that
@@ -387,21 +380,37 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
 func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
+	authEvents := NewAuthEvents(nil)
 	for _, event := range events {
-		// Check if the event is allowed based on the current partial state. If the
-		// event isn't allowed then simply ignore it and process the next one.
-		if err := r.allower.allowed(event); err != nil {
+		// Collect together the auth events. We'll start by collecting the
+		// auth event IDs from the event itself. These are our fallback if
+		// no partial state events are known.
+		authEvents.Clear()
+		for _, authEventID := range event.AuthEventIDs() {
+			if authEvent := r.authEventMap[authEventID]; authEvent != nil {
+				_ = authEvents.AddEvent(authEvent)
+			}
+		}
+
+		// Now layer on the partial state events that we do know. This should
+		// mean that we make forward progress.
+		for _, event := range []*Event{
+			r.resolvedCreate, r.resolvedJoinRules, r.resolvedPowerLevels,
+			r.resolvedMembers[event.Sender()], r.resolvedThirdPartyInvites[event.Sender()],
+		} {
+			if event != nil {
+				_ = authEvents.AddEvent(event)
+			}
+		}
+
+		// Check if the event is allowed based on the current partial state.
+		if err := newAllowerContext(&authEvents).allowed(event); err != nil {
+			// The event was not allowed by the partial state, so skip it.
 			continue
 		}
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
 		r.applyEvents([]*Event{event})
-		// If we've just applied an event that is going to change the contents of
-		// the allower then we will need to update that too.
-		switch event.Type() {
-		case MRoomCreate, MRoomPowerLevels, MRoomJoinRules:
-			r.allower = newAllowerContext(r)
-		}
 	}
 }
 

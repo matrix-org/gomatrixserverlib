@@ -342,6 +342,13 @@ func (a *AuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	return a.events[StateKeyTuple{MRoomThirdPartyInvite, stateKey}], nil
 }
 
+// Clear removes all entries from the AuthEventProvider.
+func (a *AuthEvents) Clear() {
+	for k := range a.events {
+		delete(a.events, k)
+	}
+}
+
 // NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
 // calling AddEvent().
 func NewAuthEvents(events []*Event) AuthEvents {
