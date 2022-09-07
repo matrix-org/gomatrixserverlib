@@ -36,8 +36,6 @@ jobs:
         go: ["1.13", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19"]
     steps:
       - uses: actions/checkout@v3
-        with:
-          repository: 'matrix-org/dendrite'
       - name: Setup go
         uses: actions/setup-go@v3
         with:
@@ -97,7 +95,7 @@ jobs:
           key: ${{ runner.os }}-go${{ matrix.go }}-test-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go${{ matrix.go }}-test-
-      - run: go get github.com/matrix-org/gomatrixserverlib@${{ github.head_ref }} && go mod tidy
+      - run: go get github.com/matrix-org/gomatrixserverlib@${{ github.sha }} && go mod tidy
       - run: go test ./...
         env:
           POSTGRES_HOST: localhost
