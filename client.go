@@ -497,7 +497,6 @@ func (fc *Client) CreateMediaDownloadRequest(
 // If the HTTP response is not a 200, an attempt is made to parse the response
 // body into a gomatrix.RespError. In any case, a non-200 response will result
 // in a gomatrix.HTTPError.
-//
 func (fc *Client) DoRequestAndParseResponse(
 	ctx context.Context,
 	req *http.Request,
@@ -552,7 +551,6 @@ func (fc *Client) DoRequestAndParseResponse(
 //
 // If the returned error is nil, the Response will contain a non-nil
 // Body which the caller is expected to close.
-//
 func (fc *Client) DoHTTPRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	reqID := util.RandomString(12)
 	logger := util.GetLogger(ctx).WithFields(logrus.Fields{

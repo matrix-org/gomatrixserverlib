@@ -84,8 +84,6 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 // This check initially attempts to validate that the auth_events are in the target room state, and if they are it will short-circuit
 // and succeed early. THIS IS ONLY VALID IF STEP 4 HAS BEEN PREVIOUSLY APPLIED. Otherwise, a malicious server could lie and say that
 // no auth_events are required and this function will short-circuit and allow it.
-//
-//
 func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify *HeaderedEvent, allowValidation bool) error {
 	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify)
 	if err != nil {
