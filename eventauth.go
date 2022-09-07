@@ -405,15 +405,15 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 		a.provider = provider
 		a.createEvent, a.powerLevelsEvent, a.joinRuleEvent = nil, nil, nil
 	}
-	if e, _ := provider.Create(); a.createEvent != e {
+	if e, _ := provider.Create(); a.createEvent == nil || a.createEvent != e {
 		a.createEvent = e
 		a.create, _ = NewCreateContentFromAuthEvents(provider)
 	}
-	if e, _ := provider.PowerLevels(); a.powerLevelsEvent != e {
+	if e, _ := provider.PowerLevels(); a.powerLevelsEvent == nil || a.powerLevelsEvent != e {
 		a.powerLevelsEvent = e
 		a.powerLevels, _ = NewPowerLevelContentFromAuthEvents(provider, a.create.Creator)
 	}
-	if e, _ := provider.JoinRules(); a.joinRuleEvent != e {
+	if e, _ := provider.JoinRules(); a.joinRuleEvent == nil || a.joinRuleEvent != e {
 		a.joinRuleEvent, _ = provider.JoinRules()
 		a.joinRule, _ = NewJoinRuleContentFromAuthEvents(provider)
 	}
