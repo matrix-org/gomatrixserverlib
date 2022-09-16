@@ -23,7 +23,7 @@ import (
 //
 // For example:
 //
-//  jsonBytes, _ := json.Marshal(struct{
+//	jsonBytes, _ := json.Marshal(struct{
 //		RawMessage json.RawMessage
 //		RawJSON RawJSON
 //	}{
@@ -33,7 +33,7 @@ import (
 //
 // Results in:
 //
-//  {"RawMessage":"IkhlbGxvIg==","RawJSON":"World"}
+//	{"RawMessage":"IkhlbGxvIg==","RawJSON":"World"}
 //
 // See https://play.golang.org/p/FzhKIJP8-I for a full example.
 type RawJSON []byte

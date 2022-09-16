@@ -51,10 +51,9 @@ func ResolveStateConflicts(conflicted []*Event, authEvents []*Event) []*Event {
 
 // A stateResolver tracks the internal state of the state resolution algorithm
 // It has 3 sections:
-//
-//  * Lists of lists of events to resolve grouped by event type and state key.
-//  * The resolved auth events grouped by type and state key.
-//  * A List of resolved events.
+//   - Lists of lists of events to resolve grouped by event type and state key.
+//   - The resolved auth events grouped by type and state key.
+//   - A List of resolved events.
 //
 // It implements the AuthEvents interface and can be used for running auth checks.
 type stateResolver struct {

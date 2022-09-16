@@ -165,8 +165,7 @@ func (r *FederationRequest) HTTPRequest() (*http.Request, error) {
 // According to https://tools.ietf.org/html/rfc7230#section-3.2.6 the safe
 // charcters are:
 //
-//    qdtext         = HTAB / SP / %x21 / %x23-5B / %x5D-7E / %x80-FF
-//
+//	qdtext         = HTAB / SP / %x21 / %x23-5B / %x5D-7E / %x80-FF
 func isSafeInHTTPQuotedString(text string) bool { // nolint: gocyclo
 	for i := 0; i < len(text); i++ {
 		c := text[i]

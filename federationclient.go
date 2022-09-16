@@ -475,11 +475,13 @@ func (ac *FederationClient) LookupProfile(
 
 // ClaimKeys claims E2E one-time keys from a remote server.
 // `oneTimeKeys` are the keys to be claimed. A map from user ID, to a map from device ID to algorithm name. E.g:
-//    {
-//      "@alice:example.com": {
-//        "JLAFKJWSCS": "signed_curve25519"
-//      }
-//    }
+//
+//	{
+//	  "@alice:example.com": {
+//	    "JLAFKJWSCS": "signed_curve25519"
+//	  }
+//	}
+//
 // https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
 func (ac *FederationClient) ClaimKeys(ctx context.Context, s ServerName, oneTimeKeys map[string]map[string]string) (res RespClaimKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/claim"
