@@ -95,7 +95,10 @@ jobs:
           key: ${{ runner.os }}-go${{ matrix.go }}-test-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go${{ matrix.go }}-test-
-      - run: go mod edit -replace github.com/matrix-org/gomatrixserverlib=github.com/${{ github.event.pull_request.head.repo.full_name }}@${{ github.event.pull_request.head.sha }} && go mod tidy
+      - if: github.event_name == 'pull_request'
+        run: go mod edit -replace github.com/matrix-org/gomatrixserverlib=github.com/${{ github.event.pull_request.head.repo.full_name }}@${{ github.event.pull_request.head.sha }} && go mod tidy
+      - if: github.ref_name == 'main'
+        run: go get github.com/matrix-org/gomatrixserverlib@${{ github.sha }} && go mod tidy
       - run: go test ./...
         env:
           POSTGRES_HOST: localhost
