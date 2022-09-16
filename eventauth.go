@@ -674,8 +674,8 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 	userLevelChecks := map[string]levelPair{}
 	for userID := range newPowerLevels.Users {
 		userLevelChecks[userID] = levelPair{
-			old: oldPowerLevels.Users[userID],
-			new: newPowerLevels.Users[userID],
+			old: oldPowerLevels.UserLevel(userID),
+			new: newPowerLevels.UserLevel(userID),
 		}
 	}
 

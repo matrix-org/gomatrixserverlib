@@ -170,6 +170,7 @@ func NewMemberContentFromEvent(event *Event) (c MemberContent, err error) {
 		}
 		c.Membership = partial.Membership
 		c.ThirdPartyInvite = partial.ThirdPartyInvite
+		c.AuthorisedVia = partial.AuthorizedVia
 	}
 	return
 }
