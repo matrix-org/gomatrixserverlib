@@ -1,25 +1,31 @@
 module github.com/matrix-org/gomatrixserverlib
 
 require (
-	github.com/frankban/quicktest v1.7.2 // indirect
-	github.com/google/go-cmp v0.4.0
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/kr/pretty v0.2.0 // indirect
-	github.com/matrix-org/gomatrix v0.0.0-20190528120928-7df988a63f26
-	github.com/matrix-org/util v0.0.0-20190711121626-527ce5ddefc7
-	github.com/miekg/dns v1.1.25
-	github.com/sirupsen/logrus v1.4.2
-	github.com/stretchr/testify v1.4.0 // indirect
-	github.com/tidwall/gjson v1.14.1
-	github.com/tidwall/sjson v1.2.4
-	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20220405052023-b1e9470b6e64 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
-	gopkg.in/h2non/gock.v1 v1.0.14
+	github.com/google/go-cmp v0.5.9
+	github.com/matrix-org/gomatrix v0.0.0-20210324163249-be2af5ef2e16
+	github.com/matrix-org/util v0.0.0-20200807132607-55161520e1d4
+	github.com/miekg/dns v1.1.50
+	github.com/sirupsen/logrus v1.9.0
+	github.com/tidwall/gjson v1.14.3
+	github.com/tidwall/sjson v1.2.5
+	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
+	gopkg.in/h2non/gock.v1 v1.1.2
 	gopkg.in/macaroon.v2 v2.1.0
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.4.0
 )
 
-go 1.13
+require (
+	github.com/frankban/quicktest v1.14.3 // indirect
+	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
+	github.com/stretchr/testify v1.8.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/net v0.0.0-20220919232410-f2f64ebce3c1 // indirect
+	golang.org/x/sync v0.0.0-20220907140024-f12130a52804 // indirect
+	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
+	golang.org/x/tools v0.1.12 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+)
+
+go 1.18
