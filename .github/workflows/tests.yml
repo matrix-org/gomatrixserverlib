@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ["1.13", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19"]
+        go: ["1.18", "1.19"]
     steps:
       - uses: actions/checkout@v3
       - name: Setup go
@@ -82,7 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: 'matrix-org/dendrite'
+          repository: "matrix-org/dendrite"
       - name: Setup go
         uses: actions/setup-go@v3
         with:
@@ -105,4 +105,3 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: dendrite
-
