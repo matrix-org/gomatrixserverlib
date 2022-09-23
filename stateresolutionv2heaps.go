@@ -107,10 +107,10 @@ func (s stateResV2ConflictedOtherHeap) Len() int {
 func (s stateResV2ConflictedOtherHeap) Less(i, j int) bool {
 	// Try to tiebreak on the mainline position
 	if s[i].mainlinePosition < s[j].mainlinePosition {
-		return false
+		return true
 	}
 	if s[i].mainlinePosition > s[j].mainlinePosition {
-		return true
+		return false
 	}
 	// If we've reached here then s[i].mainlinePosition == s[j].mainlinePosition
 	// so instead try to tiebreak on origin server TS

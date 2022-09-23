@@ -304,13 +304,10 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 ) {
 	// Define a function that the iterator can use to determine whether the event
 	// is in the mainline set or not.
-	isInMainline := func(searchEvent *Event) (bool, int) {
+	isInMainline := func(searchEvent *Event) (int, bool) {
 		// If we already know the mainline position then return it.
-		if pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]; ok {
-			return true, pos
-		}
-		// Otherwise, the event is not in the mainline.
-		return false, 0
+		pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]
+		return pos, ok
 	}
 
 	// Define our iterator function.
@@ -322,26 +319,29 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 		for _, authEventID := range event.AuthEventIDs() {
 			// Check that we actually have the auth event in our map - we need this so
 			// that we can look up the event type.
-			if authEvent, ok := r.authEventMap[authEventID]; ok {
-				// Is the event a power level event?
-				if authEvent.Type() == MRoomPowerLevels && authEvent.StateKeyEquals("") {
-					// Is the event in the mainline?
-					if isIn, pos := isInMainline(authEvent); isIn {
-						// It is - take a note of the event and position and stop the
-						// iterator from running any further.
-						mainlineEvent = authEvent
-						mainlinePosition = pos
-						// Cache the result so that a future request for this position will
-						// be faster.
-						r.powerLevelMainlinePos[mainlineEvent.EventID()] = mainlinePosition
-						return
-					}
-					// It isn't - increase the step count and then run the iterator again
-					// from the found auth event.
-					steps++
-					iter(authEvent)
-				}
+			authEvent, ok := r.authEventMap[authEventID]
+			if !ok {
+				continue
 			}
+			// If the event isn't a power level event then we'll ignore it.
+			if authEvent.Type() != MRoomPowerLevels || !authEvent.StateKeyEquals("") {
+				continue
+			}
+			// Is the event in the mainline?
+			if pos, isIn := isInMainline(authEvent); isIn {
+				// It is - take a note of the event and position and stop the
+				// iterator from running any further.
+				mainlineEvent = authEvent
+				mainlinePosition = pos
+				// Cache the result so that a future request for this position will
+				// be faster.
+				r.powerLevelMainlinePos[mainlineEvent.EventID()] = mainlinePosition
+				return
+			}
+			// It isn't - increase the step count and then run the iterator again
+			// from the found auth event.
+			steps++
+			iter(authEvent)
 		}
 	}
 
