@@ -46,13 +46,6 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 	}
 	needed[serverName] = struct{}{}
 
-	// TODO: This enables deprecation of the "origin" field as per MSC1664
-	// (https://github.com/matrix-org/matrix-doc/issues/1664) but really
-	// this has been done so that we can join rooms touched by Conduit again.
-	if serverName != e.Origin() && e.Origin() != "" {
-		needed[e.Origin()] = struct{}{}
-	}
-
 	// In room versions 1 and 2, we should also check that the server
 	// that created the event is included too. This is probably the
 	// same as the sender.

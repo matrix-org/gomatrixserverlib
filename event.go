@@ -126,16 +126,16 @@ type Event struct {
 }
 
 type eventFields struct {
-	RoomID         string     `json:"room_id"`
-	Sender         string     `json:"sender"`
-	Type           string     `json:"type"`
-	StateKey       *string    `json:"state_key"`
-	Content        RawJSON    `json:"content"`
-	Redacts        string     `json:"redacts"`
-	Depth          int64      `json:"depth"`
-	Unsigned       RawJSON    `json:"unsigned"`
-	OriginServerTS Timestamp  `json:"origin_server_ts"`
-	Origin         ServerName `json:"origin"`
+	RoomID         string    `json:"room_id"`
+	Sender         string    `json:"sender"`
+	Type           string    `json:"type"`
+	StateKey       *string   `json:"state_key"`
+	Content        RawJSON   `json:"content"`
+	Redacts        string    `json:"redacts"`
+	Depth          int64     `json:"depth"`
+	Unsigned       RawJSON   `json:"unsigned"`
+	OriginServerTS Timestamp `json:"origin_server_ts"`
+	//Origin         ServerName `json:"origin"`
 }
 
 // Fields for room versions 1, 2.
@@ -171,8 +171,7 @@ func (e *eventFields) CacheCost() int {
 		len(e.Redacts) +
 		4 + // depth int64
 		cap(e.Unsigned) +
-		4 + // originserverts timestamp as uint64
-		len(e.Origin)
+		4 // originserverts timestamp as uint64
 	if e.StateKey != nil {
 		cost += len(*e.StateKey)
 	}
@@ -744,47 +743,19 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		}
 	}
 
-	if _, err := checkID(fields.RoomID, "room", '!'); err != nil {
+	if err := checkID(fields.RoomID, "room", '!'); err != nil {
 		return err
 	}
 
-	origin := fields.Origin
-
-	senderDomain, err := checkID(fields.Sender, "user", '@')
-	if err != nil {
+	if err := checkID(fields.Sender, "user", '@'); err != nil {
 		return err
-	}
-
-	if origin != ServerName(senderDomain) {
-		// For the most part all events should be sent by a user on the
-		// originating server.
-		//
-		// However "m.room.member" events created from third-party invites
-		// are allowed to have a different sender because they have the same
-		// sender as the "m.room.third_party_invite" event they derived from.
-		// https://github.com/matrix-org/synapse/blob/v0.21.0/synapse/event_auth.py#L58-L64
-		//
-		// Also, some old versions of synapse had a bug wherein some
-		// joins/leaves used the origin and event id supplied by the helping
-		// server instead of the joining/leaving server.
-		//
-		// So in general we allow the sender to be different from the
-		// origin for m.room.member events. In any case, we check it was
-		// signed by both servers later.
-		if fields.Type != MRoomMember {
-			return fmt.Errorf(
-				"gomatrixserverlib: sender domain doesn't match origin: %q != %q",
-				senderDomain, origin,
-			)
-		}
 	}
 
 	return nil
 }
 
-func checkID(id, kind string, sigil byte) (domain string, err error) {
-	domain, err = domainFromID(id)
-	if err != nil {
+func checkID(id, kind string, sigil byte) (err error) {
+	if _, err = domainFromID(id); err != nil {
 		return
 	}
 	if id[0] != sigil {
@@ -802,18 +773,6 @@ func checkID(id, kind string, sigil byte) (domain string, err error) {
 		return
 	}
 	return
-}
-
-// Origin returns the name of the server that sent the event
-func (e *Event) Origin() ServerName {
-	switch fields := e.fields.(type) {
-	case eventFormatV1Fields:
-		return fields.Origin
-	case eventFormatV2Fields:
-		return fields.Origin
-	default:
-		panic(e.invalidFieldType())
-	}
 }
 
 func (e *Event) generateEventID() (eventID string, err error) {

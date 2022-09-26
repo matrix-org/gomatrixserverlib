@@ -387,8 +387,8 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 	}
 
 	// There should be two verification requests
-	if len(verifier.requests) != 2 {
-		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
+	if len(verifier.requests) != 1 {
+		t.Fatalf("Number of requests: got %d, want 1", len(verifier.requests))
 	}
 	wantContent, err := RedactEventJSON(eventJSON, RoomVersionV1)
 	if err != nil {
@@ -410,9 +410,6 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 	sort.Strings(servers)
 	if servers[0] != "localhost" {
 		t.Errorf("Verify server 0: got %s, want %s", servers[0], "localhost")
-	}
-	if servers[1] != "originserver" {
-		t.Errorf("Verify server 1: got %s, want %s", servers[1], "originserver")
 	}
 }
 
