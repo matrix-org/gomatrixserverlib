@@ -242,6 +242,8 @@ func (r *RespUserDevices) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
+	r.UserID = intermediate.UserID
+	r.StreamID = intermediate.StreamID
 	_ = json.Unmarshal(intermediate.MasterKey, &r.MasterKey)
 	_ = json.Unmarshal(intermediate.SelfSigningKey, &r.SelfSigningKey)
 	for _, deviceJSON := range intermediate.Devices {
