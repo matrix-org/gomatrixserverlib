@@ -227,6 +227,32 @@ type RespUserDevices struct {
 	SelfSigningKey *CrossSigningKey `json:"self_signing_key"`
 }
 
+// UnmarshalJSON is used here because people on Synapses can apparently upload
+// nonsense into their device keys in types that don't match the expected and
+// that can cause the entire response to fail to unmarshal. This simply skips
+// anything that fails to unmarshal and returns the rest.
+func (r *RespUserDevices) UnmarshalJSON(data []byte) error {
+	intermediate := struct {
+		UserID         string            `json:"user_id"`
+		StreamID       string            `json:"stream_id"`
+		Devices        []json.RawMessage `json:"devices"`
+		MasterKey      json.RawMessage   `json:"master_key"`
+		SelfSigningKey json.RawMessage   `json:"self_signing_key"`
+	}{}
+	if err := json.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	_ = json.Unmarshal(intermediate.MasterKey, r.MasterKey)
+	_ = json.Unmarshal(intermediate.SelfSigningKey, r.SelfSigningKey)
+	for _, deviceJSON := range intermediate.Devices {
+		var device RespUserDevice
+		if err := json.Unmarshal(deviceJSON, &device); err == nil {
+			r.Devices = append(r.Devices, device)
+		}
+	}
+	return nil
+}
+
 // RespUserDevice are embedded in RespUserDevices
 // https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 type RespUserDevice struct {
