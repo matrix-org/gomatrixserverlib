@@ -233,8 +233,8 @@ type RespUserDevices struct {
 // anything that fails to unmarshal and returns the rest.
 func (r *RespUserDevices) UnmarshalJSON(data []byte) error {
 	intermediate := struct {
-		UserID         json.RawMessage   `json:"user_id"`
-		StreamID       json.RawMessage   `json:"stream_id"`
+		UserID         string            `json:"user_id"`
+		StreamID       int64             `json:"stream_id"`
 		Devices        []json.RawMessage `json:"devices"`
 		MasterKey      json.RawMessage   `json:"master_key"`
 		SelfSigningKey json.RawMessage   `json:"self_signing_key"`
@@ -242,8 +242,6 @@ func (r *RespUserDevices) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &intermediate); err != nil {
 		return err
 	}
-	_ = json.Unmarshal(intermediate.UserID, &r.UserID)
-	_ = json.Unmarshal(intermediate.StreamID, &r.StreamID)
 	_ = json.Unmarshal(intermediate.MasterKey, &r.MasterKey)
 	_ = json.Unmarshal(intermediate.SelfSigningKey, &r.SelfSigningKey)
 	for _, deviceJSON := range intermediate.Devices {
