@@ -523,3 +523,12 @@ func isValidUserID(userID string) bool {
 	// TODO: Do we want to add anymore checks beyond checking the sigil and that it has a domain part?
 	return userID[0] == '@' && strings.IndexByte(userID, ':') != -1
 }
+
+type RelationContent struct {
+	Relations *RelatesTo `json:"m.relates_to"`
+}
+
+type RelatesTo struct {
+	EventID      string `json:"event_id"`
+	RelationType string `json:"rel_type"`
+}
