@@ -313,6 +313,11 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 	if event.StateKey() == nil {
 		return fmt.Errorf("AddEvent: event %q does not have a state key", event.Type())
 	}
+	for _, e := range a.events {
+		if e.RoomID() != event.RoomID() {
+			return fmt.Errorf("AddEvent: event roomID %q does not match existing events %q", event.RoomID(), e.RoomID())
+		}
+	}
 	a.events[StateKeyTuple{event.Type(), *event.StateKey()}] = event
 	return nil
 }
