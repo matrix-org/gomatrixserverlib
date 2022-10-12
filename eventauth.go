@@ -455,7 +455,7 @@ func (a *allowerContext) allowed(event *Event) error {
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event *Event, authEvents AuthEventProvider) error {
 	if !authEvents.Valid() {
-		return errorf("authevents contains more than one room")
+		return errorf("authEvents: contains more than one room")
 	}
 	return newAllowerContext(authEvents).allowed(event)
 }
