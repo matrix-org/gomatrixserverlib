@@ -18,6 +18,8 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/tidwall/gjson"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -264,6 +266,28 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 		return nil, err
 	}
 	return event, nil
+}
+
+func (tae *testAuthEvents) Valid(roomID string) bool {
+	for _, bytes := range []json.RawMessage{tae.CreateJSON, tae.PowerLevelsJSON, tae.JoinRulesJSON} {
+		gotRoomID := gjson.GetBytes(bytes, "room_id").Str
+		if gotRoomID != "" && gotRoomID != roomID {
+			return false
+		}
+	}
+	for _, js := range tae.MemberJSON {
+		gotRoomID := gjson.GetBytes(js, "room_id").Str
+		if gotRoomID != "" && gotRoomID != roomID {
+			return false
+		}
+	}
+	for _, js := range tae.ThirdPartyInviteJSON {
+		gotRoomID := gjson.GetBytes(js, "room_id").Str
+		if gotRoomID != "" && gotRoomID != roomID {
+			return false
+		}
+	}
+	return true
 }
 
 type testCase struct {
