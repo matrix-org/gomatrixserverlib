@@ -82,7 +82,7 @@ func (r *stateResolver) Create() (*Event, error) {
 	return r.resolvedCreate, nil
 }
 
-func (r *stateResolver) Valid() bool {
+func (r *stateResolver) Valid(roomID string) bool {
 	events := append([]*Event{}, r.creates...)
 	events = append(events, r.powerLevels...)
 	events = append(events, r.joinRules...)
@@ -96,16 +96,10 @@ func (r *stateResolver) Valid() bool {
 		events = append(events, evs...)
 	}
 
-	roomID := ""
-	i := 0
-	for _, ev := range events {
-		if i == 0 {
-			roomID = ev.RoomID()
-		}
-		if roomID != ev.RoomID() {
+	for i := range events {
+		if roomID != events[i].RoomID() {
 			return false
 		}
-		i++
 	}
 	return true
 }

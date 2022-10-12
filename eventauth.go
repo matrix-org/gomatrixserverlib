@@ -300,7 +300,7 @@ type AuthEventProvider interface {
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
 	// given state_key or nil if there isn't a m.room.third_party_invite event
 	ThirdPartyInvite(stateKey string) (*Event, error)
-	Valid() bool
+	Valid(roomID string) bool
 }
 
 // AuthEvents is an implementation of AuthEventProvider backed by a map.
@@ -309,17 +309,11 @@ type AuthEvents struct {
 }
 
 // Valid verifies that all auth events are from the same room.
-func (a *AuthEvents) Valid() bool {
-	roomID := ""
-	i := 0
+func (a *AuthEvents) Valid(roomID string) bool {
 	for _, ev := range a.events {
-		if i == 0 {
-			roomID = ev.RoomID()
-		}
-		if roomID != ev.RoomID() {
+		if ev.RoomID() != roomID {
 			return false
 		}
-		i++
 	}
 	return true
 }
@@ -462,7 +456,7 @@ func (a *allowerContext) allowed(event *Event) error {
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event *Event, authEvents AuthEventProvider) error {
-	if !authEvents.Valid() {
+	if !authEvents.Valid(event.RoomID()) {
 		return errorf("authEvents: contains more than one room")
 	}
 	return newAllowerContext(authEvents).allowed(event)
