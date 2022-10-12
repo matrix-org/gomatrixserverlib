@@ -308,12 +308,20 @@ type AuthEvents struct {
 	events map[StateKeyTuple]*Event
 }
 
+// Valid verifies that all auth events are from the same room.
 func (a *AuthEvents) Valid() bool {
-	roomIDs := make(map[string]struct{})
+	roomID := ""
+	i := 0
 	for _, ev := range a.events {
-		roomIDs[ev.RoomID()] = struct{}{}
+		if i == 0 {
+			roomID = ev.RoomID()
+		}
+		if roomID != ev.RoomID() {
+			return false
+		}
+		i++
 	}
-	return len(roomIDs) <= 1
+	return true
 }
 
 // AddEvent adds an event to the provider. If an event already existed for the (type, state_key) then

@@ -83,6 +83,30 @@ func (r *stateResolver) Create() (*Event, error) {
 }
 
 func (r *stateResolver) Valid() bool {
+	events := append([]*Event{}, r.creates...)
+	events = append(events, r.powerLevels...)
+	events = append(events, r.joinRules...)
+	for _, evs := range r.thirdPartyInvites {
+		events = append(events, evs...)
+	}
+	for _, evs := range r.members {
+		events = append(events, evs...)
+	}
+	for _, evs := range r.others {
+		events = append(events, evs...)
+	}
+
+	roomID := ""
+	i := 0
+	for _, ev := range events {
+		if i == 0 {
+			roomID = ev.RoomID()
+		}
+		if roomID != ev.RoomID() {
+			return false
+		}
+		i++
+	}
 	return true
 }
 
