@@ -82,6 +82,10 @@ func (r *stateResolver) Create() (*Event, error) {
 	return r.resolvedCreate, nil
 }
 
+func (r *stateResolver) Valid() bool {
+	return true
+}
+
 func (r *stateResolver) PowerLevels() (*Event, error) {
 	return r.resolvedPowerLevels, nil
 }
