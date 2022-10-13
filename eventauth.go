@@ -323,7 +323,7 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 	}
 	if a.valid {
 		for _, ev := range a.events {
-			if ev.RoomID() != "" && ev.RoomID() != event.RoomID() {
+			if ev.RoomID() != event.RoomID() {
 				a.valid = false
 				break
 			}
