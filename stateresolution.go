@@ -83,24 +83,6 @@ func (r *stateResolver) Create() (*Event, error) {
 }
 
 func (r *stateResolver) Valid(roomID string) bool {
-	events := append([]*Event{}, r.creates...)
-	events = append(events, r.powerLevels...)
-	events = append(events, r.joinRules...)
-	for _, evs := range r.thirdPartyInvites {
-		events = append(events, evs...)
-	}
-	for _, evs := range r.members {
-		events = append(events, evs...)
-	}
-	for _, evs := range r.others {
-		events = append(events, evs...)
-	}
-
-	for i := range events {
-		if roomID != events[i].RoomID() {
-			return false
-		}
-	}
 	return true
 }
 
@@ -353,6 +335,7 @@ func ResolveConflicts(
 	// into a map, sorted by (event_type, state_key) tuple. This means
 	// that we can easily spot events that are "conflicted", e.g.
 	// there are duplicate values for the same tuple key.
+	roomID := ""
 	for _, event := range events {
 		if _, ok := eventIDMap[event.EventID()]; ok {
 			continue
@@ -362,10 +345,22 @@ func ResolveConflicts(
 			// Ignore events that are not state events.
 			continue
 		}
+		if roomID == "" {
+			roomID = event.RoomID()
+		}
+		if roomID != event.RoomID() {
+			return nil, fmt.Errorf("state resolution contains events from different rooms")
+		}
 		// Append the events if there is already a conflicted list for
 		// this tuple key, create it if not.
 		tuple := stateKeyTuple{event.Type(), *event.StateKey()}
 		eventMap[tuple] = append(eventMap[tuple], event)
+	}
+
+	for i := range authEvents {
+		if roomID != "" && roomID != authEvents[i].RoomID() {
+			return nil, fmt.Errorf("state resolution contains events from different rooms")
+		}
 	}
 
 	// Split out the events in the map into conflicted and unconflicted

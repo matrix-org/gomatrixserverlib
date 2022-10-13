@@ -300,6 +300,7 @@ type AuthEventProvider interface {
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
 	// given state_key or nil if there isn't a m.room.third_party_invite event
 	ThirdPartyInvite(stateKey string) (*Event, error)
+	// Valid verifies that all auth events are from the same room.
 	Valid(roomID string) bool
 }
 
