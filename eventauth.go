@@ -321,10 +321,12 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 	if event.StateKey() == nil {
 		return fmt.Errorf("AddEvent: event %q does not have a state key", event.Type())
 	}
-	for _, ev := range a.events {
-		if ev.RoomID() != "" && ev.RoomID() != event.RoomID() {
-			a.valid = false
-			break
+	if a.valid {
+		for _, ev := range a.events {
+			if ev.RoomID() != "" && ev.RoomID() != event.RoomID() {
+				a.valid = false
+				break
+			}
 		}
 	}
 	a.events[StateKeyTuple{event.Type(), *event.StateKey()}] = event
