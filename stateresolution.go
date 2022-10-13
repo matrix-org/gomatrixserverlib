@@ -25,7 +25,7 @@ import (
 // ResolveStateConflicts takes a list of state events with conflicting state keys
 // and works out which event should be used for each state event.
 func ResolveStateConflicts(conflicted []*Event, authEvents []*Event) []*Event {
-	var r stateResolver
+	r := stateResolver{valid: true}
 	r.resolvedThirdPartyInvites = map[string]*Event{}
 	r.resolvedMembers = map[string]*Event{}
 	// Group the conflicted events by type and state key.
@@ -76,14 +76,16 @@ type stateResolver struct {
 	// The list of resolved events.
 	// This will contain one entry for each conflicted event type and state key.
 	result []*Event
+	roomID string
+	valid  bool
 }
 
 func (r *stateResolver) Create() (*Event, error) {
 	return r.resolvedCreate, nil
 }
 
-func (r *stateResolver) Valid(roomID string) bool {
-	return true
+func (r *stateResolver) Valid() bool {
+	return r.valid
 }
 
 func (r *stateResolver) PowerLevels() (*Event, error) {
@@ -155,6 +157,12 @@ func (r *stateResolver) addConflicted(events []*Event) { // nolint: gocyclo
 
 // Add an event to the resolved auth events.
 func (r *stateResolver) addAuthEvent(event *Event) {
+	if event.RoomID() != "" && r.roomID == "" {
+		r.roomID = event.RoomID()
+	}
+	if r.roomID != event.RoomID() {
+		r.valid = false
+	}
 	switch event.Type() {
 	case MRoomCreate:
 		if event.StateKeyEquals("") {
@@ -335,7 +343,6 @@ func ResolveConflicts(
 	// into a map, sorted by (event_type, state_key) tuple. This means
 	// that we can easily spot events that are "conflicted", e.g.
 	// there are duplicate values for the same tuple key.
-	roomID := ""
 	for _, event := range events {
 		if _, ok := eventIDMap[event.EventID()]; ok {
 			continue
@@ -345,22 +352,10 @@ func ResolveConflicts(
 			// Ignore events that are not state events.
 			continue
 		}
-		if roomID == "" {
-			roomID = event.RoomID()
-		}
-		if roomID != event.RoomID() {
-			return nil, fmt.Errorf("state resolution contains events from different rooms")
-		}
 		// Append the events if there is already a conflicted list for
 		// this tuple key, create it if not.
 		tuple := stateKeyTuple{event.Type(), *event.StateKey()}
 		eventMap[tuple] = append(eventMap[tuple], event)
-	}
-
-	for i := range authEvents {
-		if roomID != "" && roomID != authEvents[i].RoomID() {
-			return nil, fmt.Errorf("state resolution contains events from different rooms")
-		}
 	}
 
 	// Split out the events in the map into conflicted and unconflicted
