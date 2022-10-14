@@ -266,6 +266,10 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	return event, nil
 }
 
+func (tae *testAuthEvents) Valid() bool {
+	return true
+}
+
 type testCase struct {
 	AuthEvents testAuthEvents    `json:"auth_events"`
 	Allowed    []json.RawMessage `json:"allowed"`

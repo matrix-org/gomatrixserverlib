@@ -300,11 +300,19 @@ type AuthEventProvider interface {
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
 	// given state_key or nil if there isn't a m.room.third_party_invite event
 	ThirdPartyInvite(stateKey string) (*Event, error)
+	// Valid verifies that all auth events are from the same room.
+	Valid() bool
 }
 
 // AuthEvents is an implementation of AuthEventProvider backed by a map.
 type AuthEvents struct {
 	events map[StateKeyTuple]*Event
+	valid  bool
+}
+
+// Valid verifies that all auth events are from the same room.
+func (a *AuthEvents) Valid() bool {
+	return a.valid
 }
 
 // AddEvent adds an event to the provider. If an event already existed for the (type, state_key) then
@@ -312,6 +320,14 @@ type AuthEvents struct {
 func (a *AuthEvents) AddEvent(event *Event) error {
 	if event.StateKey() == nil {
 		return fmt.Errorf("AddEvent: event %q does not have a state key", event.Type())
+	}
+	if a.valid {
+		for _, ev := range a.events {
+			if ev.RoomID() != event.RoomID() {
+				a.valid = false
+				break
+			}
+		}
 	}
 	a.events[StateKeyTuple{event.Type(), *event.StateKey()}] = event
 	return nil
@@ -352,7 +368,7 @@ func (a *AuthEvents) Clear() {
 // NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
 // calling AddEvent().
 func NewAuthEvents(events []*Event) AuthEvents {
-	a := AuthEvents{make(map[StateKeyTuple]*Event)}
+	a := AuthEvents{events: make(map[StateKeyTuple]*Event), valid: true}
 	for _, e := range events {
 		a.AddEvent(e) // nolint: errcheck
 	}
@@ -445,6 +461,9 @@ func (a *allowerContext) allowed(event *Event) error {
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
 func Allowed(event *Event, authEvents AuthEventProvider) error {
+	if !authEvents.Valid() {
+		return errorf("authEvents contains events from different rooms")
+	}
 	return newAllowerContext(authEvents).allowed(event)
 }
 
