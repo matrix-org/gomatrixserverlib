@@ -306,13 +306,13 @@ type AuthEventProvider interface {
 
 // AuthEvents is an implementation of AuthEventProvider backed by a map.
 type AuthEvents struct {
-	events map[StateKeyTuple]*Event
-	valid  bool
+	events  map[StateKeyTuple]*Event
+	roomIDs map[string]struct{}
 }
 
 // Valid verifies that all auth events are from the same room.
 func (a *AuthEvents) Valid() bool {
-	return a.valid
+	return len(a.roomIDs) <= 1
 }
 
 // AddEvent adds an event to the provider. If an event already existed for the (type, state_key) then
@@ -321,14 +321,7 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 	if event.StateKey() == nil {
 		return fmt.Errorf("AddEvent: event %q does not have a state key", event.Type())
 	}
-	if a.valid {
-		for _, ev := range a.events {
-			if ev.RoomID() != event.RoomID() {
-				a.valid = false
-				break
-			}
-		}
-	}
+	a.roomIDs[event.RoomID()] = struct{}{}
 	a.events[StateKeyTuple{event.Type(), *event.StateKey()}] = event
 	return nil
 }
@@ -368,7 +361,10 @@ func (a *AuthEvents) Clear() {
 // NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
 // calling AddEvent().
 func NewAuthEvents(events []*Event) AuthEvents {
-	a := AuthEvents{events: make(map[StateKeyTuple]*Event), valid: true}
+	a := AuthEvents{
+		events:  make(map[StateKeyTuple]*Event, len(events)),
+		roomIDs: make(map[string]struct{}),
+	}
 	for _, e := range events {
 		a.AddEvent(e) // nolint: errcheck
 	}
