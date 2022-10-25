@@ -78,7 +78,7 @@ func TestVerifyGetRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, jsonResp := VerifyHTTPRequest(
-		hr, time.Unix(1493142432, 96400), "localhost:44033", KeyRing{nil, &testKeyDatabase{}},
+		hr, time.Unix(1493142432, 96400), "localhost:44033", nil, KeyRing{nil, &testKeyDatabase{}},
 	)
 	if request == nil {
 		t.Fatalf("Wanted non-nil request got nil. (request was %#v, response was %#v)", hr, jsonResp)
@@ -137,7 +137,7 @@ func TestVerifyPutRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, jsonResp := VerifyHTTPRequest(
-		hr, time.Unix(1493142432, 96400), "localhost:44033", KeyRing{nil, &testKeyDatabase{}},
+		hr, time.Unix(1493142432, 96400), "localhost:44033", nil, KeyRing{nil, &testKeyDatabase{}},
 	)
 	if request == nil {
 		t.Fatalf("Wanted non-nil request got nil. (request was %#v, response was %#v)", hr, jsonResp)
