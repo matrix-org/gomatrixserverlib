@@ -203,7 +203,7 @@ func isSafeInHTTPQuotedString(text string) bool { // nolint: gocyclo
 func VerifyHTTPRequest(
 	req *http.Request, now time.Time,
 	destination ServerName, // the default server name, if none other is given
-	isLocalServerName func(ServerName) bool, // verify secondary server names
+	isLocalServerName func(ServerName) bool, // optional, verify secondary server names
 	keys JSONVerifier,
 ) (*FederationRequest, util.JSONResponse) {
 	request, err := readHTTPRequest(req)
@@ -211,10 +211,15 @@ func VerifyHTTPRequest(
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing HTTP headers")
 		return nil, util.MessageResponse(400, "Bad Request")
 	}
-	if request.fields.Destination != "" && !isLocalServerName(request.fields.Destination) {
-		message := fmt.Sprintf("Unrecognised server name %q for Destination", request.fields.Destination)
-		util.GetLogger(req.Context()).Warn(message)
-		return nil, util.MessageResponse(400, message)
+	if request.fields.Destination != "" {
+		switch {
+		case isLocalServerName != nil && !isLocalServerName(request.fields.Destination):
+			fallthrough
+		case isLocalServerName == nil && destination != request.fields.Destination:
+			message := fmt.Sprintf("Unrecognised server name %q for Destination", request.fields.Destination)
+			util.GetLogger(req.Context()).Warn(message)
+			return nil, util.MessageResponse(400, message)
+		}
 	} else if request.fields.Destination == "" {
 		request.fields.Destination = destination
 	}
