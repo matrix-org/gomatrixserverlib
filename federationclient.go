@@ -486,12 +486,17 @@ func (ac *FederationClient) LookupProfile(
 func (ac *FederationClient) ClaimKeys(ctx context.Context, s ServerName, oneTimeKeys map[string]map[string]string) (res RespClaimKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/claim"
 	req := NewFederationRequest("POST", s, path)
+
+	fmt.Println("One time keys:", oneTimeKeys)
+
 	if err = req.SetContent(map[string]interface{}{
 		"one_time_keys": oneTimeKeys,
 	}); err != nil {
 		return
 	}
 	err = ac.doRequest(ctx, req, &res)
+
+	fmt.Println("One time key response:", res)
 	return
 }
 
