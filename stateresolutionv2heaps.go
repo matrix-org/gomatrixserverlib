@@ -25,7 +25,7 @@ import (
 // sort.
 type stateResV2ConflictedPowerLevel struct {
 	powerLevel     int64
-	originServerTS int64
+	originServerTS Timestamp
 	eventID        string
 	event          *Event
 }
@@ -88,7 +88,8 @@ func (s *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
 // sort.
 type stateResV2ConflictedOther struct {
 	mainlinePosition int
-	originServerTS   int64
+	mainlineSteps    int
+	originServerTS   Timestamp
 	eventID          string
 	event            *Event
 }
@@ -113,6 +114,14 @@ func (s stateResV2ConflictedOtherHeap) Less(i, j int) bool {
 		return false
 	}
 	// If we've reached here then s[i].mainlinePosition == s[j].mainlinePosition
+	// so instead try to tiebreak on step count
+	if s[i].mainlineSteps < s[j].mainlineSteps {
+		return true
+	}
+	if s[i].mainlineSteps > s[j].mainlineSteps {
+		return false
+	}
+	// If we've reached here then s[i].mainlineSteps == s[j].mainlineSteps
 	// so instead try to tiebreak on origin server TS
 	if s[i].originServerTS < s[j].originServerTS {
 		return true
