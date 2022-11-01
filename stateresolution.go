@@ -385,8 +385,7 @@ func ResolveConflicts(
 		resolved = ResolveStateConflicts(conflicted, authEvents)
 		resolved = append(resolved, notConflicted...)
 	case StateResV2:
-		// TODO: auth difference here?
-		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents, nil)
+		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents)
 	default:
 		return nil, fmt.Errorf("unsupported state resolution algorithm %v", stateResAlgo)
 	}

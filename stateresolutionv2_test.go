@@ -486,7 +486,6 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 		conflicted,   // conflicted set
 		unconflicted, // unconflicted set
 		events,       // full auth set
-		nil,          // auth difference
 	)
 	t.Log("Resolved:")
 	for k, v := range result {
@@ -512,7 +511,6 @@ func runStateResolutionV2(t *testing.T, additional []*Event, expected []string) 
 		conflicted,   // conflicted set
 		unconflicted, // unconflicted set
 		input,        // full auth set
-		additional,   // auth difference
 	)
 
 	t.Log("Result:")

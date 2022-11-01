@@ -51,7 +51,7 @@ type stateResolverV2 struct {
 // function returns the resolved state, including unconflicted state events.
 func ResolveStateConflictsV2(
 	conflicted, unconflicted []*Event,
-	authEvents, authDifference []*Event,
+	authEvents []*Event,
 ) []*Event {
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]*Event, 0, len(conflicted))
@@ -79,7 +79,7 @@ func ResolveStateConflictsV2(
 
 	// Get the full conflicted set, that is the conflicted events and the
 	// auth difference (events that don't appear in all auth chains).
-	fullConflictedSet := append(conflicted, authDifference...)
+	fullConflictedSet := append(conflicted, r.calculateAuthDifference()...)
 
 	// The full power set function returns the event and all of its auth
 	// events that also happen to appear in the conflicted set. This will
@@ -250,6 +250,66 @@ func isControlEvent(e *Event) bool {
 	// If we have reached this point then we have failed all checks and we don't
 	// count the event as a control event.
 	return false
+}
+
+func (r *stateResolverV2) calculateAuthDifference() []*Event {
+	authDifference := make([]*Event, 0, len(r.conflictedEventMap)*3)
+	authSets := make(map[string]map[string]*Event, len(r.conflictedEventMap))
+
+	// This function helps us to work out whether an event exists in one of the
+	// auth sets.
+	isInAuthList := func(k string, event *Event) bool {
+		events, ok := authSets[k]
+		if !ok {
+			return false
+		}
+		_, ok = events[event.EventID()]
+		return ok
+	}
+
+	// This function works out if an event exists in all of the auth sets.
+	isInAllAuthLists := func(event *Event) bool {
+		for k, event := range authSets[event.EventID()] {
+			if !isInAuthList(k, event) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// For each conflicted event, work out the auth chain iteratively.
+	var iter func(eventID string, event *Event)
+	iter = func(eventID string, event *Event) {
+		for _, authEventID := range event.AuthEventIDs() {
+			authEvent, ok := r.authEventMap[authEventID]
+			if !ok {
+				continue
+			}
+			if _, ok := authSets[eventID]; !ok {
+				authSets[eventID] = map[string]*Event{}
+			}
+			if _, ok := authSets[eventID][authEventID]; ok {
+				// Don't repeat work for events we've already iterated on.
+				continue
+			}
+			authSets[eventID][authEventID] = authEvent
+			iter(eventID, authEvent)
+		}
+	}
+	for conflictedEventID, conflictedEvent := range r.conflictedEventMap {
+		iter(conflictedEventID, conflictedEvent)
+	}
+
+	// Look through all of the auth events that we've been given and work out if
+	// there are any events which don't appear in all of the auth sets. If they
+	// don't then we add them to the auth difference.
+	for _, event := range r.authEventMap {
+		if !isInAllAuthLists(event) {
+			authDifference = append(authDifference, event)
+		}
+	}
+
+	return authDifference
 }
 
 // createPowerLevelMainline generates the mainline of power level events,
