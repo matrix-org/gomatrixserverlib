@@ -50,7 +50,6 @@ type RoomFilter struct {
 
 // StateFilter is used to define filtering rules for state events
 type StateFilter struct {
-	Limit                   int       `json:"limit,omitempty"`
 	NotSenders              *[]string `json:"not_senders,omitempty"`
 	NotTypes                *[]string `json:"not_types,omitempty"`
 	Senders                 *[]string `json:"senders,omitempty"`
@@ -120,7 +119,6 @@ func DefaultEventFilter() EventFilter {
 // is provided in the request
 func DefaultStateFilter() StateFilter {
 	return StateFilter{
-		Limit:                   20,
 		NotSenders:              nil,
 		NotTypes:                nil,
 		Senders:                 nil,
