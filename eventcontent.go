@@ -306,6 +306,31 @@ func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleC
 	return
 }
 
+type GuestAccessContent struct {
+	GuestAccess string `json:"guest_access"`
+}
+
+// NewJoinRuleContentFromAuthEvents loads the join rule content from the join rules event in the auth event.
+// Returns an error if there was an error loading the join rule event or parsing the content.
+func NewGuestAccessContentFromAuthEvents(authEvents AuthEventProvider) (c GuestAccessContent, err error) {
+	// Start off with "invite" as the default. Hopefully the unmarshal
+	// step later will replace it with a better value.
+	c.GuestAccess = "forbidden"
+	// Then see if the specified join event contains something better.
+	guestAccessEvent, err := authEvents.GuestAccess()
+	if err != nil {
+		return
+	}
+	if guestAccessEvent == nil {
+		return
+	}
+	if err = json.Unmarshal(guestAccessEvent.Content(), &c); err != nil {
+		err = errorf("unparsable guest_access event content: %s", err.Error())
+		return
+	}
+	return
+}
+
 // PowerLevelContent is the JSON content of a m.room.power_levels event needed for auth checks.
 // Typically the user calls NewPowerLevelContentFromAuthEvents instead of
 // unmarshalling the content directly from JSON so defaults can be applied.

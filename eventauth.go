@@ -408,11 +408,13 @@ type allowerContext struct {
 	createEvent      *Event // The m.room.create event for the room.
 	powerLevelsEvent *Event // The m.room.power_levels event for the room.
 	joinRuleEvent    *Event // The m.room.join_rules event for the room.
+	guestAccessEvent *Event // The m.room.guest_access event for the room.
 
 	// Event contents used for quick lookup.
-	create      CreateContent     // The m.room.create content for the room.
-	powerLevels PowerLevelContent // The m.room.power_levels content for the room.
-	joinRule    JoinRuleContent   // The m.room.join_rules content for the room.
+	create      CreateContent      // The m.room.create content for the room.
+	powerLevels PowerLevelContent  // The m.room.power_levels content for the room.
+	joinRule    JoinRuleContent    // The m.room.join_rules content for the room.
+	guestAccess GuestAccessContent // The m.room.guest_access content for the room.
 }
 
 func newAllowerContext(provider AuthEventProvider) *allowerContext {
@@ -440,6 +442,12 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 		if p, err := NewPowerLevelContentFromAuthEvents(provider, a.create.Creator); err == nil {
 			a.powerLevelsEvent = e
 			a.powerLevels = p
+		}
+	}
+	if e, _ := provider.GuestAccess(); a.guestAccessEvent == nil || a.guestAccessEvent != e {
+		if g, err := NewGuestAccessContentFromAuthEvents(provider); err == nil {
+			a.guestAccessEvent = e
+			a.guestAccess = g
 		}
 	}
 	if e, _ := provider.JoinRules(); a.joinRuleEvent == nil || a.joinRuleEvent != e {
@@ -994,6 +1002,11 @@ func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, even
 	// TODO: Check that the IDs are valid user IDs.
 	m.targetID = *stateKey
 	m.senderID = event.Sender()
+
+	if m.guestAccess, err = NewGuestAccessContentFromAuthEvents(authEvents); err != nil {
+		return
+	}
+
 	if m.newMember, err = NewMemberContentFromEvent(event); err != nil {
 		return
 	}

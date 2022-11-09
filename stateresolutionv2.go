@@ -40,6 +40,7 @@ type stateResolverV2 struct {
 	resolvedCreate            *Event                        // Resolved create event
 	resolvedPowerLevels       *Event                        // Resolved power level event
 	resolvedJoinRules         *Event                        // Resolved join rules event
+	resolvedGuestAccess       *Event                        // Resolved guest access event
 	resolvedThirdPartyInvites map[string]*Event             // Resolved third party invite events
 	resolvedMembers           map[string]*Event             // Resolved member events
 	resolvedOthers            map[StateKeyTuple]*Event      // Resolved other events
@@ -169,6 +170,9 @@ func ResolveStateConflictsV2(
 	}
 	if r.resolvedPowerLevels != nil {
 		r.result = append(r.result, r.resolvedPowerLevels)
+	}
+	if r.resolvedGuestAccess != nil {
+		r.result = append(r.result, r.resolvedGuestAccess)
 	}
 	for _, member := range r.resolvedMembers {
 		r.result = append(r.result, member)
@@ -428,6 +432,9 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 			_ = r.authProvider.AddEvent(event)
 		}
 		if event := r.resolvedPowerLevels; needed.PowerLevels && event != nil {
+			_ = r.authProvider.AddEvent(event)
+		}
+		if event := r.resolvedGuestAccess; needed.GuestAccess && event != nil {
 			_ = r.authProvider.AddEvent(event)
 		}
 		for _, needed := range needed.Member {
