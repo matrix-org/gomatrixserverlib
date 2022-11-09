@@ -6,11 +6,11 @@ import "encoding/json"
 // server.
 type Transaction struct {
 	// The ID of the transaction.
-	TransactionID TransactionID `json:"transaction_id"`
+	TransactionID TransactionID `json:"-"`
 	// The server that sent the transaction.
 	Origin ServerName `json:"origin"`
 	// The server that should receive the transaction.
-	Destination ServerName `json:"destination"`
+	Destination ServerName `json:"-"`
 	// The millisecond posix timestamp on the origin server when the
 	// transaction was created.
 	OriginServerTS Timestamp `json:"origin_server_ts"`
@@ -18,7 +18,7 @@ type Transaction struct {
 	// the destination server. Multiple transactions can be sent by the origin
 	// server to the destination server in parallel so there may be more than
 	// one previous transaction.
-	PreviousIDs []TransactionID `json:"previous_ids,omitempty"`
+	PreviousIDs []TransactionID `json:"-"`
 	// The room events pushed from the origin server to the destination server
 	// by this transaction. The events should either be events that originate
 	// on the origin server or be join m.room.member events.
