@@ -207,6 +207,7 @@ type testAuthEvents struct {
 	CreateJSON           json.RawMessage            `json:"create"`
 	JoinRulesJSON        json.RawMessage            `json:"join_rules"`
 	PowerLevelsJSON      json.RawMessage            `json:"power_levels"`
+	GuestAccessJSON      json.RawMessage            `json:"guest_access"`
 	MemberJSON           map[string]json.RawMessage `json:"member"`
 	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
 }
@@ -227,6 +228,17 @@ func (tae *testAuthEvents) JoinRules() (*Event, error) {
 		return nil, nil
 	}
 	event, err := NewEventFromTrustedJSON(tae.JoinRulesJSON, false, RoomVersionV1)
+	if err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+func (tae *testAuthEvents) GuestAccess() (*Event, error) {
+	if len(tae.GuestAccessJSON) == 0 {
+		return nil, nil
+	}
+	event, err := NewEventFromTrustedJSON(tae.GuestAccessJSON, false, RoomVersionV1)
 	if err != nil {
 		return nil, err
 	}

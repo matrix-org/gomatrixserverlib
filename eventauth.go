@@ -97,6 +97,8 @@ type StateNeeded struct {
 	JoinRules bool
 	// Is the m.room.power_levels event needed to auth the event.
 	PowerLevels bool
+	// Is the m.room.guest_access event needed to auth the event
+	GuestAccess bool
 	// List of m.room.member state_keys needed to auth the event
 	Member []string
 	// List of m.room.third_party_invite state_keys
@@ -113,6 +115,9 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 	}
 	if s.PowerLevels {
 		res = append(res, StateKeyTuple{MRoomPowerLevels, ""})
+	}
+	if s.GuestAccess {
+		res = append(res, StateKeyTuple{MRoomGuestAccess, ""})
 	}
 	for _, userID := range s.Member {
 		res = append(res, StateKeyTuple{MRoomMember, userID})
@@ -249,6 +254,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		}
 		result.Create = true
 		result.PowerLevels = true
+		result.GuestAccess = true
 		if stateKey != nil {
 			result.Member = append(result.Member, sender, *stateKey)
 		}
@@ -295,6 +301,8 @@ type AuthEventProvider interface {
 	JoinRules() (*Event, error)
 	// PowerLevels returns the m.room.power_levels event for the room or nil if there isn't a m.room.power_levels event.
 	PowerLevels() (*Event, error)
+	// GuestAccess returns the m.room.guest_access event for the room or nil if there isn't a m.room.guest_access event.
+	GuestAccess() (*Event, error)
 	// Member returns the m.room.member event for the given user_id state_key or nil if there isn't a m.room.member event.
 	Member(stateKey string) (*Event, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
@@ -339,6 +347,11 @@ func (a *AuthEvents) JoinRules() (*Event, error) {
 // PowerLevels implements AuthEventProvider
 func (a *AuthEvents) PowerLevels() (*Event, error) {
 	return a.events[StateKeyTuple{MRoomPowerLevels, ""}], nil
+}
+
+// PowerLevels implements AuthEventProvider
+func (a *AuthEvents) GuestAccess() (*Event, error) {
+	return a.events[StateKeyTuple{MRoomGuestAccess, ""}], nil
 }
 
 // Member implements AuthEventProvider

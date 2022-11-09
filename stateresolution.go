@@ -38,6 +38,7 @@ func ResolveStateConflicts(conflicted []*Event, authEvents []*Event) []*Event {
 	r.resolveAndAddAuthBlocks([][]*Event{r.creates})
 	r.resolveAndAddAuthBlocks([][]*Event{r.powerLevels})
 	r.resolveAndAddAuthBlocks([][]*Event{r.joinRules})
+	r.resolveAndAddAuthBlocks([][]*Event{r.guestAccess})
 	r.resolveAndAddAuthBlocks(r.thirdPartyInvites)
 	r.resolveAndAddAuthBlocks(r.members)
 	// Resolve any other conflicted state events.
@@ -64,6 +65,7 @@ type stateResolver struct {
 	creates           []*Event
 	powerLevels       []*Event
 	joinRules         []*Event
+	guestAccess       []*Event
 	thirdPartyInvites [][]*Event
 	members           [][]*Event
 	others            [][]*Event
@@ -71,6 +73,7 @@ type stateResolver struct {
 	resolvedCreate            *Event
 	resolvedPowerLevels       *Event
 	resolvedJoinRules         *Event
+	resolvedGuestAccess       *Event
 	resolvedThirdPartyInvites map[string]*Event
 	resolvedMembers           map[string]*Event
 	// The list of resolved events.
@@ -90,6 +93,10 @@ func (r *stateResolver) Valid() bool {
 
 func (r *stateResolver) PowerLevels() (*Event, error) {
 	return r.resolvedPowerLevels, nil
+}
+
+func (r *stateResolver) GuestAccess() (*Event, error) {
+	return r.resolvedGuestAccess, nil
 }
 
 func (r *stateResolver) JoinRules() (*Event, error) {
@@ -138,6 +145,11 @@ func (r *stateResolver) addConflicted(events []*Event) { // nolint: gocyclo
 			blockList = &r.members
 		case MRoomThirdPartyInvite:
 			blockList = &r.thirdPartyInvites
+		case MRoomGuestAccess:
+			if key.stateKey == "" {
+				r.guestAccess = append(r.guestAccess, event)
+				continue
+			}
 		}
 		// We need to find an entry for the state key in a block list.
 		offset, ok := offsets[key]
@@ -180,6 +192,8 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 		r.resolvedMembers[*event.StateKey()] = event
 	case MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[*event.StateKey()] = event
+	case MRoomGuestAccess:
+		r.resolvedGuestAccess = event
 	}
 }
 
@@ -202,6 +216,8 @@ func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 		r.resolvedMembers[stateKey] = nil
 	case MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[stateKey] = nil
+	case MRoomGuestAccess:
+		r.resolvedGuestAccess = nil
 	}
 }
 
