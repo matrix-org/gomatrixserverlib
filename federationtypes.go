@@ -593,7 +593,7 @@ func (r *RespSendJoin) Check(ctx context.Context, roomVersion RoomVersion, keyRi
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &authEventProvider); err != nil {
+	if err := Allowed(joinEvent, &authEventProvider, false); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
 			joinEvent.EventID(), err,
@@ -681,7 +681,7 @@ func checkAllowedByAuthEvents(event *Event, eventsByID map[string]*Event, missin
 
 	// If we made it this far then we've successfully got as many of the auth events as
 	// as described by AuthEventIDs(). Check if they allow the event.
-	if err := Allowed(event, &authEvents); err != nil {
+	if err := Allowed(event, &authEvents, false); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
 			event.EventID(), err.Error(),

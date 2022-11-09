@@ -298,7 +298,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		if err != nil {
 			panic(err)
 		}
-		if err = Allowed(event, &tc.AuthEvents); err != nil {
+		if err = Allowed(event, &tc.AuthEvents, false); err != nil {
 			t.Fatalf("Expected %q to be allowed but it was not: %q", string(data), err)
 		}
 	}
@@ -307,7 +307,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		if err != nil {
 			panic(err)
 		}
-		if err := Allowed(event, &tc.AuthEvents); err == nil {
+		if err := Allowed(event, &tc.AuthEvents, false); err == nil {
 			t.Fatalf("Expected %q to not be allowed but it was", string(data))
 		}
 	}
@@ -1115,7 +1115,7 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = Allowed(powerChangeShouldSucceed, powerLevelTestRoom); err != nil {
+	if err = Allowed(powerChangeShouldSucceed, powerLevelTestRoom, false); err != nil {
 		t.Error("TestDemoteUserDefaultPowerLevel should have succeeded but it didn't:", err)
 	}
 }
@@ -1140,7 +1140,7 @@ func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = Allowed(powerChangeShouldFail, powerLevelTestRoom); err == nil {
+	if err = Allowed(powerChangeShouldFail, powerLevelTestRoom, false); err == nil {
 		t.Error("TestPromoteUserDefaultLevelAboveOwn event should have failed but it didn't")
 	}
 }
@@ -1208,7 +1208,7 @@ func TestNegativePowerLevels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = Allowed(eventShouldSucceed, negativePowerLevelTestRoom); err != nil {
+	if err = Allowed(eventShouldSucceed, negativePowerLevelTestRoom, false); err != nil {
 		t.Error("TestNegativePowerLevels should have succeeded but it didn't:", err)
 	}
 }

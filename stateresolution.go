@@ -258,7 +258,7 @@ func (r *stateResolver) resolveAuthBlock(events []*Event) *Event {
 		event := block[i].event
 		// Check if the next event passes authentication checks against the current candidate.
 		// (SPEC: This ensures that "ban" events cannot be replaced by "join" events through a conflict)
-		if Allowed(event, r) == nil {
+		if Allowed(event, r, false) == nil {
 			// If the event passes authentication checks pick it as the current candidate.
 			// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 			result = event
@@ -284,7 +284,7 @@ func (r *stateResolver) resolveNormalBlock(events []*Event) *Event {
 	// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 	for i := len(block) - 1; i > 0; i-- {
 		event := block[i].event
-		if Allowed(event, r) == nil {
+		if Allowed(event, r, false) == nil {
 			return event
 		}
 	}

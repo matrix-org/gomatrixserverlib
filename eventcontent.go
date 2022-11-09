@@ -331,6 +331,13 @@ func NewGuestAccessContentFromAuthEvents(authEvents AuthEventProvider) (c GuestA
 	return
 }
 
+func (c GuestAccessContent) Allowed(isGuest bool) error {
+	if c.GuestAccess != "can_join" && isGuest {
+		return fmt.Errorf("guest access is prohibited")
+	}
+	return nil
+}
+
 // PowerLevelContent is the JSON content of a m.room.power_levels event needed for auth checks.
 // Typically the user calls NewPowerLevelContentFromAuthEvents instead of
 // unmarshalling the content directly from JSON so defaults can be applied.

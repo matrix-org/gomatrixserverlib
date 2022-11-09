@@ -463,14 +463,14 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 // quick path designed to speed up state resolution.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
-func (a *allowerContext) allowed(event *Event) error {
+func (a *allowerContext) allowed(event *Event, isGuest bool) error {
 	switch event.Type() {
 	case MRoomCreate:
 		return a.createEventAllowed(event)
 	case MRoomAliases:
 		return a.aliasEventAllowed(event)
 	case MRoomMember:
-		return a.memberEventAllowed(event)
+		return a.memberEventAllowed(event, isGuest)
 	case MRoomPowerLevels:
 		return a.powerLevelsEventAllowed(event)
 	case MRoomRedaction:
@@ -483,11 +483,11 @@ func (a *allowerContext) allowed(event *Event) error {
 // Allowed checks whether an event is allowed by the auth events.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
-func Allowed(event *Event, authEvents AuthEventProvider) error {
+func Allowed(event *Event, authEvents AuthEventProvider, isGuest bool) error {
 	if !authEvents.Valid() {
 		return errorf("authEvents contains events from different rooms")
 	}
-	return newAllowerContext(authEvents).allowed(event)
+	return newAllowerContext(authEvents).allowed(event, isGuest)
 }
 
 // createEventAllowed checks whether the m.room.create event is allowed.
@@ -530,12 +530,12 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 
 // memberEventAllowed checks whether the m.room.member event is allowed.
 // Membership events have different authentication rules to ordinary events.
-func (a *allowerContext) memberEventAllowed(event *Event) error {
+func (a *allowerContext) memberEventAllowed(event *Event, isGuest bool) error {
 	allower, err := a.newMembershipAllower(a.provider, event)
 	if err != nil {
 		return err
 	}
-	return allower.membershipAllowed(event)
+	return allower.membershipAllowed(event, isGuest)
 }
 
 // aliasEventAllowed checks whether the m.room.aliases event is allowed.
@@ -1027,12 +1027,15 @@ func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, even
 }
 
 // membershipAllowed checks whether the membership event is allowed
-func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: gocyclo
+func (m *membershipAllower) membershipAllowed(event *Event, isGuest bool) error { // nolint: gocyclo
 	if m.create.roomID != event.RoomID() {
 		return errorf(
 			"create event has different roomID: %q (%s) != %q (%s)",
 			event.RoomID(), event.EventID(), m.create.roomID, m.create.eventID,
 		)
+	}
+	if err := m.guestAccess.Allowed(isGuest); err != nil {
+		return err
 	}
 	if err := m.create.UserIDAllowed(m.senderID); err != nil {
 		return err

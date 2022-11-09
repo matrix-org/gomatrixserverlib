@@ -450,7 +450,7 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 
 		// Check if the event is allowed based on the current partial state.
 		r.allower.update(&r.authProvider)
-		if err := r.allower.allowed(event); err != nil {
+		if err := r.allower.allowed(event, false); err != nil {
 			// The event was not allowed by the partial state and/or relevant
 			// auth events from the event, so skip it.
 			continue
