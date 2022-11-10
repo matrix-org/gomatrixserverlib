@@ -8,6 +8,7 @@ import (
 )
 
 const defaultDomain = "domain"
+const defaultLocalpart = "localpart"
 
 func TestEmptyFails(t *testing.T) {
 	_, err := gomatrixserverlib.NewUserID("", false)
@@ -17,7 +18,7 @@ func TestEmptyFails(t *testing.T) {
 }
 
 func TestBasicValidSucceeds(t *testing.T) {
-	localpart := "localpart"
+	localpart := defaultLocalpart
 	domain := defaultDomain
 	raw := fmt.Sprintf("@%s:%s", localpart, domain)
 
@@ -80,7 +81,7 @@ func TestExtensiveLocalpartHistoricalSucceeds(t *testing.T) {
 }
 
 func TestDomainWithPortSucceeds(t *testing.T) {
-	localpart := "localpart"
+	localpart := defaultLocalpart
 	domain := "domain.org:80"
 	raw := fmt.Sprintf("@%s:%s", localpart, domain)
 
