@@ -160,3 +160,13 @@ func TestInvalidDomainFails(t *testing.T) {
 		t.Fatalf("domain is not valid, it shouldn't parse")
 	}
 }
+
+func TestEmptyLocalpartFails(t *testing.T) {
+	userID := "@:domain"
+
+	_, err := gomatrixserverlib.NewUserID(userID, false)
+
+	if err == nil {
+		t.Fatalf("userID is not valid, it shouldn't parse")
+	}
+}
