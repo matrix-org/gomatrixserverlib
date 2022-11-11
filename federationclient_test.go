@@ -46,7 +46,13 @@ func TestSendJoinFallback(t *testing.T) {
 		t.Fatalf("failed to marshal RespSendJoin: %s", err)
 	}
 	fc := gomatrixserverlib.NewFederationClient(
-		serverName, keyID, privateKey,
+		[]*gomatrixserverlib.SigningIdentity{
+			{
+				ServerName: serverName,
+				KeyID:      keyID,
+				PrivateKey: privateKey,
+			},
+		},
 		gomatrixserverlib.WithSkipVerify(true),
 	)
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
@@ -76,7 +82,7 @@ func TestSendJoinFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read event json: %s", err)
 	}
-	res, err := fc.SendJoin(context.Background(), targetServerName, ev)
+	res, err := fc.SendJoin(context.Background(), serverName, targetServerName, ev)
 	if err != nil {
 		t.Fatalf("SendJoin returned an error: %s", err)
 	}
@@ -102,7 +108,13 @@ func TestSendJoinJSON(t *testing.T) {
 	}`, string(retEv), string(retEv)))
 
 	fc := gomatrixserverlib.NewFederationClient(
-		serverName, keyID, privateKey,
+		[]*gomatrixserverlib.SigningIdentity{
+			{
+				ServerName: serverName,
+				KeyID:      keyID,
+				PrivateKey: privateKey,
+			},
+		},
 		gomatrixserverlib.WithSkipVerify(true),
 	)
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
@@ -129,7 +141,7 @@ func TestSendJoinJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read event json: %s", err)
 	}
-	res, err := fc.SendJoin(context.Background(), targetServerName, ev)
+	res, err := fc.SendJoin(context.Background(), serverName, targetServerName, ev)
 	if err != nil {
 		t.Fatalf("SendJoin returned an error: %s", err)
 	}
