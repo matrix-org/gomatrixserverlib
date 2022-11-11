@@ -47,7 +47,7 @@ const examplePutContent = `{"edus":[{"content":{"device_id":"YHRUBZNPFS",` +
 
 func TestSignGetRequest(t *testing.T) {
 	request := NewFederationRequest(
-		"GET", "localhost:44033",
+		"GET", "localhost:8800", "localhost:44033",
 		"/_matrix/federation/v1/query/directory?room_alias=%23test%3Alocalhost%3A44033",
 	)
 	if err := request.Sign("localhost:8800", "ed25519:a_Obwu", privateKey1); err != nil {
@@ -104,7 +104,7 @@ func TestVerifyGetRequest(t *testing.T) {
 
 func TestSignPutRequest(t *testing.T) {
 	request := NewFederationRequest(
-		"PUT", "localhost:44033", "/_matrix/federation/v1/send/1493385816575/",
+		"PUT", "localhost:8800", "localhost:44033", "/_matrix/federation/v1/send/1493385816575/",
 	)
 	if err := request.SetContent(RawJSON([]byte(examplePutContent))); err != nil {
 		t.Fatal(err)
