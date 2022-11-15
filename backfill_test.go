@@ -12,7 +12,7 @@ import (
 
 type testBackfillRequester struct {
 	servers                         []ServerName
-	backfillFn                      func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
+	backfillFn                      func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
 	authEventsToProvide             [][]byte
 	stateIDsAtEvent                 map[string][]string
 	callOrderForStateIDsBeforeEvent []string // event IDs called
@@ -28,8 +28,8 @@ func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer Ro
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
 	return t.servers
 }
-func (t *testBackfillRequester) Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error) {
-	txn, err := t.backfillFn(server, roomID, fromEventIDs, limit)
+func (t *testBackfillRequester) Backfill(ctx context.Context, origin, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error) {
+	txn, err := t.backfillFn(origin, server, roomID, fromEventIDs, limit)
 	if err != nil {
 		return Transaction{}, err
 	}
@@ -92,14 +92,14 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 			"$fnwGrQEpiOIUoDU2:baba.is.you": {"$WCraVpPZe5TtHAqs:baba.is.you"},
 			"$WCraVpPZe5TtHAqs:baba.is.you": nil,
 		},
-		backfillFn: func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+		backfillFn: func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)
 			}
 			if server == serverA {
 				// server A returns events 1 and 3.
 				return &Transaction{
-					Origin:         serverA,
+					Origin:         origin,
 					OriginServerTS: AsTimestamp(time.Now()),
 					PDUs: []json.RawMessage{
 						testBackfillEvents[1], testBackfillEvents[3],
@@ -108,7 +108,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 			} else if server == serverB {
 				// server B returns events 0 and 2 and 3.
 				return &Transaction{
-					Origin:         serverB,
+					Origin:         origin,
 					OriginServerTS: AsTimestamp(time.Now()),
 					PDUs: []json.RawMessage{
 						testBackfillEvents[0], testBackfillEvents[2], testBackfillEvents[3],
@@ -118,7 +118,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 			return nil, fmt.Errorf("bad server name: %s", server)
 		},
 	}
-	result, err := RequestBackfill(ctx, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
+	result, err := RequestBackfill(ctx, serverA, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
 	if err != nil {
 		t.Fatalf("RequestBackfill got error: %s", err)
 	}
@@ -157,13 +157,13 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 			"$fnwGrQEpiOIUoDU2:baba.is.you": {"$WCraVpPZe5TtHAqs:baba.is.you"},
 			"$WCraVpPZe5TtHAqs:baba.is.you": nil,
 		},
-		backfillFn: func(server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+		backfillFn: func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)
 			}
 			if server == serverA {
 				return &Transaction{
-					Origin:         serverA,
+					Origin:         origin,
 					OriginServerTS: AsTimestamp(time.Now()),
 					PDUs: []json.RawMessage{
 						testBackfillEvents[0], testBackfillEvents[1], testBackfillEvents[2], testBackfillEvents[3],
@@ -173,7 +173,7 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 			return nil, fmt.Errorf("bad server name: %s", server)
 		},
 	}
-	result, err := RequestBackfill(ctx, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
+	result, err := RequestBackfill(ctx, serverA, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
 	if err != nil {
 		t.Fatalf("RequestBackfill got error: %s", err)
 	}

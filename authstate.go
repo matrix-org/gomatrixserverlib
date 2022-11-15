@@ -17,10 +17,10 @@ type StateProvider interface {
 
 type FederatedStateClient interface {
 	LookupState(
-		ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
+		ctx context.Context, origin, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 	) (res RespState, err error)
 	LookupStateIDs(
-		ctx context.Context, s ServerName, roomID, eventID string,
+		ctx context.Context, origin, s ServerName, roomID, eventID string,
 	) (res RespStateIDs, err error)
 }
 
@@ -28,6 +28,7 @@ type FederatedStateClient interface {
 type FederatedStateProvider struct {
 	FedClient FederatedStateClient
 	// The remote server to ask.
+	Origin ServerName
 	Server ServerName
 	// Set to true to remember the auth event IDs for the room at various states
 	RememberAuthEvents bool
@@ -38,7 +39,7 @@ type FederatedStateProvider struct {
 
 // StateIDsBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event *HeaderedEvent) ([]string, error) {
-	res, err := p.FedClient.LookupStateIDs(ctx, p.Server, event.RoomID(), event.EventID())
+	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID(), event.EventID())
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 
 // StateBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
-	res, err := p.FedClient.LookupState(ctx, p.Server, event.RoomID(), event.EventID(), roomVer)
+	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}
