@@ -23,7 +23,7 @@ type SigningIdentity struct {
 	// YAML annotations so it can be used directly in Dendrite config.
 	ServerName ServerName         `yaml:"server_name"`
 	KeyID      KeyID              `yaml:"key_id"`
-	PrivateKey ed25519.PrivateKey `yaml:"private_key"`
+	PrivateKey ed25519.PrivateKey `yaml:"-"`
 }
 
 // NewFederationClient makes a new FederationClient. You can supply
