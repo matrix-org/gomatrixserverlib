@@ -170,3 +170,34 @@ func TestEmptyLocalpartFails(t *testing.T) {
 		t.Fatalf("userID is not valid, it shouldn't parse")
 	}
 }
+
+func TestSameUserIDsAreEqual(t *testing.T) {
+	id := "@localpart:domain"
+
+	userID, err := gomatrixserverlib.NewUserID(id, false)
+	userID2, err2 := gomatrixserverlib.NewUserID(id, false)
+
+	if err != nil || err2 != nil {
+		t.Fatalf("userID is valid, it should parse")
+	}
+
+	if *userID != *userID2 {
+		t.Fatalf("userIDs should be equal")
+	}
+}
+
+func TestDifferentUserIDsAreNotEqual(t *testing.T) {
+	id := "@localpart:domain"
+	id2 := "@localpart2:domain"
+
+	userID, err := gomatrixserverlib.NewUserID(id, false)
+	userID2, err2 := gomatrixserverlib.NewUserID(id2, false)
+
+	if err != nil || err2 != nil {
+		t.Fatalf("userID is valid, it should parse")
+	}
+
+	if *userID == *userID2 {
+		t.Fatalf("userIDs shouldn't be equal")
+	}
+}
