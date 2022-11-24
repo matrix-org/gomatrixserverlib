@@ -68,6 +68,21 @@ func (ac *FederationClient) SendTransaction(
 	return
 }
 
+// SendAsyncTransaction sends a transaction for forwarding to the destination
+func (ac *FederationClient) SendAsyncTransaction(
+	ctx context.Context, u UserID, t Transaction, forwardingServer ServerName,
+) (res EmptyResp, err error) {
+	path := federationPathPrefixV1 + "/forward_async/" +
+		string(t.TransactionID) + "/" +
+		url.PathEscape(u.Raw())
+	req := NewFederationRequest("PUT", forwardingServer, path)
+	if err = req.SetContent(t); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // Creates a version query string with all the specified room versions, typically
 // the list of all supported room versions.
 // Needed when making a /make_knock or /make_join request.

@@ -211,17 +211,21 @@ func VerifyHTTPRequest(
 		util.GetLogger(req.Context()).WithError(err).Print("Error parsing HTTP headers")
 		return nil, util.MessageResponse(400, "Bad Request")
 	}
-	if request.fields.Destination != "" {
-		switch {
-		case isLocalServerName != nil && !isLocalServerName(request.fields.Destination):
-			fallthrough
-		case isLocalServerName == nil && destination != request.fields.Destination:
-			message := fmt.Sprintf("Unrecognised server name %q for Destination", request.fields.Destination)
-			util.GetLogger(req.Context()).Warn(message)
-			return nil, util.MessageResponse(400, message)
+	if destination != "" {
+		if request.fields.Destination != "" {
+			switch {
+			case isLocalServerName != nil && !isLocalServerName(request.fields.Destination):
+				fallthrough
+			case isLocalServerName == nil && destination != request.fields.Destination:
+				println(destination)
+				println(request.fields.Destination)
+				message := fmt.Sprintf("Unrecognised server name %q for Destination", request.fields.Destination)
+				util.GetLogger(req.Context()).Warn(message)
+				return nil, util.MessageResponse(400, message)
+			}
+		} else if request.fields.Destination == "" {
+			request.fields.Destination = destination
 		}
-	} else if request.fields.Destination == "" {
-		request.fields.Destination = destination
 	}
 
 	// The request fields are already in the form required by the specification

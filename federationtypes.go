@@ -121,6 +121,13 @@ type PDUResult struct {
 	Error string `json:"error,omitempty"`
 }
 
+// A RespSend is the content of a response to PUT /_matrix/federation/v1/forward_async/{txnID}/{userID}
+type RespAsyncSend struct {
+	// If not empty then this is a human readable description of a problem
+	// encountered processing a transaction.
+	Error string `json:"error,omitempty"`
+}
+
 // A RespStateIDs is the content of a response to GET /_matrix/federation/v1/state_ids/{roomID}/{eventID}
 type RespStateIDs struct {
 	// A list of state event IDs for the state of the room before the requested event.
@@ -225,6 +232,9 @@ type RespUserDevices struct {
 	Devices        []RespUserDevice `json:"devices"`
 	MasterKey      *CrossSigningKey `json:"master_key"`
 	SelfSigningKey *CrossSigningKey `json:"self_signing_key"`
+}
+
+type EmptyResp struct {
 }
 
 // UnmarshalJSON is used here because people on Synapses can apparently upload

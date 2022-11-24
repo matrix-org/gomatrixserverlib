@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"golang.org/x/crypto/ed25519"
@@ -141,6 +142,110 @@ func TestSendJoinJSON(t *testing.T) {
 	if !reflect.DeepEqual(res.AuthEvents, wantAuthChain) {
 		t.Fatalf("SendJoin response got auth %+v want %+v", jsonify(res.AuthEvents), jsonify(wantAuthChain))
 	}
+}
+
+func TestSendAsyncTransaction(t *testing.T) {
+	user, err := gomatrixserverlib.NewUserID("@user:target.server.name", false)
+	if err != nil {
+		t.Fatalf("failed to read event json: %s", err)
+	}
+	serverName := gomatrixserverlib.ServerName("local.server.name")
+	targetServerName := user.Domain()
+	keyID := gomatrixserverlib.KeyID("ed25519:auto")
+	_, privateKey, _ := ed25519.GenerateKey(nil)
+	respSendAsyncResponseJSON := []byte(fmt.Sprintf(`{"error": ""}`))
+
+	fc := gomatrixserverlib.NewFederationClient(
+		serverName, keyID, privateKey,
+		gomatrixserverlib.WithSkipVerify(true),
+	)
+	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/forward_async") {
+					return &http.Response{
+						StatusCode: 200,
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendAsyncResponseJSON)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: 404,
+					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+				}, nil
+			},
+		},
+	))
+
+	txn := createTransaction(serverName, targetServerName, *user)
+	forwardingServer := gomatrixserverlib.ServerName("mailbox.server")
+	_, err = fc.SendAsyncTransaction(context.Background(), *user, txn, forwardingServer)
+	if err != nil {
+		t.Fatalf("SendAsyncTransaction returned an error: %s", err)
+	}
+}
+
+func TestSendAsyncTransactionReportsFailure(t *testing.T) {
+	user, err := gomatrixserverlib.NewUserID("@user:target.server.name", false)
+	if err != nil {
+		t.Fatalf("failed to read event json: %s", err)
+	}
+	serverName := gomatrixserverlib.ServerName("local.server.name")
+	targetServerName := user.Domain()
+	keyID := gomatrixserverlib.KeyID("ed25519:auto")
+	_, privateKey, _ := ed25519.GenerateKey(nil)
+	errorMessage := "Invalid transaction"
+	respSendAsyncResponseJSON := []byte(fmt.Sprintf(`{"error": "%s"}`, errorMessage))
+
+	fc := gomatrixserverlib.NewFederationClient(
+		serverName, keyID, privateKey,
+		gomatrixserverlib.WithSkipVerify(true),
+	)
+	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/forward_async") {
+					return &http.Response{
+						StatusCode: 400,
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendAsyncResponseJSON)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: 404,
+					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+				}, nil
+			},
+		},
+	))
+
+	txn := createTransaction(serverName, targetServerName, *user)
+	forwardingServer := gomatrixserverlib.ServerName("mailbox.server")
+	_, err = fc.SendAsyncTransaction(context.Background(), *user, txn, forwardingServer)
+	if err == nil {
+		t.Fatalf("SendAsyncTransaction didn't return an error")
+	}
+	if !strings.Contains(err.Error(), errorMessage) {
+		t.Fatalf("Error doesn't contain correct message: %s", err.Error())
+	}
+}
+
+func createTransaction(
+	testOrigin gomatrixserverlib.ServerName,
+	testDestination gomatrixserverlib.ServerName,
+	userID gomatrixserverlib.UserID,
+) gomatrixserverlib.Transaction {
+	txn := gomatrixserverlib.Transaction{}
+	txn.PDUs = []json.RawMessage{
+		[]byte(`{"auth_events":[["$0ok8ynDp7kjc95e3:kaer.morhen",{"sha256":"sWCi6Ckp9rDimQON+MrUlNRkyfZ2tjbPbWfg2NMB18Q"}],["$LEwEu0kxrtu5fOiS:kaer.morhen",{"sha256":"1aKajq6DWHru1R1HJjvdWMEavkJJHGaTmPvfuERUXaA"}]],"content":{"body":"Test Message"},"depth":5,"event_id":"$gl2T9l3qm0kUbiIJ:kaer.morhen","hashes":{"sha256":"Qx3nRMHLDPSL5hBAzuX84FiSSP0K0Kju2iFoBWH4Za8"},"origin":"kaer.morhen","origin_server_ts":0,"prev_events":[["$UKNe10XzYzG0TeA9:kaer.morhen",{"sha256":"KtSRyMjt0ZSjsv2koixTRCxIRCGoOp6QrKscsW97XRo"}]],"room_id":"!roomid:kaer.morhen","sender":"@userid:kaer.morhen","signatures":{"kaer.morhen":{"ed25519:auto":"sqDgv3EG7ml5VREzmT9aZeBpS4gAPNIaIeJOwqjDhY0GPU/BcpX5wY4R7hYLrNe5cChgV+eFy/GWm1Zfg5FfDg"}},"type":"m.room.message"}`),
+	}
+	txn.Origin = testOrigin
+	txn.TransactionID = gomatrixserverlib.TransactionID(fmt.Sprintf("%d", time.Now().UnixNano()))
+	txn.Destination = testDestination
+	var federationPathPrefixV1 = "/_matrix/federation/v1"
+	path := federationPathPrefixV1 + "/forward_async/" + string(txn.TransactionID) + "/" + userID.Raw()
+	request := gomatrixserverlib.NewFederationRequest("PUT", txn.Destination, path)
+	request.SetContent(txn)
+
+	return txn
 }
 
 func jsonify(x interface{}) string {
