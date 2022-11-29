@@ -1205,17 +1205,22 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		)
 
 	case Leave:
-		// A joined user is allowed to leave the room.
-		if m.oldMember.Membership == Join {
+		switch m.oldMember.Membership {
+		case Join:
+			// A joined user is allowed to leave the room.
 			return nil
-		}
-		// An invited user is allowed to reject an invite.
-		if m.oldMember.Membership == Invite {
+		case Invite:
+			// An invited user can reject the invite.
 			return nil
+		case Knock:
+			// A knocking user can cancel their knock.
+			return nil
+		default:
+			return m.membershipFailed(
+				"sender cannot leave from membership state %q",
+				m.oldMember.Membership,
+			)
 		}
-		return m.membershipFailed(
-			"sender cannot leave from this state",
-		)
 
 	case Invite, Ban:
 		return m.membershipFailed(
@@ -1261,8 +1266,8 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 				return nil
 			}
 			return m.membershipFailed(
-				"sender has insufficient power to unban (sender level %d, target level %d, ban level %d)",
-				senderLevel, targetLevel, m.powerLevels.Ban,
+				"sender has insufficient power to unban (sender level %d, ban level %d)",
+				senderLevel, m.powerLevels.Ban,
 			)
 		}
 		// A user may kick another user if their level is high enough.
@@ -1277,38 +1282,31 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		)
 
 	case Invite:
-		// A user may invite another user if the user has left the room.
-		// and their level is high enough.
-		if m.oldMember.Membership == Leave && senderLevel >= m.powerLevels.Invite {
-			return nil
-		}
-		// A user may re-invite a user.
-		if m.oldMember.Membership == Invite && senderLevel >= m.powerLevels.Invite {
-			return nil
-		}
-		// A user can invite in response to a knock.
-		if m.oldMember.Membership == Knock && senderLevel >= m.powerLevels.Invite {
-			if m.joinRule.JoinRule != Knock && m.joinRule.JoinRule != KnockRestricted {
-				return m.membershipFailed(
-					"join rule %q does not allow knocking", m.joinRule.JoinRule,
-				)
-			}
-			if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
-				return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
-			} else if !supported {
-				return m.membershipFailed(
-					"room version %q does not support knocking on rooms with join rule %q",
-					m.roomVersion,
-					m.joinRule.JoinRule,
-				)
-			}
-			return nil
+		// A user may only invite another user if they have sufficient power
+		// to do so.
+		if senderLevel < m.powerLevels.Invite {
+			return m.membershipFailed(
+				"sender has insufficient power to invite (sender level %d, invite level %d)",
+				senderLevel, m.powerLevels.Invite,
+			)
 		}
 
-		return m.membershipFailed(
-			"sender has insufficient power to invite (sender level %d, target level %d, invite level %d)",
-			senderLevel, targetLevel, m.powerLevels.Invite,
-		)
+		switch m.oldMember.Membership {
+		case Join, Ban:
+			// A user may invite another user if they haven't joined or have
+			// already joined and left before re-inviting.
+			return m.membershipFailed(
+				"target cannot be invited when their membership is %q",
+				m.oldMember.Membership,
+			)
+		default:
+			// A user may invite another user if they:
+			// - haven't joined the room yet
+			// - joined before but have since left
+			// - were already invite
+			// - were already knock
+			return nil
+		}
 
 	case Knock, Join:
 		return m.membershipFailed(
