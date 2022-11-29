@@ -48,7 +48,9 @@ jobs:
           key: ${{ runner.os }}-go${{ matrix.go }}-test-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go${{ matrix.go }}-test-
-      - run: go test -race ./...
+      - run: go test -race -coverpkg=./... -coverprofile=cover.out $(go list ./...)
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
 
   # run go test on Dendrite with different go versions
   test-dendrite:
