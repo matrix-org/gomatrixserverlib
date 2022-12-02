@@ -10,7 +10,7 @@ import (
 type BackfillClient interface {
 	// Backfill performs a backfill request to the given server.
 	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-backfill-roomid
-	Backfill(ctx context.Context, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error)
+	Backfill(ctx context.Context, origin, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error)
 }
 
 // BackfillRequester contains the necessary functions to perform backfill requests from one server to another.
@@ -45,7 +45,7 @@ type BackfillRequester interface {
 // but to verify it we need to know the prev_events of fromEventIDs.
 //
 // TODO: When does it make sense to return errors?
-func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerifier,
+func RequestBackfill(ctx context.Context, origin ServerName, b BackfillRequester, keyRing JSONVerifier,
 	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]*HeaderedEvent, error) {
 
 	if len(fromEventIDs) == 0 {
@@ -67,7 +67,7 @@ func RequestBackfill(ctx context.Context, b BackfillRequester, keyRing JSONVerif
 			return nil, fmt.Errorf("gomatrixserverlib: RequestBackfill context cancelled %w", ctx.Err())
 		}
 		// fetch some events, and try a different server if it fails
-		txn, err := b.Backfill(ctx, s, roomID, limit, fromEventIDs)
+		txn, err := b.Backfill(ctx, origin, s, roomID, limit, fromEventIDs)
 		if err != nil {
 			continue // try the next server
 		}

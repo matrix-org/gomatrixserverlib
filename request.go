@@ -37,8 +37,9 @@ type FederationRequest struct {
 // The destination is the name of a matrix homeserver.
 // The request path must begin with a slash.
 // Eg. NewFederationRequest("GET", "matrix.org", "/_matrix/federation/v1/send/123")
-func NewFederationRequest(method string, destination ServerName, requestURI string) FederationRequest {
+func NewFederationRequest(method string, origin, destination ServerName, requestURI string) FederationRequest {
 	var r FederationRequest
+	r.fields.Origin = origin
 	r.fields.Destination = destination
 	r.fields.Method = strings.ToUpper(method)
 	r.fields.RequestURI = requestURI

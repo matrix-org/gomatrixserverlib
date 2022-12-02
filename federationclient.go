@@ -16,9 +16,14 @@ import (
 // "Authorization: X-Matrix" headers to requests that need ed25519 signatures
 type FederationClient struct {
 	Client
-	serverName       ServerName
-	serverKeyID      KeyID
-	serverPrivateKey ed25519.PrivateKey
+	identities []*SigningIdentity
+}
+
+type SigningIdentity struct {
+	// YAML annotations so it can be used directly in Dendrite config.
+	ServerName ServerName         `yaml:"server_name"`
+	KeyID      KeyID              `yaml:"key_id"`
+	PrivateKey ed25519.PrivateKey `yaml:"-"`
 }
 
 // NewFederationClient makes a new FederationClient. You can supply
@@ -26,21 +31,29 @@ type FederationClient struct {
 // TLS validation etc - see WithTransport, WithTimeout, WithSkipVerify,
 // WithDNSCache etc.
 func NewFederationClient(
-	serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey,
+	identities []*SigningIdentity,
 	options ...ClientOption,
 ) *FederationClient {
 	return &FederationClient{
 		Client: *NewClient(
 			append(options, WithWellKnownSRVLookups(true))...,
 		),
-		serverName:       serverName,
-		serverKeyID:      keyID,
-		serverPrivateKey: privateKey,
+		identities: append([]*SigningIdentity{}, identities...),
 	}
 }
 
 func (ac *FederationClient) doRequest(ctx context.Context, r FederationRequest, resBody interface{}) error {
-	if err := r.Sign(ac.serverName, ac.serverKeyID, ac.serverPrivateKey); err != nil {
+	var identity *SigningIdentity
+	for _, id := range ac.identities {
+		if id.ServerName == r.fields.Origin {
+			identity = id
+			break
+		}
+	}
+	if identity == nil {
+		return fmt.Errorf("no signing identity for server name %q", r.fields.Origin)
+	}
+	if err := r.Sign(identity.ServerName, identity.KeyID, identity.PrivateKey); err != nil {
 		return err
 	}
 
@@ -60,7 +73,7 @@ func (ac *FederationClient) SendTransaction(
 	ctx context.Context, t Transaction,
 ) (res RespSend, err error) {
 	path := federationPathPrefixV1 + "/send/" + string(t.TransactionID)
-	req := NewFederationRequest("PUT", t.Destination, path)
+	req := NewFederationRequest("PUT", t.Origin, t.Destination, path)
 	if err = req.SetContent(t); err != nil {
 		return
 	}
@@ -118,14 +131,14 @@ func makeVersionQueryString(roomVersions []RoomVersion) string {
 // server's key and pass it to SendJoin.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) MakeJoin(
-	ctx context.Context, s ServerName, roomID, userID string,
+	ctx context.Context, origin, s ServerName, roomID, userID string,
 	roomVersions []RoomVersion,
 ) (res RespMakeJoin, err error) {
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -135,9 +148,9 @@ func (ac *FederationClient) MakeJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) SendJoin(
-	ctx context.Context, s ServerName, event *Event,
+	ctx context.Context, origin, s ServerName, event *Event,
 ) (res RespSendJoin, err error) {
-	return ac.sendJoin(ctx, s, event, false)
+	return ac.sendJoin(ctx, origin, s, event, false)
 }
 
 // SendJoinPartialState sends a join m.room.member event obtained using MakeJoin via a
@@ -146,14 +159,14 @@ func (ac *FederationClient) SendJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) SendJoinPartialState(
-	ctx context.Context, s ServerName, event *Event,
+	ctx context.Context, origin, s ServerName, event *Event,
 ) (res RespSendJoin, err error) {
-	return ac.sendJoin(ctx, s, event, true)
+	return ac.sendJoin(ctx, origin, s, event, true)
 }
 
 // sendJoin is an internal implementation shared between SendJoin and SendJoinPartialState
 func (ac *FederationClient) sendJoin(
-	ctx context.Context, s ServerName, event *Event, partialState bool,
+	ctx context.Context, origin, s ServerName, event *Event, partialState bool,
 ) (res RespSendJoin, err error) {
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
@@ -162,7 +175,7 @@ func (ac *FederationClient) sendJoin(
 		path += "?org.matrix.msc3706.partial_state=true"
 	}
 
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -173,7 +186,7 @@ func (ac *FederationClient) sendJoin(
 		v1path := federationPathPrefixV1 + "/send_join/" +
 			url.PathEscape(event.RoomID()) + "/" +
 			url.PathEscape(event.EventID())
-		v1req := NewFederationRequest("PUT", s, v1path)
+		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
 		}
@@ -195,14 +208,14 @@ func (ac *FederationClient) sendJoin(
 // server's key and pass it to SendKnock.
 // See https://spec.matrix.org/v1.3/server-server-api/#knocking-upon-a-room
 func (ac *FederationClient) MakeKnock(
-	ctx context.Context, s ServerName, roomID, userID string,
+	ctx context.Context, origin, s ServerName, roomID, userID string,
 	roomVersions []RoomVersion,
 ) (res RespMakeKnock, err error) {
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_knock/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -212,13 +225,13 @@ func (ac *FederationClient) MakeKnock(
 // This is used to ask to join a room the local server isn't a member of.
 // See https://spec.matrix.org/v1.3/server-server-api/#knocking-upon-a-room
 func (ac *FederationClient) SendKnock(
-	ctx context.Context, s ServerName, event *Event,
+	ctx context.Context, origin, s ServerName, event *Event,
 ) (res RespSendKnock, err error) {
 	path := federationPathPrefixV1 + "/send_knock/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
 
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -232,12 +245,12 @@ func (ac *FederationClient) SendKnock(
 // the event_id with our own, and pass it to SendLeave.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-make-leave-roomid-userid
 func (ac *FederationClient) MakeLeave(
-	ctx context.Context, s ServerName, roomID, userID string,
+	ctx context.Context, origin, s ServerName, roomID, userID string,
 ) (res RespMakeLeave, err error) {
 	path := federationPathPrefixV1 + "/make_leave/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -247,12 +260,12 @@ func (ac *FederationClient) MakeLeave(
 // This is used to reject a remote invite.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#put-matrix-federation-v1-send-leave-roomid-eventid
 func (ac *FederationClient) SendLeave(
-	ctx context.Context, s ServerName, event *Event,
+	ctx context.Context, origin, s ServerName, event *Event,
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -264,7 +277,7 @@ func (ac *FederationClient) SendLeave(
 		v1path := federationPathPrefixV1 + "/send_leave/" +
 			url.PathEscape(event.RoomID()) + "/" +
 			url.PathEscape(event.EventID())
-		v1req := NewFederationRequest("PUT", s, v1path)
+		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
 		}
@@ -280,12 +293,12 @@ func (ac *FederationClient) SendLeave(
 // SendInvite sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *FederationClient) SendInvite(
-	ctx context.Context, s ServerName, event *Event,
+	ctx context.Context, origin, s ServerName, event *Event,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -296,13 +309,13 @@ func (ac *FederationClient) SendInvite(
 // SendInviteV2 sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *FederationClient) SendInviteV2(
-	ctx context.Context, s ServerName, request InviteV2Request,
+	ctx context.Context, origin, s ServerName, request InviteV2Request,
 ) (res RespInviteV2, err error) {
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(request); err != nil {
 		return
 	}
@@ -312,7 +325,7 @@ func (ac *FederationClient) SendInviteV2(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		var resp RespInvite
-		resp, err = ac.SendInvite(ctx, s, request.Event())
+		resp, err = ac.SendInvite(ctx, origin, s, request.Event())
 		if err != nil {
 			return
 		}
@@ -331,11 +344,11 @@ func (ac *FederationClient) SendInviteV2(
 // This is used to exchange a m.room.third_party_invite event for a m.room.member
 // one in a room the local server isn't a member of.
 func (ac *FederationClient) ExchangeThirdPartyInvite(
-	ctx context.Context, s ServerName, builder EventBuilder,
+	ctx context.Context, origin, s ServerName, builder EventBuilder,
 ) (err error) {
 	path := federationPathPrefixV1 + "/exchange_third_party_invite/" +
 		url.PathEscape(builder.RoomID)
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(builder); err != nil {
 		return
 	}
@@ -347,13 +360,13 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 // LookupState retrieves the room state for a room at an event from a
 // remote matrix server as full matrix events.
 func (ac *FederationClient) LookupState(
-	ctx context.Context, s ServerName, roomID, eventID string, roomVersion RoomVersion,
+	ctx context.Context, origin, s ServerName, roomID, eventID string, roomVersion RoomVersion,
 ) (res RespState, err error) {
 	path := federationPathPrefixV1 + "/state/" +
 		url.PathEscape(roomID) +
 		"?event_id=" +
 		url.QueryEscape(eventID)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -361,13 +374,13 @@ func (ac *FederationClient) LookupState(
 // LookupStateIDs retrieves the room state for a room at an event from a
 // remote matrix server as lists of matrix event IDs.
 func (ac *FederationClient) LookupStateIDs(
-	ctx context.Context, s ServerName, roomID, eventID string,
+	ctx context.Context, origin, s ServerName, roomID, eventID string,
 ) (res RespStateIDs, err error) {
 	path := federationPathPrefixV1 + "/state_ids/" +
 		url.PathEscape(roomID) +
 		"?event_id=" +
 		url.QueryEscape(eventID)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -376,12 +389,12 @@ func (ac *FederationClient) LookupStateIDs(
 // given bracket.
 // https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
 func (ac *FederationClient) LookupMissingEvents(
-	ctx context.Context, s ServerName, roomID string,
+	ctx context.Context, origin, s ServerName, roomID string,
 	missing MissingEvents, roomVersion RoomVersion,
 ) (res RespMissingEvents, err error) {
 	path := federationPathPrefixV1 + "/get_missing_events/" +
 		url.PathEscape(roomID)
-	req := NewFederationRequest("POST", s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(missing); err != nil {
 		return
 	}
@@ -391,7 +404,7 @@ func (ac *FederationClient) LookupMissingEvents(
 
 // Peek starts a peek on a remote server: see MSC2753
 func (ac *FederationClient) Peek(
-	ctx context.Context, s ServerName, roomID, peekID string,
+	ctx context.Context, origin, s ServerName, roomID, peekID string,
 	roomVersions []RoomVersion,
 ) (res RespPeek, err error) {
 	versionQueryString := ""
@@ -405,7 +418,7 @@ func (ac *FederationClient) Peek(
 	path := federationPathPrefixV1 + "/peek/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(peekID) + versionQueryString
-	req := NewFederationRequest("PUT", s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	var empty struct{}
 	if err = req.SetContent(empty); err != nil {
 		return
@@ -420,11 +433,11 @@ func (ac *FederationClient) Peek(
 // If the room alias doesn't exist on the remote server then a 404 gomatrix.HTTPError
 // is returned.
 func (ac *FederationClient) LookupRoomAlias(
-	ctx context.Context, s ServerName, roomAlias string,
+	ctx context.Context, origin, s ServerName, roomAlias string,
 ) (res RespDirectory, err error) {
 	path := federationPathPrefixV1 + "/query/directory?room_alias=" +
 		url.QueryEscape(roomAlias)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -433,10 +446,10 @@ func (ac *FederationClient) LookupRoomAlias(
 // Spec: https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-publicrooms
 // thirdPartyInstanceID can only be non-empty if includeAllNetworks is false.
 func (ac *FederationClient) GetPublicRooms(
-	ctx context.Context, s ServerName, limit int, since string,
+	ctx context.Context, origin, s ServerName, limit int, since string,
 	includeAllNetworks bool, thirdPartyInstanceID string,
 ) (res RespPublicRooms, err error) {
-	return ac.GetPublicRoomsFiltered(ctx, s, limit, since, "", includeAllNetworks, thirdPartyInstanceID)
+	return ac.GetPublicRoomsFiltered(ctx, origin, s, limit, since, "", includeAllNetworks, thirdPartyInstanceID)
 }
 
 // searchTerm is used when querying e.g. remote public rooms
@@ -457,7 +470,7 @@ type postPublicRoomsReq struct {
 // Spec: https://spec.matrix.org/v1.1/server-server-api/#post_matrixfederationv1publicrooms
 // thirdPartyInstanceID can only be non-empty if includeAllNetworks is false.
 func (ac *FederationClient) GetPublicRoomsFiltered(
-	ctx context.Context, s ServerName, limit int, since, filter string,
+	ctx context.Context, origin, s ServerName, limit int, since, filter string,
 	includeAllNetworks bool, thirdPartyInstanceID string,
 ) (res RespPublicRooms, err error) {
 	if includeAllNetworks && thirdPartyInstanceID != "" {
@@ -472,7 +485,7 @@ func (ac *FederationClient) GetPublicRoomsFiltered(
 		Since:                since,
 	}
 	path := federationPathPrefixV1 + "/publicRooms"
-	req := NewFederationRequest("POST", s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(roomsReq); err != nil {
 		return
 	}
@@ -486,14 +499,14 @@ func (ac *FederationClient) GetPublicRoomsFiltered(
 // which field of the profile should be returned.
 // Spec: https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-query-profile
 func (ac *FederationClient) LookupProfile(
-	ctx context.Context, s ServerName, userID string, field string,
+	ctx context.Context, origin, s ServerName, userID string, field string,
 ) (res RespProfile, err error) {
 	path := federationPathPrefixV1 + "/query/profile?user_id=" +
 		url.QueryEscape(userID)
 	if field != "" {
 		path += "&field=" + url.QueryEscape(field)
 	}
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -508,9 +521,9 @@ func (ac *FederationClient) LookupProfile(
 //	}
 //
 // https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
-func (ac *FederationClient) ClaimKeys(ctx context.Context, s ServerName, oneTimeKeys map[string]map[string]string) (res RespClaimKeys, err error) {
+func (ac *FederationClient) ClaimKeys(ctx context.Context, origin, s ServerName, oneTimeKeys map[string]map[string]string) (res RespClaimKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/claim"
-	req := NewFederationRequest("POST", s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(map[string]interface{}{
 		"one_time_keys": oneTimeKeys,
 	}); err != nil {
@@ -522,9 +535,9 @@ func (ac *FederationClient) ClaimKeys(ctx context.Context, s ServerName, oneTime
 
 // QueryKeys queries E2E device keys from a remote server.
 // https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
-func (ac *FederationClient) QueryKeys(ctx context.Context, s ServerName, keys map[string][]string) (res RespQueryKeys, err error) {
+func (ac *FederationClient) QueryKeys(ctx context.Context, origin, s ServerName, keys map[string][]string) (res RespQueryKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/query"
-	req := NewFederationRequest("POST", s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(map[string]interface{}{
 		"device_keys": keys,
 	}); err != nil {
@@ -537,10 +550,10 @@ func (ac *FederationClient) QueryKeys(ctx context.Context, s ServerName, keys ma
 // GetEvent gets an event by ID from a remote server.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-event-eventid
 func (ac *FederationClient) GetEvent(
-	ctx context.Context, s ServerName, eventID string,
+	ctx context.Context, origin, s ServerName, eventID string,
 ) (res Transaction, err error) {
 	path := federationPathPrefixV1 + "/event/" + url.PathEscape(eventID)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -548,10 +561,10 @@ func (ac *FederationClient) GetEvent(
 // GetEventAuth gets an event auth chain from a remote server.
 // See https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-event-auth-roomid-eventid
 func (ac *FederationClient) GetEventAuth(
-	ctx context.Context, s ServerName, roomVersion RoomVersion, roomID, eventID string,
+	ctx context.Context, origin, s ServerName, roomVersion RoomVersion, roomID, eventID string,
 ) (res RespEventAuth, err error) {
 	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -559,10 +572,10 @@ func (ac *FederationClient) GetEventAuth(
 // GetUserDevices returns a list of the user's devices from a remote server.
 // See https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-user-devices-userid
 func (ac *FederationClient) GetUserDevices(
-	ctx context.Context, s ServerName, userID string,
+	ctx context.Context, origin, s ServerName, userID string,
 ) (res RespUserDevices, err error) {
 	path := federationPathPrefixV1 + "/user/devices/" + url.PathEscape(userID)
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -571,7 +584,7 @@ func (ac *FederationClient) GetUserDevices(
 // local database.
 // See https://matrix.org/docs/spec/server_server/unstable.html#get-matrix-federation-v1-backfill-roomid
 func (ac *FederationClient) Backfill(
-	ctx context.Context, s ServerName, roomID string, limit int, eventIDs []string,
+	ctx context.Context, origin, s ServerName, roomID string, limit int, eventIDs []string,
 ) (res Transaction, err error) {
 	// Parse the limit into a string so that we can include it in the URL's query.
 	limitStr := strconv.Itoa(limit)
@@ -589,17 +602,17 @@ func (ac *FederationClient) Backfill(
 	path := u.RequestURI()
 
 	// Send the request.
-	req := NewFederationRequest("GET", s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
 
 // MSC2836EventRelationships performs an MSC2836 /event_relationships request.
 func (ac *FederationClient) MSC2836EventRelationships(
-	ctx context.Context, dst ServerName, r MSC2836EventRelationshipsRequest, roomVersion RoomVersion,
+	ctx context.Context, origin, dst ServerName, r MSC2836EventRelationshipsRequest, roomVersion RoomVersion,
 ) (res MSC2836EventRelationshipsResponse, err error) {
 	path := "/_matrix/federation/unstable/event_relationships"
-	req := NewFederationRequest("POST", dst, path)
+	req := NewFederationRequest("POST", origin, dst, path)
 	if err = req.SetContent(r); err != nil {
 		return
 	}
@@ -608,13 +621,13 @@ func (ac *FederationClient) MSC2836EventRelationships(
 }
 
 func (ac *FederationClient) MSC2946Spaces(
-	ctx context.Context, dst ServerName, roomID string, suggestedOnly bool,
+	ctx context.Context, origin, dst ServerName, roomID string, suggestedOnly bool,
 ) (res MSC2946SpacesResponse, err error) {
 	path := "/_matrix/federation/v1/hierarchy/" + url.PathEscape(roomID)
 	if suggestedOnly {
 		path += "?suggested_only=true"
 	}
-	req := NewFederationRequest("GET", dst, path)
+	req := NewFederationRequest("GET", origin, dst, path)
 	err = ac.doRequest(ctx, req, &res)
 	if err != nil {
 		gerr, ok := err.(gomatrix.HTTPError)
@@ -624,7 +637,7 @@ func (ac *FederationClient) MSC2946Spaces(
 			if suggestedOnly {
 				path += "?suggested_only=true"
 			}
-			req := NewFederationRequest("GET", dst, path)
+			req := NewFederationRequest("GET", origin, dst, path)
 			err = ac.doRequest(ctx, req, &res)
 		}
 	}
