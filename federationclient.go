@@ -83,6 +83,16 @@ func (ac *FederationClient) SendAsyncTransaction(
 	return
 }
 
+// GetAsyncEvents sends a transaction for forwarding to the destination
+func (ac *FederationClient) GetAsyncEvents(
+	ctx context.Context, u UserID, mailserver ServerName,
+) (res RespGetAsyncEvents, err error) {
+	path := federationPathPrefixV1 + "/async_events/" + url.PathEscape(u.Raw())
+	req := NewFederationRequest("GET", mailserver, path)
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
 // Creates a version query string with all the specified room versions, typically
 // the list of all supported room versions.
 // Needed when making a /make_knock or /make_join request.

@@ -114,17 +114,16 @@ type RespSend struct {
 	PDUs map[string]PDUResult `json:"pdus"`
 }
 
+// A RespGetAsyncEvents is the content of a response to GET /_matrix/federation/v1/async_events/{userID}/
+type RespGetAsyncEvents struct {
+	Transaction Transaction `json:"transaction"`
+	Remaining   uint32      `json:"remaining"`
+}
+
 // A PDUResult is the result of processing a matrix room event.
 type PDUResult struct {
 	// If not empty then this is a human readable description of a problem
 	// encountered processing an event.
-	Error string `json:"error,omitempty"`
-}
-
-// A RespSend is the content of a response to PUT /_matrix/federation/v1/forward_async/{txnID}/{userID}
-type RespAsyncSend struct {
-	// If not empty then this is a human readable description of a problem
-	// encountered processing a transaction.
 	Error string `json:"error,omitempty"`
 }
 
