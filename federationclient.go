@@ -88,7 +88,7 @@ func (ac *FederationClient) SendAsyncTransaction(
 	path := federationPathPrefixV1 + "/forward_async/" +
 		string(t.TransactionID) + "/" +
 		url.PathEscape(u.Raw())
-	req := NewFederationRequest("PUT", forwardingServer, path)
+	req := NewFederationRequest("PUT", t.Origin, forwardingServer, path)
 	if err = req.SetContent(t); err != nil {
 		return
 	}
@@ -101,7 +101,7 @@ func (ac *FederationClient) GetAsyncEvents(
 	ctx context.Context, u UserID, mailserver ServerName,
 ) (res RespGetAsyncEvents, err error) {
 	path := federationPathPrefixV1 + "/async_events/" + url.PathEscape(u.Raw())
-	req := NewFederationRequest("GET", mailserver, path)
+	req := NewFederationRequest("GET", u.Domain(), mailserver, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }

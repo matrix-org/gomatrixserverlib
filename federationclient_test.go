@@ -165,10 +165,16 @@ func TestSendAsyncTransaction(t *testing.T) {
 	targetServerName := user.Domain()
 	keyID := gomatrixserverlib.KeyID("ed25519:auto")
 	_, privateKey, _ := ed25519.GenerateKey(nil)
-	respSendAsyncResponseJSON := []byte(fmt.Sprintf(`{"error": ""}`))
+	respSendAsyncResponseJSON := []byte(`{"error": ""}`)
 
 	fc := gomatrixserverlib.NewFederationClient(
-		serverName, keyID, privateKey,
+		[]*gomatrixserverlib.SigningIdentity{
+			{
+				ServerName: serverName,
+				KeyID:      keyID,
+				PrivateKey: privateKey,
+			},
+		},
 		gomatrixserverlib.WithSkipVerify(true),
 	)
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
@@ -209,7 +215,13 @@ func TestSendAsyncTransactionReportsFailure(t *testing.T) {
 	respSendAsyncResponseJSON := []byte(fmt.Sprintf(`{"error": "%s"}`, errorMessage))
 
 	fc := gomatrixserverlib.NewFederationClient(
-		serverName, keyID, privateKey,
+		[]*gomatrixserverlib.SigningIdentity{
+			{
+				ServerName: serverName,
+				KeyID:      keyID,
+				PrivateKey: privateKey,
+			},
+		},
 		gomatrixserverlib.WithSkipVerify(true),
 	)
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
@@ -254,8 +266,11 @@ func createTransaction(
 	txn.Destination = testDestination
 	var federationPathPrefixV1 = "/_matrix/federation/v1"
 	path := federationPathPrefixV1 + "/forward_async/" + string(txn.TransactionID) + "/" + userID.Raw()
-	request := gomatrixserverlib.NewFederationRequest("PUT", txn.Destination, path)
-	request.SetContent(txn)
+	request := gomatrixserverlib.NewFederationRequest("PUT", txn.Origin, txn.Destination, path)
+	err := request.SetContent(txn)
+	if err != nil {
+		println("failed setting federation request content")
+	}
 
 	return txn
 }
