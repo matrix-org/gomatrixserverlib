@@ -98,10 +98,13 @@ func (ac *FederationClient) SendAsyncTransaction(
 
 // GetAsyncEvents sends a transaction for forwarding to the destination
 func (ac *FederationClient) GetAsyncEvents(
-	ctx context.Context, u UserID, mailserver ServerName,
+	ctx context.Context, u UserID, prev RelayEntry, relayServer ServerName,
 ) (res RespGetAsyncEvents, err error) {
 	path := federationPathPrefixV1 + "/async_events/" + url.PathEscape(u.Raw())
-	req := NewFederationRequest("GET", u.Domain(), mailserver, path)
+	req := NewFederationRequest("GET", u.Domain(), relayServer, path)
+	if err = req.SetContent(prev); err != nil {
+		return
+	}
 	err = ac.doRequest(ctx, req, &res)
 	return
 }

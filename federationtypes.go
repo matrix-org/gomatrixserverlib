@@ -116,8 +116,9 @@ type RespSend struct {
 
 // A RespGetAsyncEvents is the content of a response to GET /_matrix/federation/v1/async_events/{userID}/
 type RespGetAsyncEvents struct {
-	Transaction Transaction `json:"transaction"`
-	Remaining   uint32      `json:"remaining"`
+	Txn           Transaction `json:"transaction"`
+	EntryID       int64       `json:"entry_id"`
+	EntriesQueued bool        `json:"entries_queued"`
 }
 
 // A PDUResult is the result of processing a matrix room event.
