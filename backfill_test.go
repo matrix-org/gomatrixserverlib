@@ -192,6 +192,47 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 
 }
 
+func TestRequestBackfillError(t *testing.T) {
+	ctx := context.Background()
+	testRoomID := "!roomid:baba.is.you"
+	serverA := ServerName("baba.is.you")
+	// currently we have no way of checking that the events returned link back to the from event, so anything works here.
+	testFromEventIDs := []string{"foo"}
+	testLimit := 4
+	keyRing := &testNopJSONVerifier{}
+	// Mix the order up
+	testBackfillEvents := [][]byte{
+		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}],["$fnwGrQEpiOIUoDU2:baba.is.you",{"sha256":"gUr26K5Tt7GQlNs8BlUup92gOzAZHbT8WNEobkrEIqk"}]],"content":{"body":"Test Message"},"depth":2,"event_id":"$xOJZshi3NeKKJiCf:baba.is.you","hashes":{"sha256":"lu5fF5HE090AXdu/+NpJ/RjRVRk/2tWCUozUc5t7Ru4"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$fnwGrQEpiOIUoDU2:baba.is.you",{"sha256":"gUr26K5Tt7GQlNs8BlUup92gOzAZHbT8WNEobkrEIqk"}]],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"5KoVSLOBesqH9vciKXDExdu95lKFDtK1I72Hq1GG/UeEsH9jx7wL3V4jGYSKDnX2aLYp/VPiBQje7DFjde+hDQ"}},"type":"m.room.message"}`),
+		// join event in the middle
+		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"membership":"join"},"depth":1,"event_id":"$fnwGrQEpiOIUoDU2:baba.is.you","hashes":{"sha256":"DqOjdFgvFQ3V/jvQW2j3ygHL4D+t7/LaIPZ/tHTDZtI"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"qBWLb42zicQVsbh333YrcKpHfKokcUOM/ytldGlrgSdXqDEDDxvpcFlfadYnyvj3Z/GjA2XZkqKHanNEh575Bw"}},"state_key":"@userid:baba.is.you","type":"m.room.member"}`),
+		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}],["$fnwGrQEpiOIUoDU2:baba.is.you",{"sha256":"gUr26K5Tt7GQlNs8BlUup92gOzAZHbT8WNEobkrEIqk"}]],"content":{"body":"Test Message"},"depth":3,"event_id":"$4Kp0G1yWZ6tNpeI7:baba.is.you","hashes":{"sha256":"B+MjcGZRh72iaGOgyNbIxgFkHDJo6NO8NQDgiKDKDBA"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$xOJZshi3NeKKJiCf:baba.is.you",{"sha256":"5PGENImHC863Yz9sO6IJX+bIQthZFI2RMhFZyFy+bC0"}]],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"rP+Ybp17GPCqQBrTQ3yz+q6PihdaMWvNY3SngV8aDLHv8wdDlH4ULGnjsB+Az7trqYdCE3rZVo9M7Hy5tOObDg"}},"type":"m.room.message"}`),
+		// create event is last
+		[]byte(`{"auth_events":[],"content":{"creator":"@userid:baba.is.you"},"depth":0,"event_id":"$WCraVpPZe5TtHAqs:baba.is.you","hashes":{"sha256":"EehWNbKy+oDOMC0vIvYl1FekdDxMNuabXKUVzV7DG74"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"08aF4/bYWKrdGPFdXmZCQU6IrOE1ulpevmWBM3kiShJPAbRbZ6Awk7buWkIxlMF6kX3kb4QpbAlZfHLQgncjCw"}},"state_key":"","type":"m.room.create"}`),
+	}
+	tbr := &testBackfillRequester{
+		servers: []ServerName{serverA, serverA},
+		backfillFn: func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+			if roomID != testRoomID {
+				return nil, fmt.Errorf("bad room id: %s", roomID)
+			}
+			if origin == "" {
+				return nil, fmt.Errorf("no origin defined")
+			}
+			return &Transaction{
+				Origin:         origin,
+				OriginServerTS: AsTimestamp(time.Now()),
+				PDUs: []json.RawMessage{
+					testBackfillEvents[0], testBackfillEvents[1], testBackfillEvents[2], testBackfillEvents[3],
+				},
+			}, nil
+		},
+	}
+	_, err := RequestBackfill(ctx, "", tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
+	if err == nil {
+		t.Fatalf("RequestBackfill expected error, but got none")
+	}
+}
+
 func assertUnsortedEqual(t *testing.T, result []*HeaderedEvent, want [][]byte) {
 	if len(result) != len(want) {
 		t.Fatalf("RequestBackfill got %d events, want %d", len(result), len(want))
