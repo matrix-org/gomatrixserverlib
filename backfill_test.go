@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	serverA    = ServerName("baba.is.you")
+	testRoomID = "!roomid:baba.is.you"
+)
+
 type testBackfillRequester struct {
 	servers                         []ServerName
 	backfillFn                      func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
@@ -67,9 +72,7 @@ func (t *testNopJSONVerifier) VerifyJSONs(ctx context.Context, requests []Verify
 // Together, the events from server A and server B exceed the `limit` criteria which then gets returned to the caller.
 func TestRequestBackfillMultipleServers(t *testing.T) {
 	ctx := context.Background()
-	testRoomID := "!roomid:baba.is.you"
-	serverA := ServerName("wall.is.stop")
-	serverB := ServerName("baba.is.you")
+	serverB := ServerName("wall.is.stop")
 	// currently we have no way of checking that the events returned link back to the from event, so anything works here.
 	testFromEventIDs := []string{"foo"}
 	testLimit := 3
@@ -130,8 +133,6 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 // topological order, regardless of how they are transmitted by the remote server.
 func TestRequestBackfillTopologicalSort(t *testing.T) {
 	ctx := context.Background()
-	testRoomID := "!roomid:baba.is.you"
-	serverA := ServerName("baba.is.you")
 	// currently we have no way of checking that the events returned link back to the from event, so anything works here.
 	testFromEventIDs := []string{"foo"}
 	testLimit := 4
@@ -194,8 +195,6 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 
 func TestRequestBackfillError(t *testing.T) {
 	ctx := context.Background()
-	testRoomID := "!roomid:baba.is.you"
-	serverA := ServerName("baba.is.you")
 	// currently we have no way of checking that the events returned link back to the from event, so anything works here.
 	testFromEventIDs := []string{"foo"}
 	testLimit := 4
