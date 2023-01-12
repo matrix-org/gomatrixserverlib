@@ -156,7 +156,7 @@ func TestSendJoinJSON(t *testing.T) {
 	}
 }
 
-func TestSendAsyncTransaction(t *testing.T) {
+func TestSendTransactionToRelay(t *testing.T) {
 	user, err := gomatrixserverlib.NewUserID("@user:target.server.name", false)
 	if err != nil {
 		t.Fatalf("failed to read event json: %s", err)
@@ -165,7 +165,7 @@ func TestSendAsyncTransaction(t *testing.T) {
 	targetServerName := user.Domain()
 	keyID := gomatrixserverlib.KeyID("ed25519:auto")
 	_, privateKey, _ := ed25519.GenerateKey(nil)
-	respSendAsyncResponseJSON := []byte(`{"error": ""}`)
+	respSendResponseJSON := []byte(`{"error": ""}`)
 
 	fc := gomatrixserverlib.NewFederationClient(
 		[]*gomatrixserverlib.SigningIdentity{
@@ -180,10 +180,10 @@ func TestSendAsyncTransaction(t *testing.T) {
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
 		&roundTripper{
 			fn: func(req *http.Request) (*http.Response, error) {
-				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/forward_async") {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
 					return &http.Response{
 						StatusCode: 200,
-						Body:       ioutil.NopCloser(bytes.NewReader(respSendAsyncResponseJSON)),
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
 					}, nil
 				}
 				return &http.Response{
@@ -196,13 +196,13 @@ func TestSendAsyncTransaction(t *testing.T) {
 
 	txn := createTransaction(serverName, targetServerName, *user)
 	forwardingServer := gomatrixserverlib.ServerName("mailbox.server")
-	_, err = fc.SendAsyncTransaction(context.Background(), *user, txn, forwardingServer)
+	_, err = fc.P2PSendTransactionToRelay(context.Background(), *user, txn, forwardingServer)
 	if err != nil {
-		t.Fatalf("SendAsyncTransaction returned an error: %s", err)
+		t.Fatalf("P2PSendTransactionToRelay returned an error: %s", err)
 	}
 }
 
-func TestSendAsyncTransactionReportsFailure(t *testing.T) {
+func TestSendTransactionToRelayReportsFailure(t *testing.T) {
 	user, err := gomatrixserverlib.NewUserID("@user:target.server.name", false)
 	if err != nil {
 		t.Fatalf("failed to read event json: %s", err)
@@ -212,7 +212,7 @@ func TestSendAsyncTransactionReportsFailure(t *testing.T) {
 	keyID := gomatrixserverlib.KeyID("ed25519:auto")
 	_, privateKey, _ := ed25519.GenerateKey(nil)
 	errorMessage := "Invalid transaction"
-	respSendAsyncResponseJSON := []byte(fmt.Sprintf(`{"error": "%s"}`, errorMessage))
+	respSendResponseJSON := []byte(fmt.Sprintf(`{"error": "%s"}`, errorMessage))
 
 	fc := gomatrixserverlib.NewFederationClient(
 		[]*gomatrixserverlib.SigningIdentity{
@@ -227,10 +227,10 @@ func TestSendAsyncTransactionReportsFailure(t *testing.T) {
 	fc.Client = *gomatrixserverlib.NewClient(gomatrixserverlib.WithTransport(
 		&roundTripper{
 			fn: func(req *http.Request) (*http.Response, error) {
-				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/forward_async") {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
 					return &http.Response{
 						StatusCode: 400,
-						Body:       ioutil.NopCloser(bytes.NewReader(respSendAsyncResponseJSON)),
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
 					}, nil
 				}
 				return &http.Response{
@@ -243,9 +243,9 @@ func TestSendAsyncTransactionReportsFailure(t *testing.T) {
 
 	txn := createTransaction(serverName, targetServerName, *user)
 	forwardingServer := gomatrixserverlib.ServerName("mailbox.server")
-	_, err = fc.SendAsyncTransaction(context.Background(), *user, txn, forwardingServer)
+	_, err = fc.P2PSendTransactionToRelay(context.Background(), *user, txn, forwardingServer)
 	if err == nil {
-		t.Fatalf("SendAsyncTransaction didn't return an error")
+		t.Fatalf("P2PSendTransactionToRelay didn't return an error")
 	}
 	if !strings.Contains(err.Error(), errorMessage) {
 		t.Fatalf("Error doesn't contain correct message: %s", err.Error())
@@ -265,7 +265,7 @@ func createTransaction(
 	txn.TransactionID = gomatrixserverlib.TransactionID(fmt.Sprintf("%d", time.Now().UnixNano()))
 	txn.Destination = testDestination
 	var federationPathPrefixV1 = "/_matrix/federation/v1"
-	path := federationPathPrefixV1 + "/forward_async/" + string(txn.TransactionID) + "/" + userID.Raw()
+	path := federationPathPrefixV1 + "/send_relay/" + string(txn.TransactionID) + "/" + userID.Raw()
 	request := gomatrixserverlib.NewFederationRequest("PUT", txn.Origin, txn.Destination, path)
 	err := request.SetContent(txn)
 	if err != nil {

@@ -81,11 +81,11 @@ func (ac *FederationClient) SendTransaction(
 	return
 }
 
-// SendAsyncTransaction sends a transaction for forwarding to the destination
-func (ac *FederationClient) SendAsyncTransaction(
+// P2PSendTransactionToRelay sends a transaction for forwarding to the destination.
+func (ac *FederationClient) P2PSendTransactionToRelay(
 	ctx context.Context, u UserID, t Transaction, forwardingServer ServerName,
 ) (res EmptyResp, err error) {
-	path := federationPathPrefixV1 + "/forward_async/" +
+	path := federationPathPrefixV1 + "/send_relay/" +
 		string(t.TransactionID) + "/" +
 		url.PathEscape(u.Raw())
 	req := NewFederationRequest("PUT", t.Origin, forwardingServer, path)
@@ -96,11 +96,11 @@ func (ac *FederationClient) SendAsyncTransaction(
 	return
 }
 
-// GetAsyncEvents sends a transaction for forwarding to the destination
-func (ac *FederationClient) GetAsyncEvents(
+// P2PGetTransactionFromRelay requests a transaction from a relay destined for this server.
+func (ac *FederationClient) P2PGetTransactionFromRelay(
 	ctx context.Context, u UserID, prev RelayEntry, relayServer ServerName,
-) (res RespGetAsyncEvents, err error) {
-	path := federationPathPrefixV1 + "/async_events/" + url.PathEscape(u.Raw())
+) (res RespGetRelayTransaction, err error) {
+	path := federationPathPrefixV1 + "/relay_txn/" + url.PathEscape(u.Raw())
 	req := NewFederationRequest("GET", u.Domain(), relayServer, path)
 	if err = req.SetContent(prev); err != nil {
 		return
