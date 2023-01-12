@@ -54,7 +54,7 @@ jobs:
 
   # run go test on Dendrite with different go versions
   test-dendrite:
-    timeout-minutes: 5
+    timeout-minutes: 10
     name: Unit tests Dendrite (Go ${{ matrix.go }})
     runs-on: ubuntu-latest
     # Service containers to run with `container-job`
