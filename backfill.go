@@ -59,6 +59,7 @@ func RequestBackfill(ctx context.Context, origin ServerName, b BackfillRequester
 	servers := b.ServersAtEvent(ctx, roomID, fromEventIDs[0])
 	// loop each server asking it for `limit` events. Worst case, we ask every server for `limit`
 	// events before giving up. Best case, we just ask one.
+	var lastErr error
 	for _, s := range servers {
 		if len(result) >= limit {
 			break
@@ -69,11 +70,13 @@ func RequestBackfill(ctx context.Context, origin ServerName, b BackfillRequester
 		// fetch some events, and try a different server if it fails
 		txn, err := b.Backfill(ctx, origin, s, roomID, limit, fromEventIDs)
 		if err != nil {
+			lastErr = err
 			continue // try the next server
 		}
 		// topologically sort the events so implementations of 'get state at event' can do optimisations
 		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs, TopologicalOrderByPrevEvents)
 		if err != nil {
+			lastErr = err
 			continue // try the next server
 		}
 		for _, res := range loadResults {
@@ -94,7 +97,7 @@ func RequestBackfill(ctx context.Context, origin ServerName, b BackfillRequester
 		}
 	}
 
-	return result, nil
+	return result, lastErr
 }
 
 /*
