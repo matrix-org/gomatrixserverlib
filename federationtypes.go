@@ -444,9 +444,9 @@ type RespSendJoin struct {
 	// but not guaranteed to be present as it's only since MSC3083.
 	Event RawJSON `json:"event,omitempty"`
 	// true if the state is incomplete
-	PartialState bool `json:"org.matrix.msc3706.partial_state"`
+	PartialState bool `json:"members_omitted"`
 	// a list of servers in the room. Only returned if partial_state is set.
-	ServersInRoom []string `json:"org.matrix.msc3706.servers_in_room"`
+	ServersInRoom []string `json:"servers_in_room"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -517,8 +517,8 @@ type respSendJoinFields struct {
 // when the response has incomplete state.
 type respSendJoinPartialStateFields struct {
 	respSendJoinFields
-	PartialState  bool     `json:"org.matrix.msc3706.partial_state"`
-	ServersInRoom []string `json:"org.matrix.msc3706.servers_in_room"`
+	PartialState  bool     `json:"members_omitted"`
+	ServersInRoom []string `json:"servers_in_room"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin

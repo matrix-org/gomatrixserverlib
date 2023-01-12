@@ -147,7 +147,7 @@ func (ac *FederationClient) sendJoin(
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
 	if partialState {
-		path += "?org.matrix.msc3706.partial_state=true"
+		path += "?omit_members=true"
 	}
 
 	req := NewFederationRequest("PUT", origin, s, path)
