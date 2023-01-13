@@ -443,8 +443,8 @@ type RespSendJoin struct {
 	// The returned join event from the remote server. Used for restricted joins,
 	// but not guaranteed to be present as it's only since MSC3083.
 	Event RawJSON `json:"event,omitempty"`
-	// true if the state is incomplete
-	PartialState bool `json:"members_omitted"`
+	// true if m.room.member events have been omitted from StateEvents
+	MembersOmitted bool `json:"members_omitted"`
 	// a list of servers in the room. Only returned if partial_state is set.
 	ServersInRoom []string `json:"servers_in_room"`
 }
