@@ -443,7 +443,7 @@ type RespSendJoin struct {
 	// The returned join event from the remote server. Used for restricted joins,
 	// but not guaranteed to be present as it's only since MSC3083.
 	Event RawJSON `json:"event,omitempty"`
-	// true if m.room.member events have been omitted from StateEvents
+	// true if the state is incomplete
 	MembersOmitted bool `json:"members_omitted"`
 	// a list of servers in the room. Only returned if partial_state is set.
 	ServersInRoom []string `json:"servers_in_room"`
@@ -464,13 +464,13 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 		fields.StateEvents = EventJSONs{}
 	}
 
-	if !r.PartialState {
+	if !r.MembersOmitted {
 		return json.Marshal(fields)
 	}
 
 	partialJoinFields := respSendJoinPartialStateFields{
 		respSendJoinFields: fields,
-		PartialState:       true,
+		MembersOmitted:     true,
 		ServersInRoom:      r.ServersInRoom,
 	}
 	return json.Marshal(partialJoinFields)
@@ -517,8 +517,8 @@ type respSendJoinFields struct {
 // when the response has incomplete state.
 type respSendJoinPartialStateFields struct {
 	respSendJoinFields
-	PartialState  bool     `json:"members_omitted"`
-	ServersInRoom []string `json:"servers_in_room"`
+	MembersOmitted bool     `json:"members_omitted"`
+	ServersInRoom  []string `json:"servers_in_room"`
 }
 
 // ToRespState returns a new RespState with the same data from the given RespSendJoin
