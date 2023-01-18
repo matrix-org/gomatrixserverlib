@@ -218,8 +218,6 @@ func VerifyHTTPRequest(
 			case isLocalServerName != nil && !isLocalServerName(request.fields.Destination):
 				fallthrough
 			case isLocalServerName == nil && destination != request.fields.Destination:
-				println(destination)
-				println(request.fields.Destination)
 				message := fmt.Sprintf("Unrecognised server name %q for Destination", request.fields.Destination)
 				util.GetLogger(req.Context()).Warn(message)
 				return nil, util.MessageResponse(400, message)
