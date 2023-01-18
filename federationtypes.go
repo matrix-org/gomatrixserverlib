@@ -114,13 +114,6 @@ type RespSend struct {
 	PDUs map[string]PDUResult `json:"pdus"`
 }
 
-// A RespGetRelayTransaction is the content of a response to GET /_matrix/federation/v1/relay_txn/{userID}/
-type RespGetRelayTransaction struct {
-	Txn           Transaction `json:"transaction"`
-	EntryID       int64       `json:"entry_id"`
-	EntriesQueued bool        `json:"entries_queued"`
-}
-
 // A PDUResult is the result of processing a matrix room event.
 type PDUResult struct {
 	// If not empty then this is a human readable description of a problem
