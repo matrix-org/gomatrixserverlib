@@ -58,6 +58,6 @@ func TestStateResV1(t *testing.T) {
 	resolved := ResolveStateConflicts(conflicted, authEvents)
 
 	if !reflect.DeepEqual(resolved[0], conf116) {
-		t.Fatalf("Wrong resolved event:\nexpected: %s\ngot: %s", string(conf116.JSON()), string(conf120.JSON()))
+		t.Fatalf("Wrong resolved event:\nexpected: %s\ngot: %s", string(conf116.JSON()), string(resolved[0].JSON()))
 	}
 }
