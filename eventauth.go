@@ -935,7 +935,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 	eventLevel := e.powerLevels.EventLevel(event.Type(), stateKey != nil)
 	if senderLevel < eventLevel {
 		return errorf(
-			"sender %q is not allowed to send powerlevel event. %d < %d",
+			"sender %q is not allowed to send event. %d < %d",
 			event.Sender(), senderLevel, eventLevel,
 		)
 	}

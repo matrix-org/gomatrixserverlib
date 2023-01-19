@@ -1234,13 +1234,31 @@ func Test_checkUserLevels(t *testing.T) {
 			},
 		},
 		{
-			name: "removing other user level if NOT equal our own is allowed",
+			name: "removing other user level if below our own is allowed",
 			args: args{
 				senderLevel: 100,
 				oldPowerLevels: PowerLevelContent{
 					Users: map[string]int64{
 						senderID:    100,
 						"@bob:test": 99,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+			},
+		},
+		{
+			name:    "removing other user level if above our own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 9001,
 					},
 				},
 				newPowerLevels: PowerLevelContent{
@@ -1322,6 +1340,22 @@ func Test_checkUserLevels(t *testing.T) {
 			},
 		},
 		{
+			name: "setting own user level to the same level is allowed",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+			},
+		},
+		{
 			name: "removing own user level is allowed",
 			args: args{
 				senderLevel: 100,
@@ -1336,7 +1370,7 @@ func Test_checkUserLevels(t *testing.T) {
 			},
 		},
 		{
-			name: "adding new user level is allowed",
+			name: "adding new user level is allowed below own",
 			args: args{
 				senderLevel: 100,
 				oldPowerLevels: PowerLevelContent{
@@ -1390,10 +1424,13 @@ func Test_checkUserLevels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := checkUserLevels(tt.args.senderLevel, senderID, tt.args.oldPowerLevels, tt.args.newPowerLevels); (err != nil) != tt.wantErr {
+			err := checkUserLevels(tt.args.senderLevel, senderID, tt.args.oldPowerLevels, tt.args.newPowerLevels)
+			if err != nil && !tt.wantErr {
 				t.Errorf("checkUserLevels() error = %v, wantErr %v", err, tt.wantErr)
 			} else {
-				t.Logf("Error: %s", err)
+				if err != nil {
+					t.Logf("Error: %s", err)
+				}
 			}
 		})
 	}
