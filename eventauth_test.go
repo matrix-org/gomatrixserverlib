@@ -1251,6 +1251,25 @@ func Test_checkUserLevels(t *testing.T) {
 			},
 		},
 		{
+			name:    "setting other user level equal our own to below own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 50,
+					},
+				},
+			},
+		},
+		{
 			name:    "setting other user level above own is forbidden",
 			wantErr: true,
 			args: args{
