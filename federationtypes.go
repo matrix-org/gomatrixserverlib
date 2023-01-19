@@ -227,6 +227,9 @@ type RespUserDevices struct {
 	SelfSigningKey *CrossSigningKey `json:"self_signing_key"`
 }
 
+type EmptyResp struct {
+}
+
 // UnmarshalJSON is used here because people on Synapses can apparently upload
 // nonsense into their device keys in types that don't match the expected and
 // that can cause the entire response to fail to unmarshal. This simply skips
