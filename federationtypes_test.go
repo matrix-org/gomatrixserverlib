@@ -123,8 +123,8 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 func TestRespSendJoinMarshalJSONPartialState(t *testing.T) {
 	inputData := `{
 		"state":[],"auth_chain":[],"origin":"o1",
-		"org.matrix.msc3706.partial_state":true,
-		"org.matrix.msc3706.servers_in_room":["s1", "s2"]
+		"members_omitted":true,
+		"servers_in_room":["s1", "s2"]
 	}`
 
 	var input RespSendJoin
@@ -133,11 +133,11 @@ func TestRespSendJoinMarshalJSONPartialState(t *testing.T) {
 	}
 
 	want := RespSendJoin{
-		StateEvents:   []RawJSON{},
-		AuthEvents:    []RawJSON{},
-		Origin:        "o1",
-		PartialState:  true,
-		ServersInRoom: []string{"s1", "s2"},
+		StateEvents:    []RawJSON{},
+		AuthEvents:     []RawJSON{},
+		Origin:         "o1",
+		MembersOmitted: true,
+		ServersInRoom:  []string{"s1", "s2"},
 	}
 	if !cmp.Equal(input, want, cmp.AllowUnexported(RespSendJoin{})) {
 		t.Errorf("json.Unmarshal(%s): wanted %+v, got %+v", inputData, want, input)
