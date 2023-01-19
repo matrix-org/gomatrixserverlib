@@ -165,15 +165,15 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 	}
 	switch event.Type() {
 	case MRoomCreate:
-		if event.StateKeyEquals("") {
+		if event.StateKeyEquals("") && r.resolvedCreate == nil {
 			r.resolvedCreate = event
 		}
 	case MRoomPowerLevels:
-		if event.StateKeyEquals("") {
+		if event.StateKeyEquals("") && r.powerLevels == nil {
 			r.resolvedPowerLevels = event
 		}
 	case MRoomJoinRules:
-		if event.StateKeyEquals("") {
+		if event.StateKeyEquals("") && r.resolvedJoinRules == nil {
 			r.resolvedJoinRules = event
 		}
 	case MRoomMember:
