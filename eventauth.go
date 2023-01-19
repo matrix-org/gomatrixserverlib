@@ -700,6 +700,14 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		}
 	}
 
+	// also add old levels to check for e.g. deletions
+	for userID := range oldPowerLevels.Users {
+		userLevelChecks[userID] = levelPair{
+			old: oldPowerLevels.UserLevel(userID),
+			new: newPowerLevels.UserLevel(userID),
+		}
+	}
+
 	// Check each of the levels in the list.
 	for userID, level := range userLevelChecks {
 		// Check if the level is being changed.

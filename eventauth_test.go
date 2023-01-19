@@ -1200,3 +1200,238 @@ func TestNegativePowerLevels(t *testing.T) {
 		t.Error("TestNegativePowerLevels should have succeeded but it didn't:", err)
 	}
 }
+
+func Test_checkUserLevels(t *testing.T) {
+	senderID := "@alice:test"
+
+	type args struct {
+		senderLevel    int64
+		oldPowerLevels PowerLevelContent
+		newPowerLevels PowerLevelContent
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name:    "removing other user level if equal our own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+			},
+		},
+		{
+			name: "removing other user level if below our own is allowed",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 99,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+			},
+		},
+		{
+			name:    "removing other user level if above our own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 9001,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+			},
+		},
+		{
+			name:    "setting other user level equal our own to below own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 50,
+					},
+				},
+			},
+		},
+		{
+			name:    "setting other user level above own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 9001,
+					},
+				},
+			},
+		},
+		{
+			name:    "setting own user level above own is forbidden",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 101,
+					},
+				},
+			},
+		},
+		{
+			name: "setting own user level below own is allowed",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 10,
+					},
+				},
+			},
+		},
+		{
+			name: "setting own user level to the same level is allowed",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+			},
+		},
+		{
+			name: "removing own user level is allowed",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{},
+				},
+			},
+		},
+		{
+			name: "adding new user level is allowed below own",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 10,
+					},
+				},
+			},
+		},
+		{
+			name: "adding new user level is allowed if equal our own",
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 100,
+					},
+				},
+			},
+		},
+		{
+			name:    "adding new user level is forbidden if above our own",
+			wantErr: true,
+			args: args{
+				senderLevel: 100,
+				oldPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID: 100,
+					},
+				},
+				newPowerLevels: PowerLevelContent{
+					Users: map[string]int64{
+						senderID:    100,
+						"@bob:test": 110,
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkUserLevels(tt.args.senderLevel, senderID, tt.args.oldPowerLevels, tt.args.newPowerLevels)
+			if err != nil && !tt.wantErr {
+				t.Errorf("checkUserLevels() error = %v, wantErr %v", err, tt.wantErr)
+			} else {
+				if err != nil {
+					t.Logf("Error: %s", err)
+				}
+			}
+		})
+	}
+}
