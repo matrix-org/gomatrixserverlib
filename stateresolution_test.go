@@ -55,8 +55,13 @@ func TestStateResV1(t *testing.T) {
 
 	authEvents := []*Event{a1, a2, a3}
 
-	resolved := ResolveStateConflicts(conflicted, authEvents)
-
+	resolved, err := ResolveConflicts(RoomVersionV1, conflicted, authEvents)
+	if err != nil {
+		t.Fatalf("failed to resolve conflicts: %s", err)
+	}
+	if len(resolved) == 0 {
+		t.Fatalf("expected events to be resolved, got none back?")
+	}
 	if !reflect.DeepEqual(resolved[0], conf116) {
 		t.Fatalf("Wrong resolved event:\nexpected: %s\ngot: %s", string(conf116.JSON()), string(resolved[0].JSON()))
 	}
