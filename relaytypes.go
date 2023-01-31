@@ -7,7 +7,7 @@ type RelayEntry struct {
 
 // A RespGetRelayTransaction is the content of a response to GET /_matrix/federation/v1/relay_txn/{userID}/
 type RespGetRelayTransaction struct {
-	Txn           Transaction `json:"transaction"`
-	EntryID       int64       `json:"entry_id"`
+	Transaction   Transaction `json:"transaction"`
+	EntryID       int64       `json:"entry_id,omitempty"`
 	EntriesQueued bool        `json:"entries_queued"`
 }
