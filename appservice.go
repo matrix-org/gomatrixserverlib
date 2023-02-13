@@ -17,6 +17,25 @@ package gomatrixserverlib
 
 // ApplicationServiceTransaction is the transaction that is sent off to an
 // application service.
+// TODO: Update unstable prefix once MSC2409 completes FCP merge.
 type ApplicationServiceTransaction struct {
-	Events []ClientEvent `json:"events"`
+	Events    []ClientEvent    `json:"events"`
+	Ephemeral []EphemeralEvent `json:"de.sorunome.msc2409.ephemeral,omitempty"`
+	ToDevice  []ToDeviceEvent  `json:"de.sorunome.msc2409.to_device,omitempty"`
+}
+
+// EphemeralEvent is an EDU fit for consumption in acordence with MSC2409
+type EphemeralEvent struct {
+	Type    string  `json:"edu_type"`
+	RoomID  string  `json:"room_id"`
+	Content RawJSON `json:"content,omitempty"`
+}
+
+// ToDeviceEvent is a special ephemeral event aimed at a particular user/device id combo in acordence with MSC2409
+type ToDeviceEvent struct {
+	Type       string  `json:"type"`
+	Sender     string  `json:"sender"`
+	ToUserID   string  `json:"to_user_id"`
+	ToDeviceID string  `json:"to_device_id"`
+	Content    RawJSON `json:"content,omitempty"`
 }
