@@ -60,6 +60,11 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	}
 
 	events = ReverseTopologicalOrdering(events, sortOrder)
+
+	for i, x := range events {
+		results[i] = EventLoadResult{Event: x.Headered(l.roomVer)}
+	}
+	return results, nil
 	// assign the errors to the end of the slice
 	for i := 0; i < len(errs); i++ {
 		results[len(results)-len(errs)+i] = EventLoadResult{
