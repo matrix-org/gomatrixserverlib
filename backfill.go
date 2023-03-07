@@ -89,6 +89,10 @@ func RequestBackfill(ctx context.Context, origin ServerName, b BackfillRequester
 			default:
 				continue
 			}
+			if res.Event == nil {
+				fmt.Println("result event is nil, skipping")
+				continue
+			}
 			if haveEventIDs[res.Event.EventID()] {
 				continue // we got this event from a different server
 			}
