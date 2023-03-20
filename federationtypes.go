@@ -38,6 +38,10 @@ func ParseAndValidateServerName(serverName ServerName) (host string, port int, v
 	//  - an IPv4 address
 	//  - an IPv6 address
 
+	if len(host) == 0 {
+		return
+	}
+
 	if host[0] == '[' {
 		// must be a valid IPv6 address
 		if host[len(host)-1] != ']' {
