@@ -46,6 +46,12 @@ func TestParseServerName(t *testing.T) {
 
 		// ipv6 with insufficient parts
 		"[2001:0db8:0000:0000:0000:ff00:0042]",
+
+		// empty host
+		":8080",
+
+		// empty string
+		"",
 	}
 
 	for _, input := range invalidTests {

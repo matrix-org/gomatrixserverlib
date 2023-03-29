@@ -417,9 +417,7 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
 	graph := getBaseStateResV2Graph()
 	var base []*Event
-	for i := range graph {
-		base = append(base, graph[i])
-	}
+	base = append(base, graph...)
 	input := r.reverseTopologicalOrdering(base, TopologicalOrderByAuthEvents)
 
 	expected := []string{
