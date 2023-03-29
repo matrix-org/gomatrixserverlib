@@ -18,6 +18,7 @@ package gomatrixserverlib
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -25,7 +26,6 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"golang.org/x/crypto/ed25519"
 )
 
 func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSONVerifier) []error {
@@ -36,6 +36,55 @@ func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSO
 	return errors
 }
 
+func (e *Event) VerifySelfSignature(ctx context.Context) (restrictedJoinServer ServerName, err error) {
+	// The localpart _is_ the base32 encoded public key
+	signingKey, err := PublicKeyForPseudoID(e.Sender())
+	if err != nil {
+		return "", fmt.Errorf("failed to extract pubkey from sender: %w", err)
+	}
+
+	redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+	if err != nil {
+		return "", fmt.Errorf("failed to redact event: %w", err)
+	}
+
+	err = VerifyJSON(
+		"self", "ed25519", signingKey, redactedJSON,
+	)
+	if err != nil {
+		return "", fmt.Errorf("invalid self signature: %w", err)
+	}
+	if e.Type() == MRoomMember {
+		membership, _ := e.Membership()
+		// invites need to be signed by the invitee as well (who isn't a sender)
+		if membership == Invite {
+			inviteeKey, _, err := SplitID('@', *e.StateKey())
+			if err != nil {
+				return "", fmt.Errorf("failed to split state key: %w", err)
+			}
+			err = VerifyJSON(
+				"invite", "ed25519", ed25519.PublicKey([]byte(inviteeKey)), redactedJSON,
+			)
+			if err != nil {
+				return "", fmt.Errorf("invalid invite signature: %w", err)
+			}
+		}
+		// For restricted join rules, the authorising server should have signed.
+		if restricted, err := e.roomVersion.MayAllowRestrictedJoinsInEventAuth(); err != nil {
+			return "", fmt.Errorf("failed to check if restricted joins allowed: %w", err)
+		} else if restricted && membership == Join {
+			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
+				_, serverName, err := SplitID('@', v.String())
+				if err != nil {
+					return "", fmt.Errorf("failed to split authorised server: %w", err)
+				}
+				restrictedJoinServer = serverName
+			}
+		}
+	}
+	return "", nil
+}
+
 func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
 	needed := map[ServerName]struct{}{}
 
@@ -44,11 +93,44 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		return fmt.Errorf("failed to check signature algorithm to use: %w", err)
 	}
 
+	// this is a self-verifying event: the sender localpart _is_ the public key. We're going to
+	// short circuit everything here as everything below is pointless for this algorithm:
+	// we don't care about validity periods or server names, or anything like that.
+	if sigCheckAlgorithm == SigCheckSelf {
+		restrictedJoinServer, err := e.VerifySelfSignature(ctx)
+		if err != nil {
+			return fmt.Errorf("VerifyEventSignatures(self): %w", err)
+		}
+		// this is a restricted join event which needs the server key to be checked
+		if restrictedJoinServer != "" {
+			redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+			if err != nil {
+				return fmt.Errorf("failed to redact event: %w", err)
+			}
+			result, err := verifier.VerifyJSONs(ctx, []VerifyJSONRequest{
+				{
+					Message:                redactedJSON,
+					AtTS:                   e.OriginServerTS(),
+					ServerName:             restrictedJoinServer,
+					StrictValidityChecking: true,
+				},
+			})
+			if err == nil {
+				err = result[0].Error
+			}
+			if err != nil {
+				return fmt.Errorf("VerifyEventSignatures(self:restricted_join): %w", err)
+			}
+		}
+		return nil
+	}
+
 	// The sender should have signed the event in all cases.
 	_, serverName, err := SplitID('@', e.Sender())
 	if err != nil {
 		return fmt.Errorf("failed to split sender: %w", err)
 	}
+
 	needed[serverName] = struct{}{}
 
 	// In room versions 1 and 2, we should also check that the server

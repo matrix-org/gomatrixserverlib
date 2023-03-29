@@ -17,6 +17,7 @@ package gomatrixserverlib
 
 import (
 	"bytes"
+	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1133,6 +1134,20 @@ func SplitID(sigil byte, id string) (local string, domain ServerName, err error)
 		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q missing ':'", id)
 	}
 	return parts[0][1:], ServerName(parts[1]), nil
+}
+
+func PublicKeyForPseudoID(userID string) (ed25519.PublicKey, error) {
+	localpart, _, err := SplitID('@', userID)
+	if err != nil {
+		return nil, err
+	}
+	b, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(localpart)
+	if err != nil {
+		return nil, err
+	}
+	// note the lack of namespacing, versions, or key algos muxed into the localpart. This is because
+	// these keys are PER ROOM, so can be redefined with a room version bump (e.g v20 rooms use $NEW_KEY_ALGO)
+	return ed25519.PublicKey(b), nil
 }
 
 // fixNilSlices corrects cases where nil slices end up with "null" in the
