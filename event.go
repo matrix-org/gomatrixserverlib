@@ -221,6 +221,18 @@ func (eb *EventBuilder) Build(
 		}
 	}
 
+	signingAlgo, err := roomVersion.SignatureCheckAlgorithm()
+	if err != nil {
+		return result, err
+	}
+	if signingAlgo == SigCheckSelf {
+		// clobber the sender to be the public key
+		pub := privateKey.Public()
+		eb.Sender = fmt.Sprintf(
+			"@%s:%s", base32.StdEncoding.EncodeToString([]byte(pub.(ed25519.PublicKey))), origin,
+		)
+	}
+
 	eventFormat, err := roomVersion.EventFormat()
 	if err != nil {
 		return result, err
@@ -1141,7 +1153,7 @@ func PublicKeyForPseudoID(userID string) (ed25519.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	b, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(localpart)
+	b, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(localpart))
 	if err != nil {
 		return nil, err
 	}
