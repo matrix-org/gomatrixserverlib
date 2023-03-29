@@ -24,6 +24,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/tidwall/sjson"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
@@ -189,7 +191,6 @@ func TestPseudoIDSelfSign(t *testing.T) {
 	myPrivKey := ed25519.NewKeyFromSeed(
 		[]byte(`12345678901234567890123456789012`), // 32 bytes
 	)
-
 	serverName := ServerName("example.com")
 	eb := EventBuilder{
 		Type:    "m.room.message",
@@ -209,4 +210,21 @@ func TestPseudoIDSelfSign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("VerifyEventSignatures: %s", err)
 	}
+
+	// different sender => bad signature
+	evJSON := ev.JSON()
+	evJSON, err = sjson.SetBytes(evJSON, "sender", "@notvalidc3hvdq3uxr7qrq7gh3ivnt3yv35uuzkq3f5ypglzo7xa:self")
+	if err != nil {
+		t.Fatalf("Failed to replace sender: %s", err)
+	}
+	badSenderEv, err := NewEventFromTrustedJSON(evJSON, false, RoomVersionPseudoID)
+	if err != nil {
+		t.Fatalf("Failed to load tampered event: %s", err)
+	}
+	err = badSenderEv.VerifyEventSignatures(context.Background(), nil)
+	if err == nil {
+		t.Fatalf("tampered event passed sig checks!")
+	}
+	t.Logf("got error for tampered event: %s", err)
+
 }
