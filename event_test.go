@@ -16,10 +16,14 @@
 package gomatrixserverlib
 
 import (
+	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
@@ -178,5 +182,31 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	_, err = NewEventFromUntrustedJSON(j, RoomVersionV1)
 	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
 		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
+	}
+}
+
+func TestPseudoIDSelfSign(t *testing.T) {
+	myPrivKey := ed25519.NewKeyFromSeed(
+		[]byte(`12345678901234567890123456789012`), // 32 bytes
+	)
+
+	serverName := ServerName("example.com")
+	eb := EventBuilder{
+		Type:    "m.room.message",
+		Content: RawJSON(`{"msgtype":"m.text","body":"Hello, self-signer!"}`),
+		Depth:   5,
+		RoomID:  fmt.Sprintf("!foo:%s", serverName),
+		// Note the lack of a Sender, because EventBuilder.Build will set it for us based on the key we sign with.
+	}
+	ev, err := eb.Build(time.Now(), "self", KeyID("ed25519"), myPrivKey, RoomVersionPseudoID)
+	if err != nil {
+		t.Fatalf("Build: %s", err)
+	}
+	t.Logf("sender: %s", ev.Sender())
+
+	// now verify the event
+	err = ev.VerifyEventSignatures(context.Background(), nil) // no JSONVerifier needed.
+	if err != nil {
+		t.Fatalf("VerifyEventSignatures: %s", err)
 	}
 }

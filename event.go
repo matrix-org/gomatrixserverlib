@@ -229,7 +229,9 @@ func (eb *EventBuilder) Build(
 		// clobber the sender to be the public key
 		pub := privateKey.Public()
 		eb.Sender = fmt.Sprintf(
-			"@%s:%s", base32.StdEncoding.EncodeToString([]byte(pub.(ed25519.PublicKey))), origin,
+			"@%s:%s", strings.ToLower( // needs to be a valid user localpart aka no upper case
+				base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(pub.(ed25519.PublicKey))),
+			), origin,
 		)
 	}
 
