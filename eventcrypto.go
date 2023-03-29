@@ -39,6 +39,11 @@ func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSO
 func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
 	needed := map[ServerName]struct{}{}
 
+	sigCheckAlgorithm, err := e.roomVersion.SignatureCheckAlgorithm()
+	if err != nil {
+		return fmt.Errorf("failed to check signature algorithm to use: %w", err)
+	}
+
 	// The sender should have signed the event in all cases.
 	_, serverName, err := SplitID('@', e.Sender())
 	if err != nil {
@@ -89,11 +94,6 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		}
 	}
 
-	strictValidityChecking, err := e.roomVersion.StrictValidityChecking()
-	if err != nil {
-		return fmt.Errorf("failed to check strict validity checking: %w", err)
-	}
-
 	redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
 	if err != nil {
 		return fmt.Errorf("failed to redact event: %w", err)
@@ -105,7 +105,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 			Message:                redactedJSON,
 			AtTS:                   e.OriginServerTS(),
 			ServerName:             serverName,
-			StrictValidityChecking: strictValidityChecking,
+			StrictValidityChecking: sigCheckAlgorithm == SigCheckStrict,
 		}
 		toVerify = append(toVerify, v)
 	}

@@ -8,6 +8,9 @@ type RoomVersion string
 // StateResAlgorithm refers to a version of the state resolution algorithm.
 type StateResAlgorithm int
 
+// SigCheckAlgorithm refers to the algorithm used to verify signatures on events
+type SigCheckAlgorithm int
+
 // EventFormat refers to the formatting of the event fields struct.
 type EventFormat int
 
@@ -29,16 +32,17 @@ type JoinRulesPermittingRestrictedJoinInEventAuth int
 // allows for future expansion.
 // https://matrix.org/docs/spec/#room-version-grammar
 const (
-	RoomVersionV1  RoomVersion = "1"
-	RoomVersionV2  RoomVersion = "2"
-	RoomVersionV3  RoomVersion = "3"
-	RoomVersionV4  RoomVersion = "4"
-	RoomVersionV5  RoomVersion = "5"
-	RoomVersionV6  RoomVersion = "6"
-	RoomVersionV7  RoomVersion = "7"
-	RoomVersionV8  RoomVersion = "8"
-	RoomVersionV9  RoomVersion = "9"
-	RoomVersionV10 RoomVersion = "10"
+	RoomVersionV1       RoomVersion = "1"
+	RoomVersionV2       RoomVersion = "2"
+	RoomVersionV3       RoomVersion = "3"
+	RoomVersionV4       RoomVersion = "4"
+	RoomVersionV5       RoomVersion = "5"
+	RoomVersionV6       RoomVersion = "6"
+	RoomVersionV7       RoomVersion = "7"
+	RoomVersionV8       RoomVersion = "8"
+	RoomVersionV9       RoomVersion = "9"
+	RoomVersionV10      RoomVersion = "10"
+	RoomVersionPseudoID RoomVersion = "org.matrix.pseudo_id" // based on v10
 )
 
 // Event format constants.
@@ -58,6 +62,13 @@ const (
 const (
 	StateResV1 StateResAlgorithm = iota + 1 // state resolution v1
 	StateResV2                              // state resolution v2
+)
+
+// Signature checking algorithm
+const (
+	SigCheckBasic SigCheckAlgorithm = iota + 1
+	SigCheckStrict
+	SigCheckSelf
 )
 
 // Redaction algorithm.
@@ -90,7 +101,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV1,
 		eventIDFormat:                   EventIDFormatV1,
 		redactionAlgorithm:              RedactionAlgorithmV1,
-		enforceSignatureChecks:          false,
+		signatureCheckAlgorithm:         SigCheckBasic,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        KnocksForbidden,
@@ -104,7 +115,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV1,
 		eventIDFormat:                   EventIDFormatV1,
 		redactionAlgorithm:              RedactionAlgorithmV1,
-		enforceSignatureChecks:          false,
+		signatureCheckAlgorithm:         SigCheckBasic,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        KnocksForbidden,
@@ -118,7 +129,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV2,
 		redactionAlgorithm:              RedactionAlgorithmV1,
-		enforceSignatureChecks:          false,
+		signatureCheckAlgorithm:         SigCheckBasic,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        KnocksForbidden,
@@ -132,7 +143,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV1,
-		enforceSignatureChecks:          false,
+		signatureCheckAlgorithm:         SigCheckBasic,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        KnocksForbidden,
@@ -146,7 +157,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV1,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
 		allowKnockingInEventAuth:        KnocksForbidden,
@@ -160,7 +171,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV2,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnocksForbidden,
@@ -174,7 +185,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV2,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnockOnly,
@@ -188,7 +199,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV3,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnockOnly,
@@ -202,7 +213,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV4,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnockOnly,
@@ -216,7 +227,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV4,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
@@ -230,7 +241,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV2,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnockOnly,
@@ -244,12 +255,26 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV4,
-		enforceSignatureChecks:          true,
+		signatureCheckAlgorithm:         SigCheckStrict,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       false,
+	},
+	RoomVersionPseudoID: {
+		Supported:                       true,
+		Stable:                          false,
+		stateResAlgorithm:               StateResV2,
+		eventFormat:                     EventFormatV2,
+		eventIDFormat:                   EventIDFormatV3,
+		redactionAlgorithm:              RedactionAlgorithmV4,
+		signatureCheckAlgorithm:         SigCheckSelf,
+		enforceCanonicalJSON:            true,
+		powerLevelsIncludeNotifications: true,
+		allowKnockingInEventAuth:        KnockOrKnockRestricted,
+		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
+		requireIntegerPowerLevels:       true,
 	},
 }
 
@@ -302,7 +327,7 @@ type RoomVersionDescription struct {
 	redactionAlgorithm              RedactionAlgorithm
 	allowKnockingInEventAuth        JoinRulesPermittingKnockInEventAuth
 	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
-	enforceSignatureChecks          bool
+	signatureCheckAlgorithm         SigCheckAlgorithm
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
 	requireIntegerPowerLevels       bool
@@ -342,13 +367,12 @@ func (v RoomVersion) RedactionAlgorithm() (RedactionAlgorithm, error) {
 	return 0, UnsupportedRoomVersionError{v}
 }
 
-// StrictValidityChecking returns true if the given room version calls for
-// strict signature checking (room version 5 and onward) or false otherwise.
-func (v RoomVersion) StrictValidityChecking() (bool, error) {
+// SignatureCheckAlgorithm returns the signature checking algorithm to use for events.
+func (v RoomVersion) SignatureCheckAlgorithm() (SigCheckAlgorithm, error) {
 	if r, ok := roomVersionMeta[v]; ok {
-		return r.enforceSignatureChecks, nil
+		return r.signatureCheckAlgorithm, nil
 	}
-	return false, UnsupportedRoomVersionError{v}
+	return 0, UnsupportedRoomVersionError{v}
 }
 
 // PowerLevelsIncludeNotifications returns true if the given room version calls
