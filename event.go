@@ -80,10 +80,16 @@ type EventBuilder struct {
 	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceded this event in the room history. This can be
 	// either []EventReference for room v1/v2, and []string for room v3 onwards.
-	PrevEvents interface{} `json:"prev_events"`
+	PrevEvents interface{} `json:"prev_events,omitempty"`
 	// The events needed to authenticate this event. This can be
 	// either []EventReference for room v1/v2, and []string for room v3 onwards.
-	AuthEvents interface{} `json:"auth_events"`
+	AuthEvents interface{} `json:"auth_events,omitempty"`
+	// The events that immediately preceded this event on the same branch. This
+	// is []string for room TODO: X onwards.
+	PrevBranchEvents interface{} `json:"prev_branch_events,omitempty"`
+	// The core events preceding this event. This is
+	// []string for room TODO: X onwards.
+	PrevCoreEvents interface{} `json:"prev_core_events,omitempty"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
@@ -153,6 +159,17 @@ type eventFormatV2Fields struct {
 	AuthEvents []string `json:"auth_events"`
 }
 
+// Fields for room version tieredDAG
+type eventFormatTieredDAGFields struct {
+	eventFields
+	// Core Events must have no prev_branch_events
+	// Non-Core Events can have multiple prev_branch_events
+	PrevBranchEvents []string `json:"prev_branch_events"`
+	// Core Events can have multiple prev_core_events
+	// Non-Core Events must have exactly one prev_core_events
+	PrevCoreEvents []string `json:"prev_core_events"`
+}
+
 func (e *Event) CacheCost() int {
 	return int(unsafe.Sizeof(*e)) +
 		len(e.eventID) +
@@ -198,6 +215,18 @@ func (e eventFormatV2Fields) CacheCost() int {
 		cost += len(v)
 	}
 	for _, v := range e.AuthEvents {
+		cost += len(v)
+	}
+	return cost
+}
+
+func (e eventFormatTieredDAGFields) CacheCost() int {
+	cost := e.eventFields.CacheCost() +
+		int(unsafe.Sizeof(e))
+	for _, v := range e.PrevBranchEvents {
+		cost += len(v)
+	}
+	for _, v := range e.PrevCoreEvents {
 		cost += len(v)
 	}
 	return cost
@@ -286,6 +315,36 @@ func (eb *EventBuilder) Build(
 		case nil:
 			event.AuthEvents = []string{}
 		}
+	case EventFormatTieredDAG:
+		// In this event format, prev_branch_events and prev_core_events are
+		// lists of event IDs as a []string.
+		// Since gomatrixserverlib otherwise deals with EventReferences,
+		// take the event IDs out of these and replace the prev_branch_events and
+		// prev_core_events with those new arrays.
+		switch prevBranchEvents := event.PrevBranchEvents.(type) {
+		case []string:
+			event.PrevBranchEvents = prevBranchEvents
+		case []EventReference:
+			resPrevBranchEvents := []string{}
+			for _, prevBranchEvent := range prevBranchEvents {
+				resPrevBranchEvents = append(resPrevBranchEvents, prevBranchEvent.EventID)
+			}
+			event.PrevBranchEvents = resPrevBranchEvents
+		case nil:
+			event.PrevBranchEvents = []string{}
+		}
+		switch prevCoreEvents := event.PrevCoreEvents.(type) {
+		case []string:
+			event.PrevCoreEvents = prevCoreEvents
+		case []EventReference:
+			resPrevCoreEvents := []string{}
+			for _, prevCoreEvent := range prevCoreEvents {
+				resPrevCoreEvents = append(resPrevCoreEvents, prevCoreEvent.EventID)
+			}
+			event.PrevCoreEvents = resPrevCoreEvents
+		case nil:
+			event.PrevCoreEvents = []string{}
+		}
 	}
 
 	if event.StateKey != nil {
@@ -303,7 +362,7 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventFormat == EventFormatV2 {
+	if eventFormat == EventFormatV2 || eventFormat == EventFormatTieredDAG {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
@@ -492,6 +551,24 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
+		if err := json.Unmarshal(eventJSON, &fields); err != nil {
+			return err
+		}
+		// Generate a hash of the event which forms the event ID. There
+		// is no event_id field in room versions 3 and later so we will
+		// always generate our own.
+		if eventIDIfKnown != "" {
+			e.eventID = eventIDIfKnown
+		} else if e.eventID, err = e.generateEventID(); err != nil {
+			return err
+		}
+		// Populate the fields of the received object.
+		fields.fixNilSlices()
+		e.fields = fields
+	case EventFormatTieredDAG:
+		e.eventJSON = eventJSON
+		// Unmarshal the event fields.
+		fields := eventFormatTieredDAGFields{}
 		if err := json.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
@@ -1156,6 +1233,18 @@ func (e *eventFormatV2Fields) fixNilSlices() {
 	}
 	if e.PrevEvents == nil {
 		e.PrevEvents = []string{}
+	}
+}
+
+// fixNilSlices corrects cases where nil slices end up with "null" in the
+// marshalled JSON because Go stupidly doesn't care about the type in this
+// situation.
+func (e *eventFormatTieredDAGFields) fixNilSlices() {
+	if e.PrevCoreEvents == nil {
+		e.PrevCoreEvents = []string{}
+	}
+	if e.PrevBranchEvents == nil {
+		e.PrevBranchEvents = []string{}
 	}
 }
 

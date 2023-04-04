@@ -45,6 +45,7 @@ const (
 const (
 	EventFormatV1 EventFormat = iota + 1 // prev_events and auth_events as event references
 	EventFormatV2                        // prev_events and auth_events as string array of event IDs
+	EventFormatTieredDAG
 )
 
 // Event ID format constants.
