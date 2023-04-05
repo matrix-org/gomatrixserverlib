@@ -283,7 +283,7 @@ func (r *RespState) Check(
 		if event.StateKey() == nil {
 			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
 		}
-		stateTuple := gomatrixserverlib.StateKeyTuple{event.Type(), *event.StateKey()}
+		stateTuple := gomatrixserverlib.StateKeyTuple{EventType: event.Type(), StateKey: *event.StateKey()}
 		if stateTuples[stateTuple] {
 			return nil, nil, fmt.Errorf(
 				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
