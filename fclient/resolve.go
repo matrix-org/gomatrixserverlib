@@ -13,21 +13,23 @@
  * limitations under the License.
  */
 
-package gomatrixserverlib
+package fclient
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"strconv"
+
+	"github.com/matrix-org/gomatrixserverlib"
 )
 
 // ResolutionResult is a result of looking up a Matrix homeserver according to
 // the federation specification.
 type ResolutionResult struct {
-	Destination   string     // The hostname and port to send federation requests to.
-	Host          ServerName // The value of the Host headers.
-	TLSServerName string     // The TLS server name to request a certificate for.
+	Destination   string                       // The hostname and port to send federation requests to.
+	Host          gomatrixserverlib.ServerName // The value of the Host headers.
+	TLSServerName string                       // The TLS server name to request a certificate for.
 }
 
 // ResolveServer implements the server name resolution algorithm described at
@@ -35,15 +37,15 @@ type ResolutionResult struct {
 // Returns a slice of ResolutionResult that can be used to send a federation
 // request to the server using a given server name.
 // Returns an error if the server name isn't valid.
-func ResolveServer(ctx context.Context, serverName ServerName) (results []ResolutionResult, err error) {
+func ResolveServer(ctx context.Context, serverName gomatrixserverlib.ServerName) (results []ResolutionResult, err error) {
 	return resolveServer(ctx, serverName, true)
 }
 
 // resolveServer does the same thing as ResolveServer, except it also requires
 // the checkWellKnown parameter, which indicates whether a .well-known file
 // should be looked up.
-func resolveServer(ctx context.Context, serverName ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
-	host, port, valid := ParseAndValidateServerName(serverName)
+func resolveServer(ctx context.Context, serverName gomatrixserverlib.ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
+	host, port, valid := gomatrixserverlib.ParseAndValidateServerName(serverName)
 	if !valid {
 		err = fmt.Errorf("Invalid server name")
 		return
@@ -104,7 +106,7 @@ func resolveServer(ctx context.Context, serverName ServerName, checkWellKnown bo
 
 // handleNoWellKnown implements steps 4 and 5 of the resolution algorithm (as
 // well as 3.3 and 3.4)
-func handleNoWellKnown(ctx context.Context, serverName ServerName) (results []ResolutionResult) {
+func handleNoWellKnown(ctx context.Context, serverName gomatrixserverlib.ServerName) (results []ResolutionResult) {
 	// 4. If the /.well-known request resulted in an error response
 	_, records, err := net.DefaultResolver.LookupSRV(ctx, "matrix", "tcp", string(serverName))
 	if err == nil && len(records) > 0 {

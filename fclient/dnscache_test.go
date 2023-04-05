@@ -1,4 +1,4 @@
-package gomatrixserverlib
+package fclient
 
 import (
 	"context"
