@@ -688,6 +688,10 @@ func (e *Event) updateUnsignedFields(unsigned []byte) error {
 		fields.Unsigned = unsigned
 		fields.fixNilSlices()
 		e.fields = fields
+	case eventFormatTieredDAGFields:
+		fields.Unsigned = unsigned
+		fields.fixNilSlices()
+		e.fields = fields
 	default:
 		return UnsupportedRoomVersionError{Version: e.roomVersion}
 	}
@@ -743,6 +747,8 @@ func (e *Event) StateKey() *string {
 		return fields.StateKey
 	case eventFormatV2Fields:
 		return fields.StateKey
+	case eventFormatTieredDAGFields:
+		return fields.StateKey
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -755,6 +761,8 @@ func (e *Event) StateKeyEquals(stateKey string) bool {
 	case eventFormatV1Fields:
 		sk = fields.StateKey
 	case eventFormatV2Fields:
+		sk = fields.StateKey
+	case eventFormatTieredDAGFields:
 		sk = fields.StateKey
 	default:
 		panic(e.invalidFieldType())
@@ -791,6 +799,11 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 	case eventFormatV2Fields:
 		if f.AuthEvents == nil || f.PrevEvents == nil {
 			return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
+		}
+		fields = f.eventFields
+	case eventFormatTieredDAGFields:
+		if f.PrevCoreEvents == nil || f.PrevBranchEvents == nil {
+			return errors.New("gomatrixserverlib: prev core events and prev branch events must not be nil")
 		}
 		fields = f.eventFields
 	default:
@@ -868,6 +881,13 @@ func (e *Event) generateEventID() (eventID string, err error) {
 			return
 		}
 		eventID = reference.EventID
+	case EventFormatTieredDAG:
+		var reference EventReference
+		reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
+		if err != nil {
+			return
+		}
+		eventID = reference.EventID
 	default:
 		err = errors.New("gomatrixserverlib: unknown room version")
 	}
@@ -881,6 +901,8 @@ func (e *Event) EventID() string {
 		return fields.EventID
 	case eventFormatV2Fields:
 		return e.eventID
+	case eventFormatTieredDAGFields:
+		return e.eventID
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -892,6 +914,8 @@ func (e *Event) Sender() string {
 	case eventFormatV1Fields:
 		return fields.Sender
 	case eventFormatV2Fields:
+		return fields.Sender
+	case eventFormatTieredDAGFields:
 		return fields.Sender
 	default:
 		panic(e.invalidFieldType())
@@ -905,6 +929,8 @@ func (e *Event) Type() string {
 		return fields.Type
 	case eventFormatV2Fields:
 		return fields.Type
+	case eventFormatTieredDAGFields:
+		return fields.Type
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -916,6 +942,8 @@ func (e *Event) OriginServerTS() Timestamp {
 	case eventFormatV1Fields:
 		return fields.OriginServerTS
 	case eventFormatV2Fields:
+		return fields.OriginServerTS
+	case eventFormatTieredDAGFields:
 		return fields.OriginServerTS
 	default:
 		panic(e.invalidFieldType())
@@ -929,6 +957,8 @@ func (e *Event) Unsigned() []byte {
 		return fields.Unsigned
 	case eventFormatV2Fields:
 		return fields.Unsigned
+	case eventFormatTieredDAGFields:
+		return fields.Unsigned
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -940,6 +970,8 @@ func (e *Event) Content() []byte {
 	case eventFormatV1Fields:
 		return []byte(fields.Content)
 	case eventFormatV2Fields:
+		return []byte(fields.Content)
+	case eventFormatTieredDAGFields:
 		return []byte(fields.Content)
 	default:
 		panic(e.invalidFieldType())
@@ -968,6 +1000,29 @@ func (e *Event) PrevEvents() []EventReference {
 			})
 		}
 		return result
+	case eventFormatTieredDAGFields:
+		result := make([]EventReference, 0, len(fields.PrevBranchEvents))
+		addResult := func(id string) {
+			// In the new event format, the event ID is already the hash of
+			// the event. Since we will have generated the event ID before
+			// now, we can just knock the sigil $ off the front and use that
+			// as the event SHA256.
+			var sha Base64Bytes
+			if err := sha.Decode(id[1:]); err != nil {
+				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
+			}
+			result = append(result, EventReference{
+				EventID:     id,
+				EventSHA256: sha,
+			})
+		}
+		for _, id := range fields.PrevBranchEvents {
+			addResult(id)
+		}
+		for _, id := range fields.PrevCoreEvents {
+			addResult(id)
+		}
+		return result
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -984,6 +1039,15 @@ func (e *Event) PrevEventIDs() []string {
 		return result
 	case eventFormatV2Fields:
 		return fields.PrevEvents
+	case eventFormatTieredDAGFields:
+		result := []string{}
+		for _, id := range fields.PrevBranchEvents {
+			result = append(result, id)
+		}
+		for _, id := range fields.PrevCoreEvents {
+			result = append(result, id)
+		}
+		return result
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1000,6 +1064,8 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 		fields = e.fields.(eventFormatV1Fields).eventFields
 	case EventFormatV2:
 		fields = e.fields.(eventFormatV2Fields).eventFields
+	case EventFormatTieredDAG:
+		fields = e.fields.(eventFormatTieredDAGFields).eventFields
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1089,6 +1155,8 @@ func (e *Event) AuthEvents() []EventReference {
 			})
 		}
 		return result
+	//case eventFormatTieredDAGFields:
+	// TODO:
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1105,6 +1173,8 @@ func (e *Event) AuthEventIDs() []string {
 		return result
 	case eventFormatV2Fields:
 		return fields.AuthEvents
+	//case eventFormatTieredDAGFields:
+	// TODO:
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1116,6 +1186,8 @@ func (e *Event) Redacts() string {
 	case eventFormatV1Fields:
 		return fields.Redacts
 	case eventFormatV2Fields:
+		return fields.Redacts
+	case eventFormatTieredDAGFields:
 		return fields.Redacts
 	default:
 		panic(e.invalidFieldType())
@@ -1129,6 +1201,8 @@ func (e *Event) RoomID() string {
 		return fields.RoomID
 	case eventFormatV2Fields:
 		return fields.RoomID
+	case eventFormatTieredDAGFields:
+		return fields.RoomID
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1140,6 +1214,8 @@ func (e *Event) Depth() int64 {
 	case eventFormatV1Fields:
 		return fields.Depth
 	case eventFormatV2Fields:
+		return fields.Depth
+	case eventFormatTieredDAGFields:
 		return fields.Depth
 	default:
 		panic(e.invalidFieldType())
