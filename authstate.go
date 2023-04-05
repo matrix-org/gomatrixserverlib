@@ -18,10 +18,20 @@ type StateProvider interface {
 type FederatedStateClient interface {
 	LookupState(
 		ctx context.Context, origin, s ServerName, roomID, eventID string, roomVersion RoomVersion,
-	) (res RespState, err error)
+	) (res StateResponse, err error)
 	LookupStateIDs(
 		ctx context.Context, origin, s ServerName, roomID, eventID string,
-	) (res RespStateIDs, err error)
+	) (res StateIDResponse, err error)
+}
+
+type StateResponse interface {
+	GetAuthEvents() EventJSONs
+	GetStateEvents() EventJSONs
+}
+
+type StateIDResponse interface {
+	GetStateEventIDs() []string
+	GetAuthEventIDs() []string
 }
 
 // FederatedStateProvider is an implementation of StateProvider which solely uses federation requests to retrieve events.
@@ -44,9 +54,9 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 		return nil, err
 	}
 	if p.RememberAuthEvents {
-		p.EventToAuthEventIDs[event.EventID()] = res.AuthEventIDs
+		p.EventToAuthEventIDs[event.EventID()] = res.GetAuthEventIDs()
 	}
-	return res.StateEventIDs, nil
+	return res.GetStateEventIDs(), nil
 }
 
 // StateBeforeEvent implements StateProvider
@@ -56,7 +66,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 		return nil, err
 	}
 	if p.RememberAuthEvents {
-		for _, js := range res.AuthEvents {
+		for _, js := range res.GetAuthEvents() {
 			event, err := js.UntrustedEvent(roomVer)
 			if err != nil {
 				continue
@@ -66,7 +76,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 	}
 
 	result := make(map[string]*Event)
-	for _, js := range res.StateEvents {
+	for _, js := range res.GetStateEvents() {
 		event, err := js.UntrustedEvent(roomVer)
 		if err != nil {
 			continue
@@ -122,10 +132,73 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	if ctx.Err() != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: context cancelled: %w", ctx.Err())
 	}
-	if err := checkAllowedByAuthEvents(eventToVerify.Unwrap(), roomState, nil); err != nil {
+	if err := CheckAllowedByAuthEvents(eventToVerify.Unwrap(), roomState, nil); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib.VerifyAuthRulesAtState: event %s is not allowed at state %s : %w",
 			eventToVerify.EventID(), eventToVerify.EventID(), err,
+		)
+	}
+	return nil
+}
+
+// TODO: de-public this function once refactor has settled. DO NOT RELY ON THIS BEING PUBLIC.
+func CheckAllowedByAuthEvents(
+	event *Event, eventsByID map[string]*Event,
+	missingAuth AuthChainProvider,
+) error {
+	authEvents := NewAuthEvents(nil)
+
+	for _, ae := range event.AuthEventIDs() {
+	retryEvent:
+		authEvent, ok := eventsByID[ae]
+		if !ok {
+			// We don't have an entry in the eventsByID map - neither an event nor nil.
+			if missingAuth != nil {
+				// If we have a AuthChainProvider then ask it for the missing event.
+				if ev, err := missingAuth(event.Version(), []string{ae}); err == nil && len(ev) > 0 {
+					// It claims to have returned events - populate the eventsByID
+					// map and the authEvents provider so that we can retry with the
+					// new events.
+					for _, e := range ev {
+						if err := authEvents.AddEvent(e); err == nil {
+							eventsByID[e.EventID()] = e
+						} else {
+							eventsByID[e.EventID()] = nil
+						}
+					}
+				} else {
+					// It claims to have not returned an event - put a nil into the
+					// eventsByID map instead. This signals that we tried to retrieve
+					// the event but failed, so we don't keep retrying.
+					eventsByID[ae] = nil
+				}
+				goto retryEvent
+			} else {
+				// If we didn't have a AuthChainProvider then we can't get the event
+				// so just carry on without it. If it was important for anything then
+				// Check() below will catch it.
+				continue
+			}
+		} else if authEvent != nil {
+			// We had an entry in the map and it contains an actual event, so add it to
+			// the auth events provider.
+			if err := authEvents.AddEvent(authEvent); err != nil {
+				return err
+			}
+		} else {
+			// We had an entry in the map but it contains nil, which means that we tried
+			// to use the AuthChainProvider to retrieve it and failed, so at this point
+			// we just have to ignore the event.
+			continue
+		}
+	}
+
+	// If we made it this far then we've successfully got as many of the auth events as
+	// as described by AuthEventIDs(). Check if they allow the event.
+	if err := Allowed(event, &authEvents); err != nil {
+		return fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
+			event.EventID(), err.Error(),
 		)
 	}
 	return nil
