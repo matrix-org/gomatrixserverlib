@@ -1,15 +1,12 @@
 package fclient
 
 import (
-	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"io"
 
 	"github.com/matrix-org/gomatrixserverlib"
-	"github.com/matrix-org/util"
-	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -238,118 +235,6 @@ func (r RespState) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Events combines the auth events and the state events and returns
-// them in an order where every event comes after its auth events.
-// Each event will only appear once in the output list.
-func (r RespState) Events(roomVersion gomatrixserverlib.RoomVersion) []*gomatrixserverlib.Event {
-	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
-	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
-	eventsByID := make(map[string]*gomatrixserverlib.Event, len(authEvents)+len(stateEvents))
-	for i, event := range authEvents {
-		eventsByID[event.EventID()] = authEvents[i]
-	}
-	for i, event := range stateEvents {
-		eventsByID[event.EventID()] = stateEvents[i]
-	}
-	allEvents := make([]*gomatrixserverlib.Event, 0, len(eventsByID))
-	for _, event := range eventsByID {
-		allEvents = append(allEvents, event)
-	}
-	return gomatrixserverlib.ReverseTopologicalOrdering(allEvents, gomatrixserverlib.TopologicalOrderByAuthEvents)
-}
-
-// Check that a response to /state is valid. This function mutates
-// the RespState to remove any events from AuthEvents or StateEvents
-// that do not have valid signatures, and also returns the unmarshalled
-// auth events (first return parameter) and state events (second
-// return parameter).
-func (r *RespState) Check(
-	ctx context.Context, roomVersion gomatrixserverlib.RoomVersion,
-	keyRing gomatrixserverlib.JSONVerifier, missingAuth gomatrixserverlib.AuthChainProvider,
-) ([]*gomatrixserverlib.Event, []*gomatrixserverlib.Event, error) {
-	logger := util.GetLogger(ctx)
-	authEvents := r.AuthEvents.UntrustedEvents(roomVersion)
-	stateEvents := r.StateEvents.UntrustedEvents(roomVersion)
-	var allEvents []*gomatrixserverlib.Event
-	for _, event := range authEvents {
-		if event.StateKey() == nil {
-			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
-		}
-		allEvents = append(allEvents, event)
-	}
-
-	stateTuples := map[gomatrixserverlib.StateKeyTuple]bool{}
-	for _, event := range stateEvents {
-		if event.StateKey() == nil {
-			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
-		}
-		stateTuple := gomatrixserverlib.StateKeyTuple{EventType: event.Type(), StateKey: *event.StateKey()}
-		if stateTuples[stateTuple] {
-			return nil, nil, fmt.Errorf(
-				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
-				event.Type(), *event.StateKey(),
-			)
-		}
-		stateTuples[stateTuple] = true
-		allEvents = append(allEvents, event)
-	}
-
-	// Check if the events pass signature checks.
-	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	errors := gomatrixserverlib.VerifyAllEventSignatures(ctx, allEvents, keyRing)
-	if len(errors) != len(allEvents) {
-		return nil, nil, fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
-	}
-
-	// Work out which events failed the signature checks.
-	failures := map[string]error{}
-	for i, e := range allEvents {
-		if errors[i] != nil {
-			logrus.WithError(errors[i]).Warnf("Signature validation failed for event %q", e.EventID())
-			failures[e.EventID()] = errors[i]
-		}
-	}
-
-	// Collect a map of event reference to event.
-	eventsByID := map[string]*gomatrixserverlib.Event{}
-	for i := range allEvents {
-		if _, ok := failures[allEvents[i].EventID()]; !ok {
-			eventsByID[allEvents[i].EventID()] = allEvents[i]
-		}
-	}
-
-	// Check whether the events are allowed by the auth rules.
-	for _, event := range allEvents {
-		if err := gomatrixserverlib.CheckAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
-			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.EventID())
-			failures[event.EventID()] = err
-		}
-	}
-
-	// For all of the events that weren't verified, remove them
-	// from the RespState. This way they won't be passed onwards.
-	if f := len(failures); f > 0 {
-		logger.Warnf("Discarding %d auth/state event(s) due to invalid signatures", f)
-
-		for i := 0; i < len(authEvents); i++ {
-			if _, ok := failures[authEvents[i].EventID()]; ok {
-				authEvents = append(authEvents[:i], authEvents[i+1:]...)
-				i--
-			}
-		}
-		for i := 0; i < len(stateEvents); i++ {
-			if _, ok := failures[stateEvents[i].EventID()]; ok {
-				stateEvents = append(stateEvents[:i], stateEvents[i+1:]...)
-				i--
-			}
-		}
-	}
-	r.AuthEvents = gomatrixserverlib.NewEventJSONsFromEvents(authEvents)
-	r.StateEvents = gomatrixserverlib.NewEventJSONsFromEvents(stateEvents)
-
-	return authEvents, stateEvents, nil
-}
-
 // A RespMakeJoin is the content of a response to GET /_matrix/federation/v2/make_join/{roomID}/{userID}
 type RespMakeJoin struct {
 	// An incomplete m.room.member event for a user on the requesting server
@@ -446,92 +331,6 @@ type respSendJoinPartialStateFields struct {
 	respSendJoinFields
 	MembersOmitted bool     `json:"members_omitted"`
 	ServersInRoom  []string `json:"servers_in_room"`
-}
-
-// ToRespState returns a new RespState with the same data from the given RespSendJoin
-func (r RespSendJoin) ToRespState() RespState {
-	if len(r.StateEvents) == 0 {
-		r.StateEvents = gomatrixserverlib.EventJSONs{}
-	}
-	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = gomatrixserverlib.EventJSONs{}
-	}
-	return RespState{
-		StateEvents: r.StateEvents,
-		AuthEvents:  r.AuthEvents,
-	}
-}
-
-// Check that a response to /send_join is valid. If it is then it
-// returns a reference to the RespState that contains the room state
-// excluding any events that failed signature checks.
-// This checks that it would be valid as a response to /state.
-// This also checks that the join event is allowed by the state.
-// This function mutates the RespSendJoin to remove any events from
-// AuthEvents or StateEvents that do not have valid signatures.
-func (r *RespSendJoin) Check(
-	ctx context.Context, roomVersion gomatrixserverlib.RoomVersion,
-	keyRing gomatrixserverlib.JSONVerifier, joinEvent *gomatrixserverlib.Event,
-	missingAuth gomatrixserverlib.AuthChainProvider,
-) (*RespState, error) {
-	// First check that the state is valid and that the events in the response
-	// are correctly signed.
-	//
-	// The response to /send_join has the same data as a response to /state
-	// and the checks for a response to /state also apply.
-	rs := r.ToRespState()
-	authEvents, stateEvents, err := rs.Check(ctx, roomVersion, keyRing, missingAuth)
-	if err != nil {
-		return nil, err
-	}
-
-	// The RespState check can mutate the auth events and state events by
-	// removing events which didn't pass signature checks. Use those.
-	r.AuthEvents = rs.AuthEvents
-	r.StateEvents = rs.StateEvents
-
-	eventsByID := map[string]*gomatrixserverlib.Event{}
-	authEventProvider := gomatrixserverlib.NewAuthEvents(nil)
-
-	// Since checkAllowedByAuthEvents needs to be able to look up any of the
-	// auth events by ID only, we will build a map which contains references
-	// to all of the auth events.
-	for i, event := range authEvents {
-		eventsByID[event.EventID()] = authEvents[i]
-	}
-
-	// Then we add the current state events too, since our newly formed
-	// membership event will likely refer to these as auth events too.
-	for i, event := range stateEvents {
-		eventsByID[event.EventID()] = stateEvents[i]
-	}
-
-	// Now check that the join event is valid against its auth events.
-	if err := gomatrixserverlib.CheckAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
-		return nil, fmt.Errorf(
-			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
-			joinEvent.EventID(), err,
-		)
-	}
-
-	// Add all of the current state events to an auth provider, allowing us
-	// to check specifically that the join event is allowed by the supplied
-	// state (and not by former auth events).
-	for i := range r.StateEvents {
-		if err := authEventProvider.AddEvent(stateEvents[i]); err != nil {
-			return nil, err
-		}
-	}
-
-	// Now check that the join event is valid against the supplied state.
-	if err := gomatrixserverlib.Allowed(joinEvent, &authEventProvider); err != nil {
-		return nil, fmt.Errorf(
-			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
-			joinEvent.EventID(), err,
-		)
-	}
-
-	return &rs, nil
 }
 
 // A RespMakeLeave is the content of a response to GET /_matrix/federation/v2/make_leave/{roomID}/{userID}
