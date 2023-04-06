@@ -70,6 +70,14 @@ type RespPeek struct {
 	LatestEvent *gomatrixserverlib.Event `json:"latest_event"`
 }
 
+func (r *RespPeek) GetStateEvents() gomatrixserverlib.EventJSONs {
+	return r.StateEvents
+}
+
+func (r *RespPeek) GetAuthEvents() gomatrixserverlib.EventJSONs {
+	return r.AuthEvents
+}
+
 // MissingEvents represents a request for missing events.
 // https://matrix.org/docs/spec/server_server/r0.1.3#post-matrix-federation-v1-get-missing-events-roomid
 type MissingEvents struct {
@@ -261,6 +269,14 @@ type RespSendJoin struct {
 	ServersInRoom []string `json:"servers_in_room"`
 }
 
+func (r *RespSendJoin) GetStateEvents() gomatrixserverlib.EventJSONs {
+	return r.StateEvents
+}
+
+func (r *RespSendJoin) GetAuthEvents() gomatrixserverlib.EventJSONs {
+	return r.AuthEvents
+}
+
 // MarshalJSON implements json.Marshaller
 func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	fields := respSendJoinFields{
@@ -301,20 +317,6 @@ type RespMakeKnock struct {
 	// See https://spec.matrix.org/v1.3/server-server-api/#knocking-upon-a-room
 	KnockEvent  gomatrixserverlib.EventBuilder `json:"event"`
 	RoomVersion gomatrixserverlib.RoomVersion  `json:"room_version"`
-}
-
-// ToRespState returns a new RespState with the same data from the given RespPeek
-func (r RespPeek) ToRespState() RespState {
-	if len(r.StateEvents) == 0 {
-		r.StateEvents = gomatrixserverlib.EventJSONs{}
-	}
-	if len(r.AuthEvents) == 0 {
-		r.AuthEvents = gomatrixserverlib.EventJSONs{}
-	}
-	return RespState{
-		StateEvents: r.StateEvents,
-		AuthEvents:  r.AuthEvents,
-	}
 }
 
 // respSendJoinFields is an intermediate struct used in RespSendJoin.MarshalJSON
