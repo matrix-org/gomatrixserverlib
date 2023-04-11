@@ -19,7 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
@@ -179,4 +182,52 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
 		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
 	}
+}
+
+func TestGetPrevEvents(t *testing.T) {
+	eventJSON := `{
+        "power_events":[
+            "$urlsafe_base64_encoded_eventid"
+        ],
+        "content":{
+            "creator":"@neilalexander:dendrite.matrix.org",
+                "room_version":"TieredDAG"
+        },
+        "depth":1,
+        "hashes":{
+            "sha256":"jqOqdNEH5r0NiN3xJtj0u5XUVmRqq9YvGbki1wxxuuM"
+        },
+        "origin_server_ts":1644595362726,
+        "prev_events":[
+            "$other_base64_encoded_eventid"
+        ],
+        "room_id":"!jSZZRknA6GkTBXNP:dendrite.matrix.org",
+        "sender":"@neilalexander:dendrite.matrix.org",
+        "signatures":{
+            "dendrite.matrix.org":{
+                "ed25519:6jB2aB":"bsQXO1wketf1OSe9xlndDIWe71W9KIundc6rBw4KEZdGPW7x4Tv4zDWWvbxDsG64sS2IPWfIm+J0OOozbrWIDw"
+            }
+        },
+        "state_key":"",
+        "type":"m.room.create"
+    }`
+
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionTieredDAG)
+	assert.NoError(t, err)
+
+	expectedPrevEvents := []string{"$urlsafe_base64_encoded_eventid", "$other_base64_encoded_eventid"}
+	prevEventRefs := event.PrevEvents()
+	prevEvents := []string{}
+	for _, event := range prevEventRefs {
+		prevEvents = append(prevEvents, event.EventID)
+	}
+
+	sort.Slice(expectedPrevEvents, func(i, j int) bool {
+		return expectedPrevEvents[i] < expectedPrevEvents[j]
+	})
+	sort.Slice(prevEvents, func(i, j int) bool {
+		return prevEvents[i] < prevEvents[j]
+	})
+
+	assert.Equal(t, expectedPrevEvents, prevEvents)
 }
