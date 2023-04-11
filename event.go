@@ -998,7 +998,7 @@ func (e *Event) PrevEvents() []EventReference {
 		}
 		return result
 	case eventFormatPowerDAGFields:
-		result := make([]EventReference, 0, len(fields.PrevEvents)+len(fields.PowerEvents))
+		result := make([]EventReference, 0, len(fields.PrevEvents))
 		addResult := func(id string) {
 			// In the new event format, the event ID is already the hash of
 			// the event. Since we will have generated the event ID before
@@ -1014,9 +1014,6 @@ func (e *Event) PrevEvents() []EventReference {
 			})
 		}
 		for _, id := range fields.PrevEvents {
-			addResult(id)
-		}
-		for _, id := range fields.PowerEvents {
 			addResult(id)
 		}
 		return result
@@ -1037,11 +1034,8 @@ func (e *Event) PrevEventIDs() []string {
 	case eventFormatV2Fields:
 		return fields.PrevEvents
 	case eventFormatPowerDAGFields:
-		result := make([]string, 0, len(fields.PrevEvents)+len(fields.PowerEvents))
+		result := make([]string, 0, len(fields.PrevEvents))
 		for _, id := range fields.PrevEvents {
-			result = append(result, id)
-		}
-		for _, id := range fields.PowerEvents {
 			result = append(result, id)
 		}
 		return result
@@ -1170,8 +1164,8 @@ func (e *Event) AuthEventIDs() []string {
 		return result
 	case eventFormatV2Fields:
 		return fields.AuthEvents
-	case eventFormatPowerDAGFields:
-		return fields.PowerEvents
+	//case eventFormatPowerDAGFields:
+	// NOTE: There are no "auth events" with power DAGs
 	default:
 		panic(e.invalidFieldType())
 	}
