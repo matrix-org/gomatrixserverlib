@@ -157,7 +157,7 @@ type eventFormatV2Fields struct {
 }
 
 // Fields for room version tieredDAG
-type eventFormatTieredDAGFields struct {
+type eventFormatPowerDAGFields struct {
 	eventFields
 	// Power Events must have no prev_events
 	// Non-Power Events can have multiple prev_events
@@ -217,7 +217,7 @@ func (e eventFormatV2Fields) CacheCost() int {
 	return cost
 }
 
-func (e eventFormatTieredDAGFields) CacheCost() int {
+func (e eventFormatPowerDAGFields) CacheCost() int {
 	cost := e.eventFields.CacheCost() +
 		int(unsafe.Sizeof(e))
 	for _, v := range e.PrevEvents {
@@ -312,7 +312,7 @@ func (eb *EventBuilder) Build(
 		case nil:
 			event.AuthEvents = []string{}
 		}
-	case EventFormatTieredDAG:
+	case EventFormatPowerDAG:
 		// In this event format, prev_events and power_events are
 		// lists of event IDs as a []string.
 		// Since gomatrixserverlib otherwise deals with EventReferences,
@@ -359,7 +359,7 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventFormat == EventFormatV2 || eventFormat == EventFormatTieredDAG {
+	if eventFormat == EventFormatV2 || eventFormat == EventFormatPowerDAG {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
@@ -562,10 +562,10 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		// Populate the fields of the received object.
 		fields.fixNilSlices()
 		e.fields = fields
-	case EventFormatTieredDAG:
+	case EventFormatPowerDAG:
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
-		fields := eventFormatTieredDAGFields{}
+		fields := eventFormatPowerDAGFields{}
 		if err := json.Unmarshal(eventJSON, &fields); err != nil {
 			return err
 		}
@@ -685,7 +685,7 @@ func (e *Event) updateUnsignedFields(unsigned []byte) error {
 		fields.Unsigned = unsigned
 		fields.fixNilSlices()
 		e.fields = fields
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		fields.Unsigned = unsigned
 		fields.fixNilSlices()
 		e.fields = fields
@@ -744,7 +744,7 @@ func (e *Event) StateKey() *string {
 		return fields.StateKey
 	case eventFormatV2Fields:
 		return fields.StateKey
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.StateKey
 	default:
 		panic(e.invalidFieldType())
@@ -759,7 +759,7 @@ func (e *Event) StateKeyEquals(stateKey string) bool {
 		sk = fields.StateKey
 	case eventFormatV2Fields:
 		sk = fields.StateKey
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		sk = fields.StateKey
 	default:
 		panic(e.invalidFieldType())
@@ -798,7 +798,7 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 			return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
 		}
 		fields = f.eventFields
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		if f.PowerEvents == nil || f.PrevEvents == nil {
 			return errors.New("gomatrixserverlib: power events and prev events must not be nil")
 		}
@@ -878,7 +878,7 @@ func (e *Event) generateEventID() (eventID string, err error) {
 			return
 		}
 		eventID = reference.EventID
-	case EventFormatTieredDAG:
+	case EventFormatPowerDAG:
 		var reference EventReference
 		reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
 		if err != nil {
@@ -898,7 +898,7 @@ func (e *Event) EventID() string {
 		return fields.EventID
 	case eventFormatV2Fields:
 		return e.eventID
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return e.eventID
 	default:
 		panic(e.invalidFieldType())
@@ -912,7 +912,7 @@ func (e *Event) Sender() string {
 		return fields.Sender
 	case eventFormatV2Fields:
 		return fields.Sender
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.Sender
 	default:
 		panic(e.invalidFieldType())
@@ -926,7 +926,7 @@ func (e *Event) Type() string {
 		return fields.Type
 	case eventFormatV2Fields:
 		return fields.Type
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.Type
 	default:
 		panic(e.invalidFieldType())
@@ -940,7 +940,7 @@ func (e *Event) OriginServerTS() Timestamp {
 		return fields.OriginServerTS
 	case eventFormatV2Fields:
 		return fields.OriginServerTS
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.OriginServerTS
 	default:
 		panic(e.invalidFieldType())
@@ -954,7 +954,7 @@ func (e *Event) Unsigned() []byte {
 		return fields.Unsigned
 	case eventFormatV2Fields:
 		return fields.Unsigned
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.Unsigned
 	default:
 		panic(e.invalidFieldType())
@@ -968,7 +968,7 @@ func (e *Event) Content() []byte {
 		return []byte(fields.Content)
 	case eventFormatV2Fields:
 		return []byte(fields.Content)
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return []byte(fields.Content)
 	default:
 		panic(e.invalidFieldType())
@@ -997,7 +997,7 @@ func (e *Event) PrevEvents() []EventReference {
 			})
 		}
 		return result
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		result := make([]EventReference, 0, len(fields.PrevEvents)+len(fields.PowerEvents))
 		addResult := func(id string) {
 			// In the new event format, the event ID is already the hash of
@@ -1036,7 +1036,7 @@ func (e *Event) PrevEventIDs() []string {
 		return result
 	case eventFormatV2Fields:
 		return fields.PrevEvents
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		result := make([]string, 0, len(fields.PrevEvents)+len(fields.PowerEvents))
 		for _, id := range fields.PrevEvents {
 			result = append(result, id)
@@ -1061,8 +1061,8 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 		fields = e.fields.(eventFormatV1Fields).eventFields
 	case EventFormatV2:
 		fields = e.fields.(eventFormatV2Fields).eventFields
-	case EventFormatTieredDAG:
-		fields = e.fields.(eventFormatTieredDAGFields).eventFields
+	case EventFormatPowerDAG:
+		fields = e.fields.(eventFormatPowerDAGFields).eventFields
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1152,8 +1152,8 @@ func (e *Event) AuthEvents() []EventReference {
 			})
 		}
 		return result
-	//case eventFormatTieredDAGFields:
-	// TODO:
+	//case eventFormatPowerDAGFields:
+	// NOTE: There are no "auth events" with power DAGs
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1170,8 +1170,8 @@ func (e *Event) AuthEventIDs() []string {
 		return result
 	case eventFormatV2Fields:
 		return fields.AuthEvents
-	//case eventFormatTieredDAGFields:
-	// TODO:
+	case eventFormatPowerDAGFields:
+		return fields.PowerEvents
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -1184,7 +1184,7 @@ func (e *Event) Redacts() string {
 		return fields.Redacts
 	case eventFormatV2Fields:
 		return fields.Redacts
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.Redacts
 	default:
 		panic(e.invalidFieldType())
@@ -1198,7 +1198,7 @@ func (e *Event) RoomID() string {
 		return fields.RoomID
 	case eventFormatV2Fields:
 		return fields.RoomID
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.RoomID
 	default:
 		panic(e.invalidFieldType())
@@ -1212,7 +1212,7 @@ func (e *Event) Depth() int64 {
 		return fields.Depth
 	case eventFormatV2Fields:
 		return fields.Depth
-	case eventFormatTieredDAGFields:
+	case eventFormatPowerDAGFields:
 		return fields.Depth
 	default:
 		panic(e.invalidFieldType())
@@ -1312,7 +1312,7 @@ func (e *eventFormatV2Fields) fixNilSlices() {
 // fixNilSlices corrects cases where nil slices end up with "null" in the
 // marshalled JSON because Go stupidly doesn't care about the type in this
 // situation.
-func (e *eventFormatTieredDAGFields) fixNilSlices() {
+func (e *eventFormatPowerDAGFields) fixNilSlices() {
 	if e.PowerEvents == nil {
 		e.PowerEvents = []string{}
 	}

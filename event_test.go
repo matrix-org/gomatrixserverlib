@@ -191,7 +191,7 @@ func TestGetPrevEvents(t *testing.T) {
         ],
         "content":{
             "creator":"@neilalexander:dendrite.matrix.org",
-                "room_version":"TieredDAG"
+                "room_version":"PowerDAG"
         },
         "depth":1,
         "hashes":{
@@ -212,7 +212,7 @@ func TestGetPrevEvents(t *testing.T) {
         "type":"m.room.create"
     }`
 
-	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionTieredDAG)
+	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionPowerDAG)
 	assert.NoError(t, err)
 
 	expectedPrevEvents := []string{"$urlsafe_base64_encoded_eventid", "$other_base64_encoded_eventid"}

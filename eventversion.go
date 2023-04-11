@@ -29,24 +29,24 @@ type JoinRulesPermittingRestrictedJoinInEventAuth int
 // allows for future expansion.
 // https://matrix.org/docs/spec/#room-version-grammar
 const (
-	RoomVersionV1        RoomVersion = "1"
-	RoomVersionV2        RoomVersion = "2"
-	RoomVersionV3        RoomVersion = "3"
-	RoomVersionV4        RoomVersion = "4"
-	RoomVersionV5        RoomVersion = "5"
-	RoomVersionV6        RoomVersion = "6"
-	RoomVersionV7        RoomVersion = "7"
-	RoomVersionV8        RoomVersion = "8"
-	RoomVersionV9        RoomVersion = "9"
-	RoomVersionV10       RoomVersion = "10"
-	RoomVersionTieredDAG RoomVersion = "TieredDAG"
+	RoomVersionV1       RoomVersion = "1"
+	RoomVersionV2       RoomVersion = "2"
+	RoomVersionV3       RoomVersion = "3"
+	RoomVersionV4       RoomVersion = "4"
+	RoomVersionV5       RoomVersion = "5"
+	RoomVersionV6       RoomVersion = "6"
+	RoomVersionV7       RoomVersion = "7"
+	RoomVersionV8       RoomVersion = "8"
+	RoomVersionV9       RoomVersion = "9"
+	RoomVersionV10      RoomVersion = "10"
+	RoomVersionPowerDAG RoomVersion = "PowerDAG"
 )
 
 // Event format constants.
 const (
 	EventFormatV1 EventFormat = iota + 1 // prev_events and auth_events as event references
 	EventFormatV2                        // prev_events and auth_events as string array of event IDs
-	EventFormatTieredDAG
+	EventFormatPowerDAG
 )
 
 // Event ID format constants.
@@ -253,11 +253,11 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionTieredDAG: {
+	RoomVersionPowerDAG: {
 		Supported:                       true,
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
-		eventFormat:                     EventFormatTieredDAG,
+		eventFormat:                     EventFormatPowerDAG,
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              RedactionAlgorithmV4,
 		enforceSignatureChecks:          true,

@@ -255,7 +255,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 		if encoder != nil {
 			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
 		}
-	case EventFormatTieredDAG:
+	case EventFormatPowerDAG:
 		var encoder *base64.Encoding
 		switch eventIDFormat {
 		case EventIDFormatV2:
