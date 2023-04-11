@@ -84,12 +84,9 @@ type EventBuilder struct {
 	// The events needed to authenticate this event. This can be
 	// either []EventReference for room v1/v2, and []string for room v3 onwards.
 	AuthEvents interface{} `json:"auth_events,omitempty"`
-	// The events that immediately preceded this event on the same branch. This
-	// is []string for room TODO: X onwards.
-	PrevBranchEvents interface{} `json:"prev_branch_events,omitempty"`
-	// The core events preceding this event. This is
+	// The power events preceding this event. This is
 	// []string for room TODO: X onwards.
-	PrevCoreEvents interface{} `json:"prev_core_events,omitempty"`
+	PowerEvents interface{} `json:"power_events,omitempty"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
@@ -162,12 +159,12 @@ type eventFormatV2Fields struct {
 // Fields for room version tieredDAG
 type eventFormatTieredDAGFields struct {
 	eventFields
-	// Core Events must have no prev_branch_events
-	// Non-Core Events can have multiple prev_branch_events
-	PrevBranchEvents []string `json:"prev_branch_events"`
-	// Core Events can have multiple prev_core_events
-	// Non-Core Events must have exactly one prev_core_events
-	PrevCoreEvents []string `json:"prev_core_events"`
+	// Power Events must have no prev_events
+	// Non-Power Events can have multiple prev_events
+	PrevEvents []string `json:"prev_events"`
+	// Power Events can have multiple power_events
+	// Non-Power Events must have exactly one power_events
+	PowerEvents []string `json:"power_events"`
 }
 
 func (e *Event) CacheCost() int {
@@ -223,10 +220,10 @@ func (e eventFormatV2Fields) CacheCost() int {
 func (e eventFormatTieredDAGFields) CacheCost() int {
 	cost := e.eventFields.CacheCost() +
 		int(unsafe.Sizeof(e))
-	for _, v := range e.PrevBranchEvents {
+	for _, v := range e.PrevEvents {
 		cost += len(v)
 	}
-	for _, v := range e.PrevCoreEvents {
+	for _, v := range e.PowerEvents {
 		cost += len(v)
 	}
 	return cost
@@ -316,34 +313,34 @@ func (eb *EventBuilder) Build(
 			event.AuthEvents = []string{}
 		}
 	case EventFormatTieredDAG:
-		// In this event format, prev_branch_events and prev_core_events are
+		// In this event format, prev_events and power_events are
 		// lists of event IDs as a []string.
 		// Since gomatrixserverlib otherwise deals with EventReferences,
-		// take the event IDs out of these and replace the prev_branch_events and
-		// prev_core_events with those new arrays.
-		switch prevBranchEvents := event.PrevBranchEvents.(type) {
+		// take the event IDs out of these and replace the prev_events and
+		// power_events with those new arrays.
+		switch prevEvents := event.PrevEvents.(type) {
 		case []string:
-			event.PrevBranchEvents = prevBranchEvents
+			event.PrevEvents = prevEvents
 		case []EventReference:
-			resPrevBranchEvents := []string{}
-			for _, prevBranchEvent := range prevBranchEvents {
-				resPrevBranchEvents = append(resPrevBranchEvents, prevBranchEvent.EventID)
+			resPrevEvents := []string{}
+			for _, prevEvent := range prevEvents {
+				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
 			}
-			event.PrevBranchEvents = resPrevBranchEvents
+			event.PrevEvents = resPrevEvents
 		case nil:
-			event.PrevBranchEvents = []string{}
+			event.PrevEvents = []string{}
 		}
-		switch prevCoreEvents := event.PrevCoreEvents.(type) {
+		switch powerEvents := event.PowerEvents.(type) {
 		case []string:
-			event.PrevCoreEvents = prevCoreEvents
+			event.PowerEvents = powerEvents
 		case []EventReference:
-			resPrevCoreEvents := []string{}
-			for _, prevCoreEvent := range prevCoreEvents {
-				resPrevCoreEvents = append(resPrevCoreEvents, prevCoreEvent.EventID)
+			resPowerEvents := []string{}
+			for _, powerEvent := range powerEvents {
+				resPowerEvents = append(resPowerEvents, powerEvent.EventID)
 			}
-			event.PrevCoreEvents = resPrevCoreEvents
+			event.PowerEvents = resPowerEvents
 		case nil:
-			event.PrevCoreEvents = []string{}
+			event.PowerEvents = []string{}
 		}
 	}
 
@@ -802,8 +799,8 @@ func (e *Event) CheckFields() error { // nolint: gocyclo
 		}
 		fields = f.eventFields
 	case eventFormatTieredDAGFields:
-		if f.PrevCoreEvents == nil || f.PrevBranchEvents == nil {
-			return errors.New("gomatrixserverlib: prev core events and prev branch events must not be nil")
+		if f.PowerEvents == nil || f.PrevEvents == nil {
+			return errors.New("gomatrixserverlib: power events and prev events must not be nil")
 		}
 		fields = f.eventFields
 	default:
@@ -1001,7 +998,7 @@ func (e *Event) PrevEvents() []EventReference {
 		}
 		return result
 	case eventFormatTieredDAGFields:
-		result := make([]EventReference, 0, len(fields.PrevBranchEvents))
+		result := make([]EventReference, 0, len(fields.PrevEvents)+len(fields.PowerEvents))
 		addResult := func(id string) {
 			// In the new event format, the event ID is already the hash of
 			// the event. Since we will have generated the event ID before
@@ -1016,10 +1013,10 @@ func (e *Event) PrevEvents() []EventReference {
 				EventSHA256: sha,
 			})
 		}
-		for _, id := range fields.PrevBranchEvents {
+		for _, id := range fields.PrevEvents {
 			addResult(id)
 		}
-		for _, id := range fields.PrevCoreEvents {
+		for _, id := range fields.PowerEvents {
 			addResult(id)
 		}
 		return result
@@ -1040,11 +1037,11 @@ func (e *Event) PrevEventIDs() []string {
 	case eventFormatV2Fields:
 		return fields.PrevEvents
 	case eventFormatTieredDAGFields:
-		result := []string{}
-		for _, id := range fields.PrevBranchEvents {
+		result := make([]string, 0, len(fields.PrevEvents)+len(fields.PowerEvents))
+		for _, id := range fields.PrevEvents {
 			result = append(result, id)
 		}
-		for _, id := range fields.PrevCoreEvents {
+		for _, id := range fields.PowerEvents {
 			result = append(result, id)
 		}
 		return result
@@ -1316,11 +1313,11 @@ func (e *eventFormatV2Fields) fixNilSlices() {
 // marshalled JSON because Go stupidly doesn't care about the type in this
 // situation.
 func (e *eventFormatTieredDAGFields) fixNilSlices() {
-	if e.PrevCoreEvents == nil {
-		e.PrevCoreEvents = []string{}
+	if e.PowerEvents == nil {
+		e.PowerEvents = []string{}
 	}
-	if e.PrevBranchEvents == nil {
-		e.PrevBranchEvents = []string{}
+	if e.PrevEvents == nil {
+		e.PrevEvents = []string{}
 	}
 }
 

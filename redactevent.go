@@ -116,23 +116,22 @@ func RedactEventJSON(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) 
 	// (In an ideal world they would include the "redacts" key for m.room.redaction events, see matrix-org/synapse#1831)
 	// See https://github.com/matrix-org/synapse/blob/v0.18.7/synapse/events/utils.py#L42-L56 for the list of fields
 	type eventFields struct {
-		EventID          RawJSON    `json:"event_id,omitempty"`
-		Sender           RawJSON    `json:"sender,omitempty"`
-		RoomID           RawJSON    `json:"room_id,omitempty"`
-		Hashes           RawJSON    `json:"hashes,omitempty"`
-		Signatures       RawJSON    `json:"signatures,omitempty"`
-		Content          allContent `json:"content"`
-		Type             string     `json:"type"`
-		StateKey         RawJSON    `json:"state_key,omitempty"`
-		Depth            RawJSON    `json:"depth,omitempty"`
-		PrevEvents       RawJSON    `json:"prev_events,omitempty"`
-		PrevState        RawJSON    `json:"prev_state,omitempty"`
-		AuthEvents       RawJSON    `json:"auth_events,omitempty"`
-		PrevBranchEvents RawJSON    `json:"prev_branch_events,omitempty"`
-		PrevCoreEvents   RawJSON    `json:"prev_core_events,omitempty"`
-		Origin           RawJSON    `json:"origin,omitempty"`
-		OriginServerTS   RawJSON    `json:"origin_server_ts,omitempty"`
-		Membership       RawJSON    `json:"membership,omitempty"`
+		EventID        RawJSON    `json:"event_id,omitempty"`
+		Sender         RawJSON    `json:"sender,omitempty"`
+		RoomID         RawJSON    `json:"room_id,omitempty"`
+		Hashes         RawJSON    `json:"hashes,omitempty"`
+		Signatures     RawJSON    `json:"signatures,omitempty"`
+		Content        allContent `json:"content"`
+		Type           string     `json:"type"`
+		StateKey       RawJSON    `json:"state_key,omitempty"`
+		Depth          RawJSON    `json:"depth,omitempty"`
+		PrevEvents     RawJSON    `json:"prev_events,omitempty"`
+		PrevState      RawJSON    `json:"prev_state,omitempty"`
+		AuthEvents     RawJSON    `json:"auth_events,omitempty"`
+		PowerEvents    RawJSON    `json:"power_events,omitempty"`
+		Origin         RawJSON    `json:"origin,omitempty"`
+		OriginServerTS RawJSON    `json:"origin_server_ts,omitempty"`
+		Membership     RawJSON    `json:"membership,omitempty"`
 	}
 
 	var event eventFields

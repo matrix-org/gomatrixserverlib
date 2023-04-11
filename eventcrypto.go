@@ -255,6 +255,19 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 		if encoder != nil {
 			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
 		}
+	case EventFormatTieredDAG:
+		var encoder *base64.Encoding
+		switch eventIDFormat {
+		case EventIDFormatV2:
+			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
+		case EventIDFormatV3:
+			encoder = base64.RawURLEncoding.WithPadding(base64.NoPadding)
+		default:
+			return EventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
+		}
+		if encoder != nil {
+			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
+		}
 	default:
 		return EventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 	}
