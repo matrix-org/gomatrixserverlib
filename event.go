@@ -1177,6 +1177,37 @@ func (e *Event) AuthEventIDs() []string {
 	}
 }
 
+// PowerEvents returns references to the previous event/s in the power DAG.
+func (e *Event) PowerEvents() []EventReference {
+	switch fields := e.fields.(type) {
+	case eventFormatPowerDAGFields:
+		result := make([]EventReference, 0, len(fields.PowerEvents))
+		for _, id := range fields.PowerEvents {
+			var sha Base64Bytes
+			if err := sha.Decode(id[1:]); err != nil {
+				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
+			}
+			result = append(result, EventReference{
+				EventID:     id,
+				EventSHA256: sha,
+			})
+		}
+		return result
+	default:
+		panic(e.invalidFieldType())
+	}
+}
+
+// PowerEventIDs returns the event IDs of the previous event/s in the power DAG.
+func (e *Event) PowerEventIDs() []string {
+	switch fields := e.fields.(type) {
+	case eventFormatPowerDAGFields:
+		return fields.PowerEvents
+	default:
+		panic(e.invalidFieldType())
+	}
+}
+
 // Redacts returns the event ID of the event this event redacts.
 func (e *Event) Redacts() string {
 	switch fields := e.fields.(type) {
