@@ -184,8 +184,7 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	}
 }
 
-func TestGetPrevEvents(t *testing.T) {
-	eventJSON := `{
+const validPowerEventJSON = `{
         "power_events":[
             "$urlsafe_base64_encoded_eventid"
         ],
@@ -212,7 +211,8 @@ func TestGetPrevEvents(t *testing.T) {
         "type":"m.room.create"
     }`
 
-	event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionPowerDAG)
+func TestGetPrevEvents(t *testing.T) {
+	event, err := NewEventFromTrustedJSON([]byte(validPowerEventJSON), false, RoomVersionPowerDAG)
 	assert.NoError(t, err)
 
 	expectedPrevEvents := []string{"$urlsafe_base64_encoded_eventid", "$other_base64_encoded_eventid"}
@@ -230,4 +230,25 @@ func TestGetPrevEvents(t *testing.T) {
 	})
 
 	assert.Equal(t, expectedPrevEvents, prevEvents)
+}
+
+func TestGetPowerEvents(t *testing.T) {
+	event, err := NewEventFromTrustedJSON([]byte(validPowerEventJSON), false, RoomVersionPowerDAG)
+	assert.NoError(t, err)
+
+	expectedPowerEvents := []string{"$urlsafe_base64_encoded_eventid"}
+	powerEventRefs := event.PowerEvents()
+	powerEvents := []string{}
+	for _, event := range powerEventRefs {
+		powerEvents = append(powerEvents, event.EventID)
+	}
+
+	sort.Slice(expectedPowerEvents, func(i, j int) bool {
+		return expectedPowerEvents[i] < expectedPowerEvents[j]
+	})
+	sort.Slice(powerEvents, func(i, j int) bool {
+		return powerEvents[i] < powerEvents[j]
+	})
+
+	assert.Equal(t, expectedPowerEvents, powerEvents)
 }
