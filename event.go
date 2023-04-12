@@ -109,7 +109,7 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 	return
 }
 
-func (eb *EventBuilder) BuildEvent(serverName ServerName, provider AuthEventProvider,
+func (eb *EventBuilder) AddAuthEventsAndBuild(serverName ServerName, provider AuthEventProvider,
 	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
 ) (*Event, error) {
 	eventsNeeded, err := StateNeededForEventBuilder(eb)
