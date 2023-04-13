@@ -18,6 +18,7 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -264,8 +265,31 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	}
 }
 
+func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
+	sender := "@sender3:id"
+	builder := EventBuilder{
+		Sender:   sender,
+		RoomID:   "!room:id",
+		Type:     "m.room.member",
+		StateKey: &sender,
+	}
+
+	err := builder.SetContent(newMemberContent("join", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	provider := &authProvider{valid: true, fail: true}
+	_, err = builder.AddAuthEventsAndBuild("origin", provider, time.Now(), RoomVersionV10, "ed25519:test", privateKey1)
+	if err == nil {
+		t.Fatal("Building didn't fail")
+	}
+	println(err.Error())
+}
+
 type authProvider struct {
 	valid bool
+	fail  bool
 }
 
 func (a *authProvider) Valid() bool {
@@ -300,7 +324,12 @@ func (a *authProvider) Create() (*Event, error) {
         "type":"m.room.create"
     }`
 	event, _ := NewEventFromTrustedJSON([]byte(validEventJSON), false, RoomVersionV10)
-	return event, nil
+
+	var err error
+	if a.fail {
+		err = fmt.Errorf("Failed")
+	}
+	return event, err
 }
 
 func (a *authProvider) PowerLevels() (*Event, error) {
