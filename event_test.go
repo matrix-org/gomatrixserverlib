@@ -219,3 +219,102 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 		t.Fatal("Event State Key doesn't match")
 	}
 }
+
+func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
+	sender := "@sender:id"
+	builder := EventBuilder{
+		Sender:   sender,
+		RoomID:   "!room:id",
+		Type:     "m.room.create",
+		StateKey: &sender,
+	}
+
+	provider := &authProvider{valid: true}
+	content, err := NewCreateContentFromAuthEvents(provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = builder.SetContent(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	event, err := builder.AddAuthEventsAndBuild("origin", provider, time.Now(), RoomVersionV10, "ed25519:test", privateKey1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedEvent := Event{redacted: false, roomVersion: RoomVersionV10}
+	println(event.fields)
+	if event.redacted != expectedEvent.redacted {
+		t.Fatal("Event Redacted state doesn't match")
+	}
+	if event.roomVersion != expectedEvent.roomVersion {
+		t.Fatal("Event Room Version doesn't match")
+	}
+	if event.Type() != "m.room.create" {
+		t.Fatal("Event Type doesn't match")
+	}
+	if event.Sender() != sender {
+		t.Fatal("Event Sender doesn't match")
+	}
+	if *event.StateKey() != sender {
+		t.Fatal("Event State Key doesn't match")
+	}
+}
+
+type authProvider struct {
+	valid bool
+}
+
+func (a *authProvider) Valid() bool {
+	return a.valid
+}
+
+func (a *authProvider) Create() (*Event, error) {
+	const validEventJSON = `{
+        "auth_events":[
+            "$urlsafe_base64_encoded_eventid"
+        ],
+        "content":{
+            "creator":"@neilalexander:dendrite.matrix.org",
+                "room_version":"PowerDAG"
+        },
+        "depth":1,
+        "hashes":{
+            "sha256":"jqOqdNEH5r0NiN3xJtj0u5XUVmRqq9YvGbki1wxxuuM"
+        },
+        "origin_server_ts":1644595362726,
+        "prev_events":[
+            "$other_base64_encoded_eventid"
+        ],
+        "room_id":"!jSZZRknA6GkTBXNP:dendrite.matrix.org",
+        "sender":"@neilalexander:dendrite.matrix.org",
+        "signatures":{
+            "dendrite.matrix.org":{
+                "ed25519:6jB2aB":"bsQXO1wketf1OSe9xlndDIWe71W9KIundc6rBw4KEZdGPW7x4Tv4zDWWvbxDsG64sS2IPWfIm+J0OOozbrWIDw"
+            }
+        },
+        "state_key":"",
+        "type":"m.room.create"
+    }`
+	event, _ := NewEventFromTrustedJSON([]byte(validEventJSON), false, RoomVersionV10)
+	return event, nil
+}
+
+func (a *authProvider) PowerLevels() (*Event, error) {
+	return &Event{}, nil
+}
+
+func (a *authProvider) JoinRules() (*Event, error) {
+	return &Event{}, nil
+}
+
+func (a *authProvider) Member(stateKey string) (*Event, error) {
+	return &Event{}, nil
+}
+
+func (a *authProvider) ThirdPartyInvite(stateKey string) (*Event, error) {
+	return &Event{}, nil
+}
