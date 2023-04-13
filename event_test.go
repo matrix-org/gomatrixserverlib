@@ -20,6 +20,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func benchmarkParse(b *testing.B, eventJSON string) {
@@ -178,5 +179,43 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	_, err = NewEventFromUntrustedJSON(j, RoomVersionV1)
 	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
 		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
+	}
+}
+
+func TestEventBuilderBuildsEvent(t *testing.T) {
+	sender := "@sender:id"
+	builder := EventBuilder{
+		Sender:   sender,
+		RoomID:   "!room:id",
+		Type:     "m.room.member",
+		StateKey: &sender,
+	}
+
+	err := builder.SetContent(newMemberContent("join", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	event, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1, RoomVersionV10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedEvent := Event{redacted: false, roomVersion: RoomVersionV10}
+	println(event.fields)
+	if event.redacted != expectedEvent.redacted {
+		t.Fatal("Event Redacted state doesn't match")
+	}
+	if event.roomVersion != expectedEvent.roomVersion {
+		t.Fatal("Event Room Version doesn't match")
+	}
+	if event.Type() != "m.room.member" {
+		t.Fatal("Event Type doesn't match")
+	}
+	if event.Sender() != sender {
+		t.Fatal("Event Sender doesn't match")
+	}
+	if *event.StateKey() != sender {
+		t.Fatal("Event State Key doesn't match")
 	}
 }
