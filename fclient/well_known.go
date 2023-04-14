@@ -1,4 +1,4 @@
-package gomatrixserverlib
+package fclient
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/matrix-org/gomatrixserverlib"
 )
 
 var (
@@ -21,13 +23,13 @@ const WellKnownMaxSize = 50 * 1024 // 50KB
 // WellKnownResult is the result of looking up a matrix server's well-known file.
 // Located at https://<server_name>/.well-known/matrix/server
 type WellKnownResult struct {
-	NewAddress     ServerName `json:"m.server"`
+	NewAddress     gomatrixserverlib.ServerName `json:"m.server"`
 	CacheExpiresAt int64
 }
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
 // found, it returns the server to redirect to.
-func LookupWellKnown(ctx context.Context, serverNameType ServerName) (*WellKnownResult, error) {
+func LookupWellKnown(ctx context.Context, serverNameType gomatrixserverlib.ServerName) (*WellKnownResult, error) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"

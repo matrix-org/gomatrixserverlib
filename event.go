@@ -112,6 +112,28 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 	return
 }
 
+func (eb *EventBuilder) AddAuthEventsAndBuild(serverName ServerName, provider AuthEventProvider,
+	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
+) (*Event, error) {
+	eventsNeeded, err := StateNeededForEventBuilder(eb)
+	if err != nil {
+		return nil, err
+	}
+	refs, err := eventsNeeded.AuthEventReferences(provider)
+	if err != nil {
+		return nil, err
+	}
+	eb.AuthEvents = refs
+	event, err := eb.Build(
+		evTime, serverName, keyID,
+		privateKey, roomVersion,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("cannot build event %s : Builder failed to build. %w", eb.Type, err)
+	}
+	return event, nil
+}
+
 // An Event is a matrix event.
 // The event should always contain valid JSON.
 // If the event content hash is invalid then the event is redacted.
