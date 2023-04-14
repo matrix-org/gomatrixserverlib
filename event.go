@@ -51,6 +51,10 @@ type EventReference struct {
 	EventSHA256 Base64Bytes
 }
 
+type HashValues struct {
+	SHA256 Base64Bytes `json:"sha256"`
+}
+
 // Event validation errors
 const (
 	EventValidationTooLarge int = 1
