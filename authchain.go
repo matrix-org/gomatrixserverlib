@@ -54,7 +54,7 @@ func VerifyEventAuthChain(ctx context.Context, eventToVerify *HeaderedEvent, pro
 			eventsToVerify = append(eventsToVerify, newEvents...) // verify these events too
 		}
 		// verify the event
-		if err := CheckAllowedByAuthEvents(curr, eventsByID, provideEvents); err != nil {
+		if err := checkAllowedByAuthEvents(curr, eventsByID, provideEvents); err != nil {
 			return fmt.Errorf("gomatrixserverlib: VerifyEventAuthChain %v failed auth check: %w", curr.EventID(), err)
 		}
 		// add to the verified list
