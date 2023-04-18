@@ -13,15 +13,19 @@
 
 package gomatrixserverlib
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
+)
 
 // EDU represents a EDU received via federation
 // https://matrix.org/docs/spec/server_server/unstable.html#edus
 type EDU struct {
-	Type        string  `json:"edu_type"`
-	Origin      string  `json:"origin"`
-	Destination string  `json:"destination,omitempty"`
-	Content     RawJSON `json:"content,omitempty"`
+	Type        string       `json:"edu_type"`
+	Origin      string       `json:"origin"`
+	Destination string       `json:"destination,omitempty"`
+	Content     spec.RawJSON `json:"content,omitempty"`
 }
 
 func (e *EDU) CacheCost() int {

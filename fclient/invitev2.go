@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
@@ -85,10 +86,10 @@ func (i *InviteV2Request) InviteRoomState() []InviteV2StrippedState {
 // events that allow the invited server to identify the room.
 type InviteV2StrippedState struct {
 	fields struct {
-		Content  gomatrixserverlib.RawJSON `json:"content"`
-		StateKey *string                   `json:"state_key"`
-		Type     string                    `json:"type"`
-		Sender   string                    `json:"sender"`
+		Content  spec.RawJSON `json:"content"`
+		StateKey *string      `json:"state_key"`
+		Type     string       `json:"type"`
+		Sender   string       `json:"sender"`
 	}
 }
 
@@ -113,7 +114,7 @@ func (i *InviteV2StrippedState) UnmarshalJSON(data []byte) error {
 }
 
 // Content returns the content of the stripped state.
-func (i *InviteV2StrippedState) Content() gomatrixserverlib.RawJSON {
+func (i *InviteV2StrippedState) Content() spec.RawJSON {
 	return i.fields.Content
 }
 

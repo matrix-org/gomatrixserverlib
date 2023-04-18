@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
 )
@@ -33,10 +34,10 @@ type KeyID string
 // https://matrix.org/docs/spec/server_server/unstable.html#signing-json
 func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, message []byte) (signed []byte, err error) {
 	preserve := struct {
-		Signatures map[string]map[KeyID]Base64Bytes `json:"signatures"`
-		Unsigned   RawJSON                          `json:"unsigned"`
+		Signatures map[string]map[KeyID]spec.Base64Bytes `json:"signatures"`
+		Unsigned   spec.RawJSON                          `json:"unsigned"`
 	}{
-		Signatures: map[string]map[KeyID]Base64Bytes{},
+		Signatures: map[string]map[KeyID]spec.Base64Bytes{},
 	}
 	if err = json.Unmarshal(message, &preserve); err != nil {
 		return nil, err
@@ -51,11 +52,11 @@ func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, me
 	if err != nil {
 		return nil, err
 	}
-	signature := Base64Bytes(ed25519.Sign(privateKey, canonical))
+	signature := spec.Base64Bytes(ed25519.Sign(privateKey, canonical))
 	if _, ok := preserve.Signatures[signingName]; ok {
 		preserve.Signatures[signingName][keyID] = signature
 	} else {
-		preserve.Signatures[signingName] = map[KeyID]Base64Bytes{
+		preserve.Signatures[signingName] = map[KeyID]spec.Base64Bytes{
 			keyID: signature,
 		}
 	}
@@ -98,7 +99,7 @@ func VerifyJSON(signingName string, keyID KeyID, publicKey ed25519.PublicKey, me
 	// This allows us to add and remove the top-level keys from the JSON object.
 	// It also ensures that the JSON is actually a valid JSON object.
 	var object map[string]*json.RawMessage
-	var signatures map[string]map[KeyID]Base64Bytes
+	var signatures map[string]map[KeyID]spec.Base64Bytes
 	if err := json.Unmarshal(message, &object); err != nil {
 		return err
 	}

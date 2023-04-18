@@ -25,6 +25,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -48,7 +49,14 @@ type EventReference struct {
 	// The event ID of the event.
 	EventID string
 	// The sha256 of the redacted event.
-	EventSHA256 Base64Bytes
+	EventSHA256 spec.Base64Bytes
+}
+
+type HashValues struct {
+	SHA256 spec.Base64Bytes `json:"sha256"`
+}
+
+type SignatureValues struct {
 }
 
 // Event validation errors
@@ -90,11 +98,11 @@ type EventBuilder struct {
 	// The create event has a depth of 1.
 	Depth int64 `json:"depth"`
 	// The JSON object for "signatures" key of the event.
-	Signature RawJSON `json:"signatures,omitempty"`
+	Signature spec.RawJSON `json:"signatures,omitempty"`
 	// The JSON object for "content" key of the event.
-	Content RawJSON `json:"content"`
+	Content spec.RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
-	Unsigned RawJSON `json:"unsigned,omitempty"`
+	Unsigned spec.RawJSON `json:"unsigned,omitempty"`
 }
 
 // SetContent sets the JSON content key of the event.
@@ -109,7 +117,7 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 	return
 }
 
-func (eb *EventBuilder) AddAuthEventsAndBuild(serverName ServerName, provider AuthEventProvider,
+func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
 	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
 ) (*Event, error) {
 	eventsNeeded, err := StateNeededForEventBuilder(eb)
@@ -148,16 +156,16 @@ type Event struct {
 }
 
 type eventFields struct {
-	RoomID         string    `json:"room_id"`
-	Sender         string    `json:"sender"`
-	Type           string    `json:"type"`
-	StateKey       *string   `json:"state_key"`
-	Content        RawJSON   `json:"content"`
-	Redacts        string    `json:"redacts"`
-	Depth          int64     `json:"depth"`
-	Unsigned       RawJSON   `json:"unsigned"`
-	OriginServerTS Timestamp `json:"origin_server_ts"`
-	//Origin         ServerName `json:"origin"`
+	RoomID         string         `json:"room_id"`
+	Sender         string         `json:"sender"`
+	Type           string         `json:"type"`
+	StateKey       *string        `json:"state_key"`
+	Content        spec.RawJSON   `json:"content"`
+	Redacts        string         `json:"redacts"`
+	Depth          int64          `json:"depth"`
+	Unsigned       spec.RawJSON   `json:"unsigned"`
+	OriginServerTS spec.Timestamp `json:"origin_server_ts"`
+	//Origin         spec.ServerName `json:"origin"`
 }
 
 // Fields for room versions 1, 2.
@@ -233,7 +241,7 @@ var emptyEventReferenceList = []EventReference{}
 // This can be called multiple times on the same builder.
 // A different event ID must be supplied each time this is called.
 func (eb *EventBuilder) Build(
-	now time.Time, origin ServerName, keyID KeyID,
+	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result *Event, err error) {
 	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
@@ -252,9 +260,9 @@ func (eb *EventBuilder) Build(
 	}
 	var event struct {
 		EventBuilder
-		EventID        string     `json:"event_id"`
-		OriginServerTS Timestamp  `json:"origin_server_ts"`
-		Origin         ServerName `json:"origin"`
+		EventID        string          `json:"event_id"`
+		OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
+		Origin         spec.ServerName `json:"origin"`
 		// This key is either absent or an empty list.
 		// If it is absent then the pointer is nil and omitempty removes it.
 		// Otherwise it points to an empty list and omitempty keeps it.
@@ -264,7 +272,7 @@ func (eb *EventBuilder) Build(
 	if eventIDFormat == EventIDFormatV1 {
 		event.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
 	}
-	event.OriginServerTS = AsTimestamp(now)
+	event.OriginServerTS = spec.AsTimestamp(now)
 	event.Origin = origin
 	switch eventFormat {
 	case EventFormatV1:
@@ -567,7 +575,7 @@ func (e *Event) Redact() {
 // SetUnsigned sets the unsigned key of the event.
 // Returns a copy of the event with the "unsigned" key set.
 func (e *Event) SetUnsigned(unsigned interface{}) (*Event, error) {
-	var eventAsMap map[string]RawJSON
+	var eventAsMap map[string]spec.RawJSON
 	var err error
 	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
 		return nil, err
@@ -856,7 +864,7 @@ func (e *Event) Type() string {
 }
 
 // OriginServerTS returns the unix timestamp when this event was created on the origin server, with millisecond resolution.
-func (e *Event) OriginServerTS() Timestamp {
+func (e *Event) OriginServerTS() spec.Timestamp {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.OriginServerTS
@@ -903,7 +911,7 @@ func (e *Event) PrevEvents() []EventReference {
 			// the event. Since we will have generated the event ID before
 			// now, we can just knock the sigil $ off the front and use that
 			// as the event SHA256.
-			var sha Base64Bytes
+			var sha spec.Base64Bytes
 			if err := sha.Decode(id[1:]); err != nil {
 				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
 			}
@@ -1024,7 +1032,7 @@ func (e *Event) AuthEvents() []EventReference {
 	case eventFormatV2Fields:
 		result := make([]EventReference, 0, len(fields.AuthEvents))
 		for _, id := range fields.AuthEvents {
-			var sha Base64Bytes
+			var sha spec.Base64Bytes
 			if err := sha.Decode(id[1:]); err != nil {
 				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
 			}
@@ -1110,7 +1118,7 @@ func (e *Event) Headered(roomVersion RoomVersion) *HeaderedEvent {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (er *EventReference) UnmarshalJSON(data []byte) error {
-	var tuple []RawJSON
+	var tuple []spec.RawJSON
 	if err := json.Unmarshal(data, &tuple); err != nil {
 		return err
 	}
@@ -1121,7 +1129,7 @@ func (er *EventReference) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, first element is invalid: %q %v", string(tuple[0]), err)
 	}
 	var hashes struct {
-		SHA256 Base64Bytes `json:"sha256"`
+		SHA256 spec.Base64Bytes `json:"sha256"`
 	}
 	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
 		return fmt.Errorf("gomatrixserverlib: invalid event reference, second element is invalid: %q %v", string(tuple[1]), err)
@@ -1133,7 +1141,7 @@ func (er *EventReference) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements json.Marshaller
 func (er EventReference) MarshalJSON() ([]byte, error) {
 	hashes := struct {
-		SHA256 Base64Bytes `json:"sha256"`
+		SHA256 spec.Base64Bytes `json:"sha256"`
 	}{er.EventSHA256}
 
 	tuple := []interface{}{er.EventID, hashes}
@@ -1142,7 +1150,7 @@ func (er EventReference) MarshalJSON() ([]byte, error) {
 }
 
 // SplitID splits a matrix ID into a local part and a server name.
-func SplitID(sigil byte, id string) (local string, domain ServerName, err error) {
+func SplitID(sigil byte, id string) (local string, domain spec.ServerName, err error) {
 	// IDs have the format: SIGIL LOCALPART ":" DOMAIN
 	// Split on the first ":" character since the domain can contain ":"
 	// characters.
@@ -1154,7 +1162,7 @@ func SplitID(sigil byte, id string) (local string, domain ServerName, err error)
 		// The ID must have a ":" character.
 		return "", "", fmt.Errorf("gomatrixserverlib: invalid ID %q missing ':'", id)
 	}
-	return parts[0][1:], ServerName(parts[1]), nil
+	return parts[0][1:], spec.ServerName(parts[1]), nil
 }
 
 // fixNilSlices corrects cases where nil slices end up with "null" in the

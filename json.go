@@ -23,16 +23,17 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
-type EventJSONs []RawJSON
+type EventJSONs []spec.RawJSON
 
-func (e RawJSON) TrustedEvent(roomVersion RoomVersion, redacted bool) (*Event, error) {
+func TrustedEvent(e spec.RawJSON, roomVersion RoomVersion, redacted bool) (*Event, error) {
 	return NewEventFromTrustedJSON(e, redacted, roomVersion)
 }
 
-func (e RawJSON) UntrustedEvent(roomVersion RoomVersion) (*Event, error) {
+func UntrustedEvent(e spec.RawJSON, roomVersion RoomVersion) (*Event, error) {
 	return NewEventFromUntrustedJSON(e, roomVersion)
 }
 
