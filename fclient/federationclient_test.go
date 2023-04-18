@@ -267,7 +267,7 @@ func createTransaction(
 	txn.Destination = testDestination
 	var federationPathPrefixV1 = "/_matrix/federation/v1"
 	path := federationPathPrefixV1 + "/send_relay/" + string(txn.TransactionID) + "/" + userID.Raw()
-	request := gomatrixserverlib.NewFederationRequest("PUT", txn.Origin, txn.Destination, path)
+	request := fclient.NewFederationRequest("PUT", txn.Origin, txn.Destination, path)
 	err := request.SetContent(txn)
 	if err != nil {
 		println("failed setting federation request content")

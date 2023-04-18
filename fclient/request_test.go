@@ -1,13 +1,15 @@
-package gomatrixserverlib
+package fclient
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/matrix-org/gomatrixserverlib"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -45,6 +47,13 @@ const examplePutContent = `{"edus":[{"content":{"device_id":"YHRUBZNPFS",` +
 	`:"localhost:8800","origin_server_ts":1493385822396,"pdu_failures":[],` +
 	`"pdus":[]}`
 
+type noopJSONVerifier struct{}
+
+func (v *noopJSONVerifier) VerifyJSONs(ctx context.Context, requests []gomatrixserverlib.VerifyJSONRequest) ([]gomatrixserverlib.VerifyJSONResult, error) {
+	x := make([]gomatrixserverlib.VerifyJSONResult, len(requests))
+	return x, nil
+}
+
 func TestSignGetRequest(t *testing.T) {
 	request := NewFederationRequest(
 		"GET", "localhost:8800", "localhost:44033",
@@ -78,7 +87,7 @@ func TestVerifyGetRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, jsonResp := VerifyHTTPRequest(
-		hr, time.Unix(1493142432, 96400), "localhost:44033", nil, KeyRing{nil, &testKeyDatabase{}},
+		hr, time.Unix(1493142432, 96400), "localhost:44033", nil, &noopJSONVerifier{},
 	)
 	if request == nil {
 		t.Fatalf("Wanted non-nil request got nil. (request was %#v, response was %#v)", hr, jsonResp)
@@ -106,7 +115,7 @@ func TestSignPutRequest(t *testing.T) {
 	request := NewFederationRequest(
 		"PUT", "localhost:8800", "localhost:44033", "/_matrix/federation/v1/send/1493385816575/",
 	)
-	if err := request.SetContent(RawJSON([]byte(examplePutContent))); err != nil {
+	if err := request.SetContent(gomatrixserverlib.RawJSON([]byte(examplePutContent))); err != nil {
 		t.Fatal(err)
 	}
 	if err := request.Sign("localhost:8800", "ed25519:a_Obwu", privateKey1); err != nil {
@@ -137,7 +146,7 @@ func TestVerifyPutRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, jsonResp := VerifyHTTPRequest(
-		hr, time.Unix(1493142432, 96400), "localhost:44033", nil, KeyRing{nil, &testKeyDatabase{}},
+		hr, time.Unix(1493142432, 96400), "localhost:44033", nil, &noopJSONVerifier{},
 	)
 	if request == nil {
 		t.Fatalf("Wanted non-nil request got nil. (request was %#v, response was %#v)", hr, jsonResp)
@@ -161,6 +170,7 @@ func TestVerifyPutRequest(t *testing.T) {
 	}
 }
 
+var privateKeySeed1 = `QJvXAPj0D9MUb1exkD8pIWmCvT1xajlsB8jRYz/G5HE`
 var privateKey1 = mustLoadPrivateKey(privateKeySeed1)
 
 func mustLoadPrivateKey(seed string) ed25519.PrivateKey {

@@ -1,4 +1,4 @@
-package gomatrixserverlib
+package fclient
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
 	"golang.org/x/crypto/ed25519"
 )
@@ -23,12 +24,12 @@ type FederationRequest struct {
 	// fields implement the JSON format needed for signing
 	// specified in https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 	fields struct {
-		Content     RawJSON                         `json:"content,omitempty"`
-		Destination ServerName                      `json:"destination"`
-		Method      string                          `json:"method"`
-		Origin      ServerName                      `json:"origin"`
-		RequestURI  string                          `json:"uri"`
-		Signatures  map[ServerName]map[KeyID]string `json:"signatures,omitempty"`
+		Content     gomatrixserverlib.RawJSON                                           `json:"content,omitempty"`
+		Destination gomatrixserverlib.ServerName                                        `json:"destination"`
+		Method      string                                                              `json:"method"`
+		Origin      gomatrixserverlib.ServerName                                        `json:"origin"`
+		RequestURI  string                                                              `json:"uri"`
+		Signatures  map[gomatrixserverlib.ServerName]map[gomatrixserverlib.KeyID]string `json:"signatures,omitempty"`
 	}
 }
 
@@ -37,7 +38,7 @@ type FederationRequest struct {
 // The destination is the name of a matrix homeserver.
 // The request path must begin with a slash.
 // Eg. NewFederationRequest("GET", "matrix.org", "/_matrix/federation/v1/send/123")
-func NewFederationRequest(method string, origin, destination ServerName, requestURI string) FederationRequest {
+func NewFederationRequest(method string, origin, destination gomatrixserverlib.ServerName, requestURI string) FederationRequest {
 	var r FederationRequest
 	r.fields.Origin = origin
 	r.fields.Destination = destination
@@ -59,7 +60,7 @@ func (r *FederationRequest) SetContent(content interface{}) error {
 	if err != nil {
 		return err
 	}
-	r.fields.Content = RawJSON(data)
+	r.fields.Content = gomatrixserverlib.RawJSON(data)
 	return nil
 }
 
@@ -74,12 +75,12 @@ func (r *FederationRequest) Content() []byte {
 }
 
 // Origin returns the server that the request originated on.
-func (r *FederationRequest) Origin() ServerName {
+func (r *FederationRequest) Origin() gomatrixserverlib.ServerName {
 	return r.fields.Origin
 }
 
 // Destination returns the server that the request was targeted to.
-func (r *FederationRequest) Destination() ServerName {
+func (r *FederationRequest) Destination() gomatrixserverlib.ServerName {
 	return r.fields.Destination
 }
 
@@ -92,7 +93,7 @@ func (r *FederationRequest) RequestURI() string {
 // Uses the algorithm specified https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 // Updates the request with the signature in place.
 // Returns an error if there was a problem signing the request.
-func (r *FederationRequest) Sign(serverName ServerName, keyID KeyID, privateKey ed25519.PrivateKey) error {
+func (r *FederationRequest) Sign(serverName gomatrixserverlib.ServerName, keyID gomatrixserverlib.KeyID, privateKey ed25519.PrivateKey) error {
 	if r.fields.Origin != "" && r.fields.Origin != serverName {
 		return fmt.Errorf("gomatrixserverlib: the request is already signed by a different server")
 	}
@@ -103,7 +104,7 @@ func (r *FederationRequest) Sign(serverName ServerName, keyID KeyID, privateKey 
 	if err != nil {
 		return err
 	}
-	signedData, err := SignJSON(string(serverName), keyID, privateKey, data)
+	signedData, err := gomatrixserverlib.SignJSON(string(serverName), keyID, privateKey, data)
 	if err != nil {
 		return err
 	}
@@ -203,9 +204,9 @@ func isSafeInHTTPQuotedString(text string) bool { // nolint: gocyclo
 // HTTP and the headers aren't protected by the signature.
 func VerifyHTTPRequest(
 	req *http.Request, now time.Time,
-	destination ServerName, // the default server name, if none other is given
-	isLocalServerName func(ServerName) bool, // optional, verify secondary server names
-	keys JSONVerifier,
+	destination gomatrixserverlib.ServerName, // the default server name, if none other is given
+	isLocalServerName func(gomatrixserverlib.ServerName) bool, // optional, verify secondary server names
+	keys gomatrixserverlib.JSONVerifier,
 ) (*FederationRequest, util.JSONResponse) {
 	request, err := readHTTPRequest(req)
 	if err != nil {
@@ -238,16 +239,16 @@ func VerifyHTTPRequest(
 		util.GetLogger(req.Context()).WithError(err).Print(message)
 		return nil, util.MessageResponse(401, message)
 	}
-	_, _, valid := ParseAndValidateServerName(request.Origin())
+	_, _, valid := gomatrixserverlib.ParseAndValidateServerName(request.Origin())
 	if !valid {
 		message := "Invalid server name for Origin"
 		util.GetLogger(req.Context()).WithError(err).Print(message)
 		return nil, util.MessageResponse(400, message)
 	}
 
-	results, err := keys.VerifyJSONs(req.Context(), []VerifyJSONRequest{{
+	results, err := keys.VerifyJSONs(req.Context(), []gomatrixserverlib.VerifyJSONRequest{{
 		ServerName:             request.Origin(),
-		AtTS:                   AsTimestamp(now),
+		AtTS:                   gomatrixserverlib.AsTimestamp(now),
 		Message:                toVerify,
 		StrictValidityChecking: true,
 	}})
@@ -289,7 +290,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 		if !utf8.Valid(content) {
 			return nil, fmt.Errorf("gomatrixserverlib: The request contained invalid UTF-8")
 		}
-		result.fields.Content = RawJSON(content)
+		result.fields.Content = gomatrixserverlib.RawJSON(content)
 	}
 
 	for _, authorization := range req.Header["Authorization"] {
@@ -307,7 +308,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 		result.fields.Origin = origin
 		result.fields.Destination = destination
 		if result.fields.Signatures == nil {
-			result.fields.Signatures = map[ServerName]map[KeyID]string{origin: {key: sig}}
+			result.fields.Signatures = map[gomatrixserverlib.ServerName]map[gomatrixserverlib.KeyID]string{origin: {key: sig}}
 		} else {
 			result.fields.Signatures[origin][key] = sig
 		}
@@ -316,7 +317,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	return &result, nil
 }
 
-func ParseAuthorization(header string) (scheme string, origin, destination ServerName, key KeyID, sig string) {
+func ParseAuthorization(header string) (scheme string, origin, destination gomatrixserverlib.ServerName, key gomatrixserverlib.KeyID, sig string) {
 	parts := strings.SplitN(header, " ", 2)
 	scheme = parts[0]
 	if scheme != "X-Matrix" {
@@ -333,16 +334,16 @@ func ParseAuthorization(header string) (scheme string, origin, destination Serve
 		name := pair[0]
 		value := strings.Trim(pair[1], "\"")
 		if name == "origin" {
-			origin = ServerName(value)
+			origin = gomatrixserverlib.ServerName(value)
 		}
 		if name == "key" {
-			key = KeyID(value)
+			key = gomatrixserverlib.KeyID(value)
 		}
 		if name == "sig" {
 			sig = value
 		}
 		if name == "destination" {
-			destination = ServerName(value)
+			destination = gomatrixserverlib.ServerName(value)
 		}
 	}
 	return

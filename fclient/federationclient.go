@@ -43,7 +43,7 @@ func NewFederationClient(
 	}
 }
 
-func (ac *FederationClient) doRequest(ctx context.Context, r gomatrixserverlib.FederationRequest, resBody interface{}) error {
+func (ac *FederationClient) doRequest(ctx context.Context, r FederationRequest, resBody interface{}) error {
 	var identity *SigningIdentity
 	for _, id := range ac.identities {
 		if id.ServerName == r.Origin() {
@@ -74,7 +74,7 @@ func (ac *FederationClient) SendTransaction(
 	ctx context.Context, t gomatrixserverlib.Transaction,
 ) (res RespSend, err error) {
 	path := federationPathPrefixV1 + "/send/" + string(t.TransactionID)
-	req := gomatrixserverlib.NewFederationRequest("PUT", t.Origin, t.Destination, path)
+	req := NewFederationRequest("PUT", t.Origin, t.Destination, path)
 	if err = req.SetContent(t); err != nil {
 		return
 	}
@@ -89,7 +89,7 @@ func (ac *FederationClient) P2PSendTransactionToRelay(
 	path := federationPathPrefixV1 + "/send_relay/" +
 		string(t.TransactionID) + "/" +
 		url.PathEscape(u.Raw())
-	req := gomatrixserverlib.NewFederationRequest("PUT", t.Origin, forwardingServer, path)
+	req := NewFederationRequest("PUT", t.Origin, forwardingServer, path)
 	if err = req.SetContent(t); err != nil {
 		return
 	}
@@ -102,7 +102,7 @@ func (ac *FederationClient) P2PGetTransactionFromRelay(
 	ctx context.Context, u gomatrixserverlib.UserID, prev RelayEntry, relayServer gomatrixserverlib.ServerName,
 ) (res RespGetRelayTransaction, err error) {
 	path := federationPathPrefixV1 + "/relay_txn/" + url.PathEscape(u.Raw())
-	req := gomatrixserverlib.NewFederationRequest("GET", u.Domain(), relayServer, path)
+	req := NewFederationRequest("GET", u.Domain(), relayServer, path)
 	if err = req.SetContent(prev); err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func (ac *FederationClient) MakeJoin(
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -179,7 +179,7 @@ func (ac *FederationClient) sendJoin(
 		path += "?omit_members=true"
 	}
 
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -190,7 +190,7 @@ func (ac *FederationClient) sendJoin(
 		v1path := federationPathPrefixV1 + "/send_join/" +
 			url.PathEscape(event.RoomID()) + "/" +
 			url.PathEscape(event.EventID())
-		v1req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, v1path)
+		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
 		}
@@ -219,7 +219,7 @@ func (ac *FederationClient) MakeKnock(
 	path := federationPathPrefixV1 + "/make_knock/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID) + versionQueryString
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -235,7 +235,7 @@ func (ac *FederationClient) SendKnock(
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
 
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -254,7 +254,7 @@ func (ac *FederationClient) MakeLeave(
 	path := federationPathPrefixV1 + "/make_leave/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(userID)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -269,7 +269,7 @@ func (ac *FederationClient) SendLeave(
 	path := federationPathPrefixV2 + "/send_leave/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -281,7 +281,7 @@ func (ac *FederationClient) SendLeave(
 		v1path := federationPathPrefixV1 + "/send_leave/" +
 			url.PathEscape(event.RoomID()) + "/" +
 			url.PathEscape(event.EventID())
-		v1req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, v1path)
+		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
 		}
@@ -302,7 +302,7 @@ func (ac *FederationClient) SendInvite(
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
 	}
@@ -313,13 +313,13 @@ func (ac *FederationClient) SendInvite(
 // SendInviteV2 sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *FederationClient) SendInviteV2(
-	ctx context.Context, origin, s gomatrixserverlib.ServerName, request gomatrixserverlib.InviteV2Request,
+	ctx context.Context, origin, s gomatrixserverlib.ServerName, request InviteV2Request,
 ) (res RespInviteV2, err error) {
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
 		url.PathEscape(event.EventID())
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(request); err != nil {
 		return
 	}
@@ -352,7 +352,7 @@ func (ac *FederationClient) ExchangeThirdPartyInvite(
 ) (err error) {
 	path := federationPathPrefixV1 + "/exchange_third_party_invite/" +
 		url.PathEscape(builder.RoomID)
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(builder); err != nil {
 		return
 	}
@@ -370,7 +370,7 @@ func (ac *FederationClient) LookupState(
 		url.PathEscape(roomID) +
 		"?event_id=" +
 		url.QueryEscape(eventID)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -384,7 +384,7 @@ func (ac *FederationClient) LookupStateIDs(
 		url.PathEscape(roomID) +
 		"?event_id=" +
 		url.QueryEscape(eventID)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -398,7 +398,7 @@ func (ac *FederationClient) LookupMissingEvents(
 ) (res RespMissingEvents, err error) {
 	path := federationPathPrefixV1 + "/get_missing_events/" +
 		url.PathEscape(roomID)
-	req := gomatrixserverlib.NewFederationRequest("POST", origin, s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(missing); err != nil {
 		return
 	}
@@ -422,7 +422,7 @@ func (ac *FederationClient) Peek(
 	path := federationPathPrefixV1 + "/peek/" +
 		url.PathEscape(roomID) + "/" +
 		url.PathEscape(peekID) + versionQueryString
-	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	req := NewFederationRequest("PUT", origin, s, path)
 	var empty struct{}
 	if err = req.SetContent(empty); err != nil {
 		return
@@ -441,7 +441,7 @@ func (ac *FederationClient) LookupRoomAlias(
 ) (res RespDirectory, err error) {
 	path := federationPathPrefixV1 + "/query/directory?room_alias=" +
 		url.QueryEscape(roomAlias)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -489,7 +489,7 @@ func (ac *FederationClient) GetPublicRoomsFiltered(
 		Since:                since,
 	}
 	path := federationPathPrefixV1 + "/publicRooms"
-	req := gomatrixserverlib.NewFederationRequest("POST", origin, s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(roomsReq); err != nil {
 		return
 	}
@@ -510,7 +510,7 @@ func (ac *FederationClient) LookupProfile(
 	if field != "" {
 		path += "&field=" + url.QueryEscape(field)
 	}
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -527,7 +527,7 @@ func (ac *FederationClient) LookupProfile(
 // https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
 func (ac *FederationClient) ClaimKeys(ctx context.Context, origin, s gomatrixserverlib.ServerName, oneTimeKeys map[string]map[string]string) (res RespClaimKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/claim"
-	req := gomatrixserverlib.NewFederationRequest("POST", origin, s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(map[string]interface{}{
 		"one_time_keys": oneTimeKeys,
 	}); err != nil {
@@ -541,7 +541,7 @@ func (ac *FederationClient) ClaimKeys(ctx context.Context, origin, s gomatrixser
 // https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-query
 func (ac *FederationClient) QueryKeys(ctx context.Context, origin, s gomatrixserverlib.ServerName, keys map[string][]string) (res RespQueryKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/query"
-	req := gomatrixserverlib.NewFederationRequest("POST", origin, s, path)
+	req := NewFederationRequest("POST", origin, s, path)
 	if err = req.SetContent(map[string]interface{}{
 		"device_keys": keys,
 	}); err != nil {
@@ -557,7 +557,7 @@ func (ac *FederationClient) GetEvent(
 	ctx context.Context, origin, s gomatrixserverlib.ServerName, eventID string,
 ) (res gomatrixserverlib.Transaction, err error) {
 	path := federationPathPrefixV1 + "/event/" + url.PathEscape(eventID)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -568,7 +568,7 @@ func (ac *FederationClient) GetEventAuth(
 	ctx context.Context, origin, s gomatrixserverlib.ServerName, roomVersion gomatrixserverlib.RoomVersion, roomID, eventID string,
 ) (res RespEventAuth, err error) {
 	path := federationPathPrefixV1 + "/event_auth/" + url.PathEscape(roomID) + "/" + url.PathEscape(eventID)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -579,7 +579,7 @@ func (ac *FederationClient) GetUserDevices(
 	ctx context.Context, origin, s gomatrixserverlib.ServerName, userID string,
 ) (res RespUserDevices, err error) {
 	path := federationPathPrefixV1 + "/user/devices/" + url.PathEscape(userID)
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -606,7 +606,7 @@ func (ac *FederationClient) Backfill(
 	path := u.RequestURI()
 
 	// Send the request.
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, s, path)
+	req := NewFederationRequest("GET", origin, s, path)
 	err = ac.doRequest(ctx, req, &res)
 	return
 }
@@ -616,7 +616,7 @@ func (ac *FederationClient) MSC2836EventRelationships(
 	ctx context.Context, origin, dst gomatrixserverlib.ServerName, r MSC2836EventRelationshipsRequest, roomVersion gomatrixserverlib.RoomVersion,
 ) (res MSC2836EventRelationshipsResponse, err error) {
 	path := "/_matrix/federation/unstable/event_relationships"
-	req := gomatrixserverlib.NewFederationRequest("POST", origin, dst, path)
+	req := NewFederationRequest("POST", origin, dst, path)
 	if err = req.SetContent(r); err != nil {
 		return
 	}
@@ -631,7 +631,7 @@ func (ac *FederationClient) MSC2946Spaces(
 	if suggestedOnly {
 		path += "?suggested_only=true"
 	}
-	req := gomatrixserverlib.NewFederationRequest("GET", origin, dst, path)
+	req := NewFederationRequest("GET", origin, dst, path)
 	err = ac.doRequest(ctx, req, &res)
 	if err != nil {
 		gerr, ok := err.(gomatrix.HTTPError)
@@ -641,7 +641,7 @@ func (ac *FederationClient) MSC2946Spaces(
 			if suggestedOnly {
 				path += "?suggested_only=true"
 			}
-			req := gomatrixserverlib.NewFederationRequest("GET", origin, dst, path)
+			req := NewFederationRequest("GET", origin, dst, path)
 			err = ac.doRequest(ctx, req, &res)
 		}
 	}
