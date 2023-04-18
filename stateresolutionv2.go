@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // TopologicalOrder represents how to sort a list of events, used primarily in ReverseTopologicalOrdering
@@ -218,13 +220,13 @@ func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order Topologic
 // will be mainline sorted.
 func isControlEvent(e *Event) bool {
 	switch e.Type() {
-	case MRoomPowerLevels:
+	case spec.MRoomPowerLevels:
 		// Power level events with an empty state key are control events.
 		return e.StateKeyEquals("")
-	case MRoomJoinRules:
+	case spec.MRoomJoinRules:
 		// Join rule events with an empty state key are control events.
 		return e.StateKeyEquals("")
-	case MRoomMember:
+	case spec.MRoomMember:
 		// Membership events must not have an empty state key.
 		if e.StateKey() == nil || e.StateKeyEquals("") {
 			break
@@ -242,7 +244,7 @@ func isControlEvent(e *Event) bool {
 		}
 		// If the "membership" key is set and is set to either "leave" or "ban" then
 		// the event is a control event.
-		if content.Membership == Leave || content.Membership == Ban {
+		if content.Membership == spec.Leave || content.Membership == spec.Ban {
 			return true
 		}
 	default:
@@ -333,7 +335,7 @@ func (r *stateResolverV2) createPowerLevelMainline() []*Event {
 			// that we can look up the event type.
 			if authEvent, ok := r.authEventMap[authEventID]; ok {
 				// Is the event a power event?
-				if authEvent.Type() == MRoomPowerLevels && authEvent.StateKeyEquals("") {
+				if authEvent.Type() == spec.MRoomPowerLevels && authEvent.StateKeyEquals("") {
 					// We found a power level event in the event's auth events - start
 					// the iterator from this new event.
 					iter(authEvent)
@@ -382,7 +384,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 				continue
 			}
 			// If the event isn't a power level event then we'll ignore it.
-			if authEvent.Type() != MRoomPowerLevels || !authEvent.StateKeyEquals("") {
+			if authEvent.Type() != spec.MRoomPowerLevels || !authEvent.StateKeyEquals("") {
 				continue
 			}
 			// Is the event in the mainline?
@@ -465,11 +467,11 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 			// i.e. create events, power level events, join rules.
 			// Otherwise, they go in the "others".
 			switch st {
-			case MRoomCreate:
+			case spec.MRoomCreate:
 				r.resolvedCreate = event
-			case MRoomPowerLevels:
+			case spec.MRoomPowerLevels:
 				r.resolvedPowerLevels = event
-			case MRoomJoinRules:
+			case spec.MRoomJoinRules:
 				r.resolvedJoinRules = event
 			default:
 				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
@@ -479,9 +481,9 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 			// i.e. membership events and 3PID invites. Otherwise,
 			// they go in the "others".
 			switch st {
-			case MRoomThirdPartyInvite:
+			case spec.MRoomThirdPartyInvite:
 				r.resolvedThirdPartyInvites[*sk] = event
-			case MRoomMember:
+			case spec.MRoomMember:
 				r.resolvedMembers[*sk] = event
 			default:
 				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
@@ -585,7 +587,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 		}
 
 		// Ignore the auth event if it isn't a power level event.
-		if authEvent.Type() != MRoomPowerLevels || *authEvent.StateKey() != "" {
+		if authEvent.Type() != spec.MRoomPowerLevels || *authEvent.StateKey() != "" {
 			continue
 		}
 

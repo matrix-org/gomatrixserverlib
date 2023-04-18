@@ -61,14 +61,14 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 	}
 
 	// Special checks for membership events.
-	if e.Type() == MRoomMember {
+	if e.Type() == spec.MRoomMember {
 		membership, err := e.Membership()
 		if err != nil {
 			return fmt.Errorf("failed to get membership of membership event: %w", err)
 		}
 
 		// For invites, the invited server should have signed the event.
-		if membership == Invite {
+		if membership == spec.Invite {
 			_, serverName, err = SplitID('@', *e.StateKey())
 			if err != nil {
 				return fmt.Errorf("failed to split state key: %w", err)
@@ -79,7 +79,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		// For restricted join rules, the authorising server should have signed.
 		if restricted, err := e.roomVersion.MayAllowRestrictedJoinsInEventAuth(); err != nil {
 			return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
-		} else if restricted && membership == Join {
+		} else if restricted && membership == spec.Join {
 			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
 				_, serverName, err = SplitID('@', v.String())
 				if err != nil {

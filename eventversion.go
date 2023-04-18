@@ -1,6 +1,10 @@
 package gomatrixserverlib
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
+)
 
 // RoomVersion refers to the room version for a specific room.
 type RoomVersion string
@@ -364,9 +368,9 @@ func (v RoomVersion) AllowKnockingInEventAuth(joinRule string) (bool, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		switch r.allowKnockingInEventAuth {
 		case KnockOnly:
-			return joinRule == Knock, nil
+			return joinRule == spec.Knock, nil
 		case KnockOrKnockRestricted:
-			return (joinRule == Knock || joinRule == KnockRestricted), nil
+			return (joinRule == spec.Knock || joinRule == spec.KnockRestricted), nil
 		case KnocksForbidden:
 			return false, nil
 		}
@@ -382,9 +386,9 @@ func (v RoomVersion) AllowRestrictedJoinsInEventAuth(joinRule string) (bool, err
 		case NoRestrictedJoins:
 			return false, nil
 		case RestrictedOnly:
-			return joinRule == Restricted, nil
+			return joinRule == spec.Restricted, nil
 		case RestrictedOrKnockRestricted:
-			return (joinRule == Restricted || joinRule == KnockRestricted), nil
+			return (joinRule == spec.Restricted || joinRule == spec.KnockRestricted), nil
 		}
 	}
 	return false, UnsupportedRoomVersionError{v}

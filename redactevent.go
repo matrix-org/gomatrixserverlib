@@ -113,9 +113,9 @@ func RedactEventJSON(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) 
 	// Copy the content fields that we should keep for the event type.
 	// By default we copy nothing leaving the content object empty.
 	switch event.Type {
-	case MRoomCreate:
+	case spec.MRoomCreate:
 		newContent.createContent = event.Content.createContent
-	case MRoomMember:
+	case spec.MRoomMember:
 		newContent.memberContent = event.Content.memberContent
 		if algo, err := roomVersion.RedactionAlgorithm(); err != nil {
 			return nil, err
@@ -125,7 +125,7 @@ func RedactEventJSON(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) 
 			// room version, we should ensure this field is redacted.
 			newContent.memberContent.AuthorisedVia = ""
 		}
-	case MRoomJoinRules:
+	case spec.MRoomJoinRules:
 		newContent.joinRulesContent = event.Content.joinRulesContent
 		if algo, err := roomVersion.RedactionAlgorithm(); err != nil {
 			return nil, err
@@ -135,11 +135,11 @@ func RedactEventJSON(eventJSON []byte, roomVersion RoomVersion) ([]byte, error) 
 			// should ensure this field is redacted.
 			newContent.joinRulesContent.Allow = nil
 		}
-	case MRoomPowerLevels:
+	case spec.MRoomPowerLevels:
 		newContent.powerLevelContent = event.Content.powerLevelContent
-	case MRoomHistoryVisibility:
+	case spec.MRoomHistoryVisibility:
 		newContent.historyVisibilityContent = event.Content.historyVisibilityContent
-	case MRoomAliases:
+	case spec.MRoomAliases:
 		if algo, err := roomVersion.RedactionAlgorithm(); err != nil {
 			return nil, err
 		} else if algo == RedactionAlgorithmV1 {

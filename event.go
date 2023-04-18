@@ -970,7 +970,7 @@ func (e *Event) Membership() (string, error) {
 	var content struct {
 		Membership string `json:"membership"`
 	}
-	if err := e.extractContent(MRoomMember, &content); err != nil {
+	if err := e.extractContent(spec.MRoomMember, &content); err != nil {
 		return "", err
 	}
 	if e.StateKey() == nil {
@@ -988,7 +988,7 @@ func (e *Event) JoinRule() (string, error) {
 		return "", fmt.Errorf("gomatrixserverlib: JoinRule() event is not a m.room.join_rules event, bad state key")
 	}
 	var content JoinRuleContent
-	if err := e.extractContent(MRoomJoinRules, &content); err != nil {
+	if err := e.extractContent(spec.MRoomJoinRules, &content); err != nil {
 		return "", err
 	}
 	return content.JoinRule, nil
@@ -1003,7 +1003,7 @@ func (e *Event) HistoryVisibility() (HistoryVisibility, error) {
 		return "", fmt.Errorf("gomatrixserverlib: HistoryVisibility() event is not a m.room.history_visibility event, bad state key")
 	}
 	var content HistoryVisibilityContent
-	if err := e.extractContent(MRoomHistoryVisibility, &content); err != nil {
+	if err := e.extractContent(spec.MRoomHistoryVisibility, &content); err != nil {
 		return "", err
 	}
 	return content.HistoryVisibility, nil

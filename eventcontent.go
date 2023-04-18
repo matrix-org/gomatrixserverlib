@@ -155,7 +155,7 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 	if memberEvent == nil {
 		// If there isn't a member event then the membership for the user
 		// defaults to leave.
-		c.Membership = Leave
+		c.Membership = spec.Leave
 		return
 	}
 	return NewMemberContentFromEvent(memberEvent)
@@ -292,7 +292,7 @@ type JoinRuleContentAllowRule struct {
 func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleContent, err error) {
 	// Start off with "invite" as the default. Hopefully the unmarshal
 	// step later will replace it with a better value.
-	c.JoinRule = Invite
+	c.JoinRule = spec.Invite
 	// Then see if the specified join event contains something better.
 	joinRulesEvent, err := authEvents.JoinRules()
 	if err != nil {
@@ -338,7 +338,7 @@ func (c *PowerLevelContent) UserLevel(userID string) int64 {
 
 // EventLevel returns the power level needed to send an event in the room.
 func (c *PowerLevelContent) EventLevel(eventType string, isState bool) int64 {
-	if eventType == MRoomThirdPartyInvite {
+	if eventType == spec.MRoomThirdPartyInvite {
 		// Special case third_party_invite events to have the same level as
 		// m.room.member invite events.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L182

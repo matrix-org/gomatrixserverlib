@@ -17,6 +17,8 @@ package gomatrixserverlib
 import (
 	"sort"
 	"testing"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 var (
@@ -85,7 +87,7 @@ func getBaseStateResV2Graph() []*Event {
 				EventID: "$CREATE:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomCreate,
+					Type:           spec.MRoomCreate,
 					OriginServerTS: 1,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -99,7 +101,7 @@ func getBaseStateResV2Graph() []*Event {
 				EventID: "$IMA:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 2,
 					Sender:         ALICE,
 					StateKey:       &ALICE,
@@ -119,7 +121,7 @@ func getBaseStateResV2Graph() []*Event {
 				EventID: "$IPOWER:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomPowerLevels,
+					Type:           spec.MRoomPowerLevels,
 					OriginServerTS: 3,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -140,7 +142,7 @@ func getBaseStateResV2Graph() []*Event {
 				EventID: "$IJR:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomJoinRules,
+					Type:           spec.MRoomJoinRules,
 					OriginServerTS: 4,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -162,7 +164,7 @@ func getBaseStateResV2Graph() []*Event {
 				EventID: "$IMB:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 5,
 					Sender:         BOB,
 					StateKey:       &BOB,
@@ -184,7 +186,7 @@ func getBaseStateResV2Graph() []*Event {
 				EventID: "$IMC:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 6,
 					Sender:         CHARLIE,
 					StateKey:       &CHARLIE,
@@ -233,7 +235,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID: "$PA:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomPowerLevels,
+					Type:           spec.MRoomPowerLevels,
 					OriginServerTS: 7,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -258,7 +260,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID: "$PB:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomPowerLevels,
+					Type:           spec.MRoomPowerLevels,
 					OriginServerTS: 8,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -283,7 +285,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID: "$MB:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 9,
 					Sender:         ALICE,
 					StateKey:       &EVELYN,
@@ -305,7 +307,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				EventID: "$IME:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 10,
 					Sender:         EVELYN,
 					StateKey:       &EVELYN,
@@ -338,7 +340,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 				EventID: "$JR:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomJoinRules,
+					Type:           spec.MRoomJoinRules,
 					OriginServerTS: 8,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -360,7 +362,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 				EventID: "$IMZ:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 9,
 					Sender:         ZARA,
 					StateKey:       &ZARA,
