@@ -49,6 +49,28 @@ func (s *stateResponseImpl) GetStateEvents() EventJSONs {
 	return s.stateEvents
 }
 
+type StateResponsePowerDAG interface {
+	GetPowerEvents() EventJSONs
+	GetStateEvents() EventJSONs
+}
+
+type StateIDResponsePowerDAG interface {
+	GetPowerEventIDs() []string
+	GetStateEventIDs() []string
+}
+
+type stateResponseImplPowerDAG struct {
+	powerEvents EventJSONs
+	stateEvents EventJSONs
+}
+
+func (s *stateResponseImplPowerDAG) GetPowerEvents() EventJSONs {
+	return s.powerEvents
+}
+func (s *stateResponseImplPowerDAG) GetStateEvents() EventJSONs {
+	return s.stateEvents
+}
+
 // FederatedStateProvider is an implementation of StateProvider which solely uses federation requests to retrieve events.
 type FederatedStateProvider struct {
 	FedClient FederatedStateClient
@@ -158,7 +180,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 
 func checkAllowedByAuthEvents(
 	event *Event, eventsByID map[string]*Event,
-	missingAuth AuthChainProvider,
+	provideEvents EventProvider,
 ) error {
 	authEvents := NewAuthEvents(nil)
 
@@ -167,9 +189,9 @@ func checkAllowedByAuthEvents(
 		authEvent, ok := eventsByID[ae]
 		if !ok {
 			// We don't have an entry in the eventsByID map - neither an event nor nil.
-			if missingAuth != nil {
+			if provideEvents != nil {
 				// If we have a AuthChainProvider then ask it for the missing event.
-				if ev, err := missingAuth(event.Version(), []string{ae}); err == nil && len(ev) > 0 {
+				if ev, err := provideEvents(event.Version(), []string{ae}); err == nil && len(ev) > 0 {
 					// It claims to have returned events - populate the eventsByID
 					// map and the authEvents provider so that we can retry with the
 					// new events.
@@ -218,13 +240,21 @@ func checkAllowedByAuthEvents(
 	return nil
 }
 
+// TODO: (Power DAG) maybe pass in a linearized/more useful form of the power dag?
+func checkAllowedByPowerEvents(
+	event *Event, eventsByID map[string]*Event,
+) error {
+	// TODO: (Power DAG)
+	return nil
+}
+
 // CheckStateResponse checks that a response to /state is valid. This function removes events
 // that do not have valid signatures, and also returns the unmarshalled
 // auth events (first return parameter) and state events (second
 // return parameter). Does not alter any input args.
 func CheckStateResponse(
 	ctx context.Context, r StateResponse, roomVersion RoomVersion,
-	keyRing JSONVerifier, missingAuth AuthChainProvider,
+	keyRing JSONVerifier, provideEvents EventProvider,
 ) ([]*Event, []*Event, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
@@ -279,7 +309,7 @@ func CheckStateResponse(
 
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
-		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
+		if err := checkAllowedByAuthEvents(event, eventsByID, provideEvents); err != nil {
 			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.EventID())
 			failures[event.EventID()] = err
 		}
@@ -307,6 +337,91 @@ func CheckStateResponse(
 	return authEvents, stateEvents, nil
 }
 
+func CheckStateResponsePowerDAG(
+	ctx context.Context, r StateResponsePowerDAG, roomVersion RoomVersion,
+	keyRing JSONVerifier, provideEvents EventProvider,
+) ([]*Event, []*Event, error) {
+	logger := util.GetLogger(ctx)
+	powerEvents := r.GetPowerEvents().UntrustedEvents(roomVersion)
+	stateEvents := r.GetStateEvents().UntrustedEvents(roomVersion)
+	var allEvents []*Event
+	for _, event := range powerEvents {
+		if event.StateKey() == nil {
+			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		}
+		allEvents = append(allEvents, event)
+	}
+
+	stateTuples := map[StateKeyTuple]bool{}
+	for _, event := range stateEvents {
+		if event.StateKey() == nil {
+			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		}
+		stateTuple := StateKeyTuple{EventType: event.Type(), StateKey: *event.StateKey()}
+		if stateTuples[stateTuple] {
+			return nil, nil, fmt.Errorf(
+				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
+				event.Type(), *event.StateKey(),
+			)
+		}
+		stateTuples[stateTuple] = true
+		allEvents = append(allEvents, event)
+	}
+
+	// Check if the events pass signature checks.
+	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
+	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing)
+	if len(errors) != len(allEvents) {
+		return nil, nil, fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
+	}
+
+	// Work out which events failed the signature checks.
+	failures := map[string]error{}
+	for i, e := range allEvents {
+		if errors[i] != nil {
+			logrus.WithError(errors[i]).Warnf("Signature validation failed for event %q", e.EventID())
+			failures[e.EventID()] = errors[i]
+		}
+	}
+
+	// Collect a map of event reference to event.
+	eventsByID := map[string]*Event{}
+	for i := range allEvents {
+		if _, ok := failures[allEvents[i].EventID()]; !ok {
+			eventsByID[allEvents[i].EventID()] = allEvents[i]
+		}
+	}
+
+	// Check whether the events are allowed by the auth rules.
+	for _, event := range allEvents {
+		if err := checkAllowedByPowerEvents(event, eventsByID); err != nil {
+			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.EventID())
+			failures[event.EventID()] = err
+		}
+	}
+
+	// For all of the events that weren't verified, remove them
+	// from the RespState. This way they won't be passed onwards.
+	if f := len(failures); f > 0 {
+		logger.Warnf("Discarding %d power/state event(s) due to invalid signatures", f)
+
+		for i := 0; i < len(powerEvents); i++ {
+			if _, ok := failures[powerEvents[i].EventID()]; ok {
+				powerEvents = append(powerEvents[:i], powerEvents[i+1:]...)
+				i--
+			}
+		}
+		for i := 0; i < len(stateEvents); i++ {
+			if _, ok := failures[stateEvents[i].EventID()]; ok {
+				stateEvents = append(stateEvents[:i], stateEvents[i+1:]...)
+				i--
+			}
+		}
+	}
+
+	return powerEvents, stateEvents, nil
+}
+
 // Check that a response to /send_join is valid. If it is then it
 // returns a reference to the RespState that contains the room state
 // excluding any events that failed signature checks.
@@ -317,20 +432,19 @@ func CheckStateResponse(
 func CheckSendJoinResponse(
 	ctx context.Context, roomVersion RoomVersion, r StateResponse,
 	keyRing JSONVerifier, joinEvent *Event,
-	missingAuth AuthChainProvider,
+	provideEvents EventProvider,
 ) (StateResponse, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	authEvents, stateEvents, err := CheckStateResponse(ctx, r, roomVersion, keyRing, missingAuth)
+	authEvents, stateEvents, err := CheckStateResponse(ctx, r, roomVersion, keyRing, provideEvents)
 	if err != nil {
 		return nil, err
 	}
 
 	eventsByID := map[string]*Event{}
-	authEventProvider := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references
@@ -346,7 +460,7 @@ func CheckSendJoinResponse(
 	}
 
 	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, provideEvents); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
 			joinEvent.EventID(), err,
@@ -356,15 +470,16 @@ func CheckSendJoinResponse(
 	// Add all of the current state events to an auth provider, allowing us
 	// to check specifically that the join event is allowed by the supplied
 	// state (and not by former auth events).
+	stateEventProvider := NewAuthEvents(nil)
 	stateEventsJSON := NewEventJSONsFromEvents(stateEvents)
 	for i := range stateEventsJSON {
-		if err := authEventProvider.AddEvent(stateEvents[i]); err != nil {
+		if err := stateEventProvider.AddEvent(stateEvents[i]); err != nil {
 			return nil, err
 		}
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &authEventProvider); err != nil {
+	if err := Allowed(joinEvent, &stateEventProvider); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
 			joinEvent.EventID(), err,
@@ -373,6 +488,77 @@ func CheckSendJoinResponse(
 
 	return &stateResponseImpl{
 		authEvents:  NewEventJSONsFromEvents(authEvents),
+		stateEvents: stateEventsJSON,
+	}, nil
+}
+
+func CheckSendJoinResponsePowerDAG(
+	ctx context.Context, roomVersion RoomVersion, r StateResponsePowerDAG,
+	keyRing JSONVerifier, joinEvent *Event,
+	provideEvents EventProvider,
+) (StateResponsePowerDAG, error) {
+	// First check that the state is valid and that the events in the response
+	// are correctly signed.
+	//
+	// The response to /send_join has the same data as a response to /state
+	// and the checks for a response to /state also apply.
+	// powerEvents should be the entirety of the power DAG
+	powerEvents, stateEvents, err := CheckStateResponsePowerDAG(ctx, r, roomVersion, keyRing, provideEvents)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: (PowerDAG) what should we be authing?
+	// That the event is allowed by the state it supplied
+	// That the event is allowed by the state at the time of it's power event/s
+	// A send join response returns the entirety of the power DAG, should be plenty to auth against haha.
+
+	powerEventsByID := map[string]*Event{}
+
+	// Since checkAllowedByPowerEvents needs to be able to look up any of the
+	// power events by ID only, we will build a map which contains references
+	// to all of the power events.
+	for i, event := range powerEvents {
+		powerEventsByID[event.EventID()] = powerEvents[i]
+	}
+
+	// Then we add the current state events too, since our newly formed
+	// membership event will likely refer to these as auth events too.
+	// NOTE: No we don't need these, the supplied power events should be the entire power DAG
+	// If we need other events to auth against then we simply fail to auth.
+	//for i, event := range stateEvents {
+	//	eventsByID[event.EventID()] = stateEvents[i]
+	//}
+
+	// Now check that the join event is valid against its power events.
+	if err := checkAllowedByPowerEvents(joinEvent, powerEventsByID); err != nil {
+		return nil, fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by its power events: %w",
+			joinEvent.EventID(), err,
+		)
+	}
+
+	// Add all of the current state events to a power provider, allowing us
+	// to check specifically that the join event is allowed by the supplied
+	// state (and not by former power events).
+	stateEventProvider := NewAuthEvents(nil)
+	stateEventsJSON := NewEventJSONsFromEvents(stateEvents)
+	for i := range stateEventsJSON {
+		if err := stateEventProvider.AddEvent(stateEvents[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	// Now check that the join event is valid against the supplied state.
+	if err := Allowed(joinEvent, &stateEventProvider); err != nil {
+		return nil, fmt.Errorf(
+			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
+			joinEvent.EventID(), err,
+		)
+	}
+
+	return &stateResponseImplPowerDAG{
+		powerEvents: NewEventJSONsFromEvents(powerEvents),
 		stateEvents: stateEventsJSON,
 	}, nil
 }

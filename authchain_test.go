@@ -70,7 +70,7 @@ func TestVerifyEventAuthChainCascadeFailure(t *testing.T) {
 	}
 }
 
-func provideEvents(t *testing.T, events [][]byte) gomatrixserverlib.AuthChainProvider {
+func provideEvents(t *testing.T, events [][]byte) gomatrixserverlib.EventProvider {
 	eventMap := make(map[string]*gomatrixserverlib.Event)
 	for _, eventBytes := range events {
 		ev, err := gomatrixserverlib.NewEventFromTrustedJSON(eventBytes, false, gomatrixserverlib.RoomVersionV1)
