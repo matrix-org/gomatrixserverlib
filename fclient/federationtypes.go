@@ -304,6 +304,72 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	return json.Marshal(partialJoinFields)
 }
 
+// respSendJoinFields is an intermediate struct used in RespSendJoin.MarshalJSON
+type respSendJoinFieldsPowerDAG struct {
+	StateEvents gomatrixserverlib.EventJSONs `json:"state"`
+	PowerEvents gomatrixserverlib.EventJSONs `json:"power_dag"`
+	Origin      gomatrixserverlib.ServerName `json:"origin"`
+	Event       gomatrixserverlib.RawJSON    `json:"event,omitempty"`
+}
+
+type respSendJoinPartialStateFieldsPowerDAG struct {
+	respSendJoinFieldsPowerDAG
+	MembersOmitted bool     `json:"members_omitted"`
+	ServersInRoom  []string `json:"servers_in_room"`
+}
+
+// A RespSendJoin is the content of a response to PUT /_matrix/federation/v2/send_join/{roomID}/{eventID}
+type RespSendJoinPowerDAG struct {
+	// A list of events giving the state of the room before the request event.
+	StateEvents gomatrixserverlib.EventJSONs `json:"state"`
+	// A list of events representing the entirety of the power DAG.
+	PowerEvents gomatrixserverlib.EventJSONs `json:"power_dag"`
+	// The server that originated the event.
+	Origin gomatrixserverlib.ServerName `json:"origin"`
+	// The returned join event from the remote server. Used for restricted joins,
+	// but not guaranteed to be present as it's only since MSC3083.
+	Event gomatrixserverlib.RawJSON `json:"event,omitempty"`
+	// true if the state is incomplete
+	MembersOmitted bool `json:"members_omitted"`
+	// a list of servers in the room. Only returned if partial_state is set.
+	ServersInRoom []string `json:"servers_in_room"`
+}
+
+func (r *RespSendJoinPowerDAG) GetStateEvents() gomatrixserverlib.EventJSONs {
+	return r.StateEvents
+}
+
+func (r *RespSendJoinPowerDAG) GetPowerEvents() gomatrixserverlib.EventJSONs {
+	return r.PowerEvents
+}
+
+// MarshalJSON implements json.Marshaller
+func (r RespSendJoinPowerDAG) MarshalJSON() ([]byte, error) {
+	fields := respSendJoinFieldsPowerDAG{
+		StateEvents: r.StateEvents,
+		PowerEvents: r.PowerEvents,
+		Origin:      r.Origin,
+		Event:       r.Event,
+	}
+	if len(fields.PowerEvents) == 0 {
+		fields.PowerEvents = gomatrixserverlib.EventJSONs{}
+	}
+	if len(fields.StateEvents) == 0 {
+		fields.StateEvents = gomatrixserverlib.EventJSONs{}
+	}
+
+	if !r.MembersOmitted {
+		return json.Marshal(fields)
+	}
+
+	partialJoinFields := respSendJoinPartialStateFieldsPowerDAG{
+		respSendJoinFieldsPowerDAG: fields,
+		MembersOmitted:             true,
+		ServersInRoom:              r.ServersInRoom,
+	}
+	return json.Marshal(partialJoinFields)
+}
+
 // A RespSendKnock is the content of a response to PUT /_matrix/federation/v2/send_knock/{roomID}/{eventID}
 type RespSendKnock struct {
 	// A list of stripped state events to help the initiator of the knock identify the room.

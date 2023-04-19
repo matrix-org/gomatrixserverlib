@@ -68,6 +68,7 @@ func (ac *FederationClient) doRequest(ctx context.Context, r gomatrixserverlib.F
 
 var federationPathPrefixV1 = "/_matrix/federation/v1"
 var federationPathPrefixV2 = "/_matrix/federation/v2"
+var federationPathPrefixPowerDAG = "/_matrix/federation/powerDAG"
 
 // SendTransaction sends a transaction
 func (ac *FederationClient) SendTransaction(
@@ -200,6 +201,36 @@ func (ac *FederationClient) sendJoin(
 			err = json.Unmarshal(v1Res[1], &res)
 		}
 	}
+	return
+}
+
+func (ac *FederationClient) SendJoinPowerDAG(
+	ctx context.Context, origin, s gomatrixserverlib.ServerName, event *gomatrixserverlib.Event,
+) (res RespSendJoinPowerDAG, err error) {
+	return ac.sendJoinPowerDAG(ctx, origin, s, event, false)
+}
+
+func (ac *FederationClient) SendJoinPartialStatePowerDAG(
+	ctx context.Context, origin, s gomatrixserverlib.ServerName, event *gomatrixserverlib.Event,
+) (res RespSendJoinPowerDAG, err error) {
+	return ac.sendJoinPowerDAG(ctx, origin, s, event, true)
+}
+
+func (ac *FederationClient) sendJoinPowerDAG(
+	ctx context.Context, origin, s gomatrixserverlib.ServerName, event *gomatrixserverlib.Event, partialState bool,
+) (res RespSendJoinPowerDAG, err error) {
+	path := federationPathPrefixPowerDAG + "/send_join/" +
+		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.EventID())
+	if partialState {
+		path += "?omit_members=true"
+	}
+
+	req := gomatrixserverlib.NewFederationRequest("PUT", origin, s, path)
+	if err = req.SetContent(event); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
 	return
 }
 
