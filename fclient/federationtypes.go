@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
@@ -199,11 +200,11 @@ type RespUserDeviceKeys struct {
 	DeviceID   string   `json:"device_id"`
 	Algorithms []string `json:"algorithms"`
 	// E.g "curve25519:JLAFKJWSCS": "3C5BFWi2Y8MaVvjM8M22DBmh24PmgR0nPvJOIArzgyI"
-	Keys map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes `json:"keys"`
+	Keys map[gomatrixserverlib.KeyID]spec.Base64Bytes `json:"keys"`
 	// E.g "@alice:example.com": {
 	//	"ed25519:JLAFKJWSCS": "dSO80A01XiigH3uBiDVx/EjzaoycHcjq9lfQX0uWsqxl2giMIiSPR8a4d291W1ihKJL/a+myXS367WT6NAIcBA"
 	// }
-	Signatures map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes `json:"signatures"`
+	Signatures map[string]map[gomatrixserverlib.KeyID]spec.Base64Bytes `json:"signatures"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -259,10 +260,10 @@ type RespSendJoin struct {
 	// A list of events needed to authenticate the state events.
 	AuthEvents gomatrixserverlib.EventJSONs `json:"auth_chain"`
 	// The server that originated the event.
-	Origin gomatrixserverlib.ServerName `json:"origin"`
+	Origin spec.ServerName `json:"origin"`
 	// The returned join event from the remote server. Used for restricted joins,
 	// but not guaranteed to be present as it's only since MSC3083.
-	Event gomatrixserverlib.RawJSON `json:"event,omitempty"`
+	Event spec.RawJSON `json:"event,omitempty"`
 	// true if the state is incomplete
 	MembersOmitted bool `json:"members_omitted"`
 	// a list of servers in the room. Only returned if partial_state is set.
@@ -307,7 +308,7 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 // A RespSendKnock is the content of a response to PUT /_matrix/federation/v2/send_knock/{roomID}/{eventID}
 type RespSendKnock struct {
 	// A list of stripped state events to help the initiator of the knock identify the room.
-	KnockRoomState []gomatrixserverlib.InviteV2StrippedState `json:"knock_room_state"`
+	KnockRoomState []InviteV2StrippedState `json:"knock_room_state"`
 }
 
 // A RespMakeKnock is the content of a response to GET /_matrix/federation/v2/make_knock/{roomID}/{userID}
@@ -323,8 +324,8 @@ type RespMakeKnock struct {
 type respSendJoinFields struct {
 	StateEvents gomatrixserverlib.EventJSONs `json:"state"`
 	AuthEvents  gomatrixserverlib.EventJSONs `json:"auth_chain"`
-	Origin      gomatrixserverlib.ServerName `json:"origin"`
-	Event       gomatrixserverlib.RawJSON    `json:"event,omitempty"`
+	Origin      spec.ServerName              `json:"origin"`
+	Event       spec.RawJSON                 `json:"event,omitempty"`
 }
 
 // respSendJoinPartialStateFields extends respSendJoinFields with the fields added
@@ -354,7 +355,7 @@ type RespDirectory struct {
 	// A list of matrix servers that the directory server thinks could be used
 	// to join the room. The joining server may need to try multiple servers
 	// before it finds one that it can use to join the room.
-	Servers []gomatrixserverlib.ServerName `json:"servers"`
+	Servers []spec.ServerName `json:"servers"`
 }
 
 // RespProfile is the content of a response to GET /_matrix/federation/v1/query/profile
@@ -366,7 +367,7 @@ type RespProfile struct {
 // RespInvite is the content of a response to PUT /_matrix/federation/v1/invite/{roomID}/{eventID}
 type RespInvite struct {
 	// The invite event signed by recipient server.
-	Event gomatrixserverlib.RawJSON `json:"event"`
+	Event spec.RawJSON `json:"event"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -394,13 +395,13 @@ func (r *RespInvite) UnmarshalJSON(data []byte) error {
 }
 
 type respInviteFields struct {
-	Event gomatrixserverlib.RawJSON `json:"event"`
+	Event spec.RawJSON `json:"event"`
 }
 
 // RespInvite is the content of a response to PUT /_matrix/federation/v2/invite/{roomID}/{eventID}
 type RespInviteV2 struct {
 	// The invite event signed by recipient server.
-	Event gomatrixserverlib.RawJSON `json:"event"`
+	Event spec.RawJSON `json:"event"`
 }
 
 // RespClaimKeys is the response for https://matrix.org/docs/spec/server_server/latest#post-matrix-federation-v1-user-keys-claim
@@ -508,9 +509,9 @@ type MSC2946SpacesResponse struct {
 
 // MSC2946StrippedEvent is the format of events returned in the HTTP response body
 type MSC2946StrippedEvent struct {
-	Type           string                      `json:"type"`
-	StateKey       string                      `json:"state_key"`
-	Content        json.RawMessage             `json:"content"`
-	Sender         string                      `json:"sender"`
-	OriginServerTS gomatrixserverlib.Timestamp `json:"origin_server_ts"`
+	Type           string          `json:"type"`
+	StateKey       string          `json:"state_key"`
+	Content        json.RawMessage `json:"content"`
+	Sender         string          `json:"sender"`
+	OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
 }

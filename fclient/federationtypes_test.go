@@ -7,7 +7,7 @@ import (
 	"unicode"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 const emptyRespStateResponse = `{"pdus":[],"auth_chain":[]}`
@@ -25,7 +25,7 @@ func TestParseServerName(t *testing.T) {
 	}
 
 	for input, output := range validTests {
-		host, port, isValid := gomatrixserverlib.ParseAndValidateServerName(gomatrixserverlib.ServerName(input))
+		host, port, isValid := spec.ParseAndValidateServerName(spec.ServerName(input))
 		if !isValid {
 			t.Errorf("Expected serverName '%s' to be parsed as valid, but was not", input)
 		}
@@ -56,7 +56,7 @@ func TestParseServerName(t *testing.T) {
 	}
 
 	for _, input := range invalidTests {
-		_, _, isValid := gomatrixserverlib.ParseAndValidateServerName(gomatrixserverlib.ServerName(input))
+		_, _, isValid := spec.ParseAndValidateServerName(spec.ServerName(input))
 		if isValid {
 			t.Errorf("Expected serverName '%s' to be rejected but was accepted", input)
 		}
@@ -109,8 +109,8 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 	}
 
 	want := RespSendJoin{
-		StateEvents: []gomatrixserverlib.RawJSON{},
-		AuthEvents:  []gomatrixserverlib.RawJSON{},
+		StateEvents: []spec.RawJSON{},
+		AuthEvents:  []spec.RawJSON{},
 		Origin:      "",
 	}
 	if !cmp.Equal(input, want, cmp.AllowUnexported(RespSendJoin{})) {
@@ -140,8 +140,8 @@ func TestRespSendJoinMarshalJSONPartialState(t *testing.T) {
 	}
 
 	want := RespSendJoin{
-		StateEvents:    []gomatrixserverlib.RawJSON{},
-		AuthEvents:     []gomatrixserverlib.RawJSON{},
+		StateEvents:    []spec.RawJSON{},
+		AuthEvents:     []spec.RawJSON{},
 		Origin:         "o1",
 		MembersOmitted: true,
 		ServersInRoom:  []string{"s1", "s2"},

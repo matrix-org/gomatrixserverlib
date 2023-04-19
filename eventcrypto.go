@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
@@ -37,7 +38,7 @@ func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSO
 }
 
 func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
-	needed := map[ServerName]struct{}{}
+	needed := map[spec.ServerName]struct{}{}
 
 	// The sender should have signed the event in all cases.
 	_, serverName, err := SplitID('@', e.Sender())
@@ -60,14 +61,14 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 	}
 
 	// Special checks for membership events.
-	if e.Type() == MRoomMember {
+	if e.Type() == spec.MRoomMember {
 		membership, err := e.Membership()
 		if err != nil {
 			return fmt.Errorf("failed to get membership of membership event: %w", err)
 		}
 
 		// For invites, the invited server should have signed the event.
-		if membership == Invite {
+		if membership == spec.Invite {
 			_, serverName, err = SplitID('@', *e.StateKey())
 			if err != nil {
 				return fmt.Errorf("failed to split state key: %w", err)
@@ -78,7 +79,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		// For restricted join rules, the authorising server should have signed.
 		if restricted, err := e.roomVersion.MayAllowRestrictedJoinsInEventAuth(); err != nil {
 			return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
-		} else if restricted && membership == Join {
+		} else if restricted && membership == spec.Join {
 			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
 				_, serverName, err = SplitID('@', v.String())
 				if err != nil {
@@ -128,7 +129,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 // This hash is used to detect whether the unredacted content of the event is valid.
 // Returns the event JSON with a "hashes" key added to it.
 func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
-	var event map[string]RawJSON
+	var event map[string]spec.RawJSON
 
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
@@ -153,8 +154,8 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 	hashes := struct {
-		Sha256 Base64Bytes `json:"sha256"`
-	}{Base64Bytes(sha256Hash[:])}
+		Sha256 spec.Base64Bytes `json:"sha256"`
+	}{spec.Base64Bytes(sha256Hash[:])}
 	hashesJSON, err := json.Marshal(&hashes)
 	if err != nil {
 		return nil, err
@@ -166,7 +167,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	if len(signatures) > 0 {
 		event["signatures"] = signatures
 	}
-	event["hashes"] = RawJSON(hashesJSON)
+	event["hashes"] = spec.RawJSON(hashesJSON)
 
 	return json.Marshal(event)
 }
@@ -177,7 +178,7 @@ func checkEventContentHash(eventJSON []byte) error {
 	var err error
 
 	result := gjson.GetBytes(eventJSON, "hashes.sha256")
-	var hash Base64Bytes
+	var hash spec.Base64Bytes
 	if err = hash.Decode(result.Str); err != nil {
 		return err
 	}
@@ -207,7 +208,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 		return EventReference{}, err
 	}
 
-	var event map[string]RawJSON
+	var event map[string]spec.RawJSON
 	if err = json.Unmarshal(redactedJSON, &event); err != nil {
 		return EventReference{}, err
 	}
@@ -278,14 +279,14 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 	}
 
 	var signedEvent struct {
-		Signatures RawJSON `json:"signatures"`
+		Signatures spec.RawJSON `json:"signatures"`
 	}
 	if err := json.Unmarshal(signedJSON, &signedEvent); err != nil {
 		return nil, err
 	}
 
 	// Unmarshal the event JSON so that we can replace the signatures key.
-	var event map[string]RawJSON
+	var event map[string]spec.RawJSON
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}

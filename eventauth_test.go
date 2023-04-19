@@ -18,6 +18,8 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -52,7 +54,7 @@ func stateNeededEquals(a, b StateNeeded) bool {
 type testEventList []*Event
 
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
-	var eventJSONs []RawJSON
+	var eventJSONs []spec.RawJSON
 	var events []*Event
 	if err := json.Unmarshal(data, &eventJSONs); err != nil {
 		return err
@@ -1002,7 +1004,7 @@ func TestRedactAllowed(t *testing.T) {
 }
 
 func TestAuthEvents(t *testing.T) {
-	power, err := NewEventFromTrustedJSON(RawJSON(`{
+	power, err := NewEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1023,7 +1025,7 @@ func TestAuthEvents(t *testing.T) {
 	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
 	}
-	create, err := NewEventFromTrustedJSON(RawJSON(`{
+	create, err := NewEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.create",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1086,7 +1088,7 @@ var powerLevelTestRoom = &testAuthEvents{
 func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
-	powerChangeShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
+	powerChangeShouldSucceed, err := NewEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1111,7 +1113,7 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 	// User shouldn't be able to promote the user default
 	// level above their own effective level.
-	powerChangeShouldFail, err := NewEventFromTrustedJSON(RawJSON(`{
+	powerChangeShouldFail, err := NewEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u2:a",
@@ -1184,7 +1186,7 @@ var negativePowerLevelTestRoom = &testAuthEvents{
 func TestNegativePowerLevels(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
-	eventShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
+	eventShouldSucceed, err := NewEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.message",
 		"sender": "@u1:a",
 		"room_id": "!r1:a",

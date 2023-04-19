@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // ServerKeys are the ed25519 signing keys published by a matrix server.
@@ -33,26 +35,26 @@ type ServerKeys struct {
 // A VerifyKey is a ed25519 public key for a server.
 type VerifyKey struct {
 	// The public key.
-	Key Base64Bytes `json:"key"`
+	Key spec.Base64Bytes `json:"key"`
 }
 
 // An OldVerifyKey is an old ed25519 public key that is no longer valid.
 type OldVerifyKey struct {
 	VerifyKey
 	// When this key stopped being valid for event signing in milliseconds.
-	ExpiredTS Timestamp `json:"expired_ts"`
+	ExpiredTS spec.Timestamp `json:"expired_ts"`
 }
 
 // ServerKeyFields are the parsed JSON contents of the ed25519 signing keys published by a matrix server.
 type ServerKeyFields struct {
 	// The name of the server
-	ServerName ServerName `json:"server_name"`
+	ServerName spec.ServerName `json:"server_name"`
 	// The current signing keys in use on this server.
 	// The keys of the map are the IDs of the keys.
 	// These are valid while this response is valid.
 	VerifyKeys map[KeyID]VerifyKey `json:"verify_keys"`
 	// When this result is valid until in milliseconds.
-	ValidUntilTS Timestamp `json:"valid_until_ts"`
+	ValidUntilTS spec.Timestamp `json:"valid_until_ts"`
 	// Old keys that are now only valid for checking historic events.
 	// The keys of the map are the IDs of the keys.
 	OldVerifyKeys map[KeyID]OldVerifyKey `json:"old_verify_keys"`
@@ -78,7 +80,7 @@ func (keys ServerKeys) MarshalJSON() ([]byte, error) {
 }
 
 // PublicKey returns a public key with the given ID valid at the given TS or nil if no such key exists.
-func (keys ServerKeys) PublicKey(keyID KeyID, atTS Timestamp) []byte {
+func (keys ServerKeys) PublicKey(keyID KeyID, atTS spec.Timestamp) []byte {
 	if currentKey, ok := keys.VerifyKeys[keyID]; ok && (atTS <= keys.ValidUntilTS) {
 		return currentKey.Key
 	}
@@ -107,12 +109,12 @@ type KeyChecks struct {
 // CheckKeys checks the keys returned from a server to make sure they are valid.
 // If the checks pass then also return a map of key_id to Ed25519 public key
 func CheckKeys(
-	serverName ServerName,
+	serverName spec.ServerName,
 	now time.Time,
 	keys ServerKeys,
 ) (
 	checks KeyChecks,
-	ed25519Keys map[KeyID]Base64Bytes,
+	ed25519Keys map[KeyID]spec.Base64Bytes,
 ) {
 	checks.MatchingServerName = serverName == keys.ServerName
 	checks.FutureValidUntilTS = keys.ValidUntilTS.Time().After(now)
@@ -126,10 +128,10 @@ func CheckKeys(
 	return
 }
 
-func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[KeyID]Base64Bytes {
+func checkVerifyKeys(keys ServerKeys, checks *KeyChecks) map[KeyID]spec.Base64Bytes {
 	allEd25519ChecksOK := true
 	checks.Ed25519Checks = map[KeyID]Ed25519Checks{}
-	verifyKeys := map[KeyID]Base64Bytes{}
+	verifyKeys := map[KeyID]spec.Base64Bytes{}
 	for keyID, keyData := range keys.VerifyKeys {
 		algorithm := strings.SplitN(string(keyID), ":", 2)[0]
 		publicKey := keyData.Key

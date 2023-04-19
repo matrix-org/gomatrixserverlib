@@ -16,13 +16,32 @@
 package gomatrixserverlib
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 )
+
+var privateKey1 = mustLoadPrivateKey(privateKeySeed1)
+
+func mustLoadPrivateKey(seed string) ed25519.PrivateKey {
+	seedBytes, err := base64.RawStdEncoding.DecodeString(seed)
+	if err != nil {
+		panic(err)
+	}
+	random := bytes.NewBuffer(seedBytes)
+	_, privateKey, err := ed25519.GenerateKey(random)
+	if err != nil {
+		panic(err)
+	}
+	return privateKey
+}
 
 func benchmarkParse(b *testing.B, eventJSON string) {
 	// run the Unparse function b.N times

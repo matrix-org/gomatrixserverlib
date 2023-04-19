@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // CreateContent is the JSON content of a m.room.create event along with
@@ -153,7 +155,7 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 	if memberEvent == nil {
 		// If there isn't a member event then the membership for the user
 		// defaults to leave.
-		c.Membership = Leave
+		c.Membership = spec.Leave
 		return
 	}
 	return NewMemberContentFromEvent(memberEvent)
@@ -188,8 +190,8 @@ type ThirdPartyInviteContent struct {
 
 // PublicKey is the "PublicKeys" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-third-party-invite
 type PublicKey struct {
-	PublicKey      Base64Bytes `json:"public_key"`
-	KeyValidityURL string      `json:"key_validity_url"`
+	PublicKey      spec.Base64Bytes `json:"public_key"`
+	KeyValidityURL string           `json:"key_validity_url"`
 }
 
 // NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
@@ -290,7 +292,7 @@ type JoinRuleContentAllowRule struct {
 func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleContent, err error) {
 	// Start off with "invite" as the default. Hopefully the unmarshal
 	// step later will replace it with a better value.
-	c.JoinRule = Invite
+	c.JoinRule = spec.Invite
 	// Then see if the specified join event contains something better.
 	joinRulesEvent, err := authEvents.JoinRules()
 	if err != nil {
@@ -336,7 +338,7 @@ func (c *PowerLevelContent) UserLevel(userID string) int64 {
 
 // EventLevel returns the power level needed to send an event in the room.
 func (c *PowerLevelContent) EventLevel(eventType string, isState bool) int64 {
-	if eventType == MRoomThirdPartyInvite {
+	if eventType == spec.MRoomThirdPartyInvite {
 		// Special case third_party_invite events to have the same level as
 		// m.room.member invite events.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L182

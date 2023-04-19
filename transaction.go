@@ -1,6 +1,10 @@
 package gomatrixserverlib
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
+)
 
 // A Transaction is used to push data from one matrix server to another matrix
 // server.
@@ -8,12 +12,12 @@ type Transaction struct {
 	// The ID of the transaction.
 	TransactionID TransactionID `json:"-"`
 	// The server that sent the transaction.
-	Origin ServerName `json:"origin"`
+	Origin spec.ServerName `json:"origin"`
 	// The server that should receive the transaction.
-	Destination ServerName `json:"-"`
+	Destination spec.ServerName `json:"-"`
 	// The millisecond posix timestamp on the origin server when the
 	// transaction was created.
-	OriginServerTS Timestamp `json:"origin_server_ts"`
+	OriginServerTS spec.Timestamp `json:"origin_server_ts"`
 	// The IDs of the most recent transactions sent by the origin server to
 	// the destination server. Multiple transactions can be sent by the origin
 	// server to the destination server in parallel so there may be more than

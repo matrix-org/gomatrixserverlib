@@ -1,20 +1,22 @@
-package gomatrixserverlib
+package fclient
 
 import (
 	"encoding/json"
 	"errors"
 
+	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
-func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState) (
+func NewInviteV2Request(event *gomatrixserverlib.HeaderedEvent, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
-	if ver, ok := SupportedRoomVersions()[event.RoomVersion]; !ok || !ver.Supported {
-		err = UnsupportedRoomVersionError{
+	if ver, ok := gomatrixserverlib.SupportedRoomVersions()[event.RoomVersion]; !ok || !ver.Supported {
+		err = gomatrixserverlib.UnsupportedRoomVersionError{
 			Version: event.RoomVersion,
 		}
 		return
@@ -28,15 +30,15 @@ func NewInviteV2Request(event *HeaderedEvent, state []InviteV2StrippedState) (
 }
 
 type inviteV2RequestHeaders struct {
-	RoomVersion     RoomVersion             `json:"room_version"`
-	InviteRoomState []InviteV2StrippedState `json:"invite_room_state"`
+	RoomVersion     gomatrixserverlib.RoomVersion `json:"room_version"`
+	InviteRoomState []InviteV2StrippedState       `json:"invite_room_state"`
 }
 
 // InviteV2Request is used in the body of a /_matrix/federation/v2/invite request.
 type InviteV2Request struct {
 	fields struct {
 		inviteV2RequestHeaders
-		Event *Event `json:"event"`
+		Event *gomatrixserverlib.Event `json:"event"`
 	}
 }
 
@@ -55,22 +57,22 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 	if !eventJSON.Exists() {
 		return errors.New("gomatrixserverlib: request doesn't contain event")
 	}
-	if ver, ok := SupportedRoomVersions()[i.fields.RoomVersion]; !ok || !ver.Supported {
-		return UnsupportedRoomVersionError{
+	if ver, ok := gomatrixserverlib.SupportedRoomVersions()[i.fields.RoomVersion]; !ok || !ver.Supported {
+		return gomatrixserverlib.UnsupportedRoomVersionError{
 			Version: i.fields.RoomVersion,
 		}
 	}
-	i.fields.Event, err = NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion)
+	i.fields.Event, err = gomatrixserverlib.NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion)
 	return err
 }
 
 // Event returns the invite event.
-func (i *InviteV2Request) Event() *Event {
+func (i *InviteV2Request) Event() *gomatrixserverlib.Event {
 	return i.fields.Event
 }
 
 // RoomVersion returns the room version of the invited room.
-func (i *InviteV2Request) RoomVersion() RoomVersion {
+func (i *InviteV2Request) RoomVersion() gomatrixserverlib.RoomVersion {
 	return i.fields.RoomVersion
 }
 
@@ -84,16 +86,16 @@ func (i *InviteV2Request) InviteRoomState() []InviteV2StrippedState {
 // events that allow the invited server to identify the room.
 type InviteV2StrippedState struct {
 	fields struct {
-		Content  RawJSON `json:"content"`
-		StateKey *string `json:"state_key"`
-		Type     string  `json:"type"`
-		Sender   string  `json:"sender"`
+		Content  spec.RawJSON `json:"content"`
+		StateKey *string      `json:"state_key"`
+		Type     string       `json:"type"`
+		Sender   string       `json:"sender"`
 	}
 }
 
 // NewInviteV2StrippedState creates a stripped state event from a
 // regular state event.
-func NewInviteV2StrippedState(event *Event) (ss InviteV2StrippedState) {
+func NewInviteV2StrippedState(event *gomatrixserverlib.Event) (ss InviteV2StrippedState) {
 	ss.fields.Content = event.Content()
 	ss.fields.StateKey = event.StateKey()
 	ss.fields.Type = event.Type()
@@ -112,7 +114,7 @@ func (i *InviteV2StrippedState) UnmarshalJSON(data []byte) error {
 }
 
 // Content returns the content of the stripped state.
-func (i *InviteV2StrippedState) Content() RawJSON {
+func (i *InviteV2StrippedState) Content() spec.RawJSON {
 	return i.fields.Content
 }
 

@@ -3,6 +3,8 @@ package gomatrixserverlib
 import (
 	"context"
 	"fmt"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // BackfillClient contains the necessary functions from the federation client to perform a backfill request
@@ -10,7 +12,7 @@ import (
 type BackfillClient interface {
 	// Backfill performs a backfill request to the given server.
 	// https://matrix.org/docs/spec/server_server/latest#get-matrix-federation-v1-backfill-roomid
-	Backfill(ctx context.Context, origin, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error)
+	Backfill(ctx context.Context, origin, server spec.ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error)
 }
 
 // BackfillRequester contains the necessary functions to perform backfill requests from one server to another.
@@ -27,7 +29,7 @@ type BackfillRequester interface {
 	// It returns a list of servers which can be queried for backfill requests. These servers
 	// will be servers that are in the room already. The entries at the beginning are preferred servers
 	// and will be tried first. An empty list will fail the request.
-	ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName
+	ServersAtEvent(ctx context.Context, roomID, eventID string) []spec.ServerName
 	ProvideEvents(roomVer RoomVersion, eventIDs []string) ([]*Event, error)
 }
 
@@ -45,7 +47,7 @@ type BackfillRequester interface {
 // but to verify it we need to know the prev_events of fromEventIDs.
 //
 // TODO: When does it make sense to return errors?
-func RequestBackfill(ctx context.Context, origin ServerName, b BackfillRequester, keyRing JSONVerifier,
+func RequestBackfill(ctx context.Context, origin spec.ServerName, b BackfillRequester, keyRing JSONVerifier,
 	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]*HeaderedEvent, error) {
 
 	if len(fromEventIDs) == 0 {
