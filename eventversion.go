@@ -564,6 +564,10 @@ func (v RoomVersion) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (r
 	return newEventFromTrustedJSON(eventJSON, redacted, v)
 }
 
+func (v RoomVersion) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error) {
+	return newEventFromTrustedJSONWithEventID(eventID, eventJSON, redacted, v)
+}
+
 func (v RoomVersion) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
 }
