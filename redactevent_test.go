@@ -14,12 +14,12 @@ func TestRedactionAlgorithmV4(t *testing.T) {
 	expectedv8 := []byte(`{"sender":"@someone:somewhere.org","room_id":"!someroom:matrix.org","content":{"membership":"join"},"type":"m.room.member","state_key":"@someone:somewhere.org","origin_server_ts":1633108629915}`)
 	expectedv9 := []byte(`{"sender":"@someone:somewhere.org","room_id":"!someroom:matrix.org","content":{"membership":"join","join_authorised_via_users_server":"@someoneelse:somewhere.org"},"type":"m.room.member","state_key":"@someone:somewhere.org","origin_server_ts":1633108629915}`)
 
-	redactedv8, err := RedactEventJSON(input, RoomVersionV8)
+	redactedv8, err := RoomVersionV8.RedactEventJSON(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	redactedv9, err := RedactEventJSON(input, RoomVersionV9)
+	redactedv9, err := RoomVersionV9.RedactEventJSON(input)
 	if err != nil {
 		t.Fatal(err)
 	}

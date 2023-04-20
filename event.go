@@ -431,7 +431,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		// If the content hash doesn't match then we have to discard all non-essential fields
 		// because they've been tampered with.
 		var redactedJSON []byte
-		if redactedJSON, err = RedactEventJSON(eventJSON, roomVersion); err != nil {
+		if redactedJSON, err = roomVersion.RedactEventJSON(eventJSON); err != nil {
 			return
 		}
 
@@ -557,7 +557,7 @@ func (e *Event) Redact() {
 	if e.redacted {
 		return
 	}
-	eventJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+	eventJSON, err := e.roomVersion.RedactEventJSON(e.eventJSON)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))

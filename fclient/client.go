@@ -389,7 +389,7 @@ func (fc *Client) GetServerKeys(
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-version
 func (fc *Client) GetVersion(
 	ctx context.Context, s spec.ServerName,
-) (res gomatrixserverlib.Version, err error) {
+) (res Version, err error) {
 	// Construct a request for version information
 	url := url.URL{
 		Scheme: "matrix",
