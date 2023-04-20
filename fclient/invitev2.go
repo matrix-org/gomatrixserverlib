@@ -62,7 +62,7 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 			Version: i.fields.RoomVersion,
 		}
 	}
-	i.fields.Event, err = gomatrixserverlib.NewEventFromUntrustedJSON([]byte(eventJSON.String()), i.fields.RoomVersion)
+	i.fields.Event, err = i.fields.RoomVersion.NewEventFromUntrustedJSON([]byte(eventJSON.String()))
 	return err
 }
 

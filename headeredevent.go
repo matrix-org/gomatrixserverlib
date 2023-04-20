@@ -78,7 +78,7 @@ func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) er
 	// into the event struct.
 	data, _ = sjson.DeleteBytes(data, "_room_version")
 	data, _ = sjson.DeleteBytes(data, "_event_id")
-	if e.Event, err = NewEventFromTrustedJSONWithEventID(eventID, data, false, e.RoomVersion); err != nil {
+	if e.Event, err = newEventFromTrustedJSONWithEventID(eventID, data, false, e.RoomVersion); err != nil {
 		return err
 	}
 	// At this point unmarshalling is complete.

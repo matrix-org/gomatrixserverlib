@@ -29,18 +29,10 @@ import (
 
 type EventJSONs []spec.RawJSON
 
-func TrustedEvent(e spec.RawJSON, roomVersion RoomVersion, redacted bool) (*Event, error) {
-	return NewEventFromTrustedJSON(e, redacted, roomVersion)
-}
-
-func UntrustedEvent(e spec.RawJSON, roomVersion RoomVersion) (*Event, error) {
-	return NewEventFromUntrustedJSON(e, roomVersion)
-}
-
 func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Event {
 	events := make([]*Event, 0, len(e))
 	for _, js := range e {
-		event, err := NewEventFromTrustedJSON(js, redacted, roomVersion)
+		event, err := roomVersion.NewEventFromTrustedJSON(js, redacted)
 		if err != nil {
 			continue
 		}
@@ -52,7 +44,7 @@ func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Eve
 func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
 	events := make([]*Event, 0, len(e))
 	for _, js := range e {
-		event, err := NewEventFromUntrustedJSON(js, roomVersion)
+		event, err := roomVersion.NewEventFromUntrustedJSON(js)
 		if err != nil {
 			continue
 		}

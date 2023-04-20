@@ -83,7 +83,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 	}
 	if p.RememberAuthEvents {
 		for _, js := range res.GetAuthEvents() {
-			event, err := UntrustedEvent(js, roomVer)
+			event, err := roomVer.NewEventFromUntrustedJSON(js)
 			if err != nil {
 				continue
 			}
@@ -93,7 +93,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 
 	result := make(map[string]*Event)
 	for _, js := range res.GetStateEvents() {
-		event, err := UntrustedEvent(js, roomVer)
+		event, err := roomVer.NewEventFromUntrustedJSON(js)
 		if err != nil {
 			continue
 		}

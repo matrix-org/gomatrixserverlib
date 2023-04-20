@@ -95,7 +95,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		return fmt.Errorf("failed to check strict validity checking: %w", err)
 	}
 
-	redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+	redactedJSON, err := e.roomVersion.RedactEventJSON(e.eventJSON)
 	if err != nil {
 		return fmt.Errorf("failed to redact event: %w", err)
 	}
@@ -203,7 +203,7 @@ func checkEventContentHash(eventJSON []byte) error {
 // ReferenceSha256HashOfEvent returns the SHA-256 hash of the redacted event content.
 // This is used when referring to this event from other events.
 func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference, error) {
-	redactedJSON, err := RedactEventJSON(eventJSON, roomVersion)
+	redactedJSON, err := roomVersion.RedactEventJSON(eventJSON)
 	if err != nil {
 		return EventReference{}, err
 	}
@@ -266,7 +266,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 // SignEvent adds a ED25519 signature to the event for the given key.
 func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
 	// Redact the event before signing so signature that will remain valid even if the event is redacted.
-	redactedJSON, err := RedactEventJSON(eventJSON, roomVersion)
+	redactedJSON, err := roomVersion.RedactEventJSON(eventJSON)
 	if err != nil {
 		return nil, err
 	}
