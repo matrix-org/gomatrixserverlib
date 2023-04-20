@@ -365,11 +365,11 @@ func (eb *EventBuilder) Build(
 	return
 }
 
-// NewEventFromUntrustedJSON loads a new event from some JSON that may be invalid.
+// newEventFromUntrustedJSON loads a new event from some JSON that may be invalid.
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
+func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
 	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
@@ -444,7 +444,7 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 		// Yes, this means that for some events we parse twice (which is slow),
 		// but means that parsing unredacted events is fast.
 		if !bytes.Equal(redactedJSON, eventJSON) {
-			if result, err = NewEventFromTrustedJSON(redactedJSON, true, roomVersion); err != nil {
+			if result, err = newEventFromTrustedJSON(redactedJSON, true, roomVersion); err != nil {
 				return
 			}
 		}
@@ -454,10 +454,10 @@ func NewEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	return
 }
 
-// NewEventFromTrustedJSON loads a new event from some JSON that must be valid.
+// newEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
 	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
@@ -471,12 +471,12 @@ func NewEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 	return
 }
 
-// NewEventFromTrustedJSONWithEventID loads a new event from some JSON that must be valid
+// newEventFromTrustedJSONWithEventID loads a new event from some JSON that must be valid
 // and that the event ID is already known. This must ONLY be used when retrieving
 // an event from the database and NEVER when accepting an event over federation.
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
-func NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
+func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
 	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,

@@ -560,6 +560,14 @@ func (v RoomVersion) RedactEventJSON(eventJSON []byte) ([]byte, error) {
 	return json.Marshal(&event)
 }
 
+func (v RoomVersion) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error) {
+	return newEventFromTrustedJSON(eventJSON, redacted, v)
+}
+
+func (v RoomVersion) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
+	return newEventFromUntrustedJSON(eventJSON, v)
+}
+
 // UnsupportedRoomVersionError occurs when a call has been made with a room
 // version that is not supported by this version of gomatrixserverlib.
 type UnsupportedRoomVersionError struct {
