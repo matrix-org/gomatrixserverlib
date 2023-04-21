@@ -46,12 +46,17 @@ func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider St
 func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage, sortOrder TopologicalOrder) ([]EventLoadResult, error) {
 	results := make([]EventLoadResult, len(rawEvents))
 
+	verImpl, err := GetRoomVersion(l.roomVer)
+	if err != nil {
+		return nil, err
+	}
+
 	// 1. Is a valid event, otherwise it is dropped.
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
 	events := make([]*Event, 0, len(rawEvents))
 	errs := make([]error, 0, len(rawEvents))
 	for _, rawEv := range rawEvents {
-		event, err := newEventFromUntrustedJSON(rawEv, l.roomVer)
+		event, err := newEventFromUntrustedJSON(rawEv, verImpl)
 		if err != nil {
 			errs = append(errs, err)
 			continue

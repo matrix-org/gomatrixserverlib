@@ -437,7 +437,7 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 		return errorf("create event has no creator field")
 	}
 	if c.RoomVersion != nil {
-		if _, err := c.RoomVersion.EventFormat(); err != nil {
+		if !KnownRoomVersion(*c.RoomVersion) {
 			return errorf("create event has unrecognised room version %q", *c.RoomVersion)
 		}
 	}
@@ -528,7 +528,11 @@ func (a *allowerContext) powerLevelsEventAllowed(event *Event) error {
 	}
 
 	// Check that the changes in notification levels are allowed.
-	if notifs, err := event.roomVersion.PowerLevelsIncludeNotifications(); err == nil && notifs {
+	verImpl, err := GetRoomVersion(event.roomVersion)
+	if err != nil {
+		return nil
+	}
+	if notifs := verImpl.PowerLevelsIncludeNotifications(); notifs {
 		if err = checkNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
 			return err
 		}
@@ -898,7 +902,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
 	*allowerContext
-	roomVersion RoomVersion
+	roomVersionImpl RoomVersionImpl
 	// The m.room.third_party_invite content referenced by this event.
 	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
@@ -917,7 +921,10 @@ type membershipAllower struct {
 // from the auth events.
 func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
-	m.roomVersion = event.roomVersion
+	m.roomVersionImpl, err = GetRoomVersion(event.roomVersion)
+	if err != nil {
+		return
+	}
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
@@ -995,10 +1002,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
-	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
-	if err != nil {
-		return err
-	}
+	allowsRestricted := m.roomVersionImpl.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
 	if !allowsRestricted {
 		return errorf("restricted joins are not supported in this room version")
 	}
@@ -1105,12 +1109,12 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// MSC3787 extends this: the behaviour above is also permitted if the
 		// join rules are "knock_restricted"
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
-		if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
-			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
-		} else if !supported {
+		supported := m.roomVersionImpl.AllowKnockingInEventAuth(m.joinRule.JoinRule)
+
+		if !supported {
 			return m.membershipFailed(
 				"room version %q does not support knocking on rooms with join rule %q",
-				m.roomVersion,
+				m.roomVersionImpl.ver,
 				m.joinRule.JoinRule,
 			)
 		}

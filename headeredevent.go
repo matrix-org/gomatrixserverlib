@@ -57,10 +57,11 @@ func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) er
 	// First extract the room version from the JSON.
 	e.RoomVersion = RoomVersion(gjson.GetBytes(data, "_room_version").String())
 	// Get the event field format.
-	eventFormat, err := e.RoomVersion.EventFormat()
+	verImpl, err := GetRoomVersion(e.RoomVersion)
 	if err != nil {
 		return err
 	}
+	eventFormat := verImpl.EventFormat()
 	// Check what the room version is and prepare the Event struct for
 	// that specific version type.
 	if e.Event == nil {
@@ -78,7 +79,7 @@ func (e *HeaderedEvent) UnmarshalJSONWithEventID(data []byte, eventID string) er
 	// into the event struct.
 	data, _ = sjson.DeleteBytes(data, "_room_version")
 	data, _ = sjson.DeleteBytes(data, "_event_id")
-	if e.Event, err = newEventFromTrustedJSONWithEventID(eventID, data, false, e.RoomVersion); err != nil {
+	if e.Event, err = newEventFromTrustedJSONWithEventID(eventID, data, false, verImpl); err != nil {
 		return err
 	}
 	// At this point unmarshalling is complete.
