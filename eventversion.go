@@ -18,9 +18,6 @@ type EventFormat int
 // EventIDFormat refers to the formatting used to generate new event IDs.
 type EventIDFormat int
 
-// RedactionAlgorithm refers to the redaction algorithm used in a room version.
-type RedactionAlgorithm int
-
 // JoinRulesPermittingKnockInEventAuth specifies which kinds of join_rule allow
 // a room to be knocked upon.
 type JoinRulesPermittingKnockInEventAuth int
@@ -85,7 +82,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV1,
 		eventFormat:                     EventFormatV1,
 		eventIDFormat:                   EventIDFormatV1,
-		redactionAlgorithm:              RedactionAlgorithmV1,
+		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
@@ -99,7 +96,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV1,
 		eventIDFormat:                   EventIDFormatV1,
-		redactionAlgorithm:              RedactionAlgorithmV1,
+		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
@@ -113,7 +110,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV2,
-		redactionAlgorithm:              RedactionAlgorithmV1,
+		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
@@ -127,7 +124,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV1,
+		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
@@ -141,7 +138,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV1,
+		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            false,
 		powerLevelsIncludeNotifications: false,
@@ -155,7 +152,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV2,
+		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -169,7 +166,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV2,
+		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -183,7 +180,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV3,
+		redactionAlgorithm:              redactEventJSONV3,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -197,7 +194,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV4,
+		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -211,7 +208,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV4,
+		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -225,7 +222,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV2,
+		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -239,7 +236,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
-		redactionAlgorithm:              RedactionAlgorithmV4,
+		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
 		powerLevelsIncludeNotifications: true,
@@ -293,7 +290,7 @@ type RoomVersionDescription struct {
 	stateResAlgorithm               StateResAlgorithm
 	eventFormat                     EventFormat
 	eventIDFormat                   EventIDFormat
-	redactionAlgorithm              RedactionAlgorithm
+	redactionAlgorithm              func(eventJSON []byte) ([]byte, error)
 	allowKnockingInEventAuth        JoinRulesPermittingKnockInEventAuth
 	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
 	enforceSignatureChecks          bool
@@ -324,14 +321,6 @@ func (v RoomVersion) EventFormat() (EventFormat, error) {
 func (v RoomVersion) EventIDFormat() (EventIDFormat, error) {
 	if r, ok := roomVersionMeta[v]; ok {
 		return r.eventIDFormat, nil
-	}
-	return 0, UnsupportedRoomVersionError{v}
-}
-
-// RedactionAlgorithm returns the redaction algorithm for the given room version.
-func (v RoomVersion) RedactionAlgorithm() (RedactionAlgorithm, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.redactionAlgorithm, nil
 	}
 	return 0, UnsupportedRoomVersionError{v}
 }
@@ -423,7 +412,10 @@ func (v RoomVersion) RequireIntegerPowerLevels() (bool, error) {
 // RedactEvent strips the user controlled fields from an event, but leaves the
 // fields necessary for authenticating the event.
 func (v RoomVersion) RedactEventJSON(eventJSON []byte) ([]byte, error) {
-
+	if r, ok := roomVersionMeta[v]; ok {
+		return r.redactionAlgorithm(eventJSON)
+	}
+	return nil, UnsupportedRoomVersionError{v}
 }
 
 func (v RoomVersion) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error) {
