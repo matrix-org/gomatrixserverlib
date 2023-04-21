@@ -15,7 +15,7 @@ import (
 func NewInviteV2Request(event *gomatrixserverlib.HeaderedEvent, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
-	if ver, ok := gomatrixserverlib.SupportedRoomVersions()[event.RoomVersion]; !ok || !ver.Supported {
+	if !gomatrixserverlib.KnownRoomVersion(event.RoomVersion) {
 		err = gomatrixserverlib.UnsupportedRoomVersionError{
 			Version: event.RoomVersion,
 		}
@@ -57,12 +57,11 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 	if !eventJSON.Exists() {
 		return errors.New("gomatrixserverlib: request doesn't contain event")
 	}
-	if ver, ok := gomatrixserverlib.SupportedRoomVersions()[i.fields.RoomVersion]; !ok || !ver.Supported {
-		return gomatrixserverlib.UnsupportedRoomVersionError{
-			Version: i.fields.RoomVersion,
-		}
+	verImpl, err := gomatrixserverlib.GetRoomVersion(i.fields.RoomVersion)
+	if err != nil {
+		return err
 	}
-	i.fields.Event, err = i.fields.RoomVersion.NewEventFromUntrustedJSON([]byte(eventJSON.String()))
+	i.fields.Event, err = verImpl.NewEventFromUntrustedJSON([]byte(eventJSON.String()))
 	return err
 }
 

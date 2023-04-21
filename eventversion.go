@@ -75,9 +75,9 @@ const (
 	RestrictedOrKnockRestricted                                                         // rooms with join_rule "restricted" or "knock_restricted" can be joined via a space
 )
 
-var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
+var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 	RoomVersionV1: {
-		Supported:                       true,
+		ver:                             RoomVersionV1,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV1,
 		eventFormat:                     EventFormatV1,
@@ -91,7 +91,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV2: {
-		Supported:                       true,
+		ver:                             RoomVersionV2,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV1,
@@ -105,7 +105,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV3: {
-		Supported:                       true,
+		ver:                             RoomVersionV3,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -119,7 +119,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV4: {
-		Supported:                       true,
+		ver:                             RoomVersionV4,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -133,7 +133,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV5: {
-		Supported:                       true,
+		ver:                             RoomVersionV5,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -147,7 +147,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV6: {
-		Supported:                       true,
+		ver:                             RoomVersionV6,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -161,7 +161,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV7: {
-		Supported:                       true,
+		ver:                             RoomVersionV7,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -175,7 +175,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV8: {
-		Supported:                       true,
+		ver:                             RoomVersionV8,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -189,7 +189,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV9: {
-		Supported:                       true,
+		ver:                             RoomVersionV9,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -203,7 +203,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV10: {
-		Supported:                       true,
+		ver:                             RoomVersionV10,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -217,7 +217,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       true,
 	},
 	"org.matrix.msc3667": { // based on room version 7
-		Supported:                       true,
+		ver:                             RoomVersion("org.matrix.msc3667"),
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -231,7 +231,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       true,
 	},
 	"org.matrix.msc3787": { // roughly, the union of v7 and v9
-		Supported:                       true,
+		ver:                             RoomVersion("org.matrix.msc3787"),
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -248,28 +248,40 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 
 // RoomVersions returns information about room versions currently
 // implemented by this commit of gomatrixserverlib.
-func RoomVersions() map[RoomVersion]RoomVersionDescription {
+func RoomVersions() map[RoomVersion]RoomVersionImpl {
 	return roomVersionMeta
 }
 
-// SupportedRoomVersions returns a map of descriptions for room
-// versions that are marked as supported.
-func SupportedRoomVersions() map[RoomVersion]RoomVersionDescription {
-	versions := make(map[RoomVersion]RoomVersionDescription)
-	for id, version := range RoomVersions() {
-		if version.Supported {
-			versions[id] = version
+func KnownRoomVersion(verStr RoomVersion) bool {
+	_, ok := roomVersionMeta[verStr]
+	return ok
+}
+
+// MustGetRoomVersion is GetRoomVersion but panics if the version doesn't exist. Useful for tests.
+func MustGetRoomVersion(verStr RoomVersion) RoomVersionImpl {
+	impl, err := GetRoomVersion(verStr)
+	if err != nil {
+		panic(fmt.Sprintf("MustGetRoomVersion: %s", verStr))
+	}
+	return impl
+}
+
+func GetRoomVersion(verStr RoomVersion) (impl RoomVersionImpl, err error) {
+	v, ok := roomVersionMeta[verStr]
+	if !ok {
+		return impl, UnsupportedRoomVersionError{
+			Version: verStr,
 		}
 	}
-	return versions
+	return v, nil
 }
 
 // StableRoomVersions returns a map of descriptions for room
 // versions that are marked as stable.
-func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
-	versions := make(map[RoomVersion]RoomVersionDescription)
+func StableRoomVersions() map[RoomVersion]RoomVersionImpl {
+	versions := make(map[RoomVersion]RoomVersionImpl)
 	for id, version := range RoomVersions() {
-		if version.Supported && version.Stable {
+		if version.Stable {
 			versions[id] = version
 		}
 	}
@@ -286,7 +298,8 @@ func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
 // in order to hint whether the version should be used to clients
 // calling the /capabilities endpoint.
 // https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-capabilities
-type RoomVersionDescription struct {
+type RoomVersionImpl struct {
+	ver                             RoomVersion
 	stateResAlgorithm               StateResAlgorithm
 	eventFormat                     EventFormat
 	eventIDFormat                   EventIDFormat
@@ -297,136 +310,105 @@ type RoomVersionDescription struct {
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
 	requireIntegerPowerLevels       bool
-	Supported                       bool
 	Stable                          bool
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
-func (v RoomVersion) StateResAlgorithm() (StateResAlgorithm, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.stateResAlgorithm, nil
-	}
-	return 0, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) StateResAlgorithm() StateResAlgorithm {
+	return v.stateResAlgorithm
 }
 
 // EventFormat returns the event format for the given room version.
-func (v RoomVersion) EventFormat() (EventFormat, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.eventFormat, nil
-	}
-	return 0, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) EventFormat() EventFormat {
+	return v.eventFormat
 }
 
 // EventIDFormat returns the event ID format for the given room version.
-func (v RoomVersion) EventIDFormat() (EventIDFormat, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.eventIDFormat, nil
-	}
-	return 0, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) EventIDFormat() EventIDFormat {
+	return v.eventIDFormat
 }
 
 // StrictValidityChecking returns true if the given room version calls for
 // strict signature checking (room version 5 and onward) or false otherwise.
-func (v RoomVersion) StrictValidityChecking() (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.enforceSignatureChecks, nil
-	}
-	return false, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) StrictValidityChecking() bool {
+	return v.enforceSignatureChecks
 }
 
 // PowerLevelsIncludeNotifications returns true if the given room version calls
 // for the power level checks to cover the `notifications` key or false otherwise.
-func (v RoomVersion) PowerLevelsIncludeNotifications() (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.powerLevelsIncludeNotifications, nil
-	}
-	return false, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) PowerLevelsIncludeNotifications() bool {
+	return v.powerLevelsIncludeNotifications
 }
 
 // AllowKnockingInEventAuth returns true if the given room version and given
 // join rule allows for the `knock` membership state or false otherwise.
-func (v RoomVersion) AllowKnockingInEventAuth(joinRule string) (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		switch r.allowKnockingInEventAuth {
-		case KnockOnly:
-			return joinRule == spec.Knock, nil
-		case KnockOrKnockRestricted:
-			return (joinRule == spec.Knock || joinRule == spec.KnockRestricted), nil
-		case KnocksForbidden:
-			return false, nil
-		}
+func (v RoomVersionImpl) AllowKnockingInEventAuth(joinRule string) bool {
+	switch v.allowKnockingInEventAuth {
+	case KnockOnly:
+		return joinRule == spec.Knock
+	case KnockOrKnockRestricted:
+		return (joinRule == spec.Knock || joinRule == spec.KnockRestricted)
+	case KnocksForbidden:
+		return false
 	}
-	return false, UnsupportedRoomVersionError{v}
+	return false
 }
 
 // AllowRestrictedJoinsInEventAuth returns true if the given room version and
 // join rule allows for memberships signed by servers in the restricted join rules.
-func (v RoomVersion) AllowRestrictedJoinsInEventAuth(joinRule string) (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		switch r.allowRestrictedJoinsInEventAuth {
-		case NoRestrictedJoins:
-			return false, nil
-		case RestrictedOnly:
-			return joinRule == spec.Restricted, nil
-		case RestrictedOrKnockRestricted:
-			return (joinRule == spec.Restricted || joinRule == spec.KnockRestricted), nil
-		}
+func (v RoomVersionImpl) AllowRestrictedJoinsInEventAuth(joinRule string) bool {
+	switch v.allowRestrictedJoinsInEventAuth {
+	case NoRestrictedJoins:
+		return false
+	case RestrictedOnly:
+		return joinRule == spec.Restricted
+	case RestrictedOrKnockRestricted:
+		return (joinRule == spec.Restricted || joinRule == spec.KnockRestricted)
 	}
-	return false, UnsupportedRoomVersionError{v}
+	return false
 }
 
 // MayAllowRestrictedJoinsInEventAuth returns true if the given room version
 // might allow for memberships signed by servers in the restricted join rules.
 // (For an authoritative answer, the room's join rules must be known. If they
 // are, use AllowRestrictedJoinsInEventAuth.)
-func (v RoomVersion) MayAllowRestrictedJoinsInEventAuth() (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		switch r.allowRestrictedJoinsInEventAuth {
-		case NoRestrictedJoins:
-			return false, nil
-		case RestrictedOnly, RestrictedOrKnockRestricted:
-			return true, nil
-		}
+func (v RoomVersionImpl) MayAllowRestrictedJoinsInEventAuth() bool {
+	switch v.allowRestrictedJoinsInEventAuth {
+	case NoRestrictedJoins:
+		return false
+	case RestrictedOnly, RestrictedOrKnockRestricted:
+		return true
 	}
-	return false, UnsupportedRoomVersionError{v}
+	return false
 }
 
 // PowerLevelsIncludeNotifications returns true if the given room version calls
 // for the power level checks to cover the `notifications` key or false otherwise.
-func (v RoomVersion) EnforceCanonicalJSON() (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.enforceCanonicalJSON, nil
-	}
-	return false, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) EnforceCanonicalJSON() bool {
+	return v.enforceCanonicalJSON
 }
 
 // RequireIntegerPowerLevels returns true if the given room version calls for
 // power levels as integers only, false otherwise.
-func (v RoomVersion) RequireIntegerPowerLevels() (bool, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.requireIntegerPowerLevels, nil
-	}
-	return false, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) RequireIntegerPowerLevels() bool {
+	return v.requireIntegerPowerLevels
 }
 
 // RedactEvent strips the user controlled fields from an event, but leaves the
 // fields necessary for authenticating the event.
-func (v RoomVersion) RedactEventJSON(eventJSON []byte) ([]byte, error) {
-	if r, ok := roomVersionMeta[v]; ok {
-		return r.redactionAlgorithm(eventJSON)
-	}
-	return nil, UnsupportedRoomVersionError{v}
+func (v RoomVersionImpl) RedactEventJSON(eventJSON []byte) ([]byte, error) {
+	return v.redactionAlgorithm(eventJSON)
 }
 
-func (v RoomVersion) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error) {
 	return newEventFromTrustedJSON(eventJSON, redacted, v)
 }
 
-func (v RoomVersion) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error) {
 	return newEventFromTrustedJSONWithEventID(eventID, eventJSON, redacted, v)
 }
 
-func (v RoomVersion) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
 }
 

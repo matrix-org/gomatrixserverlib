@@ -412,10 +412,12 @@ func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error
 	// Set the levels to their default values.
 	c.Defaults()
 
-	var strict bool
-	if strict, err = event.roomVersion.RequireIntegerPowerLevels(); err != nil {
-		return
-	} else if strict {
+	verImpl, err := GetRoomVersion(event.roomVersion)
+	if err != nil {
+		return c, err
+	}
+
+	if verImpl.RequireIntegerPowerLevels() {
 		// Unmarshal directly to PowerLevelContent, since that will kick up an
 		// error if one of the power levels isn't an int64.
 		if err = json.Unmarshal(event.Content(), &c); err != nil {

@@ -463,7 +463,7 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 	}
 	events := make([]*Event, 0, len(eventJSONs))
 	for _, eventJSON := range eventJSONs {
-		event, err := newEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV6)
+		event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV6))
 		if err != nil {
 			t.Fatal(err)
 		}

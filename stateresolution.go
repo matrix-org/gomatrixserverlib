@@ -374,10 +374,11 @@ func ResolveConflicts(
 
 	// Work out which state resolution algorithm we want to run for
 	// the room version.
-	stateResAlgo, err := version.StateResAlgorithm()
+	verImpl, err := GetRoomVersion(version)
 	if err != nil {
 		return nil, err
 	}
+	stateResAlgo := verImpl.StateResAlgorithm()
 	switch stateResAlgo {
 	case StateResV1:
 		// Currently state res v1 doesn't handle unconflicted events
