@@ -77,7 +77,6 @@ const (
 
 var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 	RoomVersionV1: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV1,
 		eventFormat:                     EventFormatV1,
@@ -91,7 +90,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV2: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV1,
@@ -105,7 +103,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV3: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -119,7 +116,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV4: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -133,7 +129,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV5: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -147,7 +142,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV6: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -161,7 +155,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV7: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -175,7 +168,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV8: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -189,7 +181,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV9: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -203,7 +194,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       false,
 	},
 	RoomVersionV10: {
-		Supported:                       true,
 		Stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -217,7 +207,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       true,
 	},
 	"org.matrix.msc3667": { // based on room version 7
-		Supported:                       true,
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -231,7 +220,6 @@ var roomVersionMeta = map[RoomVersion]RoomVersionDescription{
 		requireIntegerPowerLevels:       true,
 	},
 	"org.matrix.msc3787": { // roughly, the union of v7 and v9
-		Supported:                       true,
 		Stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
@@ -252,16 +240,9 @@ func RoomVersions() map[RoomVersion]RoomVersionDescription {
 	return roomVersionMeta
 }
 
-// SupportedRoomVersions returns a map of descriptions for room
-// versions that are marked as supported.
-func SupportedRoomVersions() map[RoomVersion]RoomVersionDescription {
-	versions := make(map[RoomVersion]RoomVersionDescription)
-	for id, version := range RoomVersions() {
-		if version.Supported {
-			versions[id] = version
-		}
-	}
-	return versions
+func KnownRoomVersion(verStr RoomVersion) bool {
+	_, ok := roomVersionMeta[verStr]
+	return ok
 }
 
 // StableRoomVersions returns a map of descriptions for room
@@ -269,7 +250,7 @@ func SupportedRoomVersions() map[RoomVersion]RoomVersionDescription {
 func StableRoomVersions() map[RoomVersion]RoomVersionDescription {
 	versions := make(map[RoomVersion]RoomVersionDescription)
 	for id, version := range RoomVersions() {
-		if version.Supported && version.Stable {
+		if version.Stable {
 			versions[id] = version
 		}
 	}
@@ -297,7 +278,6 @@ type RoomVersionDescription struct {
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
 	requireIntegerPowerLevels       bool
-	Supported                       bool
 	Stable                          bool
 }
 

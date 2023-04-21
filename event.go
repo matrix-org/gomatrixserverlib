@@ -244,7 +244,7 @@ func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result *Event, err error) {
-	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+	if !KnownRoomVersion(roomVersion) {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
 		}
@@ -370,7 +370,7 @@ func (eb *EventBuilder) Build(
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
 func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
-	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+	if !KnownRoomVersion(roomVersion) {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
 		}
@@ -458,7 +458,7 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
 func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
-	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+	if !KnownRoomVersion(roomVersion) {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
 		}
@@ -477,7 +477,7 @@ func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
 func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
-	if ver, ok := SupportedRoomVersions()[roomVersion]; !ok || !ver.Supported {
+	if !KnownRoomVersion(roomVersion) {
 		return nil, UnsupportedRoomVersionError{
 			Version: roomVersion,
 		}
