@@ -18,7 +18,7 @@ type EventLoadResult struct {
 type EventsLoader struct {
 	roomVer       RoomVersion
 	keyRing       JSONVerifier
-	provider      AuthChainProvider
+	provider      EventProvider
 	stateProvider StateProvider
 	// Set to true to do:
 	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
@@ -27,7 +27,7 @@ type EventsLoader struct {
 }
 
 // NewEventsLoader returns a new events loader
-func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
+func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider EventProvider, performSoftFailCheck bool) *EventsLoader {
 	return &EventsLoader{
 		roomVer:              roomVer,
 		keyRing:              keyRing,

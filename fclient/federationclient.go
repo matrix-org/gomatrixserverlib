@@ -26,7 +26,7 @@ type FederationClient interface {
 	// Perform operations
 	LookupRoomAlias(ctx context.Context, origin, s spec.ServerName, roomAlias string) (res RespDirectory, err error)
 	Peek(ctx context.Context, origin, s spec.ServerName, roomID, peekID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespPeek, err error)
-	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespMakeJoin, err error)
+	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeJoin, err error)
 	SendJoin(ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event) (res RespSendJoin, err error)
 	MakeLeave(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeLeave, err error)
 	SendLeave(ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event) (err error)
@@ -191,8 +191,8 @@ func makeVersionQueryString(roomVersions []gomatrixserverlib.RoomVersion) string
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *federationClient) MakeJoin(
 	ctx context.Context, origin, s spec.ServerName, roomID, userID string,
-	roomVersions []gomatrixserverlib.RoomVersion,
 ) (res RespMakeJoin, err error) {
+	roomVersions := gomatrixserverlib.RoomVersionsToList(gomatrixserverlib.StableRoomVersions())
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +

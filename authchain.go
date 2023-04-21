@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// AuthChainProvider returns the requested list of auth events.
-type AuthChainProvider func(roomVer RoomVersion, eventIDs []string) ([]*Event, error)
+// EventProvider returns the requested list of events.
+type EventProvider func(roomVer RoomVersion, eventIDs []string) ([]*Event, error)
 
 // VerifyEventAuthChain will verify that the event is allowed according to its auth_events, and then
 // recursively verify each of those auth_events.
@@ -19,7 +19,7 @@ type AuthChainProvider func(roomVer RoomVersion, eventIDs []string) ([]*Event, e
 // The `provideEvents` function will only be called for *new* events rather than for everything as it is
 // assumed that this function is costly. Failing to provide all the requested events will fail this function.
 // Returning an error from `provideEvents` will also fail this function.
-func VerifyEventAuthChain(ctx context.Context, eventToVerify *HeaderedEvent, provideEvents AuthChainProvider) error {
+func VerifyEventAuthChain(ctx context.Context, eventToVerify *HeaderedEvent, provideEvents EventProvider) error {
 	eventsByID := make(map[string]*Event) // A lookup table for verifying this auth chain
 	evv := eventToVerify.Unwrap()
 	eventsByID[evv.EventID()] = evv
