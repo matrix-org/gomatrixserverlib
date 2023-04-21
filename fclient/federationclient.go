@@ -19,8 +19,6 @@ import (
 type FederationClient interface {
 	gomatrixserverlib.KeyClient
 
-	SetInternalClient(client Client)
-	WithUserAgent(agent string)
 	DoRequestAndParseResponse(ctx context.Context, req *http.Request, result interface{}) error
 
 	SendTransaction(ctx context.Context, t gomatrixserverlib.Transaction) (res RespSend, err error)
@@ -94,14 +92,6 @@ func NewFederationClient(
 		),
 		identities: append([]*SigningIdentity{}, identities...),
 	}
-}
-
-func (ac *federationClient) SetInternalClient(client Client) {
-	ac.Client = client
-}
-
-func (ac *federationClient) WithUserAgent(agent string) {
-	ac.Client.SetUserAgent(agent)
 }
 
 func (ac *federationClient) DoRequestAndParseResponse(ctx context.Context, req *http.Request, result interface{}) error {
