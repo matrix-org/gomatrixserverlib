@@ -57,27 +57,27 @@ func TestSendJoinFallback(t *testing.T) {
 			},
 		},
 		fclient.WithSkipVerify(true),
-		fclient.WithTransport(
-			&roundTripper{
-				fn: func(req *http.Request) (*http.Response, error) {
-					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
-						return &http.Response{
-							StatusCode: 404,
-							Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
-						}, nil
-					}
-					if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
-						return nil, fmt.Errorf("test: unexpected url path: %s", req.URL.Path)
-					}
-					t.Logf("Sending response: %s", string(v1ResBytes))
-					return &http.Response{
-						StatusCode: 200,
-						Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
-					}, nil
-				},
-			},
-		),
 	)
+	fc.Client = *fclient.NewClient(fclient.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
+					return &http.Response{
+						StatusCode: 404,
+						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+					}, nil
+				}
+				if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
+					return nil, fmt.Errorf("test: unexpected url path: %s", req.URL.Path)
+				}
+				t.Logf("Sending response: %s", string(v1ResBytes))
+				return &http.Response{
+					StatusCode: 200,
+					Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
+				}, nil
+			},
+		},
+	))
 	ev, err := roomVerImpl.NewEventFromTrustedJSON(
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"membership":"join"},"depth":1,"event_id":"$fnwGrQEpiOIUoDU2:baba.is.you","hashes":{"sha256":"DqOjdFgvFQ3V/jvQW2j3ygHL4D+t7/LaIPZ/tHTDZtI"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"qBWLb42zicQVsbh333YrcKpHfKokcUOM/ytldGlrgSdXqDEDDxvpcFlfadYnyvj3Z/GjA2XZkqKHanNEh575Bw"}},"state_key":"@userid:baba.is.you","type":"m.room.member"}`),
 		false,
@@ -119,24 +119,24 @@ func TestSendJoinJSON(t *testing.T) {
 			},
 		},
 		fclient.WithSkipVerify(true),
-		fclient.WithTransport(
-			&roundTripper{
-				fn: func(req *http.Request) (*http.Response, error) {
-					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
-						t.Logf("Sending response: %s", string(respSendJoinResponseJSON))
-						return &http.Response{
-							StatusCode: 200,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendJoinResponseJSON)),
-						}, nil
-					}
-					return &http.Response{
-						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
-					}, nil
-				},
-			},
-		),
 	)
+	fc.Client = *fclient.NewClient(fclient.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
+					t.Logf("Sending response: %s", string(respSendJoinResponseJSON))
+					return &http.Response{
+						StatusCode: 200,
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendJoinResponseJSON)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: 404,
+					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+				}, nil
+			},
+		},
+	))
 	ev, err := roomVerImpl.NewEventFromTrustedJSON(
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"membership":"join"},"depth":1,"event_id":"$fnwGrQEpiOIUoDU2:baba.is.you","hashes":{"sha256":"DqOjdFgvFQ3V/jvQW2j3ygHL4D+t7/LaIPZ/tHTDZtI"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"qBWLb42zicQVsbh333YrcKpHfKokcUOM/ytldGlrgSdXqDEDDxvpcFlfadYnyvj3Z/GjA2XZkqKHanNEh575Bw"}},"state_key":"@userid:baba.is.you","type":"m.room.member"}`),
 		false,
@@ -178,23 +178,23 @@ func TestSendTransactionToRelay(t *testing.T) {
 			},
 		},
 		fclient.WithSkipVerify(true),
-		fclient.WithTransport(
-			&roundTripper{
-				fn: func(req *http.Request) (*http.Response, error) {
-					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
-						return &http.Response{
-							StatusCode: 200,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
-						}, nil
-					}
-					return &http.Response{
-						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
-					}, nil
-				},
-			},
-		),
 	)
+	fc.Client = *fclient.NewClient(fclient.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
+					return &http.Response{
+						StatusCode: 200,
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: 404,
+					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+				}, nil
+			},
+		},
+	))
 
 	txn := createTransaction(serverName, targetServerName, *user)
 	forwardingServer := spec.ServerName("mailbox.server")
@@ -225,23 +225,23 @@ func TestSendTransactionToRelayReportsFailure(t *testing.T) {
 			},
 		},
 		fclient.WithSkipVerify(true),
-		fclient.WithTransport(
-			&roundTripper{
-				fn: func(req *http.Request) (*http.Response, error) {
-					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
-						return &http.Response{
-							StatusCode: 400,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
-						}, nil
-					}
-					return &http.Response{
-						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
-					}, nil
-				},
-			},
-		),
 	)
+	fc.Client = *fclient.NewClient(fclient.WithTransport(
+		&roundTripper{
+			fn: func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
+					return &http.Response{
+						StatusCode: 400,
+						Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: 404,
+					Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+				}, nil
+			},
+		},
+	))
 
 	txn := createTransaction(serverName, targetServerName, *user)
 	forwardingServer := spec.ServerName("mailbox.server")
