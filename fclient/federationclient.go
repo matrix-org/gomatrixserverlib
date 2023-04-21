@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -18,8 +19,9 @@ import (
 type FederationClient interface {
 	gomatrixserverlib.KeyClient
 
-	InternalClient() *Client
 	SetInternalClient(client Client)
+	WithUserAgent(agent string)
+	DoRequestAndParseResponse(ctx context.Context, req *http.Request, result interface{}) error
 
 	SendTransaction(ctx context.Context, t gomatrixserverlib.Transaction) (res RespSend, err error)
 
@@ -94,12 +96,16 @@ func NewFederationClient(
 	}
 }
 
-func (ac *federationClient) InternalClient() *Client {
-	return &ac.Client
-}
-
 func (ac *federationClient) SetInternalClient(client Client) {
 	ac.Client = client
+}
+
+func (ac *federationClient) WithUserAgent(agent string) {
+	ac.Client.SetUserAgent(agent)
+}
+
+func (ac *federationClient) DoRequestAndParseResponse(ctx context.Context, req *http.Request, result interface{}) error {
+	return ac.Client.DoRequestAndParseResponse(ctx, req, result)
 }
 
 func (ac *federationClient) doRequest(ctx context.Context, r FederationRequest, resBody interface{}) error {
