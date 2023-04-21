@@ -33,4 +33,14 @@ func TestRedactionAlgorithmV4(t *testing.T) {
 	if !bytes.Equal(redactedv9, expectedv9) {
 		t.Fatalf("room version 9 redaction produced unexpected result\nexpected: %s\ngot: %s", string(expectedv9), string(redactedv9))
 	}
+
+	redactedv8withv9, err := RoomVersionV9.RedactEventJSON(expectedv8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	redactedv8withv9 = CanonicalJSONAssumeValid(redactedv8withv9)
+	if !bytes.Equal(redactedv8withv9, expectedv8) {
+		t.Fatalf("room version 8 redaction produced unexpected result\nexpected: %s\ngot: %s", string(expectedv8), string(redactedv8withv9))
+	}
+
 }
