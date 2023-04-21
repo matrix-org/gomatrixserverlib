@@ -137,8 +137,8 @@ func makeVersionQueryString(roomVersions []gomatrixserverlib.RoomVersion) string
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *FederationClient) MakeJoin(
 	ctx context.Context, origin, s gomatrixserverlib.ServerName, roomID, userID string,
-	roomVersions []gomatrixserverlib.RoomVersion,
 ) (res RespMakeJoin, err error) {
+	roomVersions := gomatrixserverlib.RoomVersionsToList(gomatrixserverlib.SupportedRoomVersions())
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
