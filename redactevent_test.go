@@ -34,7 +34,7 @@ func TestRedactionAlgorithmV4(t *testing.T) {
 		t.Fatalf("room version 9 redaction produced unexpected result\nexpected: %s\ngot: %s", string(expectedv9), string(redactedv9))
 	}
 
-	redactedv8withv9, err := RoomVersionV9.RedactEventJSON(expectedv8)
+	redactedv8withv9, err := MustGetRoomVersion(RoomVersionV9).RedactEventJSON(expectedv8)
 	if err != nil {
 		t.Fatal(err)
 	}
