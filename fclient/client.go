@@ -60,7 +60,6 @@ type clientOptions struct {
 	skipVerify   bool
 	keepAlives   bool
 	wellKnownSRV bool
-	userAgent    string
 }
 
 // ClientOption are supplied to NewClient or NewFederationClient.
@@ -89,7 +88,6 @@ func NewClient(options ...ClientOption) *Client {
 			Transport: clientOpts.transport,
 			Timeout:   clientOpts.timeout,
 		},
-		userAgent: clientOpts.userAgent,
 	}
 	return client
 }
@@ -142,13 +140,6 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 func WithWellKnownSRVLookups(wellKnownSRV bool) ClientOption {
 	return func(options *clientOptions) {
 		options.wellKnownSRV = wellKnownSRV
-	}
-}
-
-// WithUserAgent enables specifying the user agent for the http client.
-func WithUserAgent(userAgent string) ClientOption {
-	return func(options *clientOptions) {
-		options.userAgent = userAgent
 	}
 }
 
