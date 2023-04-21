@@ -33,7 +33,7 @@ func TestSendJoinFallback(t *testing.T) {
 	targetServerName := spec.ServerName("target.server.name")
 	keyID := gomatrixserverlib.KeyID("ed25519:auto")
 	_, privateKey, _ := ed25519.GenerateKey(nil)
-	roomVer := gomatrixserverlib.RoomVersionV1
+	roomVerImpl, _ := gomatrixserverlib.GetRoomVersion((gomatrixserverlib.RoomVersionV1))
 	// we don't care about the actual contents, just that it ferries data across fine.
 	retEv := spec.RawJSON(`{"auth_events":[],"content":{"creator":"@userid:baba.is.you"},"depth":0,"event_id":"$WCraVpPZe5TtHAqs:baba.is.you","hashes":{"sha256":"EehWNbKy+oDOMC0vIvYl1FekdDxMNuabXKUVzV7DG74"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"08aF4/bYWKrdGPFdXmZCQU6IrOE1ulpevmWBM3kiShJPAbRbZ6Awk7buWkIxlMF6kX3kb4QpbAlZfHLQgncjCw"}},"state_key":"","type":"m.room.create"}`)
 	wantRes := fclient.RespSendJoin{
@@ -78,7 +78,7 @@ func TestSendJoinFallback(t *testing.T) {
 			},
 		},
 	))
-	ev, err := roomVer.NewEventFromTrustedJSON(
+	ev, err := roomVerImpl.NewEventFromTrustedJSON(
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"membership":"join"},"depth":1,"event_id":"$fnwGrQEpiOIUoDU2:baba.is.you","hashes":{"sha256":"DqOjdFgvFQ3V/jvQW2j3ygHL4D+t7/LaIPZ/tHTDZtI"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"qBWLb42zicQVsbh333YrcKpHfKokcUOM/ytldGlrgSdXqDEDDxvpcFlfadYnyvj3Z/GjA2XZkqKHanNEh575Bw"}},"state_key":"@userid:baba.is.you","type":"m.room.member"}`),
 		false,
 	)
@@ -102,7 +102,7 @@ func TestSendJoinJSON(t *testing.T) {
 	targetServerName := spec.ServerName("target.server.name")
 	keyID := gomatrixserverlib.KeyID("ed25519:auto")
 	_, privateKey, _ := ed25519.GenerateKey(nil)
-	roomVer := gomatrixserverlib.RoomVersionV1
+	roomVerImpl, _ := gomatrixserverlib.GetRoomVersion(gomatrixserverlib.RoomVersionV1)
 	// we don't care about the actual contents, just that it ferries data across fine.
 	retEv := spec.RawJSON(`{"auth_events":[],"content":{"creator":"@userid:baba.is.you"},"depth":0,"event_id":"$WCraVpPZe5TtHAqs:baba.is.you","hashes":{"sha256":"EehWNbKy+oDOMC0vIvYl1FekdDxMNuabXKUVzV7DG74"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"08aF4/bYWKrdGPFdXmZCQU6IrOE1ulpevmWBM3kiShJPAbRbZ6Awk7buWkIxlMF6kX3kb4QpbAlZfHLQgncjCw"}},"state_key":"","type":"m.room.create"}`)
 	respSendJoinResponseJSON := []byte(fmt.Sprintf(`{
@@ -137,7 +137,7 @@ func TestSendJoinJSON(t *testing.T) {
 			},
 		},
 	))
-	ev, err := roomVer.NewEventFromTrustedJSON(
+	ev, err := roomVerImpl.NewEventFromTrustedJSON(
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"membership":"join"},"depth":1,"event_id":"$fnwGrQEpiOIUoDU2:baba.is.you","hashes":{"sha256":"DqOjdFgvFQ3V/jvQW2j3ygHL4D+t7/LaIPZ/tHTDZtI"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"qBWLb42zicQVsbh333YrcKpHfKokcUOM/ytldGlrgSdXqDEDDxvpcFlfadYnyvj3Z/GjA2XZkqKHanNEh575Bw"}},"state_key":"@userid:baba.is.you","type":"m.room.member"}`),
 		false,
 	)

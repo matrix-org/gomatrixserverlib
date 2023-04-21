@@ -244,20 +244,13 @@ func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
 ) (result *Event, err error) {
-	if !KnownRoomVersion(roomVersion) {
-		return nil, UnsupportedRoomVersionError{
-			Version: roomVersion,
-		}
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, err
 	}
 
-	eventFormat, err := roomVersion.EventFormat()
-	if err != nil {
-		return result, err
-	}
-	eventIDFormat, err := roomVersion.EventIDFormat()
-	if err != nil {
-		return result, err
-	}
+	eventFormat := verImpl.EventFormat()
+	eventIDFormat := verImpl.EventIDFormat()
 	var event struct {
 		EventBuilder
 		EventID        string          `json:"event_id"`
@@ -369,23 +362,12 @@ func (eb *EventBuilder) Build(
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (result *Event, err error) {
-	if !KnownRoomVersion(roomVersion) {
-		return nil, UnsupportedRoomVersionError{
-			Version: roomVersion,
-		}
-	}
-
+func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersionImpl) (result *Event, err error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
 	}
-
-	var enforceCanonicalJSON bool
-	if enforceCanonicalJSON, err = roomVersion.EnforceCanonicalJSON(); err != nil {
-		return
-	}
-	if enforceCanonicalJSON {
+	if roomVersion.EnforceCanonicalJSON() {
 		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
 			err = BadJSONError{err}
 			return
@@ -393,13 +375,9 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 	}
 
 	result = &Event{}
-	result.roomVersion = roomVersion
+	result.roomVersion = roomVersion.ver
 
-	var eventFormat EventFormat
-	eventFormat, err = result.roomVersion.EventFormat()
-	if err != nil {
-		return
-	}
+	eventFormat := roomVersion.EventFormat()
 
 	if eventJSON, err = sjson.DeleteBytes(eventJSON, "unsigned"); err != nil {
 		return
@@ -457,15 +435,9 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersion) (resul
 // newEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
-	if !KnownRoomVersion(roomVersion) {
-		return nil, UnsupportedRoomVersionError{
-			Version: roomVersion,
-		}
-	}
-
+func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersionImpl) (result *Event, err error) {
 	result = &Event{}
-	result.roomVersion = roomVersion
+	result.roomVersion = roomVersion.ver
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
 	return
@@ -476,15 +448,9 @@ func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 // an event from the database and NEVER when accepting an event over federation.
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
-func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersion) (result *Event, err error) {
-	if !KnownRoomVersion(roomVersion) {
-		return nil, UnsupportedRoomVersionError{
-			Version: roomVersion,
-		}
-	}
-
+func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersionImpl) (result *Event, err error) {
 	result = &Event{}
-	result.roomVersion = roomVersion
+	result.roomVersion = roomVersion.ver
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON(eventID, eventJSON)
 	return
@@ -497,9 +463,12 @@ func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redact
 // calculations etc as they are expensive operations. If the event
 // ID isn't known, pass an empty string and we'll work it out.
 func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) error {
+	verImpl, err := GetRoomVersion(e.roomVersion)
+	if err != nil {
+		return err
+	}
 	// Work out the format of the event from the room version.
-	var eventFormat EventFormat
-	eventFormat, err := e.roomVersion.EventFormat()
+	eventFormat := verImpl.EventFormat()
 	if err != nil {
 		return err
 	}
@@ -557,7 +526,11 @@ func (e *Event) Redact() {
 	if e.redacted {
 		return
 	}
-	eventJSON, err := e.roomVersion.RedactEventJSON(e.eventJSON)
+	verImpl, err := GetRoomVersion(e.roomVersion)
+	if err != nil {
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+	}
+	eventJSON, err := verImpl.RedactEventJSON(e.eventJSON)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
@@ -806,11 +779,11 @@ func checkID(id, kind string, sigil byte) (err error) {
 }
 
 func (e *Event) generateEventID() (eventID string, err error) {
-	var eventFormat EventFormat
-	eventFormat, err = e.roomVersion.EventFormat()
+	verImpl, err := GetRoomVersion(e.roomVersion)
 	if err != nil {
-		return
+		return "", err
 	}
+	eventFormat := verImpl.EventFormat()
 	switch eventFormat {
 	case EventFormatV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
@@ -943,10 +916,11 @@ func (e *Event) PrevEventIDs() []string {
 }
 
 func (e *Event) extractContent(eventType string, content interface{}) error {
-	eventFormat, err := e.roomVersion.EventFormat()
+	verImpl, err := GetRoomVersion(e.roomVersion)
 	if err != nil {
 		panic(err)
 	}
+	eventFormat := verImpl.EventFormat()
 	var fields eventFields
 	switch eventFormat {
 	case EventFormatV1:

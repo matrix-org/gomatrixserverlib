@@ -57,12 +57,11 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 	if !eventJSON.Exists() {
 		return errors.New("gomatrixserverlib: request doesn't contain event")
 	}
-	if !gomatrixserverlib.KnownRoomVersion(i.fields.RoomVersion) {
-		return gomatrixserverlib.UnsupportedRoomVersionError{
-			Version: i.fields.RoomVersion,
-		}
+	verImpl, err := gomatrixserverlib.GetRoomVersion(i.fields.RoomVersion)
+	if err != nil {
+		return err
 	}
-	i.fields.Event, err = i.fields.RoomVersion.NewEventFromUntrustedJSON([]byte(eventJSON.String()))
+	i.fields.Event, err = verImpl.NewEventFromUntrustedJSON([]byte(eventJSON.String()))
 	return err
 }
 

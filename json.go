@@ -30,9 +30,13 @@ import (
 type EventJSONs []spec.RawJSON
 
 func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Event {
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil
+	}
 	events := make([]*Event, 0, len(e))
 	for _, js := range e {
-		event, err := roomVersion.NewEventFromTrustedJSON(js, redacted)
+		event, err := verImpl.NewEventFromTrustedJSON(js, redacted)
 		if err != nil {
 			continue
 		}
@@ -42,9 +46,13 @@ func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Eve
 }
 
 func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil
+	}
 	events := make([]*Event, 0, len(e))
 	for _, js := range e {
-		event, err := roomVersion.NewEventFromUntrustedJSON(js)
+		event, err := verImpl.NewEventFromUntrustedJSON(js)
 		if err != nil {
 			continue
 		}
@@ -93,7 +101,11 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 //
 // Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
-	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
+	roomVersionImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, err
+	}
+	if enforce := roomVersionImpl.EnforceCanonicalJSON(); enforce {
 		if err = verifyEnforcedCanonicalJSON(input); err != nil {
 			return nil, BadJSONError{err}
 		}

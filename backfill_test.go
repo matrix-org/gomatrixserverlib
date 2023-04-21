@@ -45,7 +45,7 @@ func (t *testBackfillRequester) Backfill(ctx context.Context, origin, server spe
 func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []*Event, err error) {
 	eventMap := make(map[string]*Event)
 	for _, eventBytes := range t.authEventsToProvide {
-		ev, err := newEventFromTrustedJSON(eventBytes, false, RoomVersionV1)
+		ev, err := newEventFromTrustedJSON(eventBytes, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			panic("Failed to load event: " + err.Error())
 		}
