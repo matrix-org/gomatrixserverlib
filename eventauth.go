@@ -902,7 +902,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
 	*allowerContext
-	roomVersionImpl RoomVersionImpl
+	roomVersionImpl IRoomVersion
 	// The m.room.third_party_invite content referenced by this event.
 	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
@@ -1114,7 +1114,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if !supported {
 			return m.membershipFailed(
 				"room version %q does not support knocking on rooms with join rule %q",
-				m.roomVersionImpl.ver,
+				m.roomVersionImpl.Version(),
 				m.joinRule.JoinRule,
 			)
 		}
