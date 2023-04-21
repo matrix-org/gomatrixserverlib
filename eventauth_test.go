@@ -60,7 +60,7 @@ func (tel *testEventList) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	for _, eventJSON := range eventJSONs {
-		event, err := newEventFromTrustedJSON(eventJSON, false, RoomVersionV1)
+		event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			return err
 		}
@@ -217,7 +217,7 @@ func (tae *testAuthEvents) Create() (*Event, error) {
 	if len(tae.CreateJSON) == 0 {
 		return nil, nil
 	}
-	event, err := newEventFromTrustedJSON(tae.CreateJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.CreateJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (tae *testAuthEvents) JoinRules() (*Event, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
-	event, err := newEventFromTrustedJSON(tae.JoinRulesJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.JoinRulesJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (tae *testAuthEvents) PowerLevels() (*Event, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
-	event, err := newEventFromTrustedJSON(tae.PowerLevelsJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.PowerLevelsJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
 	if len(tae.MemberJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := newEventFromTrustedJSON(tae.MemberJSON[stateKey], false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.MemberJSON[stateKey], false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := newEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {
-		event, err := newEventFromTrustedJSON(data, false, RoomVersionV1)
+		event, err := newEventFromTrustedJSON(data, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			panic(err)
 		}
@@ -293,7 +293,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		}
 	}
 	for _, data := range tc.NotAllowed {
-		event, err := newEventFromTrustedJSON(data, false, RoomVersionV1)
+		event, err := newEventFromTrustedJSON(data, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			panic(err)
 		}
@@ -1016,7 +1016,7 @@ func TestAuthEvents(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
@@ -1034,7 +1034,7 @@ func TestAuthEvents(t *testing.T) {
 		"content": {
 			"creator": "@u1:a"
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create create event: %s", err)
 	}
@@ -1101,7 +1101,7 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1126,7 +1126,7 @@ func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1194,7 +1194,7 @@ func TestNegativePowerLevels(t *testing.T) {
 		"content": {
 			"stuff": "i am a message event"
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
