@@ -362,7 +362,7 @@ func (eb *EventBuilder) Build(
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersionImpl) (result *Event, err error) {
+func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (result *Event, err error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
 		return
@@ -375,7 +375,7 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersionImpl) (r
 	}
 
 	result = &Event{}
-	result.roomVersion = roomVersion.ver
+	result.roomVersion = roomVersion.Version()
 
 	eventFormat := roomVersion.EventFormat()
 
@@ -435,9 +435,9 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion RoomVersionImpl) (r
 // newEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVersionImpl) (result *Event, err error) {
+func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *Event, err error) {
 	result = &Event{}
-	result.roomVersion = roomVersion.ver
+	result.roomVersion = roomVersion.Version()
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
 	return
@@ -448,9 +448,9 @@ func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion RoomVe
 // an event from the database and NEVER when accepting an event over federation.
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
-func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion RoomVersionImpl) (result *Event, err error) {
+func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *Event, err error) {
 	result = &Event{}
-	result.roomVersion = roomVersion.ver
+	result.roomVersion = roomVersion.Version()
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON(eventID, eventJSON)
 	return

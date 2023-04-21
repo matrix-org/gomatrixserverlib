@@ -9,6 +9,25 @@ import (
 // RoomVersion refers to the room version for a specific room.
 type RoomVersion string
 
+type IRoomVersion interface {
+	Version() RoomVersion
+	Stable() bool
+	StateResAlgorithm() StateResAlgorithm
+	EventFormat() EventFormat
+	EventIDFormat() EventIDFormat
+	StrictValidityChecking() bool
+	PowerLevelsIncludeNotifications() bool
+	AllowKnockingInEventAuth(joinRule string) bool
+	AllowRestrictedJoinsInEventAuth(joinRule string) bool
+	MayAllowRestrictedJoinsInEventAuth() bool
+	EnforceCanonicalJSON() bool
+	RequireIntegerPowerLevels() bool
+	RedactEventJSON(eventJSON []byte) ([]byte, error)
+	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error)
+	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error)
+	NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error)
+}
+
 // StateResAlgorithm refers to a version of the state resolution algorithm.
 type StateResAlgorithm int
 
@@ -75,10 +94,10 @@ const (
 	RestrictedOrKnockRestricted                                                         // rooms with join_rule "restricted" or "knock_restricted" can be joined via a space
 )
 
-var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
-	RoomVersionV1: {
+var roomVersionMeta = map[RoomVersion]IRoomVersion{
+	RoomVersionV1: RoomVersionImpl{
 		ver:                             RoomVersionV1,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV1,
 		eventFormat:                     EventFormatV1,
 		eventIDFormat:                   EventIDFormatV1,
@@ -90,9 +109,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV2: {
+	RoomVersionV2: RoomVersionImpl{
 		ver:                             RoomVersionV2,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV1,
 		eventIDFormat:                   EventIDFormatV1,
@@ -104,9 +123,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV3: {
+	RoomVersionV3: RoomVersionImpl{
 		ver:                             RoomVersionV3,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV2,
@@ -118,9 +137,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV4: {
+	RoomVersionV4: RoomVersionImpl{
 		ver:                             RoomVersionV4,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -132,9 +151,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV5: {
+	RoomVersionV5: RoomVersionImpl{
 		ver:                             RoomVersionV5,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -146,9 +165,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV6: {
+	RoomVersionV6: RoomVersionImpl{
 		ver:                             RoomVersionV6,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -160,9 +179,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV7: {
+	RoomVersionV7: RoomVersionImpl{
 		ver:                             RoomVersionV7,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -174,9 +193,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV8: {
+	RoomVersionV8: RoomVersionImpl{
 		ver:                             RoomVersionV8,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -188,9 +207,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV9: {
+	RoomVersionV9: RoomVersionImpl{
 		ver:                             RoomVersionV9,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -202,9 +221,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
 	},
-	RoomVersionV10: {
+	RoomVersionV10: RoomVersionImpl{
 		ver:                             RoomVersionV10,
-		Stable:                          true,
+		stable:                          true,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -216,9 +235,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       true,
 	},
-	"org.matrix.msc3667": { // based on room version 7
+	"org.matrix.msc3667": RoomVersionImpl{ // based on room version 7
 		ver:                             RoomVersion("org.matrix.msc3667"),
-		Stable:                          false,
+		stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -230,9 +249,9 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       true,
 	},
-	"org.matrix.msc3787": { // roughly, the union of v7 and v9
+	"org.matrix.msc3787": RoomVersionImpl{ // roughly, the union of v7 and v9
 		ver:                             RoomVersion("org.matrix.msc3787"),
-		Stable:                          false,
+		stable:                          false,
 		stateResAlgorithm:               StateResV2,
 		eventFormat:                     EventFormatV2,
 		eventIDFormat:                   EventIDFormatV3,
@@ -248,7 +267,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 
 // RoomVersions returns information about room versions currently
 // implemented by this commit of gomatrixserverlib.
-func RoomVersions() map[RoomVersion]RoomVersionImpl {
+func RoomVersions() map[RoomVersion]IRoomVersion {
 	return roomVersionMeta
 }
 
@@ -258,7 +277,7 @@ func KnownRoomVersion(verStr RoomVersion) bool {
 }
 
 // MustGetRoomVersion is GetRoomVersion but panics if the version doesn't exist. Useful for tests.
-func MustGetRoomVersion(verStr RoomVersion) RoomVersionImpl {
+func MustGetRoomVersion(verStr RoomVersion) IRoomVersion {
 	impl, err := GetRoomVersion(verStr)
 	if err != nil {
 		panic(fmt.Sprintf("MustGetRoomVersion: %s", verStr))
@@ -266,7 +285,7 @@ func MustGetRoomVersion(verStr RoomVersion) RoomVersionImpl {
 	return impl
 }
 
-func GetRoomVersion(verStr RoomVersion) (impl RoomVersionImpl, err error) {
+func GetRoomVersion(verStr RoomVersion) (impl IRoomVersion, err error) {
 	v, ok := roomVersionMeta[verStr]
 	if !ok {
 		return impl, UnsupportedRoomVersionError{
@@ -278,10 +297,10 @@ func GetRoomVersion(verStr RoomVersion) (impl RoomVersionImpl, err error) {
 
 // StableRoomVersions returns a map of descriptions for room
 // versions that are marked as stable.
-func StableRoomVersions() map[RoomVersion]RoomVersionImpl {
-	versions := make(map[RoomVersion]RoomVersionImpl)
+func StableRoomVersions() map[RoomVersion]IRoomVersion {
+	versions := make(map[RoomVersion]IRoomVersion)
 	for id, version := range RoomVersions() {
-		if version.Stable {
+		if version.Stable() {
 			versions[id] = version
 		}
 	}
@@ -310,7 +329,15 @@ type RoomVersionImpl struct {
 	enforceCanonicalJSON            bool
 	powerLevelsIncludeNotifications bool
 	requireIntegerPowerLevels       bool
-	Stable                          bool
+	stable                          bool
+}
+
+func (v RoomVersionImpl) Version() RoomVersion {
+	return v.ver
+}
+
+func (v RoomVersionImpl) Stable() bool {
+	return v.stable
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
