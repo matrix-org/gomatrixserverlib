@@ -20,6 +20,8 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"sort"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // ResolveStateConflicts takes a list of state events with conflicting state keys
@@ -119,24 +121,24 @@ func (r *stateResolver) addConflicted(events []*Event) { // nolint: gocyclo
 		// By default we add the event to a block in the others list.
 		blockList := &r.others
 		switch key.eventType {
-		case MRoomCreate:
+		case spec.MRoomCreate:
 			if key.stateKey == "" {
 				r.creates = append(r.creates, event)
 				continue
 			}
-		case MRoomPowerLevels:
+		case spec.MRoomPowerLevels:
 			if key.stateKey == "" {
 				r.powerLevels = append(r.powerLevels, event)
 				continue
 			}
-		case MRoomJoinRules:
+		case spec.MRoomJoinRules:
 			if key.stateKey == "" {
 				r.joinRules = append(r.joinRules, event)
 				continue
 			}
-		case MRoomMember:
+		case spec.MRoomMember:
 			blockList = &r.members
-		case MRoomThirdPartyInvite:
+		case spec.MRoomThirdPartyInvite:
 			blockList = &r.thirdPartyInvites
 		}
 		// We need to find an entry for the state key in a block list.
@@ -164,21 +166,21 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 		r.valid = false
 	}
 	switch event.Type() {
-	case MRoomCreate:
+	case spec.MRoomCreate:
 		if event.StateKeyEquals("") {
 			r.resolvedCreate = event
 		}
-	case MRoomPowerLevels:
+	case spec.MRoomPowerLevels:
 		if event.StateKeyEquals("") {
 			r.resolvedPowerLevels = event
 		}
-	case MRoomJoinRules:
+	case spec.MRoomJoinRules:
 		if event.StateKeyEquals("") {
 			r.resolvedJoinRules = event
 		}
-	case MRoomMember:
+	case spec.MRoomMember:
 		r.resolvedMembers[*event.StateKey()] = event
-	case MRoomThirdPartyInvite:
+	case spec.MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[*event.StateKey()] = event
 	}
 }
@@ -186,21 +188,21 @@ func (r *stateResolver) addAuthEvent(event *Event) {
 // Remove the auth event with the given type and state key.
 func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 	switch eventType {
-	case MRoomCreate:
+	case spec.MRoomCreate:
 		if stateKey == "" {
 			r.resolvedCreate = nil
 		}
-	case MRoomPowerLevels:
+	case spec.MRoomPowerLevels:
 		if stateKey == "" {
 			r.resolvedPowerLevels = nil
 		}
-	case MRoomJoinRules:
+	case spec.MRoomJoinRules:
 		if stateKey == "" {
 			r.resolvedJoinRules = nil
 		}
-	case MRoomMember:
+	case spec.MRoomMember:
 		r.resolvedMembers[stateKey] = nil
-	case MRoomThirdPartyInvite:
+	case spec.MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[stateKey] = nil
 	}
 }
@@ -372,10 +374,11 @@ func ResolveConflicts(
 
 	// Work out which state resolution algorithm we want to run for
 	// the room version.
-	stateResAlgo, err := version.StateResAlgorithm()
+	verImpl, err := GetRoomVersion(version)
 	if err != nil {
 		return nil, err
 	}
+	stateResAlgo := verImpl.StateResAlgorithm()
 	switch stateResAlgo {
 	case StateResV1:
 		// Currently state res v1 doesn't handle unconflicted events

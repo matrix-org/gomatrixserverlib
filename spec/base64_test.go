@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package gomatrixserverlib
+package spec
 
 import (
 	"bytes"

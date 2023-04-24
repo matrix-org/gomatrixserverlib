@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/sirupsen/logrus"
 )
 
 type SendJoinInput struct {
-	UserID     *gomatrixserverlib.UserID
+	UserID     *spec.UserID
 	RoomID     string
-	ServerName gomatrixserverlib.ServerName
+	ServerName spec.ServerName
 	Content    map[string]interface{}
 	Unsigned   map[string]interface{}
 
@@ -24,13 +25,13 @@ type SendJoinInput struct {
 
 	EventProvider func(
 		ctx context.Context, fedClient FederationClient,
-		keyRing gomatrixserverlib.JSONVerifier, origin, server gomatrixserverlib.ServerName,
+		keyRing gomatrixserverlib.JSONVerifier, origin, server spec.ServerName,
 	) gomatrixserverlib.EventProvider
 }
 
 type SendJoinCallbacks struct {
-	FederationFailure func(serverName gomatrixserverlib.ServerName)
-	FederationSuccess func(serverName gomatrixserverlib.ServerName)
+	FederationFailure func(serverName spec.ServerName)
+	FederationSuccess func(serverName spec.ServerName)
 }
 
 func HandleSendJoin(
@@ -60,7 +61,7 @@ func HandleSendJoin(
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
 	stateKey := input.UserID.Raw()
-	respMakeJoin.JoinEvent.Type = gomatrixserverlib.MRoomMember
+	respMakeJoin.JoinEvent.Type = spec.MRoomMember
 	respMakeJoin.JoinEvent.Sender = input.UserID.Raw()
 	respMakeJoin.JoinEvent.StateKey = &stateKey
 	respMakeJoin.JoinEvent.RoomID = input.RoomID
@@ -69,7 +70,7 @@ func HandleSendJoin(
 		input.Content = map[string]interface{}{}
 	}
 	_ = json.Unmarshal(respMakeJoin.JoinEvent.Content, &input.Content)
-	input.Content["membership"] = gomatrixserverlib.Join
+	input.Content["membership"] = spec.Join
 	if err = respMakeJoin.JoinEvent.SetContent(input.Content); err != nil {
 		return nil, nil, fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err)
 	}
@@ -84,8 +85,9 @@ func HandleSendJoin(
 	if respMakeJoin.RoomVersion == "" {
 		respMakeJoin.RoomVersion = setDefaultRoomVersionFromJoinEvent(respMakeJoin.JoinEvent)
 	}
-	if _, err = respMakeJoin.RoomVersion.EventFormat(); err != nil {
-		return nil, nil, fmt.Errorf("respMakeJoin.RoomVersion.EventFormat: %w", err)
+	verImpl, err := gomatrixserverlib.GetRoomVersion(respMakeJoin.RoomVersion)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Build the join event.
@@ -119,7 +121,7 @@ func HandleSendJoin(
 	// contain signatures that we don't know about.
 	if len(respSendJoin.Event) > 0 {
 		var remoteEvent *gomatrixserverlib.Event
-		remoteEvent, err = respSendJoin.Event.UntrustedEvent(respMakeJoin.RoomVersion)
+		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.Event)
 		if err == nil && isWellFormedMembershipEvent(
 			remoteEvent, input.RoomID, input.UserID,
 		) {
@@ -192,10 +194,10 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedMembershipEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedMembershipEvent(event *gomatrixserverlib.Event, roomID string, userID *gomatrixserverlib.UserID) bool {
+func isWellFormedMembershipEvent(event *gomatrixserverlib.Event, roomID string, userID *spec.UserID) bool {
 	if membership, err := event.Membership(); err != nil {
 		return false
-	} else if membership != gomatrixserverlib.Join {
+	} else if membership != spec.Join {
 		return false
 	}
 	if event.RoomID() != roomID {
@@ -210,7 +212,7 @@ func isWellFormedMembershipEvent(event *gomatrixserverlib.Event, roomID string, 
 func checkEventsContainCreateEvent(events []*gomatrixserverlib.Event) error {
 	// sanity check we have a create event and it has a known room version
 	for _, ev := range events {
-		if ev.Type() == gomatrixserverlib.MRoomCreate && ev.StateKeyEquals("") {
+		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
 			// make sure the room version is known
 			content := ev.Content()
 			verBody := struct {

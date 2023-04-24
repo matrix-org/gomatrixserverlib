@@ -1,4 +1,4 @@
-package gomatrixserverlib
+package spec
 
 import (
 	"fmt"

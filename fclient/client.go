@@ -32,6 +32,7 @@ import (
 
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
 )
@@ -59,6 +60,7 @@ type clientOptions struct {
 	skipVerify   bool
 	keepAlives   bool
 	wellKnownSRV bool
+	userAgent    string
 }
 
 // ClientOption are supplied to NewClient or NewFederationClient.
@@ -87,6 +89,7 @@ func NewClient(options ...ClientOption) *Client {
 			Transport: clientOpts.transport,
 			Timeout:   clientOpts.timeout,
 		},
+		userAgent: clientOpts.userAgent,
 	}
 	return client
 }
@@ -139,6 +142,13 @@ func WithKeepAlives(keepAlives bool) ClientOption {
 func WithWellKnownSRVLookups(wellKnownSRV bool) ClientOption {
 	return func(options *clientOptions) {
 		options.wellKnownSRV = wellKnownSRV
+	}
+}
+
+// WithUserAgent enables specifying the user agent for the http client.
+func WithUserAgent(userAgent string) ClientOption {
+	return func(options *clientOptions) {
+		options.userAgent = userAgent
 	}
 }
 
@@ -245,7 +255,7 @@ func makeHTTPSURL(u *url.URL, addr string) (httpsURL url.URL) {
 
 func (f *destinationTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	var err error
-	serverName := gomatrixserverlib.ServerName(r.URL.Host)
+	serverName := spec.ServerName(r.URL.Host)
 	resolutionRetried := false
 	resolutionResults := []ResolutionResult{}
 
@@ -269,7 +279,7 @@ retryResolution:
 	} else {
 		resolutionResults = append(resolutionResults, ResolutionResult{
 			Destination:   r.URL.Host,
-			Host:          gomatrixserverlib.ServerName(r.Host),
+			Host:          spec.ServerName(r.Host),
 			TLSServerName: r.Host,
 		})
 	}
@@ -316,7 +326,7 @@ func (fc *Client) SetUserAgent(ua string) {
 // LookupUserInfo gets information about a user from a given matrix homeserver
 // using a bearer access token.
 func (fc *Client) LookupUserInfo(
-	ctx context.Context, matrixServer gomatrixserverlib.ServerName, token string,
+	ctx context.Context, matrixServer spec.ServerName, token string,
 ) (u UserInfo, err error) {
 	url := url.URL{
 		Scheme:   "matrix",
@@ -364,7 +374,7 @@ func (fc *Client) LookupUserInfo(
 
 // GetServerKeys asks a matrix server for its signing keys and TLS cert
 func (fc *Client) GetServerKeys(
-	ctx context.Context, matrixServer gomatrixserverlib.ServerName,
+	ctx context.Context, matrixServer spec.ServerName,
 ) (gomatrixserverlib.ServerKeys, error) {
 	url := url.URL{
 		Scheme: "matrix",
@@ -387,8 +397,8 @@ func (fc *Client) GetServerKeys(
 // GetVersion gets the version information of a homeserver.
 // See https://matrix.org/docs/spec/server_server/r0.1.1.html#get-matrix-federation-v1-version
 func (fc *Client) GetVersion(
-	ctx context.Context, s gomatrixserverlib.ServerName,
-) (res gomatrixserverlib.Version, err error) {
+	ctx context.Context, s spec.ServerName,
+) (res Version, err error) {
 	// Construct a request for version information
 	url := url.URL{
 		Scheme: "matrix",
@@ -415,8 +425,8 @@ func (fc *Client) GetVersion(
 // copy of the keys.
 // Returns the keys returned by the server, or an error if there was a problem talking to the server.
 func (fc *Client) LookupServerKeys(
-	ctx context.Context, matrixServer gomatrixserverlib.ServerName,
-	keyRequests map[gomatrixserverlib.PublicKeyLookupRequest]gomatrixserverlib.Timestamp,
+	ctx context.Context, matrixServer spec.ServerName,
+	keyRequests map[gomatrixserverlib.PublicKeyLookupRequest]spec.Timestamp,
 ) ([]gomatrixserverlib.ServerKeys, error) {
 	url := url.URL{
 		Scheme: "matrix",
@@ -427,11 +437,11 @@ func (fc *Client) LookupServerKeys(
 	// The request format is:
 	// { "server_keys": { "<server_name>": { "<key_id>": { "minimum_valid_until_ts": <ts> }}}
 	type keyreq struct {
-		MinimumValidUntilTS gomatrixserverlib.Timestamp `json:"minimum_valid_until_ts"`
+		MinimumValidUntilTS spec.Timestamp `json:"minimum_valid_until_ts"`
 	}
 	request := struct {
-		ServerKeyMap map[gomatrixserverlib.ServerName]map[gomatrixserverlib.KeyID]keyreq `json:"server_keys"`
-	}{map[gomatrixserverlib.ServerName]map[gomatrixserverlib.KeyID]keyreq{}}
+		ServerKeyMap map[spec.ServerName]map[gomatrixserverlib.KeyID]keyreq `json:"server_keys"`
+	}{map[spec.ServerName]map[gomatrixserverlib.KeyID]keyreq{}}
 	for k, ts := range keyRequests {
 		server := request.ServerKeyMap[k.ServerName]
 		if server == nil {
@@ -481,7 +491,7 @@ func (fc *Client) LookupServerKeys(
 
 // CreateMediaDownloadRequest creates a request for media on a homeserver and returns the http.Response or an error
 func (fc *Client) CreateMediaDownloadRequest(
-	ctx context.Context, matrixServer gomatrixserverlib.ServerName, mediaID string,
+	ctx context.Context, matrixServer spec.ServerName, mediaID string,
 ) (*http.Response, error) {
 	// Set allow_remote=false here so that we avoid loops:
 	// https://github.com/matrix-org/synapse/pull/1992

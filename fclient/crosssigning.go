@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
@@ -37,10 +38,10 @@ type CrossSigningKeys struct {
 
 // https://spec.matrix.org/unstable/client-server-api/#post_matrixclientr0keysdevice_signingupload
 type CrossSigningKey struct {
-	Signatures map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes `json:"signatures,omitempty"`
-	Keys       map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes            `json:"keys"`
-	Usage      []CrossSigningKeyPurpose                                             `json:"usage"`
-	UserID     string                                                               `json:"user_id"`
+	Signatures map[string]map[gomatrixserverlib.KeyID]spec.Base64Bytes `json:"signatures,omitempty"`
+	Keys       map[gomatrixserverlib.KeyID]spec.Base64Bytes            `json:"keys"`
+	Usage      []CrossSigningKeyPurpose                                `json:"usage"`
+	UserID     string                                                  `json:"user_id"`
 }
 
 func (s *CrossSigningKey) isCrossSigningBody() {} // implements CrossSigningBody

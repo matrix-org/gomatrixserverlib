@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
 )
@@ -20,10 +21,10 @@ type StateProvider interface {
 
 type FederatedStateClient interface {
 	LookupState(
-		ctx context.Context, origin, s ServerName, roomID, eventID string, roomVersion RoomVersion,
+		ctx context.Context, origin, s spec.ServerName, roomID, eventID string, roomVersion RoomVersion,
 	) (res StateResponse, err error)
 	LookupStateIDs(
-		ctx context.Context, origin, s ServerName, roomID, eventID string,
+		ctx context.Context, origin, s spec.ServerName, roomID, eventID string,
 	) (res StateIDResponse, err error)
 }
 
@@ -75,8 +76,8 @@ func (s *stateResponseImplPowerDAG) GetStateEvents() EventJSONs {
 type FederatedStateProvider struct {
 	FedClient FederatedStateClient
 	// The remote server to ask.
-	Origin ServerName
-	Server ServerName
+	Origin spec.ServerName
+	Server spec.ServerName
 	// Set to true to remember the auth event IDs for the room at various states
 	RememberAuthEvents bool
 	// Maps which are populated if AuthEvents is true, so you know which events are required to do PDU checks.
@@ -102,9 +103,13 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 	if err != nil {
 		return nil, err
 	}
+	roomVerImpl, err := GetRoomVersion(roomVer)
+	if err != nil {
+		return nil, err
+	}
 	if p.RememberAuthEvents {
 		for _, js := range res.GetAuthEvents() {
-			event, err := js.UntrustedEvent(roomVer)
+			event, err := roomVerImpl.NewEventFromUntrustedJSON(js)
 			if err != nil {
 				continue
 			}
@@ -114,7 +119,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 
 	result := make(map[string]*Event)
 	for _, js := range res.GetStateEvents() {
-		event, err := js.UntrustedEvent(roomVer)
+		event, err := roomVerImpl.NewEventFromUntrustedJSON(js)
 		if err != nil {
 			continue
 		}

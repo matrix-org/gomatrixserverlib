@@ -22,71 +22,8 @@ import (
 
 	"golang.org/x/crypto/ed25519"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
-)
-
-const (
-	// Join is the string constant "join"
-	Join = "join"
-	// Ban is the string constant "ban"
-	Ban = "ban"
-	// Leave is the string constant "leave"
-	Leave = "leave"
-	// Invite is the string constant "invite"
-	Invite = "invite"
-	// Knock is the string constant "knock"
-	Knock = "knock"
-	// Restricted is the string constant "restricted"
-	Restricted = "restricted"
-	// NOTSPEC: Restricted is the string constant "knock_restricted" (MSC3787)
-	// REVIEW: the MSC is merged though... so is this specced? Idk.
-	KnockRestricted = "knock_restricted"
-	// NOTSPEC: Peek is the string constant "peek" (MSC2753, used as the label in the sync block)
-	Peek = "peek"
-	// Public is the string constant "public"
-	Public = "public"
-	// WorldReadable is the string constant "world_readable"
-	WorldReadable = "world_readable"
-	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
-	MRoomCreate = "m.room.create"
-	// MRoomJoinRules https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules
-	MRoomJoinRules = "m.room.join_rules"
-	// MRoomPowerLevels https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-power-levels
-	MRoomPowerLevels = "m.room.power_levels"
-	// MRoomName https://matrix.org/docs/spec/client_server/r0.6.0#m-room-name
-	MRoomName = "m.room.name"
-	// MRoomTopic https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-topic
-	MRoomTopic = "m.room.topic"
-	// MRoomAvatar https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-avatar
-	MRoomAvatar = "m.room.avatar"
-	// MRoomMember https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
-	MRoomMember = "m.room.member"
-	// MRoomThirdPartyInvite https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-third-party-invite
-	MRoomThirdPartyInvite = "m.room.third_party_invite"
-	// MRoomAliases https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-aliases
-	MRoomAliases = "m.room.aliases"
-	// MRoomCanonicalAlias https://matrix.org/docs/spec/client_server/r0.6.0#m-room-canonical-alias
-	MRoomCanonicalAlias = "m.room.canonical_alias"
-	// MRoomHistoryVisibility https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-history-visibility
-	MRoomHistoryVisibility = "m.room.history_visibility"
-	// MRoomGuestAccess https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-guest-access
-	MRoomGuestAccess = "m.room.guest_access"
-	// MRoomEncryption https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-encryption
-	MRoomEncryption = "m.room.encryption"
-	// MRoomRedaction https://matrix.org/docs/spec/client_server/r0.2.0.html#id21
-	MRoomRedaction = "m.room.redaction"
-	// MTyping https://matrix.org/docs/spec/client_server/r0.3.0.html#m-typing
-	MTyping = "m.typing"
-	// MDirectToDevice https://matrix.org/docs/spec/server_server/r0.1.3#send-to-device-messaging
-	MDirectToDevice = "m.direct_to_device"
-	// MDeviceListUpdate https://matrix.org/docs/spec/server_server/latest#m-device-list-update-schema
-	MDeviceListUpdate = "m.device_list_update"
-	// MReceipt https://matrix.org/docs/spec/server_server/r0.1.4#receipts
-	MReceipt = "m.receipt"
-	// MPresence https://matrix.org/docs/spec/server_server/latest#m-presence-schema
-	MPresence = "m.presence"
-	// MRoomMembership https://github.com/matrix-org/matrix-doc/blob/clokep/restricted-rooms/proposals/3083-restricted-rooms.md
-	MRoomMembership = "m.room_membership"
 )
 
 // StateNeeded lists the event types and state_keys needed to authenticate an event.
@@ -106,19 +43,19 @@ type StateNeeded struct {
 // Tuples returns the needed state key tuples for performing auth on an event.
 func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 	if s.Create {
-		res = append(res, StateKeyTuple{MRoomCreate, ""})
+		res = append(res, StateKeyTuple{spec.MRoomCreate, ""})
 	}
 	if s.JoinRules {
-		res = append(res, StateKeyTuple{MRoomJoinRules, ""})
+		res = append(res, StateKeyTuple{spec.MRoomJoinRules, ""})
 	}
 	if s.PowerLevels {
-		res = append(res, StateKeyTuple{MRoomPowerLevels, ""})
+		res = append(res, StateKeyTuple{spec.MRoomPowerLevels, ""})
 	}
 	for _, userID := range s.Member {
-		res = append(res, StateKeyTuple{MRoomMember, userID})
+		res = append(res, StateKeyTuple{spec.MRoomMember, userID})
 	}
 	for _, token := range s.ThirdPartyInvite {
-		res = append(res, StateKeyTuple{MRoomThirdPartyInvite, token})
+		res = append(res, StateKeyTuple{spec.MRoomThirdPartyInvite, token})
 	}
 	return
 }
@@ -184,7 +121,7 @@ type membershipContent struct {
 func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err error) {
 	// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 	var content *membershipContent
-	if builder.Type == MRoomMember {
+	if builder.Type == spec.MRoomMember {
 		if err = json.Unmarshal(builder.Content, &content); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
@@ -202,7 +139,7 @@ func StateNeededForAuth(events []*Event) (result StateNeeded) {
 	for _, event := range events {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 		var content *membershipContent
-		if event.Type() == MRoomMember {
+		if event.Type() == spec.MRoomMember {
 			_ = json.Unmarshal(event.Content(), &content)
 		}
 		// Ignore errors when accumulating state needed.
@@ -218,17 +155,17 @@ func StateNeededForAuth(events []*Event) (result StateNeeded) {
 
 func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *membershipContent) (err error) {
 	switch eventType {
-	case MRoomCreate:
+	case spec.MRoomCreate:
 		// The create event doesn't require any state to authenticate.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L123
-	case MRoomAliases:
+	case spec.MRoomAliases:
 		// Alias events need:
 		//  * The create event.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L128
 		// Alias events need no further authentication.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L160
 		result.Create = true
-	case MRoomMember:
+	case spec.MRoomMember:
 		// Member events need:
 		//  * The previous membership of the target.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L355
@@ -252,7 +189,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		if stateKey != nil {
 			result.Member = append(result.Member, sender, *stateKey)
 		}
-		if content.Membership == Join || content.Membership == Knock || content.Membership == Invite {
+		if content.Membership == spec.Join || content.Membership == spec.Knock || content.Membership == spec.Invite {
 			result.JoinRules = true
 		}
 		if content.ThirdPartyInvite != nil {
@@ -328,27 +265,27 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 
 // Create implements AuthEventProvider
 func (a *AuthEvents) Create() (*Event, error) {
-	return a.events[StateKeyTuple{MRoomCreate, ""}], nil
+	return a.events[StateKeyTuple{spec.MRoomCreate, ""}], nil
 }
 
 // JoinRules implements AuthEventProvider
 func (a *AuthEvents) JoinRules() (*Event, error) {
-	return a.events[StateKeyTuple{MRoomJoinRules, ""}], nil
+	return a.events[StateKeyTuple{spec.MRoomJoinRules, ""}], nil
 }
 
 // PowerLevels implements AuthEventProvider
 func (a *AuthEvents) PowerLevels() (*Event, error) {
-	return a.events[StateKeyTuple{MRoomPowerLevels, ""}], nil
+	return a.events[StateKeyTuple{spec.MRoomPowerLevels, ""}], nil
 }
 
 // Member implements AuthEventProvider
 func (a *AuthEvents) Member(stateKey string) (*Event, error) {
-	return a.events[StateKeyTuple{MRoomMember, stateKey}], nil
+	return a.events[StateKeyTuple{spec.MRoomMember, stateKey}], nil
 }
 
 // ThirdPartyInvite implements AuthEventProvider
 func (a *AuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
-	return a.events[StateKeyTuple{MRoomThirdPartyInvite, stateKey}], nil
+	return a.events[StateKeyTuple{spec.MRoomThirdPartyInvite, stateKey}], nil
 }
 
 // Clear removes all entries from the AuthEventProvider.
@@ -444,15 +381,15 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 // If there was an error loading the auth events then it returns that error.
 func (a *allowerContext) allowed(event *Event) error {
 	switch event.Type() {
-	case MRoomCreate:
+	case spec.MRoomCreate:
 		return a.createEventAllowed(event)
-	case MRoomAliases:
+	case spec.MRoomAliases:
 		return a.aliasEventAllowed(event)
-	case MRoomMember:
+	case spec.MRoomMember:
 		return a.memberEventAllowed(event)
-	case MRoomPowerLevels:
+	case spec.MRoomPowerLevels:
 		return a.powerLevelsEventAllowed(event)
-	case MRoomRedaction:
+	case spec.MRoomRedaction:
 		return a.redactEventAllowed(event)
 	default:
 		return a.defaultEventAllowed(event)
@@ -500,7 +437,7 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 		return errorf("create event has no creator field")
 	}
 	if c.RoomVersion != nil {
-		if _, err := c.RoomVersion.EventFormat(); err != nil {
+		if !KnownRoomVersion(*c.RoomVersion) {
 			return errorf("create event has unrecognised room version %q", *c.RoomVersion)
 		}
 	}
@@ -591,7 +528,11 @@ func (a *allowerContext) powerLevelsEventAllowed(event *Event) error {
 	}
 
 	// Check that the changes in notification levels are allowed.
-	if notifs, err := event.roomVersion.PowerLevelsIncludeNotifications(); err == nil && notifs {
+	verImpl, err := GetRoomVersion(event.roomVersion)
+	if err != nil {
+		return nil
+	}
+	if notifs := verImpl.PowerLevelsIncludeNotifications(); notifs {
 		if err = checkNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
 			return err
 		}
@@ -927,7 +868,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 
 	// Check that the sender is in the room.
 	// Every event other than m.room.create, m.room.member and m.room.aliases require this.
-	if e.member.Membership != Join {
+	if e.member.Membership != spec.Join {
 		return errorf("sender %q not in room", sender)
 	}
 
@@ -961,7 +902,7 @@ func (e *eventAllower) commonChecks(event *Event) error {
 // A membershipAllower has the information needed to authenticate a m.room.member event
 type membershipAllower struct {
 	*allowerContext
-	roomVersion RoomVersion
+	roomVersionImpl IRoomVersion
 	// The m.room.third_party_invite content referenced by this event.
 	thirdPartyInvite ThirdPartyInviteContent
 	// The user ID of the user whose membership is changing.
@@ -980,7 +921,10 @@ type membershipAllower struct {
 // from the auth events.
 func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
-	m.roomVersion = event.roomVersion
+	m.roomVersionImpl, err = GetRoomVersion(event.roomVersion)
+	if err != nil {
+		return
+	}
 	stateKey := event.StateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
@@ -1025,7 +969,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	// Special case the first join event in the room to allow the creator to join.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
 	if m.targetID == m.create.Creator &&
-		m.newMember.Membership == Join &&
+		m.newMember.Membership == spec.Join &&
 		m.senderID == m.targetID &&
 		len(event.PrevEvents()) == 1 {
 
@@ -1040,7 +984,7 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 		// Otherwise fall back to the normal checks.
 	}
 
-	if m.newMember.Membership == Invite && m.newMember.ThirdPartyInvite != nil {
+	if m.newMember.Membership == spec.Invite && m.newMember.ThirdPartyInvite != nil {
 		// Special case third party invites
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L393
 		return m.membershipAllowedFromThirdPartyInvite()
@@ -1058,18 +1002,15 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
-	allowsRestricted, err := m.roomVersion.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
-	if err != nil {
-		return err
-	}
+	allowsRestricted := m.roomVersionImpl.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
 	if !allowsRestricted {
 		return errorf("restricted joins are not supported in this room version")
 	}
 
 	// In the case that the user is already joined, invited or there is no
 	// authorised via server, we should treat the join rule as if it's invite.
-	if m.oldMember.Membership == Join || m.oldMember.Membership == Invite || m.newMember.AuthorisedVia == "" {
-		m.joinRule.JoinRule = Invite
+	if m.oldMember.Membership == spec.Join || m.oldMember.Membership == spec.Invite || m.newMember.AuthorisedVia == "" {
+		m.joinRule.JoinRule = spec.Invite
 		return nil
 	}
 
@@ -1095,7 +1036,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	if err != nil {
 		return errorf("failed to find the membership status for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
 	}
-	if otherMembership != Join {
+	if otherMembership != spec.Join {
 		return errorf("the nominated 'join_authorised_via_users_server' user %q is not joined to the room", m.newMember.AuthorisedVia)
 	}
 
@@ -1106,7 +1047,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 
 	// At this point all of the checks have proceeded, so continue as if
 	// the room is a public room.
-	m.joinRule.JoinRule = Public
+	m.joinRule.JoinRule = spec.Public
 	return nil
 }
 
@@ -1150,13 +1091,13 @@ func (m *membershipAllower) membershipAllowedFromThirdPartyInvite() error {
 func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	// NOTSPEC: Leave -> Leave is benign but not allowed according to the Matrix spec.
 	// We allow this because of an issue regarding Synapse incorrectly accepting this event.
-	if m.oldMember.Membership == Leave && m.newMember.Membership == Leave {
+	if m.oldMember.Membership == spec.Leave && m.newMember.Membership == spec.Leave {
 		return nil
 	}
 
 	switch m.newMember.Membership {
-	case Knock:
-		if m.joinRule.JoinRule != Knock && m.joinRule.JoinRule != KnockRestricted {
+	case spec.Knock:
+		if m.joinRule.JoinRule != spec.Knock && m.joinRule.JoinRule != spec.KnockRestricted {
 			return m.membershipFailed(
 				"join rule %q does not allow knocking", m.joinRule.JoinRule,
 			)
@@ -1168,17 +1109,17 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// MSC3787 extends this: the behaviour above is also permitted if the
 		// join rules are "knock_restricted"
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
-		if supported, err := m.roomVersion.AllowKnockingInEventAuth(m.joinRule.JoinRule); err != nil {
-			return fmt.Errorf("m.roomVersion.AllowKnockingInEventAuth: %w", err)
-		} else if !supported {
+		supported := m.roomVersionImpl.AllowKnockingInEventAuth(m.joinRule.JoinRule)
+
+		if !supported {
 			return m.membershipFailed(
 				"room version %q does not support knocking on rooms with join rule %q",
-				m.roomVersion,
+				m.roomVersionImpl.Version(),
 				m.joinRule.JoinRule,
 			)
 		}
 		switch m.oldMember.Membership {
-		case Join, Invite, Ban:
+		case spec.Join, spec.Invite, spec.Ban:
 			// The user is already joined, invited or banned, therefore they
 			// can't knock.
 			return m.membershipFailed(
@@ -1189,38 +1130,38 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 			return nil
 		}
 
-	case Join:
-		if m.oldMember.Membership == Leave && (m.joinRule.JoinRule == Restricted || m.joinRule.JoinRule == KnockRestricted) {
+	case spec.Join:
+		if m.oldMember.Membership == spec.Leave && (m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted) {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
 				return err
 			}
 		}
 		// A user that is not in the room is allowed to join if the room
 		// join rules are "public".
-		if m.oldMember.Membership == Leave && m.joinRule.JoinRule == Public {
+		if m.oldMember.Membership == spec.Leave && m.joinRule.JoinRule == spec.Public {
 			return nil
 		}
 		// An invited user is always allowed to join, regardless of the join rule
-		if m.oldMember.Membership == Invite {
+		if m.oldMember.Membership == spec.Invite {
 			return nil
 		}
 		// A joined user is allowed to update their join.
-		if m.oldMember.Membership == Join {
+		if m.oldMember.Membership == spec.Join {
 			return nil
 		}
 		return m.membershipFailed(
 			"join rule %q forbids it", m.joinRule.JoinRule,
 		)
 
-	case Leave:
+	case spec.Leave:
 		switch m.oldMember.Membership {
-		case Join:
+		case spec.Join:
 			// A joined user is allowed to leave the room.
 			return nil
-		case Invite:
+		case spec.Invite:
 			// An invited user can reject the invite.
 			return nil
-		case Knock:
+		case spec.Knock:
 			// A knocking user can cancel their knock.
 			return nil
 		default:
@@ -1230,7 +1171,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 			)
 		}
 
-	case Invite, Ban:
+	case spec.Invite, spec.Ban:
 		return m.membershipFailed(
 			"sender cannot set their own membership to %q", m.newMember.Membership,
 		)
@@ -1248,12 +1189,12 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 	targetLevel := m.powerLevels.UserLevel(m.targetID)
 
 	// You may only modify the membership of another user if you are in the room.
-	if m.senderMember.Membership != Join {
+	if m.senderMember.Membership != spec.Join {
 		return errorf("sender %q is not in the room", m.senderID)
 	}
 
 	switch m.newMember.Membership {
-	case Ban:
+	case spec.Ban:
 		// A user may ban another user if their level is high enough
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L463
 		if senderLevel >= m.powerLevels.Ban && senderLevel > targetLevel {
@@ -1264,12 +1205,12 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			senderLevel, targetLevel, m.powerLevels.Ban,
 		)
 
-	case Leave:
+	case spec.Leave:
 		// A user may unban another user if their level is high enough.
 		// This is doesn't require the same power_level checks as banning.
 		// You can unban someone with higher power_level than you.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L451
-		if m.oldMember.Membership == Ban {
+		if m.oldMember.Membership == spec.Ban {
 			if senderLevel >= m.powerLevels.Ban {
 				return nil
 			}
@@ -1289,7 +1230,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			senderLevel, targetLevel, m.powerLevels.Kick,
 		)
 
-	case Invite:
+	case spec.Invite:
 		// A user may only invite another user if they have sufficient power
 		// to do so.
 		if senderLevel < m.powerLevels.Invite {
@@ -1300,7 +1241,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		}
 
 		switch m.oldMember.Membership {
-		case Join, Ban:
+		case spec.Join, spec.Ban:
 			// A user may invite another user if they haven't joined or have
 			// already joined and left before re-inviting.
 			return m.membershipFailed(
@@ -1316,7 +1257,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			return nil
 		}
 
-	case Knock, Join:
+	case spec.Knock, spec.Join:
 		return m.membershipFailed(
 			"sender cannot set membership of another user to %q", m.newMember.Membership,
 		)
