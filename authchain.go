@@ -6,7 +6,7 @@ import (
 )
 
 // AuthChainProvider returns the requested list of auth events.
-type AuthChainProvider func(roomVer RoomVersion, eventIDs []string) ([]*Event, error)
+type AuthChainProvider func(roomVer RoomVersion, eventIDs []string) ([]PDU, error)
 
 // VerifyEventAuthChain will verify that the event is allowed according to its auth_events, and then
 // recursively verify each of those auth_events.
@@ -19,13 +19,13 @@ type AuthChainProvider func(roomVer RoomVersion, eventIDs []string) ([]*Event, e
 // The `provideEvents` function will only be called for *new* events rather than for everything as it is
 // assumed that this function is costly. Failing to provide all the requested events will fail this function.
 // Returning an error from `provideEvents` will also fail this function.
-func VerifyEventAuthChain(ctx context.Context, eventToVerify *HeaderedEvent, provideEvents AuthChainProvider) error {
-	eventsByID := make(map[string]*Event) // A lookup table for verifying this auth chain
-	evv := eventToVerify.Unwrap()
+func VerifyEventAuthChain(ctx context.Context, eventToVerify PDU, provideEvents AuthChainProvider) error {
+	eventsByID := make(map[string]PDU) // A lookup table for verifying this auth chain
+	evv := eventToVerify
 	eventsByID[evv.EventID()] = evv
 	verifiedEvents := make(map[string]bool) // events are put here when they are fully verified.
-	eventsToVerify := []*Event{evv}
-	var curr *Event
+	eventsToVerify := []PDU{evv}
+	var curr PDU
 
 	for len(eventsToVerify) > 0 {
 		// pop the top of the stack
@@ -44,7 +44,7 @@ func VerifyEventAuthChain(ctx context.Context, eventToVerify *HeaderedEvent, pro
 		}
 		// fetch the events and add them to the lookup table
 		if len(need) > 0 {
-			newEvents, err := provideEvents(eventToVerify.roomVersion, need)
+			newEvents, err := provideEvents(eventToVerify.Version(), need)
 			if err != nil {
 				return fmt.Errorf("gomatrixserverlib: VerifyEventAuthChain failed to obtain auth events: %w", err)
 			}

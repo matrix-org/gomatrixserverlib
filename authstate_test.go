@@ -7,14 +7,14 @@ import (
 
 type TestStateProvider struct {
 	StateIDs []string
-	Events   []*Event
+	Events   []PDU
 }
 
-func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent *HeaderedEvent) ([]string, error) {
+func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
 	return p.StateIDs, nil
 }
-func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
-	result := make(map[string]*Event, len(p.Events))
+func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
+	result := make(map[string]PDU, len(p.Events))
 	for i := range p.Events {
 		result[p.Events[i].EventID()] = p.Events[i]
 	}
@@ -140,7 +140,7 @@ func TestVerifyAuthRulesAtStateBadAuthRuleButValidState(t *testing.T) {
 	}
 }
 
-func makeEvents(t *testing.T, in [][]byte) (out []*Event) {
+func makeEvents(t *testing.T, in [][]byte) (out []PDU) {
 	for _, raw := range in {
 		ev, err := newEventFromTrustedJSON(raw, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {

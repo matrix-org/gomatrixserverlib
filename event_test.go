@@ -315,7 +315,7 @@ func (a *authProvider) Valid() bool {
 	return a.valid
 }
 
-func (a *authProvider) Create() (*Event, error) {
+func (a *authProvider) Create() (PDU, error) {
 	const validEventJSON = `{
         "auth_events":[
             "$urlsafe_base64_encoded_eventid"
@@ -351,18 +351,18 @@ func (a *authProvider) Create() (*Event, error) {
 	return event, err
 }
 
-func (a *authProvider) PowerLevels() (*Event, error) {
+func (a *authProvider) PowerLevels() (PDU, error) {
 	return &Event{}, nil
 }
 
-func (a *authProvider) JoinRules() (*Event, error) {
+func (a *authProvider) JoinRules() (PDU, error) {
 	return &Event{}, nil
 }
 
-func (a *authProvider) Member(stateKey string) (*Event, error) {
+func (a *authProvider) Member(stateKey string) (PDU, error) {
 	return &Event{}, nil
 }
 
-func (a *authProvider) ThirdPartyInvite(stateKey string) (*Event, error) {
+func (a *authProvider) ThirdPartyInvite(stateKey string) (PDU, error) {
 	return &Event{}, nil
 }

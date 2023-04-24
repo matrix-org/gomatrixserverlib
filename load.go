@@ -9,7 +9,7 @@ import (
 
 // EventLoadResult is the result of loading and verifying an event in the EventsLoader.
 type EventLoadResult struct {
-	Event    *HeaderedEvent
+	Event    PDU
 	Error    error
 	SoftFail bool
 }
@@ -53,7 +53,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 
 	// 1. Is a valid event, otherwise it is dropped.
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
-	events := make([]*Event, 0, len(rawEvents))
+	events := make([]PDU, 0, len(rawEvents))
 	errs := make([]error, 0, len(rawEvents))
 	for _, rawEv := range rawEvents {
 		event, err := newEventFromUntrustedJSON(rawEv, verImpl)
@@ -83,7 +83,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
 	}
 	for i := range events {
-		h := events[i].Headered(l.roomVer)
+		h := events[i]
 		results[i] = EventLoadResult{
 			Event: h,
 		}

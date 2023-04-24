@@ -29,12 +29,12 @@ import (
 
 type EventJSONs []spec.RawJSON
 
-func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Event {
+func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []PDU {
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
 		return nil
 	}
-	events := make([]*Event, 0, len(e))
+	events := make([]PDU, 0, len(e))
 	for _, js := range e {
 		event, err := verImpl.NewEventFromTrustedJSON(js, redacted)
 		if err != nil {
@@ -45,12 +45,12 @@ func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Eve
 	return events
 }
 
-func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
+func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []PDU {
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
 		return nil
 	}
-	events := make([]*Event, 0, len(e))
+	events := make([]PDU, 0, len(e))
 	for _, js := range e {
 		event, err := verImpl.NewEventFromUntrustedJSON(js)
 		if err != nil {
@@ -69,7 +69,7 @@ func NewEventJSONsFromHeaderedEvents(he []*HeaderedEvent) EventJSONs {
 	return events
 }
 
-func NewEventJSONsFromEvents(he []*Event) EventJSONs {
+func NewEventJSONsFromEvents(he []PDU) EventJSONs {
 	events := make(EventJSONs, len(he))
 	for i := range he {
 		events[i] = he[i].JSON()

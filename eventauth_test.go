@@ -75,7 +75,7 @@ func testStateNeededForAuth(t *testing.T, eventdata string, builder *EventBuilde
 	if err := json.Unmarshal([]byte(eventdata), &events); err != nil {
 		panic(err)
 	}
-	got := StateNeededForAuth(events)
+	got := StateNeededForAuth(ToPDUs(events))
 	if !stateNeededEquals(got, want) {
 		t.Errorf("Testing StateNeededForAuth(%#v), wanted %#v got %#v", events, want, got)
 	}
@@ -213,7 +213,7 @@ type testAuthEvents struct {
 	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
 }
 
-func (tae *testAuthEvents) Create() (*Event, error) {
+func (tae *testAuthEvents) Create() (PDU, error) {
 	if len(tae.CreateJSON) == 0 {
 		return nil, nil
 	}
@@ -224,7 +224,7 @@ func (tae *testAuthEvents) Create() (*Event, error) {
 	return event, nil
 }
 
-func (tae *testAuthEvents) JoinRules() (*Event, error) {
+func (tae *testAuthEvents) JoinRules() (PDU, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
@@ -235,7 +235,7 @@ func (tae *testAuthEvents) JoinRules() (*Event, error) {
 	return event, nil
 }
 
-func (tae *testAuthEvents) PowerLevels() (*Event, error) {
+func (tae *testAuthEvents) PowerLevels() (PDU, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
@@ -246,7 +246,7 @@ func (tae *testAuthEvents) PowerLevels() (*Event, error) {
 	return event, nil
 }
 
-func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
+func (tae *testAuthEvents) Member(stateKey string) (PDU, error) {
 	if len(tae.MemberJSON[stateKey]) == 0 {
 		return nil, nil
 	}
@@ -257,7 +257,7 @@ func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
 	return event, nil
 }
 
-func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
+func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (PDU, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
@@ -1020,8 +1020,8 @@ func TestAuthEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
-	a := NewAuthEvents([]*Event{power})
-	var e *Event
+	a := NewAuthEvents(ToPDUs([]*Event{power}))
+	var e PDU
 	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
 	}

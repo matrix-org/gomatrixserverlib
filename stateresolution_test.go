@@ -25,7 +25,7 @@ func TestConflictEventSorter(t *testing.T) {
 		{roomVersion: RoomVersionV1, fields: f3},
 	}
 
-	got := sortConflictedEventsByDepthAndSHA1(input)
+	got := sortConflictedEventsByDepthAndSHA1(ToPDUs(input))
 	want := []conflictedEvent{
 		{depth: 1, event: input[0]},
 		{depth: 2, event: input[2]},
@@ -55,7 +55,7 @@ func TestStateResV1(t *testing.T) {
 
 	authEvents := []*Event{a1, a2, a3}
 
-	resolved, err := ResolveConflicts(RoomVersionV1, conflicted, authEvents)
+	resolved, err := ResolveConflicts(RoomVersionV1, ToPDUs(conflicted), ToPDUs(authEvents))
 	if err != nil {
 		t.Fatalf("failed to resolve conflicts: %s", err)
 	}

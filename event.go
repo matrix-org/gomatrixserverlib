@@ -44,6 +44,26 @@ type StateKeyTuple struct {
 	StateKey string
 }
 
+type PDU interface {
+	EventID() string
+	Sender() string
+	RoomID() string
+	Depth() int64
+	Content() []byte
+	JSON() []byte
+	Type() string
+	StateKey() *string
+	StateKeyEquals(s string) bool
+	EventReference() EventReference // TODO remove
+	AuthEventIDs() []string         // TODO remove
+	PrevEventIDs() []string         // TODO remove?
+	Redacts() string
+	Version() RoomVersion
+	OriginServerTS() spec.Timestamp
+	PowerLevels() (*PowerLevelContent, error)
+	Membership() (string, error)
+}
+
 // An EventReference is a reference to a matrix event.
 type EventReference struct {
 	// The event ID of the event.
@@ -153,6 +173,15 @@ type Event struct {
 		CacheCost() int
 	}
 	roomVersion RoomVersion
+}
+
+// Generic function to convert []*Event or []*HeaderedEvent to []PDU
+func ToPDUs[T PDU](events []T) []PDU {
+	result := make([]PDU, len(events))
+	for i, p := range events {
+		result[i] = p
+	}
+	return result
 }
 
 type eventFields struct {
@@ -362,41 +391,42 @@ func (eb *EventBuilder) Build(
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (result *Event, err error) {
+func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (PDU, error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
-		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
-		return
+		err := fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
+		return nil, err
 	}
 	if roomVersion.EnforceCanonicalJSON() {
-		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
+		if err := verifyEnforcedCanonicalJSON(eventJSON); err != nil {
 			err = BadJSONError{err}
-			return
+			return nil, err
 		}
 	}
 
-	result = &Event{}
+	var err error
+	result := &Event{}
 	result.roomVersion = roomVersion.Version()
 
 	eventFormat := roomVersion.EventFormat()
 
 	if eventJSON, err = sjson.DeleteBytes(eventJSON, "unsigned"); err != nil {
-		return
+		return nil, err
 	}
 	if eventFormat == EventFormatV2 {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
+			return nil, err
 		}
 	}
 
 	if err = result.populateFieldsFromJSON("", eventJSON); err != nil {
-		return
+		return nil, err
 	}
 
 	// Synapse removes these keys from events in case a server accidentally added them.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/crypto/event_signing.py#L57-L62
 	for _, key := range []string{"outlier", "destinations", "age_ts"} {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
-			return
+			return nil, err
 		}
 	}
 
@@ -410,7 +440,7 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 		// because they've been tampered with.
 		var redactedJSON []byte
 		if redactedJSON, err = roomVersion.RedactEventJSON(eventJSON); err != nil {
-			return
+			return nil, err
 		}
 
 		redactedJSON = CanonicalJSONAssumeValid(redactedJSON)
@@ -423,24 +453,24 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 		// but means that parsing unredacted events is fast.
 		if !bytes.Equal(redactedJSON, eventJSON) {
 			if result, err = newEventFromTrustedJSON(redactedJSON, true, roomVersion); err != nil {
-				return
+				return nil, err
 			}
 		}
 	}
 
 	err = result.CheckFields()
-	return
+	return result, nil
 }
 
 // newEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *Event, err error) {
-	result = &Event{}
+func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (*Event, error) {
+	result := &Event{}
 	result.roomVersion = roomVersion.Version()
 	result.redacted = redacted
-	err = result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
-	return
+	err := result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
+	return result, err
 }
 
 // newEventFromTrustedJSONWithEventID loads a new event from some JSON that must be valid
@@ -448,12 +478,12 @@ func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomV
 // an event from the database and NEVER when accepting an event over federation.
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
-func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *Event, err error) {
-	result = &Event{}
+func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (PDU, error) {
+	result := &Event{}
 	result.roomVersion = roomVersion.Version()
 	result.redacted = redacted
-	err = result.populateFieldsFromJSON(eventID, eventJSON)
-	return
+	err := result.populateFieldsFromJSON(eventID, eventJSON)
+	return result, err
 }
 
 // populateFieldsFromJSON takes the JSON and populates the event

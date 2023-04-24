@@ -23,9 +23,9 @@ type IRoomVersion interface {
 	EnforceCanonicalJSON() bool
 	RequireIntegerPowerLevels() bool
 	RedactEventJSON(eventJSON []byte) ([]byte, error)
-	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error)
-	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error)
-	NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error)
+	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error)
+	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result PDU, err error)
+	NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error)
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
@@ -427,15 +427,15 @@ func (v RoomVersionImpl) RedactEventJSON(eventJSON []byte) ([]byte, error) {
 	return v.redactionAlgorithm(eventJSON)
 }
 
-func (v RoomVersionImpl) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error) {
 	return newEventFromTrustedJSON(eventJSON, redacted, v)
 }
 
-func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result PDU, err error) {
 	return newEventFromTrustedJSONWithEventID(eventID, eventJSON, redacted, v)
 }
 
-func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
 }
 

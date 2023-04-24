@@ -38,7 +38,7 @@ type inviteV2RequestHeaders struct {
 type InviteV2Request struct {
 	fields struct {
 		inviteV2RequestHeaders
-		Event *gomatrixserverlib.Event `json:"event"`
+		Event gomatrixserverlib.PDU `json:"event"`
 	}
 }
 
@@ -66,7 +66,7 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 }
 
 // Event returns the invite event.
-func (i *InviteV2Request) Event() *gomatrixserverlib.Event {
+func (i *InviteV2Request) Event() gomatrixserverlib.PDU {
 	return i.fields.Event
 }
 

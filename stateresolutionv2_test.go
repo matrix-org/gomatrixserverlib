@@ -420,7 +420,7 @@ func TestReverseTopologicalEventSorting(t *testing.T) {
 	graph := getBaseStateResV2Graph()
 	var base []*Event
 	base = append(base, graph...)
-	input := r.reverseTopologicalOrdering(base, TopologicalOrderByAuthEvents)
+	input := r.reverseTopologicalOrdering(ToPDUs(base), TopologicalOrderByAuthEvents)
 
 	expected := []string{
 		"$CREATE:example.com", "$IMA:example.com", "$IPOWER:example.com",
@@ -483,9 +483,9 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 		t.Log("  ", string(v.Content()))
 	}
 	result := ResolveStateConflictsV2(
-		conflicted,   // conflicted set
-		unconflicted, // unconflicted set
-		events,       // full auth set
+		ToPDUs(conflicted),   // conflicted set
+		ToPDUs(unconflicted), // unconflicted set
+		ToPDUs(events),       // full auth set
 	)
 	t.Log("Resolved:")
 	for k, v := range result {
@@ -508,9 +508,9 @@ func runStateResolutionV2(t *testing.T, additional []*Event, expected []string) 
 	conflicted, unconflicted := separate(input)
 
 	result := ResolveStateConflictsV2(
-		conflicted,   // conflicted set
-		unconflicted, // unconflicted set
-		input,        // full auth set
+		ToPDUs(conflicted),   // conflicted set
+		ToPDUs(unconflicted), // unconflicted set
+		ToPDUs(input),        // full auth set
 	)
 
 	t.Log("Result:")

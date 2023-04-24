@@ -29,15 +29,15 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSONVerifier) []error {
+func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier) []error {
 	errors := make([]error, 0, len(events))
 	for _, e := range events {
-		errors = append(errors, e.VerifyEventSignatures(ctx, verifier))
+		errors = append(errors, VerifyEventSignatures(ctx, e, verifier))
 	}
 	return errors
 }
 
-func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
+func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) error {
 	needed := map[spec.ServerName]struct{}{}
 
 	// The sender should have signed the event in all cases.
@@ -47,7 +47,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 	}
 	needed[serverName] = struct{}{}
 
-	verImpl, err := GetRoomVersion(e.roomVersion)
+	verImpl, err := GetRoomVersion(e.Version())
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 
 	strictValidityChecking := verImpl.StrictValidityChecking()
 
-	redactedJSON, err := verImpl.RedactEventJSON(e.eventJSON)
+	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
 		return fmt.Errorf("failed to redact event: %w", err)
 	}

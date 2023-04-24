@@ -13,10 +13,10 @@ import (
 type StateProvider interface {
 	// StateIDsBeforeEvent returns a list of state event IDs for the event ID provided, which represent the entire
 	// room state before that event.
-	StateIDsBeforeEvent(ctx context.Context, event *HeaderedEvent) ([]string, error)
+	StateIDsBeforeEvent(ctx context.Context, event PDU) ([]string, error)
 	// StateBeforeEvent returns the state of the room before the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
-	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error)
+	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error)
 }
 
 type FederatedStateClient interface {
@@ -60,7 +60,7 @@ type FederatedStateProvider struct {
 	RememberAuthEvents bool
 	// Maps which are populated if AuthEvents is true, so you know which events are required to do PDU checks.
 	EventToAuthEventIDs map[string][]string
-	AuthEventMap        map[string]*Event
+	AuthEventMap        map[string]PDU
 }
 
 // StateIDsBeforeEvent implements StateProvider
@@ -76,7 +76,7 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 }
 
 // StateBeforeEvent implements StateProvider
-func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]PDU, error) {
 	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 		}
 	}
 
-	result := make(map[string]*Event)
+	result := make(map[string]PDU)
 	for _, js := range res.GetStateEvents() {
 		event, err := roomVerImpl.NewEventFromUntrustedJSON(js)
 		if err != nil {
@@ -115,7 +115,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 // This check initially attempts to validate that the auth_events are in the target room state, and if they are it will short-circuit
 // and succeed early. THIS IS ONLY VALID IF STEP 4 HAS BEEN PREVIOUSLY APPLIED. Otherwise, a malicious server could lie and say that
 // no auth_events are required and this function will short-circuit and allow it.
-func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify *HeaderedEvent, allowValidation bool) error {
+func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify PDU, allowValidation bool) error {
 	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs before event %s: %w", eventToVerify.EventID(), err)
@@ -145,14 +145,14 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	}
 
 	// slow path: fetch the events at this state and check auth
-	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.roomVersion, eventToVerify, stateIDs)
+	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.Version(), eventToVerify, stateIDs)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", eventToVerify.EventID(), err)
 	}
 	if ctx.Err() != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: context cancelled: %w", ctx.Err())
 	}
-	if err := checkAllowedByAuthEvents(eventToVerify.Unwrap(), roomState, nil); err != nil {
+	if err := checkAllowedByAuthEvents(eventToVerify, roomState, nil); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib.VerifyAuthRulesAtState: event %s is not allowed at state %s : %w",
 			eventToVerify.EventID(), eventToVerify.EventID(), err,
@@ -162,7 +162,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 }
 
 func checkAllowedByAuthEvents(
-	event *Event, eventsByID map[string]*Event,
+	event PDU, eventsByID map[string]PDU,
 	missingAuth AuthChainProvider,
 ) error {
 	authEvents := NewAuthEvents(nil)
@@ -230,11 +230,11 @@ func checkAllowedByAuthEvents(
 func CheckStateResponse(
 	ctx context.Context, r StateResponse, roomVersion RoomVersion,
 	keyRing JSONVerifier, missingAuth AuthChainProvider,
-) ([]*Event, []*Event, error) {
+) ([]PDU, []PDU, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
 	stateEvents := r.GetStateEvents().UntrustedEvents(roomVersion)
-	var allEvents []*Event
+	var allEvents []PDU
 	for _, event := range authEvents {
 		if event.StateKey() == nil {
 			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
@@ -275,7 +275,7 @@ func CheckStateResponse(
 	}
 
 	// Collect a map of event reference to event.
-	eventsByID := map[string]*Event{}
+	eventsByID := map[string]PDU{}
 	for i := range allEvents {
 		if _, ok := failures[allEvents[i].EventID()]; !ok {
 			eventsByID[allEvents[i].EventID()] = allEvents[i]
@@ -334,7 +334,7 @@ func CheckSendJoinResponse(
 		return nil, err
 	}
 
-	eventsByID := map[string]*Event{}
+	eventsByID := map[string]PDU{}
 	authEventProvider := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
@@ -385,17 +385,17 @@ func CheckSendJoinResponse(
 // LineariseStateResponse combines the auth events and the state events and returns
 // them in an order where every event comes after its auth events.
 // Each event will only appear once in the output list.
-func LineariseStateResponse(roomVersion RoomVersion, r StateResponse) []*Event {
+func LineariseStateResponse(roomVersion RoomVersion, r StateResponse) []PDU {
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
 	stateEvents := r.GetStateEvents().UntrustedEvents(roomVersion)
-	eventsByID := make(map[string]*Event, len(authEvents)+len(stateEvents))
+	eventsByID := make(map[string]PDU, len(authEvents)+len(stateEvents))
 	for i, event := range authEvents {
 		eventsByID[event.EventID()] = authEvents[i]
 	}
 	for i, event := range stateEvents {
 		eventsByID[event.EventID()] = stateEvents[i]
 	}
-	allEvents := make([]*Event, 0, len(eventsByID))
+	allEvents := make([]PDU, 0, len(eventsByID))
 	for _, event := range eventsByID {
 		allEvents = append(allEvents, event)
 	}
