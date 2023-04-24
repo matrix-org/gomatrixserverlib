@@ -54,7 +54,6 @@ var (
 		"m.room.create":             {"creator"},
 		"m.room.join_rules":         {"join_rule", "allow"},
 		"m.room.power_levels":       {"ban", "events", "events_default", "kick", "redact", "state_default", "users", "users_default"},
-		"m.room.aliases":            {"aliases"},
 		"m.room.history_visibility": {"history_visibility"},
 	}
 )
@@ -95,7 +94,10 @@ func redactEventJSON(eventJSON []byte, eventTypeToKeepContentFields map[string][
 	newContent := map[string]interface{}{}
 	keepContentFields := eventTypeToKeepContentFields[event.Type]
 	for _, contentKey := range keepContentFields {
-		newContent[contentKey] = event.Content[contentKey]
+		val, ok := event.Content[contentKey]
+		if ok {
+			newContent[contentKey] = val
+		}
 	}
 	// Replace the content with our new filtered content.
 	// This will zero out any keys that weren't copied in the loop above.
