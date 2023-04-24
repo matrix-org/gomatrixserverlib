@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type SendJoinInput struct {
+type PerformJoinInput struct {
 	UserID     *spec.UserID
 	RoomID     string
 	ServerName spec.ServerName
@@ -29,16 +29,16 @@ type SendJoinInput struct {
 	) gomatrixserverlib.EventProvider
 }
 
-type SendJoinCallbacks struct {
+type PerformJoinCallbacks struct {
 	FederationFailure func(serverName spec.ServerName)
 	FederationSuccess func(serverName spec.ServerName)
 }
 
-func HandleSendJoin(
+func PerformJoin(
 	ctx context.Context,
 	fedClient FederationClient,
-	input SendJoinInput,
-	callbacks SendJoinCallbacks,
+	input PerformJoinInput,
+	callbacks PerformJoinCallbacks,
 ) (*gomatrixserverlib.HeaderedEvent, gomatrixserverlib.StateResponse, error) {
 	origin := input.UserID.Domain()
 
