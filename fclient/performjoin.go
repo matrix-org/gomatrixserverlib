@@ -34,6 +34,9 @@ type PerformJoinCallbacks struct {
 	FederationSuccess func(serverName spec.ServerName)
 }
 
+// PerformJoin provides high level functionality that will attempt a federated room
+// join. On success it will return the new join event and the state snapshot returned
+// as part of the join.
 func PerformJoin(
 	ctx context.Context,
 	fedClient FederationClient,
