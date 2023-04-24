@@ -458,8 +458,7 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (PDU,
 		}
 	}
 
-	err = result.CheckFields()
-	return result, nil
+	return result, result.CheckFields()
 }
 
 // newEventFromTrustedJSON loads a new event from some JSON that must be valid.

@@ -321,7 +321,7 @@ func CheckStateResponse(
 // AuthEvents or StateEvents that do not have valid signatures.
 func CheckSendJoinResponse(
 	ctx context.Context, roomVersion RoomVersion, r StateResponse,
-	keyRing JSONVerifier, joinEvent *Event,
+	keyRing JSONVerifier, joinEvent PDU,
 	missingAuth AuthChainProvider,
 ) (StateResponse, error) {
 	// First check that the state is valid and that the events in the response
