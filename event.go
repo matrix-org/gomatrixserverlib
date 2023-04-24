@@ -456,6 +456,20 @@ func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redact
 	return
 }
 
+func (e *Event) ToHeaderedJSON() ([]byte, error) {
+	var err error
+	eventJSON := e.JSON()
+	eventJSON, err = sjson.SetBytes(eventJSON, "_room_version", e.Version())
+	if err != nil {
+		return []byte{}, err
+	}
+	eventJSON, err = sjson.SetBytes(eventJSON, "_event_id", e.EventID())
+	if err != nil {
+		return []byte{}, err
+	}
+	return eventJSON, nil
+}
+
 // populateFieldsFromJSON takes the JSON and populates the event
 // fields with it. If the event ID is already known, because the
 // event came from storage, then we pass it in here as a means of

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/tidwall/gjson"
 )
 
 // RoomVersion refers to the room version for a specific room.
@@ -23,6 +24,7 @@ type IRoomVersion interface {
 	EnforceCanonicalJSON() bool
 	RequireIntegerPowerLevels() bool
 	RedactEventJSON(eventJSON []byte) ([]byte, error)
+	NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error)
 	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error)
 	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error)
 	NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error)
@@ -437,6 +439,16 @@ func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, even
 
 func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
+}
+
+func (v RoomVersionImpl) NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error) {
+	eventID := gjson.GetBytes(headeredEventJSON, "_event_id").String()
+	roomVer := RoomVersion(gjson.GetBytes(headeredEventJSON, "_room_version").String())
+	verImpl, err := GetRoomVersion(roomVer)
+	if err != nil {
+		return nil, err
+	}
+	return newEventFromTrustedJSONWithEventID(eventID, headeredEventJSON, redacted, verImpl)
 }
 
 // UnsupportedRoomVersionError occurs when a call has been made with a room
