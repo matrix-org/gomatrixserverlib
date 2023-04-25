@@ -307,14 +307,6 @@ func StableRoomVersions() map[RoomVersion]IRoomVersion {
 	return versions
 }
 
-func RoomVersionsToList(versions map[RoomVersion]IRoomVersion) []RoomVersion {
-	var supportedVersions []RoomVersion
-	for version := range versions {
-		supportedVersions = append(supportedVersions, version)
-	}
-	return supportedVersions
-}
-
 // RoomVersionDescription contains information about a room version,
 // namely whether it is marked as supported or stable in this server
 // version, along with the state resolution algorithm, event ID etc
