@@ -1,4 +1,4 @@
-package fclient
+package gomatrixserverlib
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/sirupsen/logrus"
 )
@@ -20,15 +19,15 @@ type PerformJoinInput struct {
 	Unsigned   map[string]interface{}
 
 	PrivateKey ed25519.PrivateKey
-	KeyID      gomatrixserverlib.KeyID
-	KeyRing    *gomatrixserverlib.KeyRing
+	KeyID      KeyID
+	KeyRing    *KeyRing
 
-	EventProvider gomatrixserverlib.EventProvider
+	EventProvider EventProvider
 }
 
 type PerformJoinResponse struct {
-	JoinEvent     *gomatrixserverlib.HeaderedEvent
-	StateSnapshot gomatrixserverlib.StateResponse
+	JoinEvent     *HeaderedEvent
+	StateSnapshot StateResponse
 }
 
 // PerformJoin provides high level functionality that will attempt a federated room
@@ -36,9 +35,9 @@ type PerformJoinResponse struct {
 // as part of the join.
 func PerformJoin(
 	ctx context.Context,
-	fedClient FederationClient,
+	fedClient FederatedJoinClient,
 	input PerformJoinInput,
-) (*PerformJoinResponse, *gomatrixserverlib.FederationError) {
+) (*PerformJoinResponse, *FederationError) {
 	origin := input.UserID.Domain()
 
 	// Try to perform a make_join using the information supplied in the
@@ -52,7 +51,7 @@ func PerformJoin(
 	)
 	if err != nil {
 		// TODO: Check if the user was not allowed to join the room.
-		return nil, &gomatrixserverlib.FederationError{
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  true,
 			Reachable:  false,
@@ -63,26 +62,27 @@ func PerformJoin(
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
 	stateKey := input.UserID.Raw()
-	respMakeJoin.JoinEvent.Type = spec.MRoomMember
-	respMakeJoin.JoinEvent.Sender = input.UserID.Raw()
-	respMakeJoin.JoinEvent.StateKey = &stateKey
-	respMakeJoin.JoinEvent.RoomID = input.RoomID
-	respMakeJoin.JoinEvent.Redacts = ""
+	joinEvent := respMakeJoin.GetJoinEvent()
+	joinEvent.Type = spec.MRoomMember
+	joinEvent.Sender = input.UserID.Raw()
+	joinEvent.StateKey = &stateKey
+	joinEvent.RoomID = input.RoomID
+	joinEvent.Redacts = ""
 	if input.Content == nil {
 		input.Content = map[string]interface{}{}
 	}
-	_ = json.Unmarshal(respMakeJoin.JoinEvent.Content, &input.Content)
+	_ = json.Unmarshal(joinEvent.Content, &input.Content)
 	input.Content["membership"] = spec.Join
-	if err = respMakeJoin.JoinEvent.SetContent(input.Content); err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+	if err = joinEvent.SetContent(input.Content); err != nil {
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
 			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err),
 		}
 	}
-	if err = respMakeJoin.JoinEvent.SetUnsigned(struct{}{}); err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+	if err = joinEvent.SetUnsigned(struct{}{}); err != nil {
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -94,12 +94,13 @@ func PerformJoin(
 	// the make_join response.
 	// "If not provided, the room version is assumed to be either "1" or "2"."
 	// https://matrix.org/docs/spec/server_server/unstable#get-matrix-federation-v1-make-join-roomid-userid
-	if respMakeJoin.RoomVersion == "" {
-		respMakeJoin.RoomVersion = setDefaultRoomVersionFromJoinEvent(respMakeJoin.JoinEvent)
+	roomVersion := respMakeJoin.GetRoomVersion()
+	if roomVersion == "" {
+		roomVersion = setDefaultRoomVersionFromJoinEvent(joinEvent)
 	}
-	verImpl, err := gomatrixserverlib.GetRoomVersion(respMakeJoin.RoomVersion)
+	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -108,15 +109,15 @@ func PerformJoin(
 	}
 
 	// Build the join event.
-	event, err := respMakeJoin.JoinEvent.Build(
+	event, err := joinEvent.Build(
 		time.Now(),
 		origin,
 		input.KeyID,
 		input.PrivateKey,
-		respMakeJoin.RoomVersion,
+		respMakeJoin.GetRoomVersion(),
 	)
 	if err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -124,7 +125,7 @@ func PerformJoin(
 		}
 	}
 
-	var respState gomatrixserverlib.StateResponse
+	var respState StateResponse
 	// Try to perform a send_join using the newly built event.
 	respSendJoin, err := fedClient.SendJoin(
 		context.Background(),
@@ -133,7 +134,7 @@ func PerformJoin(
 		event,
 	)
 	if err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  true,
 			Reachable:  false,
@@ -144,9 +145,9 @@ func PerformJoin(
 	// If the remote server returned an event in the "event" key of
 	// the send_join response then we should use that instead. It may
 	// contain signatures that we don't know about.
-	if len(respSendJoin.Event) > 0 {
-		var remoteEvent *gomatrixserverlib.Event
-		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.Event)
+	if len(respSendJoin.GetJoinEvent()) > 0 {
+		var remoteEvent *Event
+		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
 			remoteEvent, input.RoomID, input.UserID,
 		) {
@@ -156,9 +157,9 @@ func PerformJoin(
 
 	// Sanity-check the join response to ensure that it has a create
 	// event, that the room version is known, etc.
-	authEvents := respSendJoin.AuthEvents.UntrustedEvents(respMakeJoin.RoomVersion)
+	authEvents := respSendJoin.GetAuthEvents().UntrustedEvents(respMakeJoin.GetRoomVersion())
 	if err = checkEventsContainCreateEvent(authEvents); err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -172,15 +173,15 @@ func PerformJoin(
 	// we'll still continue to process the join anyway so that we don't waste the effort.
 	// TODO: Can we expand Check here to return a list of missing auth
 	// events rather than failing one at a time?
-	respState, err = gomatrixserverlib.CheckSendJoinResponse(
+	respState, err = CheckSendJoinResponse(
 		context.Background(),
-		respMakeJoin.RoomVersion, &respSendJoin,
+		respMakeJoin.GetRoomVersion(), StateResponse(respSendJoin),
 		input.KeyRing,
 		event,
 		input.EventProvider,
 	)
 	if err != nil {
-		return nil, &gomatrixserverlib.FederationError{
+		return nil, &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -200,14 +201,14 @@ func PerformJoin(
 	}
 
 	return &PerformJoinResponse{
-		JoinEvent:     event.Headered(respMakeJoin.RoomVersion),
+		JoinEvent:     event.Headered(respMakeJoin.GetRoomVersion()),
 		StateSnapshot: respState,
 	}, nil
 }
 
 func setDefaultRoomVersionFromJoinEvent(
-	joinEvent gomatrixserverlib.EventBuilder,
-) gomatrixserverlib.RoomVersion {
+	joinEvent EventBuilder,
+) RoomVersion {
 	// if auth events are not event references we know it must be v3+
 	// we have to do these shenanigans to satisfy sytest, specifically for:
 	// "Outbound federation rejects m.room.create events with an unknown room version"
@@ -224,14 +225,14 @@ func setDefaultRoomVersionFromJoinEvent(
 	}
 
 	if hasEventRefs {
-		return gomatrixserverlib.RoomVersionV1
+		return RoomVersionV1
 	}
-	return gomatrixserverlib.RoomVersionV4
+	return RoomVersionV4
 }
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event *gomatrixserverlib.Event, roomID string, userID *spec.UserID) bool {
+func isWellFormedJoinMemberEvent(event *Event, roomID string, userID *spec.UserID) bool {
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
@@ -246,7 +247,7 @@ func isWellFormedJoinMemberEvent(event *gomatrixserverlib.Event, roomID string, 
 	return true
 }
 
-func checkEventsContainCreateEvent(events []*gomatrixserverlib.Event) error {
+func checkEventsContainCreateEvent(events []*Event) error {
 	// sanity check we have a create event and it has a known room version
 	for _, ev := range events {
 		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
@@ -264,8 +265,8 @@ func checkEventsContainCreateEvent(events []*gomatrixserverlib.Event) error {
 				// The version of the room. Defaults to "1" if the key does not exist.
 				verBody.Version = "1"
 			}
-			knownVersions := gomatrixserverlib.RoomVersions()
-			if _, ok := knownVersions[gomatrixserverlib.RoomVersion(verBody.Version)]; !ok {
+			knownVersions := RoomVersions()
+			if _, ok := knownVersions[RoomVersion(verBody.Version)]; !ok {
 				return fmt.Errorf("m.room.create event has an unknown room version: %s", verBody.Version)
 			}
 			return nil
