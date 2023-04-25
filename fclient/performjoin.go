@@ -142,7 +142,7 @@ func PerformJoin(
 	}
 
 	// If the remote server returned an event in the "event" key of
-	// the send_join request then we should use that instead. It may
+	// the send_join response then we should use that instead. It may
 	// contain signatures that we don't know about.
 	if len(respSendJoin.Event) > 0 {
 		var remoteEvent *gomatrixserverlib.Event
