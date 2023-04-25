@@ -136,11 +136,10 @@ func PerformJoin(
 		return nil, nil, fmt.Errorf("sanityCheckAuthChain: %w", err)
 	}
 
-	// Process the join response in a goroutine. The idea here is
-	// that we'll try and wait for as long as possible for the work
-	// to complete, but if the client does give up waiting, we'll
-	// still continue to process the join anyway so that we don't
-	// waste the effort.
+	// Process the send_join response. The idea here is that we'll try and wait
+	// for as long as possible for the work to complete by using a background
+	// context instead of the provided ctx. If the client does give up waiting,
+	// we'll still continue to process the join anyway so that we don't waste the effort.
 	// TODO: Can we expand Check here to return a list of missing auth
 	// events rather than failing one at a time?
 	respState, err = gomatrixserverlib.CheckSendJoinResponse(
