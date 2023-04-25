@@ -5,6 +5,7 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // RoomVersion refers to the room version for a specific room.
@@ -24,7 +25,6 @@ type IRoomVersion interface {
 	EnforceCanonicalJSON() bool
 	RequireIntegerPowerLevels() bool
 	RedactEventJSON(eventJSON []byte) ([]byte, error)
-	NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error)
 	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error)
 	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error)
 	NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error)
@@ -441,13 +441,18 @@ func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result *Ev
 	return newEventFromUntrustedJSON(eventJSON, v)
 }
 
-func (v RoomVersionImpl) NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error) {
+// NewEventFromHeaderedJSON creates a new event where the room version is embedded in the JSON bytes.
+// The version is contained in the top level "_room_version" key.
+func NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error) {
 	eventID := gjson.GetBytes(headeredEventJSON, "_event_id").String()
 	roomVer := RoomVersion(gjson.GetBytes(headeredEventJSON, "_room_version").String())
 	verImpl, err := GetRoomVersion(roomVer)
 	if err != nil {
 		return nil, err
 	}
+	headeredEventJSON, _ = sjson.DeleteBytes(headeredEventJSON, "_event_id")
+	headeredEventJSON, _ = sjson.DeleteBytes(headeredEventJSON, "_room_version")
+
 	return newEventFromTrustedJSONWithEventID(eventID, headeredEventJSON, redacted, verImpl)
 }
 

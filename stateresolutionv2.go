@@ -198,19 +198,16 @@ func ReverseTopologicalOrdering(input []*Event, order TopologicalOrder) []*Event
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order TopologicalOrder) []*HeaderedEvent {
+func HeaderedReverseTopologicalOrdering(events []*Event, order TopologicalOrder) []*Event {
 	r := stateResolverV2{}
 	input := make([]*Event, len(events))
-	hisVis := make(map[string]HistoryVisibility, len(events))
 	for i := range events {
-		unwrapped := events[i].Unwrap()
+		unwrapped := events[i]
 		input[i] = unwrapped
-		hisVis[unwrapped.EventID()] = events[i].Visibility
 	}
-	result := make([]*HeaderedEvent, len(input))
+	result := make([]*Event, len(input))
 	for i, e := range r.reverseTopologicalOrdering(input, order) {
-		result[i] = e.Headered(e.roomVersion)
-		result[i].Visibility = hisVis[e.EventID()]
+		result[i] = e
 	}
 	return result
 }

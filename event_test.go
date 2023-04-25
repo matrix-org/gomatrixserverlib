@@ -18,8 +18,6 @@ package gomatrixserverlib
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -192,13 +190,13 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	j, err := json.Marshal(event.Headered(RoomVersionV1))
+	j, err := event.ToHeaderedJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = newEventFromUntrustedJSON(j, MustGetRoomVersion(RoomVersionV1))
-	if !errors.Is(err, UnexpectedHeaderedEvent{}) {
-		t.Fatal("expected an UnexpectedHeaderedEvent error but got:", err)
+	if err == nil {
+		t.Fatal("expected an error but got none:")
 	}
 }
 

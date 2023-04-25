@@ -61,14 +61,6 @@ func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
 	return events
 }
 
-func NewEventJSONsFromHeaderedEvents(he []*HeaderedEvent) EventJSONs {
-	events := make(EventJSONs, len(he))
-	for i := range he {
-		events[i] = he[i].JSON()
-	}
-	return events
-}
-
 func NewEventJSONsFromEvents(he []*Event) EventJSONs {
 	events := make(EventJSONs, len(he))
 	for i := range he {

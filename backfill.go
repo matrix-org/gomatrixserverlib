@@ -48,13 +48,13 @@ type BackfillRequester interface {
 //
 // TODO: When does it make sense to return errors?
 func RequestBackfill(ctx context.Context, origin spec.ServerName, b BackfillRequester, keyRing JSONVerifier,
-	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]*HeaderedEvent, error) {
+	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]*Event, error) {
 
 	if len(fromEventIDs) == 0 {
 		return nil, nil
 	}
 	haveEventIDs := make(map[string]bool)
-	var result []*HeaderedEvent
+	var result []*Event
 	loader := NewEventsLoader(ver, keyRing, b, b.ProvideEvents, false)
 	// pick a server to backfill from
 	// TODO: use other event IDs and make a set out of all the returned servers?

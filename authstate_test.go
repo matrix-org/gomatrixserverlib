@@ -10,10 +10,10 @@ type TestStateProvider struct {
 	Events   []*Event
 }
 
-func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent *HeaderedEvent) ([]string, error) {
+func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent *Event) ([]string, error) {
 	return p.StateIDs, nil
 }
-func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *Event, eventIDs []string) (map[string]*Event, error) {
 	result := make(map[string]*Event, len(p.Events))
 	for i := range p.Events {
 		result[p.Events[i].EventID()] = p.Events[i]
@@ -41,7 +41,7 @@ func TestVerifyAuthRulesAtStateValidate(t *testing.T) {
 		t.Fatalf("Failed to load test event: %s", err)
 	}
 
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify.Headered(RoomVersionV1), true)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, true)
 	if err != nil {
 		t.Fatalf("VerifyAuthRulesAtState expect no error, got %s", err)
 	}
@@ -69,7 +69,7 @@ func TestVerifyAuthRulesAtStateVerify(t *testing.T) {
 		t.Fatalf("Failed to load test event: %s", err)
 	}
 
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify.Headered(RoomVersionV1), false)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, false)
 	if err != nil {
 		t.Fatalf("VerifyAuthRulesAtState expect no error, got %s", err)
 	}
@@ -98,12 +98,12 @@ func TestVerifyAuthRulesAtStateVerifyFailure(t *testing.T) {
 		t.Fatalf("Failed to load test event: %s", err)
 	}
 
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify.Headered(RoomVersionV1), false)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, false)
 	if err == nil {
 		t.Fatalf("VerifyAuthRulesAtState expected error, got none")
 	}
 	// conversely the check should PASS if validation is enabled, as validation assumes Allowed checks were already run
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify.Headered(RoomVersionV1), true)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, true)
 	if err != nil {
 		t.Fatalf("VerifyAuthRulesAtState expect no error, got %s", err)
 	}
@@ -133,7 +133,7 @@ func TestVerifyAuthRulesAtStateBadAuthRuleButValidState(t *testing.T) {
 	}
 	// this should still pass with or without validation checks
 	for _, b := range []bool{true, false} {
-		err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify.Headered(RoomVersionV1), b)
+		err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, b)
 		if err == nil {
 			t.Fatalf("VerifyAuthRulesAtState expected error, got none")
 		}

@@ -364,7 +364,7 @@ func (eb *EventBuilder) Build(
 // This should be used when receiving new events from remote servers.
 func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (result *Event, err error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
-		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: %w", UnexpectedHeaderedEvent{})
+		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))
 		return
 	}
 	if roomVersion.EnforceCanonicalJSON() {
@@ -1093,15 +1093,6 @@ func (e Event) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
 	}
 	return e.eventJSON, nil
-}
-
-// Headered returns a HeaderedEvent encapsulating the original event, with the
-// supplied headers.
-func (e *Event) Headered(roomVersion RoomVersion) *HeaderedEvent {
-	return &HeaderedEvent{
-		RoomVersion: roomVersion,
-		Event:       e,
-	}
 }
 
 // UnmarshalJSON implements json.Unmarshaller

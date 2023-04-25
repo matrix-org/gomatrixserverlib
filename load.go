@@ -9,7 +9,7 @@ import (
 
 // EventLoadResult is the result of loading and verifying an event in the EventsLoader.
 type EventLoadResult struct {
-	Event    *HeaderedEvent
+	Event    *Event
 	Error    error
 	SoftFail bool
 }
@@ -83,7 +83,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
 	}
 	for i := range events {
-		h := events[i].Headered(l.roomVer)
+		h := events[i]
 		results[i] = EventLoadResult{
 			Event: h,
 		}

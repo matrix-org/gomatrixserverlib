@@ -3,6 +3,7 @@ package fclient
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -12,20 +13,20 @@ import (
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
-func NewInviteV2Request(event *gomatrixserverlib.HeaderedEvent, state []InviteV2StrippedState) (
+func NewInviteV2Request(event *gomatrixserverlib.Event, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
-	if !gomatrixserverlib.KnownRoomVersion(event.RoomVersion) {
+	if !gomatrixserverlib.KnownRoomVersion(event.Version()) {
 		err = gomatrixserverlib.UnsupportedRoomVersionError{
-			Version: event.RoomVersion,
+			Version: event.Version(),
 		}
 		return
 	}
 	request.fields.inviteV2RequestHeaders = inviteV2RequestHeaders{
-		RoomVersion:     event.RoomVersion,
+		RoomVersion:     event.Version(),
 		InviteRoomState: state,
 	}
-	request.fields.Event = event.Unwrap()
+	request.fields.Event = event
 	return
 }
 
@@ -44,6 +45,7 @@ type InviteV2Request struct {
 
 // MarshalJSON implements json.Marshaller
 func (i InviteV2Request) MarshalJSON() ([]byte, error) {
+	fmt.Println(string(i.fields.Event.JSON()))
 	return json.Marshal(i.fields)
 }
 
