@@ -23,10 +23,7 @@ type PerformJoinInput struct {
 	KeyID      gomatrixserverlib.KeyID
 	KeyRing    *gomatrixserverlib.KeyRing
 
-	EventProvider func(
-		ctx context.Context, fedClient FederationClient,
-		keyRing gomatrixserverlib.JSONVerifier, origin, server spec.ServerName,
-	) gomatrixserverlib.EventProvider
+	EventProvider gomatrixserverlib.EventProvider
 }
 
 type PerformJoinCallbacks struct {
@@ -151,7 +148,7 @@ func PerformJoin(
 		respMakeJoin.RoomVersion, &respSendJoin,
 		input.KeyRing,
 		event,
-		input.EventProvider(ctx, fedClient, input.KeyRing, origin, input.ServerName),
+		input.EventProvider,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("respSendJoin.Check: %w", err)
