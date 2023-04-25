@@ -122,7 +122,7 @@ func PerformJoin(
 	if len(respSendJoin.Event) > 0 {
 		var remoteEvent *gomatrixserverlib.Event
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.Event)
-		if err == nil && isWellFormedMembershipEvent(
+		if err == nil && isWellFormedJoinEvent(
 			remoteEvent, input.RoomID, input.UserID,
 		) {
 			event = remoteEvent
@@ -192,9 +192,9 @@ func setDefaultRoomVersionFromJoinEvent(
 	return gomatrixserverlib.RoomVersionV4
 }
 
-// isWellFormedMembershipEvent returns true if the event looks like a legitimate
+// isWellFormedJoinEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedMembershipEvent(event *gomatrixserverlib.Event, roomID string, userID *spec.UserID) bool {
+func isWellFormedJoinEvent(event *gomatrixserverlib.Event, roomID string, userID *spec.UserID) bool {
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
