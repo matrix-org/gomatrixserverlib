@@ -31,6 +31,11 @@ type PerformJoinCallbacks struct {
 	FederationSuccess func(serverName spec.ServerName)
 }
 
+type PerformJoinResponse struct {
+	JoinEvent     *gomatrixserverlib.HeaderedEvent
+	StateSnapshot gomatrixserverlib.StateResponse
+}
+
 // PerformJoin provides high level functionality that will attempt a federated room
 // join. On success it will return the new join event and the state snapshot returned
 // as part of the join.
@@ -39,7 +44,7 @@ func PerformJoin(
 	fedClient FederationClient,
 	input PerformJoinInput,
 	callbacks PerformJoinCallbacks,
-) (*gomatrixserverlib.HeaderedEvent, gomatrixserverlib.StateResponse, error) {
+) (*PerformJoinResponse, error) {
 	origin := input.UserID.Domain()
 
 	// Try to perform a make_join using the information supplied in the
@@ -54,7 +59,7 @@ func PerformJoin(
 	if err != nil {
 		// TODO: Check if the user was not allowed to join the room.
 		callbacks.FederationFailure(input.ServerName)
-		return nil, nil, fmt.Errorf("r.federation.MakeJoin: %w", err)
+		return nil, fmt.Errorf("r.federation.MakeJoin: %w", err)
 	}
 	callbacks.FederationSuccess(input.ServerName)
 
@@ -72,10 +77,10 @@ func PerformJoin(
 	_ = json.Unmarshal(respMakeJoin.JoinEvent.Content, &input.Content)
 	input.Content["membership"] = spec.Join
 	if err = respMakeJoin.JoinEvent.SetContent(input.Content); err != nil {
-		return nil, nil, fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err)
+		return nil, fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err)
 	}
 	if err = respMakeJoin.JoinEvent.SetUnsigned(struct{}{}); err != nil {
-		return nil, nil, fmt.Errorf("respMakeJoin.JoinEvent.SetUnsigned: %w", err)
+		return nil, fmt.Errorf("respMakeJoin.JoinEvent.SetUnsigned: %w", err)
 	}
 
 	// Work out if we support the room version that has been supplied in
@@ -87,7 +92,7 @@ func PerformJoin(
 	}
 	verImpl, err := gomatrixserverlib.GetRoomVersion(respMakeJoin.RoomVersion)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Build the join event.
@@ -99,7 +104,7 @@ func PerformJoin(
 		respMakeJoin.RoomVersion,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("respMakeJoin.JoinEvent.Build: %w", err)
+		return nil, fmt.Errorf("respMakeJoin.JoinEvent.Build: %w", err)
 	}
 
 	var respState gomatrixserverlib.StateResponse
@@ -112,7 +117,7 @@ func PerformJoin(
 	)
 	if err != nil {
 		callbacks.FederationFailure(input.ServerName)
-		return nil, nil, fmt.Errorf("r.federation.SendJoin: %w", err)
+		return nil, fmt.Errorf("r.federation.SendJoin: %w", err)
 	}
 	callbacks.FederationSuccess(input.ServerName)
 
@@ -133,7 +138,7 @@ func PerformJoin(
 	// event, that the room version is known, etc.
 	authEvents := respSendJoin.AuthEvents.UntrustedEvents(respMakeJoin.RoomVersion)
 	if err = checkEventsContainCreateEvent(authEvents); err != nil {
-		return nil, nil, fmt.Errorf("sanityCheckAuthChain: %w", err)
+		return nil, fmt.Errorf("sanityCheckAuthChain: %w", err)
 	}
 
 	// Process the send_join response. The idea here is that we'll try and wait
@@ -150,7 +155,7 @@ func PerformJoin(
 		input.EventProvider,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("respSendJoin.Check: %w", err)
+		return nil, fmt.Errorf("respSendJoin.Check: %w", err)
 	}
 
 	// If we successfully performed a send_join above then the other
@@ -164,7 +169,10 @@ func PerformJoin(
 		}
 	}
 
-	return event.Headered(respMakeJoin.RoomVersion), respState, nil
+	return &PerformJoinResponse{
+		JoinEvent:     event.Headered(respMakeJoin.RoomVersion),
+		StateSnapshot: respState,
+	}, nil
 }
 
 func setDefaultRoomVersionFromJoinEvent(
