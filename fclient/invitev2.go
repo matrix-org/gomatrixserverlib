@@ -3,7 +3,6 @@ package fclient
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -45,7 +44,6 @@ type InviteV2Request struct {
 
 // MarshalJSON implements json.Marshaller
 func (i InviteV2Request) MarshalJSON() ([]byte, error) {
-	fmt.Println(string(i.fields.Event.JSON()))
 	return json.Marshal(i.fields)
 }
 
