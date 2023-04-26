@@ -38,6 +38,15 @@ func PerformJoin(
 	fedClient FederatedJoinClient,
 	input PerformJoinInput,
 ) (*PerformJoinResponse, *FederationError) {
+	if input.UserID == nil {
+		return nil, &FederationError{
+			ServerName: input.ServerName,
+			Transient:  false,
+			Reachable:  false,
+			Err:        fmt.Errorf("UserID is nil"),
+		}
+	}
+
 	origin := input.UserID.Domain()
 
 	// Try to perform a make_join using the information supplied in the
