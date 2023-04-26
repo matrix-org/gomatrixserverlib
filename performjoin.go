@@ -114,7 +114,7 @@ func PerformJoin(
 		origin,
 		input.KeyID,
 		input.PrivateKey,
-		respMakeJoin.GetRoomVersion(),
+		roomVersion,
 	)
 	if err != nil {
 		return nil, &FederationError{
@@ -157,7 +157,7 @@ func PerformJoin(
 
 	// Sanity-check the join response to ensure that it has a create
 	// event, that the room version is known, etc.
-	authEvents := respSendJoin.GetAuthEvents().UntrustedEvents(respMakeJoin.GetRoomVersion())
+	authEvents := respSendJoin.GetAuthEvents().UntrustedEvents(roomVersion)
 	if err = checkEventsContainCreateEvent(authEvents); err != nil {
 		return nil, &FederationError{
 			ServerName: input.ServerName,
@@ -175,7 +175,7 @@ func PerformJoin(
 	// events rather than failing one at a time?
 	respState, err = CheckSendJoinResponse(
 		context.Background(),
-		respMakeJoin.GetRoomVersion(), StateResponse(respSendJoin),
+		roomVersion, StateResponse(respSendJoin),
 		input.KeyRing,
 		event,
 		input.EventProvider,
@@ -201,7 +201,7 @@ func PerformJoin(
 	}
 
 	return &PerformJoinResponse{
-		JoinEvent:     event.Headered(respMakeJoin.GetRoomVersion()),
+		JoinEvent:     event.Headered(roomVersion),
 		StateSnapshot: respState,
 	}, nil
 }
