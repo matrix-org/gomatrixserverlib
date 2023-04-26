@@ -13,14 +13,17 @@ import (
 	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
-type TestMakeJoinResponse struct{ joinEvent EventBuilder }
+type TestMakeJoinResponse struct {
+	roomVersion RoomVersion
+	joinEvent   EventBuilder
+}
 
 func (t *TestMakeJoinResponse) GetJoinEvent() EventBuilder {
 	return t.joinEvent
 }
 
 func (t *TestMakeJoinResponse) GetRoomVersion() RoomVersion {
-	return RoomVersionV10
+	return t.roomVersion
 }
 
 type TestSendJoinResponse struct {
@@ -55,6 +58,7 @@ func (t *TestSendJoinResponse) GetServersInRoom() []string {
 type TestFederatedJoinClient struct {
 	shouldMakeFail   bool
 	shouldSendFail   bool
+	roomVersion      RoomVersion
 	createEvent      *Event
 	joinEvent        *Event
 	joinEventBuilder EventBuilder
@@ -65,7 +69,7 @@ func (t *TestFederatedJoinClient) MakeJoin(ctx context.Context, origin, s spec.S
 		return nil, gomatrix.HTTPError{}
 	}
 
-	return &TestMakeJoinResponse{joinEvent: t.joinEventBuilder}, nil
+	return &TestMakeJoinResponse{joinEvent: t.joinEventBuilder, roomVersion: t.roomVersion}, nil
 }
 func (t *TestFederatedJoinClient) SendJoin(ctx context.Context, origin, s spec.ServerName, event *Event) (res SendJoinResponse, err error) {
 	if t.shouldSendFail {
@@ -167,31 +171,35 @@ func TestPerformJoin(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		FedClient       FederatedJoinClient
-		Input           PerformJoinInput
-		ExpectedErr     bool
-		ExpectedHTTPErr bool
+		FedClient           FederatedJoinClient
+		Input               PerformJoinInput
+		ExpectedErr         bool
+		ExpectedHTTPErr     bool
+		ExpectedRoomVersion RoomVersion
 	}{
 		"invalid_user_id": {
-			FedClient:       &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false},
-			Input:           PerformJoinInput{UserID: nil},
-			ExpectedErr:     true,
-			ExpectedHTTPErr: false,
+			FedClient:           &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10},
+			Input:               PerformJoinInput{UserID: nil},
+			ExpectedErr:         true,
+			ExpectedHTTPErr:     false,
+			ExpectedRoomVersion: joinEvent.Version(),
 		},
 		"make_join_http_err": {
-			FedClient:       &TestFederatedJoinClient{shouldMakeFail: true, shouldSendFail: false},
-			Input:           PerformJoinInput{UserID: userID},
-			ExpectedErr:     true,
-			ExpectedHTTPErr: true,
+			FedClient:           &TestFederatedJoinClient{shouldMakeFail: true, shouldSendFail: false, roomVersion: RoomVersionV10},
+			Input:               PerformJoinInput{UserID: userID},
+			ExpectedErr:         true,
+			ExpectedHTTPErr:     true,
+			ExpectedRoomVersion: joinEvent.Version(),
 		},
 		"send_join_http_err": {
-			FedClient:       &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: true},
-			Input:           PerformJoinInput{UserID: userID, RoomID: roomID, PrivateKey: sk, KeyID: keyID},
-			ExpectedErr:     true,
-			ExpectedHTTPErr: true,
+			FedClient:           &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: true, roomVersion: RoomVersionV10},
+			Input:               PerformJoinInput{UserID: userID, RoomID: roomID, PrivateKey: sk, KeyID: keyID},
+			ExpectedErr:         true,
+			ExpectedHTTPErr:     true,
+			ExpectedRoomVersion: joinEvent.Version(),
 		},
-		"successful_join": {
-			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinEB},
+		"default_room_version": {
+			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: "", createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinEB},
 			Input: PerformJoinInput{
 				UserID:        userID,
 				RoomID:        roomID,
@@ -200,8 +208,23 @@ func TestPerformJoin(t *testing.T) {
 				KeyRing:       &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}},
 				EventProvider: eventProvider,
 			},
-			ExpectedErr:     false,
-			ExpectedHTTPErr: false,
+			ExpectedErr:         false,
+			ExpectedHTTPErr:     false,
+			ExpectedRoomVersion: RoomVersionV4,
+		},
+		"successful_join": {
+			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10, createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinEB},
+			Input: PerformJoinInput{
+				UserID:        userID,
+				RoomID:        roomID,
+				PrivateKey:    sk,
+				KeyID:         keyID,
+				KeyRing:       &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}},
+				EventProvider: eventProvider,
+			},
+			ExpectedErr:         false,
+			ExpectedHTTPErr:     false,
+			ExpectedRoomVersion: joinEvent.Version(),
 		},
 	}
 
@@ -228,6 +251,9 @@ func TestPerformJoin(t *testing.T) {
 
 				if res.JoinEvent.EventID() != joinEvent.EventID() {
 					t.Fatalf("Expected join eventID %v, got %v", joinEvent.EventID(), res.JoinEvent.EventID())
+				}
+				if res.JoinEvent.Version() != tc.ExpectedRoomVersion {
+					t.Fatalf("Expected room version %v, got %v", tc.ExpectedRoomVersion, res.JoinEvent.Version())
 				}
 			}
 		})
