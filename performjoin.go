@@ -26,7 +26,7 @@ type PerformJoinInput struct {
 }
 
 type PerformJoinResponse struct {
-	JoinEvent     *HeaderedEvent
+	JoinEvent     *Event
 	StateSnapshot StateResponse
 }
 
@@ -201,7 +201,7 @@ func PerformJoin(
 	}
 
 	return &PerformJoinResponse{
-		JoinEvent:     event.Headered(roomVersion),
+		JoinEvent:     event,
 		StateSnapshot: respState,
 	}, nil
 }
