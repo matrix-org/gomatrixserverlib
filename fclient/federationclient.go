@@ -204,7 +204,7 @@ func roomVersionsToList(
 func (ac *federationClient) MakeJoin(
 	ctx context.Context, origin, s spec.ServerName, roomID, userID string,
 ) (res RespMakeJoin, err error) {
-	roomVersions := roomVersionsToList(gomatrixserverlib.StableRoomVersions())
+	roomVersions := roomVersionsToList(gomatrixserverlib.RoomVersions())
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +
