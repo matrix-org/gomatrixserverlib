@@ -85,6 +85,8 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: "matrix-org/dendrite"
+      - name: Install libolm
+        run: sudo apt-get install libolm-dev libolm3
       - name: Setup go
         uses: actions/setup-go@v3
         with:
