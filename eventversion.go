@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // RoomVersion refers to the room version for a specific room.
@@ -437,6 +439,21 @@ func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, even
 
 func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
+}
+
+// NewEventFromHeaderedJSON creates a new event where the room version is embedded in the JSON bytes.
+// The version is contained in the top level "_room_version" key.
+func NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error) {
+	eventID := gjson.GetBytes(headeredEventJSON, "_event_id").String()
+	roomVer := RoomVersion(gjson.GetBytes(headeredEventJSON, "_room_version").String())
+	verImpl, err := GetRoomVersion(roomVer)
+	if err != nil {
+		return nil, err
+	}
+	headeredEventJSON, _ = sjson.DeleteBytes(headeredEventJSON, "_event_id")
+	headeredEventJSON, _ = sjson.DeleteBytes(headeredEventJSON, "_room_version")
+
+	return newEventFromTrustedJSONWithEventID(eventID, headeredEventJSON, redacted, verImpl)
 }
 
 // UnsupportedRoomVersionError occurs when a call has been made with a room

@@ -17,7 +17,7 @@ func TestVerifyEventAuthChain(t *testing.T) {
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}],["$fnwGrQEpiOIUoDU2:baba.is.you",{"sha256":"gUr26K5Tt7GQlNs8BlUup92gOzAZHbT8WNEobkrEIqk"}]],"content":{"body":"Test Message"},"depth":3,"event_id":"$4Kp0G1yWZ6tNpeI7:baba.is.you","hashes":{"sha256":"B+MjcGZRh72iaGOgyNbIxgFkHDJo6NO8NQDgiKDKDBA"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$xOJZshi3NeKKJiCf:baba.is.you",{"sha256":"5PGENImHC863Yz9sO6IJX+bIQthZFI2RMhFZyFy+bC0"}]],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"rP+Ybp17GPCqQBrTQ3yz+q6PihdaMWvNY3SngV8aDLHv8wdDlH4ULGnjsB+Az7trqYdCE3rZVo9M7Hy5tOObDg"}},"type":"m.room.message"}`),
 	}
 	testEvent, _ := gomatrixserverlib.MustGetRoomVersion(gomatrixserverlib.RoomVersionV1).NewEventFromTrustedJSON(testEvents[len(testEvents)-1], false)
-	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent.Headered(gomatrixserverlib.RoomVersionV1), provideEvents(t, testEvents)); err != nil {
+	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent, provideEvents(t, testEvents)); err != nil {
 		t.Fatalf("Expected event to pass auth chain checks, but failed: %s", err)
 	}
 }
@@ -32,7 +32,7 @@ func TestVerifyEventAuthChainMissing(t *testing.T) {
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}],["$fnwGrQEpiOIUoDU2:baba.is.you",{"sha256":"gUr26K5Tt7GQlNs8BlUup92gOzAZHbT8WNEobkrEIqk"}]],"content":{"body":"Test Message"},"depth":3,"event_id":"$4Kp0G1yWZ6tNpeI7:baba.is.you","hashes":{"sha256":"B+MjcGZRh72iaGOgyNbIxgFkHDJo6NO8NQDgiKDKDBA"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$xOJZshi3NeKKJiCf:baba.is.you",{"sha256":"5PGENImHC863Yz9sO6IJX+bIQthZFI2RMhFZyFy+bC0"}]],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"rP+Ybp17GPCqQBrTQ3yz+q6PihdaMWvNY3SngV8aDLHv8wdDlH4ULGnjsB+Az7trqYdCE3rZVo9M7Hy5tOObDg"}},"type":"m.room.message"}`),
 	}
 	testEvent, _ := gomatrixserverlib.MustGetRoomVersion(gomatrixserverlib.RoomVersionV1).NewEventFromTrustedJSON(testEvents[len(testEvents)-1], false)
-	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent.Headered(gomatrixserverlib.RoomVersionV1), provideEvents(t, testEvents)); err == nil {
+	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent, provideEvents(t, testEvents)); err == nil {
 		t.Fatalf("Expected event to fail auth chain checks, but passed")
 	}
 }
@@ -48,7 +48,7 @@ func TestVerifyEventAuthChainLying(t *testing.T) {
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}]],"content":{"body":"Test Message"},"depth":3,"event_id":"$4Kp0G1yWZ6tNpeI7:baba.is.you","hashes":{"sha256":"B+MjcGZRh72iaGOgyNbIxgFkHDJo6NO8NQDgiKDKDBA"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$xOJZshi3NeKKJiCf:baba.is.you",{"sha256":"5PGENImHC863Yz9sO6IJX+bIQthZFI2RMhFZyFy+bC0"}]],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"rP+Ybp17GPCqQBrTQ3yz+q6PihdaMWvNY3SngV8aDLHv8wdDlH4ULGnjsB+Az7trqYdCE3rZVo9M7Hy5tOObDg"}},"type":"m.room.message"}`),
 	}
 	testEvent, _ := gomatrixserverlib.MustGetRoomVersion(gomatrixserverlib.RoomVersionV1).NewEventFromTrustedJSON(testEvents[len(testEvents)-1], false)
-	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent.Headered(gomatrixserverlib.RoomVersionV1), provideEvents(t, testEvents)); err == nil {
+	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent, provideEvents(t, testEvents)); err == nil {
 		t.Fatalf("Expected event to fail auth chain checks, but passed")
 	}
 }
@@ -65,7 +65,7 @@ func TestVerifyEventAuthChainCascadeFailure(t *testing.T) {
 		[]byte(`{"auth_events":[["$WCraVpPZe5TtHAqs:baba.is.you",{"sha256":"gBxQI2xzDLMoyIjkrpCJFBXC5NnrSemepc7SninSARI"}],["$fnwGrQEpiOIUoDU2:baba.is.you",{"sha256":"gUr26K5Tt7GQlNs8BlUup92gOzAZHbT8WNEobkrEIqk"}]],"content":{"body":"Test Message"},"depth":3,"event_id":"$4Kp0G1yWZ6tNpeI7:baba.is.you","hashes":{"sha256":"B+MjcGZRh72iaGOgyNbIxgFkHDJo6NO8NQDgiKDKDBA"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[["$xOJZshi3NeKKJiCf:baba.is.you",{"sha256":"5PGENImHC863Yz9sO6IJX+bIQthZFI2RMhFZyFy+bC0"}]],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"rP+Ybp17GPCqQBrTQ3yz+q6PihdaMWvNY3SngV8aDLHv8wdDlH4ULGnjsB+Az7trqYdCE3rZVo9M7Hy5tOObDg"}},"type":"m.room.message"}`),
 	}
 	testEvent, _ := gomatrixserverlib.MustGetRoomVersion(gomatrixserverlib.RoomVersionV1).NewEventFromTrustedJSON(testEvents[len(testEvents)-1], false)
-	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent.Headered(gomatrixserverlib.RoomVersionV1), provideEvents(t, testEvents)); err == nil {
+	if err := gomatrixserverlib.VerifyEventAuthChain(ctx, testEvent, provideEvents(t, testEvents)); err == nil {
 		t.Fatalf("Expected event to fail auth chain checks, but passed")
 	}
 }
