@@ -54,7 +54,7 @@ type PreviousRoom struct {
 // NewCreateContentFromAuthEvents loads the create event content from the create event in the
 // auth events.
 func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateContent, err error) {
-	var createEvent *Event
+	var createEvent PDU
 	if createEvent, err = authEvents.Create(); err != nil {
 		return
 	}
@@ -148,7 +148,7 @@ type MemberThirdPartyInviteSigned struct {
 // NewMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
 // Returns an error if there was an error loading the member event or parsing the event content.
 func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string) (c MemberContent, err error) {
-	var memberEvent *Event
+	var memberEvent PDU
 	if memberEvent, err = authEvents.Member(userID); err != nil {
 		return
 	}
@@ -163,7 +163,7 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 
 // NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
-func NewMemberContentFromEvent(event *Event) (c MemberContent, err error) {
+func NewMemberContentFromEvent(event PDU) (c MemberContent, err error) {
 	if err = json.Unmarshal(event.Content(), &c); err != nil {
 		var partial membershipContent
 		if err = json.Unmarshal(event.Content(), &partial); err != nil {
@@ -197,7 +197,7 @@ type PublicKey struct {
 // NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
 // Returns an error if there was an error loading the third party invite event or parsing the event content.
 func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, token string) (t ThirdPartyInviteContent, err error) {
-	var thirdPartyInviteEvent *Event
+	var thirdPartyInviteEvent PDU
 	if thirdPartyInviteEvent, err = authEvents.ThirdPartyInvite(token); err != nil {
 		return
 	}
@@ -408,11 +408,11 @@ func (c *PowerLevelContent) Defaults() {
 }
 
 // NewPowerLevelContentFromEvent loads the power level content from an event.
-func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error) {
+func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 	// Set the levels to their default values.
 	c.Defaults()
 
-	verImpl, err := GetRoomVersion(event.roomVersion)
+	verImpl, err := GetRoomVersion(event.Version())
 	if err != nil {
 		return c, err
 	}

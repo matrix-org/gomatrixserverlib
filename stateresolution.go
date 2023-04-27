@@ -26,10 +26,10 @@ import (
 
 // ResolveStateConflicts takes a list of state events with conflicting state keys
 // and works out which event should be used for each state event.
-func ResolveStateConflicts(conflicted []*Event, authEvents []*Event) []*Event {
+func ResolveStateConflicts(conflicted []PDU, authEvents []PDU) []PDU {
 	r := stateResolver{valid: true}
-	r.resolvedThirdPartyInvites = map[string]*Event{}
-	r.resolvedMembers = map[string]*Event{}
+	r.resolvedThirdPartyInvites = map[string]PDU{}
+	r.resolvedMembers = map[string]PDU{}
 	// Group the conflicted events by type and state key.
 	r.addConflicted(conflicted)
 	// Add the unconflicted auth events needed for auth checks.
@@ -37,9 +37,9 @@ func ResolveStateConflicts(conflicted []*Event, authEvents []*Event) []*Event {
 		r.addAuthEvent(authEvents[i])
 	}
 	// Resolve the conflicted auth events.
-	r.resolveAndAddAuthBlocks([][]*Event{r.creates})
-	r.resolveAndAddAuthBlocks([][]*Event{r.powerLevels})
-	r.resolveAndAddAuthBlocks([][]*Event{r.joinRules})
+	r.resolveAndAddAuthBlocks([][]PDU{r.creates})
+	r.resolveAndAddAuthBlocks([][]PDU{r.powerLevels})
+	r.resolveAndAddAuthBlocks([][]PDU{r.joinRules})
 	r.resolveAndAddAuthBlocks(r.thirdPartyInvites)
 	r.resolveAndAddAuthBlocks(r.members)
 	// Resolve any other conflicted state events.
@@ -63,26 +63,26 @@ type stateResolver struct {
 	//   * creates, powerLevels, joinRules have empty state keys.
 	//   * members and thirdPartyInvites are grouped by state key.
 	//   * the others are grouped by the pair of type and state key.
-	creates           []*Event
-	powerLevels       []*Event
-	joinRules         []*Event
-	thirdPartyInvites [][]*Event
-	members           [][]*Event
-	others            [][]*Event
+	creates           []PDU
+	powerLevels       []PDU
+	joinRules         []PDU
+	thirdPartyInvites [][]PDU
+	members           [][]PDU
+	others            [][]PDU
 	// The resolved auth events grouped by type and state key.
-	resolvedCreate            *Event
-	resolvedPowerLevels       *Event
-	resolvedJoinRules         *Event
-	resolvedThirdPartyInvites map[string]*Event
-	resolvedMembers           map[string]*Event
+	resolvedCreate            PDU
+	resolvedPowerLevels       PDU
+	resolvedJoinRules         PDU
+	resolvedThirdPartyInvites map[string]PDU
+	resolvedMembers           map[string]PDU
 	// The list of resolved events.
 	// This will contain one entry for each conflicted event type and state key.
-	result []*Event
+	result []PDU
 	roomID string
 	valid  bool
 }
 
-func (r *stateResolver) Create() (*Event, error) {
+func (r *stateResolver) Create() (PDU, error) {
 	return r.resolvedCreate, nil
 }
 
@@ -90,23 +90,23 @@ func (r *stateResolver) Valid() bool {
 	return r.valid
 }
 
-func (r *stateResolver) PowerLevels() (*Event, error) {
+func (r *stateResolver) PowerLevels() (PDU, error) {
 	return r.resolvedPowerLevels, nil
 }
 
-func (r *stateResolver) JoinRules() (*Event, error) {
+func (r *stateResolver) JoinRules() (PDU, error) {
 	return r.resolvedJoinRules, nil
 }
 
-func (r *stateResolver) ThirdPartyInvite(key string) (*Event, error) {
+func (r *stateResolver) ThirdPartyInvite(key string) (PDU, error) {
 	return r.resolvedThirdPartyInvites[key], nil
 }
 
-func (r *stateResolver) Member(key string) (*Event, error) {
+func (r *stateResolver) Member(key string) (PDU, error) {
 	return r.resolvedMembers[key], nil
 }
 
-func (r *stateResolver) addConflicted(events []*Event) { // nolint: gocyclo
+func (r *stateResolver) addConflicted(events []PDU) { // nolint: gocyclo
 	type conflictKey struct {
 		eventType string
 		stateKey  string
@@ -158,7 +158,7 @@ func (r *stateResolver) addConflicted(events []*Event) { // nolint: gocyclo
 }
 
 // Add an event to the resolved auth events.
-func (r *stateResolver) addAuthEvent(event *Event) {
+func (r *stateResolver) addAuthEvent(event PDU) {
 	if event.RoomID() != "" && r.roomID == "" {
 		r.roomID = event.RoomID()
 	}
@@ -211,7 +211,7 @@ func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 // where all the blocks have the same event type.
 // Once every block has been resolved the resulting events are added to the events used for auth checks.
 // This is called once per auth event type and state key pair.
-func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]*Event) {
+func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]PDU) {
 	start := len(r.result)
 	for _, block := range blocks {
 		if len(block) == 0 {
@@ -229,7 +229,7 @@ func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]*Event) {
 }
 
 // resolveAuthBlock resolves a block of auth events with the same state key to a single event.
-func (r *stateResolver) resolveAuthBlock(events []*Event) *Event {
+func (r *stateResolver) resolveAuthBlock(events []PDU) PDU {
 	// Sort the events by depth and sha1 of event ID
 	block := sortConflictedEventsByDepthAndSHA1(events)
 
@@ -262,7 +262,7 @@ func (r *stateResolver) resolveAuthBlock(events []*Event) *Event {
 }
 
 // resolveNormalBlock resolves a block of normal state events with the same state key to a single event.
-func (r *stateResolver) resolveNormalBlock(events []*Event) *Event {
+func (r *stateResolver) resolveNormalBlock(events []PDU) PDU {
 	// Sort the events by depth and sha1 of event ID
 	block := sortConflictedEventsByDepthAndSHA1(events)
 	// Start at the "newest" event, that is the one with the highest depth, and go
@@ -281,7 +281,7 @@ func (r *stateResolver) resolveNormalBlock(events []*Event) *Event {
 }
 
 // sortConflictedEventsByDepthAndSHA1 sorts by ascending depth and descending sha1 of event ID.
-func sortConflictedEventsByDepthAndSHA1(events []*Event) []conflictedEvent {
+func sortConflictedEventsByDepthAndSHA1(events []PDU) []conflictedEvent {
 	block := make([]conflictedEvent, len(events))
 	for i := range events {
 		event := events[i]
@@ -300,7 +300,7 @@ func sortConflictedEventsByDepthAndSHA1(events []*Event) []conflictedEvent {
 type conflictedEvent struct {
 	depth       int64
 	eventIDSHA1 [sha1.Size]byte
-	event       *Event
+	event       PDU
 }
 
 // A conflictedEventSorter is used to sort the events using sort.Sort.
@@ -328,9 +328,9 @@ func (s conflictedEventSorter) Swap(i, j int) {
 // Returns an error if the state resolution algorithm cannot be determined.
 func ResolveConflicts(
 	version RoomVersion,
-	events []*Event,
-	authEvents []*Event,
-) ([]*Event, error) {
+	events []PDU,
+	authEvents []PDU,
+) ([]PDU, error) {
 	type stateKeyTuple struct {
 		Type     string
 		StateKey string
@@ -338,8 +338,8 @@ func ResolveConflicts(
 
 	// Prepare our data structures.
 	eventIDMap := map[string]struct{}{}
-	eventMap := make(map[stateKeyTuple][]*Event)
-	var conflicted, notConflicted, resolved []*Event
+	eventMap := make(map[stateKeyTuple][]PDU)
+	var conflicted, notConflicted, resolved []PDU
 
 	// Run through all of the events that we were given and sort them
 	// into a map, sorted by (event_type, state_key) tuple. This means

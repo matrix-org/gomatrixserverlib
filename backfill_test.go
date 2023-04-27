@@ -25,11 +25,11 @@ type testBackfillRequester struct {
 	callOrderForStateIDsBeforeEvent []string // event IDs called
 }
 
-func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent *Event) ([]string, error) {
+func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
 	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
 	return t.stateIDsAtEvent[atEvent.EventID()], nil
 }
-func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *Event, eventIDs []string) (map[string]*Event, error) {
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []spec.ServerName {
@@ -42,7 +42,7 @@ func (t *testBackfillRequester) Backfill(ctx context.Context, origin, server spe
 	}
 	return *txn, nil
 }
-func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []*Event, err error) {
+func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []PDU, err error) {
 	eventMap := make(map[string]*Event)
 	for _, eventBytes := range t.authEventsToProvide {
 		ev, err := newEventFromTrustedJSON(eventBytes, false, MustGetRoomVersion(RoomVersionV1))
@@ -234,7 +234,7 @@ func TestRequestBackfillError(t *testing.T) {
 	}
 }
 
-func assertUnsortedEqual(t *testing.T, result []*Event, want [][]byte) {
+func assertUnsortedEqual(t *testing.T, result []PDU, want [][]byte) {
 	if len(result) != len(want) {
 		t.Fatalf("RequestBackfill got %d events, want %d", len(result), len(want))
 	}
@@ -242,7 +242,7 @@ func assertUnsortedEqual(t *testing.T, result []*Event, want [][]byte) {
 	sort.Sort(sortedWant)
 	var got [][]byte
 	for _, e := range result {
-		got = append(got, e.eventJSON)
+		got = append(got, e.JSON())
 	}
 	sortedGot := sortByteSlices(got)
 	sort.Sort(sortedGot)

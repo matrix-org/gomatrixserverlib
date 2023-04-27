@@ -29,7 +29,7 @@ type stateResV2ConflictedPowerLevel struct {
 	powerLevel     int64
 	originServerTS spec.Timestamp
 	eventID        string
-	event          *Event
+	event          PDU
 }
 
 // A stateResV2ConflictedPowerLevelHeap is used to sort the events using
@@ -93,7 +93,7 @@ type stateResV2ConflictedOther struct {
 	mainlineSteps    int
 	originServerTS   spec.Timestamp
 	eventID          string
-	event            *Event
+	event            PDU
 }
 
 // A stateResV2ConflictedOtherHeap is used to sort the events using
