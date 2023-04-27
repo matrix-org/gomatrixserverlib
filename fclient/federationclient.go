@@ -26,7 +26,7 @@ type FederationClient interface {
 	// Perform operations
 	LookupRoomAlias(ctx context.Context, origin, s spec.ServerName, roomAlias string) (res RespDirectory, err error)
 	Peek(ctx context.Context, origin, s spec.ServerName, roomID, peekID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespPeek, err error)
-	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespMakeJoin, err error)
+	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeJoin, err error)
 	SendJoin(ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event) (res RespSendJoin, err error)
 	MakeLeave(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeLeave, err error)
 	SendLeave(ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event) (err error)
@@ -180,6 +180,18 @@ func makeVersionQueryString(roomVersions []gomatrixserverlib.RoomVersion) string
 	return versionQueryString
 }
 
+// Takes the map of room version implementations and converts it into a list of
+// room version strings.
+func roomVersionsToList(
+	versionsMap map[gomatrixserverlib.RoomVersion]gomatrixserverlib.IRoomVersion,
+) []gomatrixserverlib.RoomVersion {
+	var supportedVersions []gomatrixserverlib.RoomVersion
+	for version := range versionsMap {
+		supportedVersions = append(supportedVersions, version)
+	}
+	return supportedVersions
+}
+
 // MakeJoin makes a join m.room.member event for a room on a remote matrix server.
 // This is used to join a room the local server isn't a member of.
 // We need to query a remote server because if we aren't in the room we don't
@@ -191,8 +203,8 @@ func makeVersionQueryString(roomVersions []gomatrixserverlib.RoomVersion) string
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *federationClient) MakeJoin(
 	ctx context.Context, origin, s spec.ServerName, roomID, userID string,
-	roomVersions []gomatrixserverlib.RoomVersion,
 ) (res RespMakeJoin, err error) {
+	roomVersions := roomVersionsToList(gomatrixserverlib.RoomVersions())
 	versionQueryString := makeVersionQueryString(roomVersions)
 	path := federationPathPrefixV1 + "/make_join/" +
 		url.PathEscape(roomID) + "/" +

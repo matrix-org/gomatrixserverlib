@@ -163,7 +163,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 
 func checkAllowedByAuthEvents(
 	event *Event, eventsByID map[string]*Event,
-	missingAuth AuthChainProvider,
+	missingAuth EventProvider,
 ) error {
 	authEvents := NewAuthEvents(nil)
 
@@ -173,7 +173,7 @@ func checkAllowedByAuthEvents(
 		if !ok {
 			// We don't have an entry in the eventsByID map - neither an event nor nil.
 			if missingAuth != nil {
-				// If we have a AuthChainProvider then ask it for the missing event.
+				// If we have a EventProvider then ask it for the missing event.
 				if ev, err := missingAuth(event.Version(), []string{ae}); err == nil && len(ev) > 0 {
 					// It claims to have returned events - populate the eventsByID
 					// map and the authEvents provider so that we can retry with the
@@ -193,7 +193,7 @@ func checkAllowedByAuthEvents(
 				}
 				goto retryEvent
 			} else {
-				// If we didn't have a AuthChainProvider then we can't get the event
+				// If we didn't have a EventProvider then we can't get the event
 				// so just carry on without it. If it was important for anything then
 				// Check() below will catch it.
 				continue
@@ -206,7 +206,7 @@ func checkAllowedByAuthEvents(
 			}
 		} else {
 			// We had an entry in the map but it contains nil, which means that we tried
-			// to use the AuthChainProvider to retrieve it and failed, so at this point
+			// to use the EventProvider to retrieve it and failed, so at this point
 			// we just have to ignore the event.
 			continue
 		}
@@ -229,7 +229,7 @@ func checkAllowedByAuthEvents(
 // return parameter). Does not alter any input args.
 func CheckStateResponse(
 	ctx context.Context, r StateResponse, roomVersion RoomVersion,
-	keyRing JSONVerifier, missingAuth AuthChainProvider,
+	keyRing JSONVerifier, missingAuth EventProvider,
 ) ([]*Event, []*Event, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
@@ -322,7 +322,7 @@ func CheckStateResponse(
 func CheckSendJoinResponse(
 	ctx context.Context, roomVersion RoomVersion, r StateResponse,
 	keyRing JSONVerifier, joinEvent *Event,
-	missingAuth AuthChainProvider,
+	missingAuth EventProvider,
 ) (StateResponse, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
