@@ -64,7 +64,7 @@ type FederatedStateProvider struct {
 }
 
 // StateIDsBeforeEvent implements StateProvider
-func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event *Event) ([]string, error) {
+func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event PDU) ([]string, error) {
 	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID(), event.EventID())
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 }
 
 // StateBeforeEvent implements StateProvider
-func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *Event, eventIDs []string) (map[string]*Event, error) {
+func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
 	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 		}
 	}
 
-	result := make(map[string]*Event)
+	result := make(map[string]PDU)
 	for _, js := range res.GetStateEvents() {
 		event, err := roomVerImpl.NewEventFromUntrustedJSON(js)
 		if err != nil {
