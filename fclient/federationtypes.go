@@ -253,6 +253,14 @@ type RespMakeJoin struct {
 	RoomVersion gomatrixserverlib.RoomVersion  `json:"room_version"`
 }
 
+func (r *RespMakeJoin) GetJoinEvent() gomatrixserverlib.EventBuilder {
+	return r.JoinEvent
+}
+
+func (r *RespMakeJoin) GetRoomVersion() gomatrixserverlib.RoomVersion {
+	return r.RoomVersion
+}
+
 // A RespSendJoin is the content of a response to PUT /_matrix/federation/v2/send_join/{roomID}/{eventID}
 type RespSendJoin struct {
 	// A list of events giving the state of the room before the request event.
@@ -276,6 +284,22 @@ func (r *RespSendJoin) GetStateEvents() gomatrixserverlib.EventJSONs {
 
 func (r *RespSendJoin) GetAuthEvents() gomatrixserverlib.EventJSONs {
 	return r.AuthEvents
+}
+
+func (r *RespSendJoin) GetOrigin() spec.ServerName {
+	return r.Origin
+}
+
+func (r *RespSendJoin) GetJoinEvent() spec.RawJSON {
+	return r.Event
+}
+
+func (r *RespSendJoin) GetMembersOmitted() bool {
+	return r.MembersOmitted
+}
+
+func (r *RespSendJoin) GetServersInRoom() []string {
+	return r.ServersInRoom
 }
 
 // MarshalJSON implements json.Marshaller

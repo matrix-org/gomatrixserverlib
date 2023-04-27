@@ -89,8 +89,8 @@ func TestSendJoinFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SendJoin returned an error: %s", err)
 	}
-	if !reflect.DeepEqual(res.StateEvents, wantRes.StateEvents) {
-		t.Fatalf("SendJoin response got %+v want %+v", res.StateEvents, wantRes.StateEvents)
+	if !reflect.DeepEqual(res.GetStateEvents(), wantRes.StateEvents) {
+		t.Fatalf("SendJoin response got %+v want %+v", res.GetStateEvents(), wantRes.StateEvents)
 	}
 }
 
@@ -150,11 +150,11 @@ func TestSendJoinJSON(t *testing.T) {
 	}
 	wantStateEvents := gomatrixserverlib.EventJSONs{[]byte(retEv)}
 	wantAuthChain := gomatrixserverlib.EventJSONs{[]byte(retEv)}
-	if !reflect.DeepEqual(res.StateEvents, wantStateEvents) {
-		t.Fatalf("SendJoin response got state %+v want %+v", jsonify(res.StateEvents), jsonify(wantStateEvents))
+	if !reflect.DeepEqual(res.GetStateEvents(), wantStateEvents) {
+		t.Fatalf("SendJoin response got state %+v want %+v", jsonify(res.GetStateEvents()), jsonify(wantStateEvents))
 	}
-	if !reflect.DeepEqual(res.AuthEvents, wantAuthChain) {
-		t.Fatalf("SendJoin response got auth %+v want %+v", jsonify(res.AuthEvents), jsonify(wantAuthChain))
+	if !reflect.DeepEqual(res.GetAuthEvents(), wantAuthChain) {
+		t.Fatalf("SendJoin response got auth %+v want %+v", jsonify(res.GetAuthEvents()), jsonify(wantAuthChain))
 	}
 }
 
