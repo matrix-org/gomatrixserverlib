@@ -65,7 +65,7 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 // is skipped over: no error is returned.
 func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) { // nolint: gocyclo
 	refs = []EventReference{}
-	var e *Event
+	var e PDU
 	if s.Create {
 		if e, err = provider.Create(); err != nil {
 			return
@@ -135,7 +135,7 @@ func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err 
 
 // StateNeededForAuth returns the event types and state_keys needed to authenticate an event.
 // This takes a list of events to facilitate bulk processing when doing auth checks as part of state conflict resolution.
-func StateNeededForAuth(events []*Event) (result StateNeeded) {
+func StateNeededForAuth(events []PDU) (result StateNeeded) {
 	for _, event := range events {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 		var content *membershipContent
@@ -227,23 +227,23 @@ func thirdPartyInviteToken(thirdPartyInvite *MemberThirdPartyInvite) (string, er
 // AuthEventProvider provides auth_events for the authentication checks.
 type AuthEventProvider interface {
 	// Create returns the m.room.create event for the room or nil if there isn't a m.room.create event.
-	Create() (*Event, error)
+	Create() (PDU, error)
 	// JoinRules returns the m.room.join_rules event for the room or nil if there isn't a m.room.join_rules event.
-	JoinRules() (*Event, error)
+	JoinRules() (PDU, error)
 	// PowerLevels returns the m.room.power_levels event for the room or nil if there isn't a m.room.power_levels event.
-	PowerLevels() (*Event, error)
+	PowerLevels() (PDU, error)
 	// Member returns the m.room.member event for the given user_id state_key or nil if there isn't a m.room.member event.
-	Member(stateKey string) (*Event, error)
+	Member(stateKey string) (PDU, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
 	// given state_key or nil if there isn't a m.room.third_party_invite event
-	ThirdPartyInvite(stateKey string) (*Event, error)
+	ThirdPartyInvite(stateKey string) (PDU, error)
 	// Valid verifies that all auth events are from the same room.
 	Valid() bool
 }
 
 // AuthEvents is an implementation of AuthEventProvider backed by a map.
 type AuthEvents struct {
-	events  map[StateKeyTuple]*Event
+	events  map[StateKeyTuple]PDU
 	roomIDs map[string]struct{}
 }
 
@@ -254,7 +254,7 @@ func (a *AuthEvents) Valid() bool {
 
 // AddEvent adds an event to the provider. If an event already existed for the (type, state_key) then
 // the event is replaced with the new event. Only returns an error if the event is not a state event.
-func (a *AuthEvents) AddEvent(event *Event) error {
+func (a *AuthEvents) AddEvent(event PDU) error {
 	if event.StateKey() == nil {
 		return fmt.Errorf("AddEvent: event %q does not have a state key", event.Type())
 	}
@@ -264,27 +264,27 @@ func (a *AuthEvents) AddEvent(event *Event) error {
 }
 
 // Create implements AuthEventProvider
-func (a *AuthEvents) Create() (*Event, error) {
+func (a *AuthEvents) Create() (PDU, error) {
 	return a.events[StateKeyTuple{spec.MRoomCreate, ""}], nil
 }
 
 // JoinRules implements AuthEventProvider
-func (a *AuthEvents) JoinRules() (*Event, error) {
+func (a *AuthEvents) JoinRules() (PDU, error) {
 	return a.events[StateKeyTuple{spec.MRoomJoinRules, ""}], nil
 }
 
 // PowerLevels implements AuthEventProvider
-func (a *AuthEvents) PowerLevels() (*Event, error) {
+func (a *AuthEvents) PowerLevels() (PDU, error) {
 	return a.events[StateKeyTuple{spec.MRoomPowerLevels, ""}], nil
 }
 
 // Member implements AuthEventProvider
-func (a *AuthEvents) Member(stateKey string) (*Event, error) {
+func (a *AuthEvents) Member(stateKey string) (PDU, error) {
 	return a.events[StateKeyTuple{spec.MRoomMember, stateKey}], nil
 }
 
 // ThirdPartyInvite implements AuthEventProvider
-func (a *AuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
+func (a *AuthEvents) ThirdPartyInvite(stateKey string) (PDU, error) {
 	return a.events[StateKeyTuple{spec.MRoomThirdPartyInvite, stateKey}], nil
 }
 
@@ -297,9 +297,9 @@ func (a *AuthEvents) Clear() {
 
 // NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
 // calling AddEvent().
-func NewAuthEvents(events []*Event) AuthEvents {
+func NewAuthEvents(events []PDU) AuthEvents {
 	a := AuthEvents{
-		events:  make(map[StateKeyTuple]*Event, len(events)),
+		events:  make(map[StateKeyTuple]PDU, len(events)),
 		roomIDs: make(map[string]struct{}),
 	}
 	for _, e := range events {
@@ -329,9 +329,9 @@ type allowerContext struct {
 	provider AuthEventProvider
 
 	// Event references used to see when we need to update.
-	createEvent      *Event // The m.room.create event for the room.
-	powerLevelsEvent *Event // The m.room.power_levels event for the room.
-	joinRuleEvent    *Event // The m.room.join_rules event for the room.
+	createEvent      PDU // The m.room.create event for the room.
+	powerLevelsEvent PDU // The m.room.power_levels event for the room.
+	joinRuleEvent    PDU // The m.room.join_rules event for the room.
 
 	// Event contents used for quick lookup.
 	create      CreateContent     // The m.room.create content for the room.
@@ -379,7 +379,7 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 // quick path designed to speed up state resolution.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
-func (a *allowerContext) allowed(event *Event) error {
+func (a *allowerContext) allowed(event PDU) error {
 	switch event.Type() {
 	case spec.MRoomCreate:
 		return a.createEventAllowed(event)
@@ -399,7 +399,7 @@ func (a *allowerContext) allowed(event *Event) error {
 // Allowed checks whether an event is allowed by the auth events.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
-func Allowed(event *Event, authEvents AuthEventProvider) error {
+func Allowed(event PDU, authEvents AuthEventProvider) error {
 	if !authEvents.Valid() {
 		return errorf("authEvents contains events from different rooms")
 	}
@@ -408,12 +408,12 @@ func Allowed(event *Event, authEvents AuthEventProvider) error {
 
 // createEventAllowed checks whether the m.room.create event is allowed.
 // It returns an error if the event is not allowed.
-func (a *allowerContext) createEventAllowed(event *Event) error {
+func (a *allowerContext) createEventAllowed(event PDU) error {
 	if !event.StateKeyEquals("") {
 		return errorf("create event state key is not empty: %v", event.StateKey())
 	}
-	if len(event.PrevEvents()) > 0 {
-		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEvents()))
+	if len(event.PrevEventIDs()) > 0 {
+		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEventIDs()))
 	}
 	roomIDDomain, err := domainFromID(event.RoomID())
 	if err != nil {
@@ -446,7 +446,7 @@ func (a *allowerContext) createEventAllowed(event *Event) error {
 
 // memberEventAllowed checks whether the m.room.member event is allowed.
 // Membership events have different authentication rules to ordinary events.
-func (a *allowerContext) memberEventAllowed(event *Event) error {
+func (a *allowerContext) memberEventAllowed(event PDU) error {
 	allower, err := a.newMembershipAllower(a.provider, event)
 	if err != nil {
 		return err
@@ -456,7 +456,7 @@ func (a *allowerContext) memberEventAllowed(event *Event) error {
 
 // aliasEventAllowed checks whether the m.room.aliases event is allowed.
 // Alias events have different authentication rules to ordinary events.
-func (a *allowerContext) aliasEventAllowed(event *Event) error {
+func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// The alias events have different auth rules to ordinary events.
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
@@ -492,7 +492,7 @@ func (a *allowerContext) aliasEventAllowed(event *Event) error {
 // powerLevelsEventAllowed checks whether the m.room.power_levels event is allowed.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
-func (a *allowerContext) powerLevelsEventAllowed(event *Event) error {
+func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
@@ -528,7 +528,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event *Event) error {
 	}
 
 	// Check that the changes in notification levels are allowed.
-	verImpl, err := GetRoomVersion(event.roomVersion)
+	verImpl, err := GetRoomVersion(event.Version())
 	if err != nil {
 		return nil
 	}
@@ -765,7 +765,7 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 // membership) on the event.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
-func (a *allowerContext) redactEventAllowed(event *Event) error {
+func (a *allowerContext) redactEventAllowed(event PDU) error {
 	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
@@ -823,7 +823,7 @@ func (a *allowerContext) redactEventAllowed(event *Event) error {
 // checks for events.
 // It returns an error if the event is not allowed or if there was a
 // problem loading the auth events needed.
-func (a *allowerContext) defaultEventAllowed(event *Event) error {
+func (a *allowerContext) defaultEventAllowed(event PDU) error {
 	allower, err := a.newEventAllower(event.Sender())
 	if err != nil {
 		return err
@@ -851,7 +851,7 @@ func (a *allowerContext) newEventAllower(senderID string) (e eventAllower, err e
 
 // commonChecks does the checks that are applied to all events types other than
 // m.room.create, m.room.member, or m.room.alias.
-func (e *eventAllower) commonChecks(event *Event) error {
+func (e *eventAllower) commonChecks(event PDU) error {
 	if event.RoomID() != e.create.roomID {
 		return errorf(
 			"create event has different roomID: %q (%s) != %q (%s)",
@@ -919,9 +919,9 @@ type membershipAllower struct {
 
 // newMembershipAllower loads the information needed to authenticate the m.room.member event
 // from the auth events.
-func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event *Event) (m membershipAllower, err error) { // nolint: gocyclo
+func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event PDU) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
-	m.roomVersionImpl, err = GetRoomVersion(event.roomVersion)
+	m.roomVersionImpl, err = GetRoomVersion(event.Version())
 	if err != nil {
 		return
 	}
@@ -953,7 +953,7 @@ func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, even
 }
 
 // membershipAllowed checks whether the membership event is allowed
-func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: gocyclo
+func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocyclo
 	if m.create.roomID != event.RoomID() {
 		return errorf(
 			"create event has different roomID: %q (%s) != %q (%s)",
@@ -971,10 +971,10 @@ func (m *membershipAllower) membershipAllowed(event *Event) error { // nolint: g
 	if m.targetID == m.create.Creator &&
 		m.newMember.Membership == spec.Join &&
 		m.senderID == m.targetID &&
-		len(event.PrevEvents()) == 1 {
+		len(event.PrevEventIDs()) == 1 {
 
 		// Grab the event ID of the previous event.
-		prevEventID := event.PrevEvents()[0].EventID
+		prevEventID := event.PrevEventIDs()[0]
 
 		if prevEventID == m.create.eventID {
 			// If this is the room creator joining the room directly after the

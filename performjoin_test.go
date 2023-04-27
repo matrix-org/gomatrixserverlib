@@ -161,13 +161,13 @@ func TestPerformJoin(t *testing.T) {
 		t.Fatalf("Failed building create event: %v", err)
 	}
 
-	eventProvider := func(roomVer RoomVersion, eventIDs []string) ([]*Event, error) {
+	eventProvider := func(roomVer RoomVersion, eventIDs []string) ([]PDU, error) {
 		for _, eventID := range eventIDs {
 			if eventID == createEvent.EventID() {
-				return []*Event{createEvent}, nil
+				return []PDU{createEvent}, nil
 			}
 		}
-		return []*Event{}, nil
+		return []PDU{}, nil
 	}
 
 	tests := map[string]struct {

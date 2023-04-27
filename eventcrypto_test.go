@@ -378,7 +378,7 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 		t.Error(err)
 	}
 
-	events := []*Event{event}
+	events := []PDU{event}
 	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
 	for _, err := range errors {
 		if err != nil {
@@ -436,7 +436,7 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 		t.Error(err)
 	}
 
-	events := []*Event{event}
+	events := []PDU{event}
 	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
 	for _, err := range errors {
 		if err != nil {
