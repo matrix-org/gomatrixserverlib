@@ -10,13 +10,6 @@ import (
 const defaultDomain = "domain"
 const defaultLocalpart = "localpart"
 
-func TestEmptyFails(t *testing.T) {
-	_, err := spec.NewUserID("", false)
-	if err == nil {
-		t.Fatalf("empty userID is not valid, it shouldn't parse")
-	}
-}
-
 func TestValidUserIDs(t *testing.T) {
 	tests := map[string]struct {
 		localpart        string
@@ -27,6 +20,7 @@ func TestValidUserIDs(t *testing.T) {
 		"extensive_local":          {localpart: "abcdefghijklmnopqrstuvwxyz0123456789._=-/", domain: defaultDomain, allowHistoricIDs: false},
 		"extensive_local_historic": {localpart: "!\"#$%&'()*+,-./0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", domain: defaultDomain, allowHistoricIDs: true},
 		"domain_with_port":         {localpart: defaultLocalpart, domain: "domain.org:80", allowHistoricIDs: false},
+		"minimum_id":               {localpart: "a", domain: "1", allowHistoricIDs: false},
 	}
 
 	for name, tc := range tests {
@@ -55,6 +49,13 @@ func TestInvalidUserIDs(t *testing.T) {
 	tests := map[string]struct {
 		rawUserID string
 	}{
+		"empty":                {rawUserID: ""},
+		"no_leading_@":         {rawUserID: "localpart:domain"},
+		"no_colon":             {rawUserID: "@localpartdomain"},
+		"invalid_local_chars":  {rawUserID: "@local&part:domain"},
+		"invalid_domain_chars": {rawUserID: "@localpart:domain/"},
+		"no_local":             {rawUserID: "@:domain"},
+		"no_domain":            {rawUserID: "@localpart:"},
 		"too_long": {rawUserID: func() string {
 			userID := "@a:"
 			domain := ""
@@ -69,11 +70,6 @@ func TestInvalidUserIDs(t *testing.T) {
 			}
 			return raw
 		}()},
-		"no_leading_@":         {rawUserID: "localpart:domain"},
-		"no_colon":             {rawUserID: "@localpartdomain"},
-		"invalid_local_chars":  {rawUserID: "@local&part:domain"},
-		"invalid_domain_chars": {rawUserID: "@localpart:domain/"},
-		"no_local":             {rawUserID: "@:domain"},
 	}
 
 	for name, tc := range tests {

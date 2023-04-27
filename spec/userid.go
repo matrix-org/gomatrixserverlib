@@ -36,8 +36,8 @@ func (user *UserID) Domain() ServerName {
 
 func parseAndValidateUserID(id string, allowHistoricalIDs bool) (*UserID, error) {
 	idLength := len(id)
-	if idLength < 1 || idLength > 255 {
-		return nil, fmt.Errorf("length %d is not within the bounds 1-255", idLength)
+	if idLength < 4 || idLength > 255 { // 4 since minimum userID includes an @, :, non-empty localpart, non-empty domain
+		return nil, fmt.Errorf("length %d is not within the bounds 4-255", idLength)
 	}
 	if id[0] != userSigil {
 		return nil, fmt.Errorf("first character is not '%c'", userSigil)
