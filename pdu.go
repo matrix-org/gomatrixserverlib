@@ -18,6 +18,7 @@ type PDU interface {
 	PrevEvents() []EventReference // TODO: remove, used in Dendrite in (d *EventDatabase) StoreEvent
 	OriginServerTS() spec.Timestamp
 	Sender() string
+	Unsigned() []byte
 	EventReference() EventReference  // TODO: remove
 	Depth() int64                    // TODO: remove
 	JSON() []byte                    // TODO: remove
