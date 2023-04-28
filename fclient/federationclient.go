@@ -364,7 +364,7 @@ func (ac *federationClient) SendLeave(
 // SendInvite sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *federationClient) SendInvite(
-	ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event,
+	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
