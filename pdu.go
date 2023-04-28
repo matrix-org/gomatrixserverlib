@@ -11,6 +11,7 @@ type PDU interface {
 	Type() string
 	Content() []byte
 	Membership() (string, error)
+	PowerLevels() (*PowerLevelContent, error)
 	Version() RoomVersion
 	RoomID() string
 	Redacts() string

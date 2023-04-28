@@ -272,7 +272,7 @@ func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec
 	return true
 }
 
-func checkEventsContainCreateEvent(events []*Event) error {
+func checkEventsContainCreateEvent(events []PDU) error {
 	// sanity check we have a create event and it has a known room version
 	for _, ev := range events {
 		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
