@@ -143,7 +143,7 @@ func (ac *federationClient) P2PSendTransactionToRelay(
 ) (res EmptyResp, err error) {
 	path := federationPathPrefixV1 + "/send_relay/" +
 		string(t.TransactionID) + "/" +
-		url.PathEscape(u.Raw())
+		url.PathEscape(u.String())
 	req := NewFederationRequest("PUT", t.Origin, forwardingServer, path)
 	if err = req.SetContent(t); err != nil {
 		return
@@ -156,7 +156,7 @@ func (ac *federationClient) P2PSendTransactionToRelay(
 func (ac *federationClient) P2PGetTransactionFromRelay(
 	ctx context.Context, u spec.UserID, prev RelayEntry, relayServer spec.ServerName,
 ) (res RespGetRelayTransaction, err error) {
-	path := federationPathPrefixV1 + "/relay_txn/" + url.PathEscape(u.Raw())
+	path := federationPathPrefixV1 + "/relay_txn/" + url.PathEscape(u.String())
 	req := NewFederationRequest("GET", u.Domain(), relayServer, path)
 	if err = req.SetContent(prev); err != nil {
 		return

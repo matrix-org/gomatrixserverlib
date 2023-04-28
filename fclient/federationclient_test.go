@@ -267,7 +267,7 @@ func createTransaction(
 	txn.TransactionID = gomatrixserverlib.TransactionID(fmt.Sprintf("%d", time.Now().UnixNano()))
 	txn.Destination = testDestination
 	var federationPathPrefixV1 = "/_matrix/federation/v1"
-	path := federationPathPrefixV1 + "/send_relay/" + string(txn.TransactionID) + "/" + userID.Raw()
+	path := federationPathPrefixV1 + "/send_relay/" + string(txn.TransactionID) + "/" + userID.String()
 	request := fclient.NewFederationRequest("PUT", txn.Origin, txn.Destination, path)
 	err := request.SetContent(txn)
 	if err != nil {

@@ -22,14 +22,17 @@ func NewUserID(id string, allowHistoricalIDs bool) (*UserID, error) {
 	return parseAndValidateUserID(id, allowHistoricalIDs)
 }
 
-func (user *UserID) Raw() string {
+// Returns the full userID string including leading sigil
+func (user *UserID) String() string {
 	return user.raw
 }
 
+// Returns just the localpart of the userID
 func (user *UserID) Local() string {
 	return user.local
 }
 
+// Returns just the domain of the userID
 func (user *UserID) Domain() ServerName {
 	return ServerName(user.domain)
 }

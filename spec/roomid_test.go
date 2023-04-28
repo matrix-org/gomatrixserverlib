@@ -33,8 +33,8 @@ func TestValidRoomIDs(t *testing.T) {
 			if roomID.Domain() != spec.ServerName(tc.domain) {
 				t.Fatalf("Domain - Expected: %s Actual: %s ", spec.ServerName(tc.domain), roomID.Domain())
 			}
-			if roomID.Raw() != raw {
-				t.Fatalf("Raw - Expected: %s Actual: %s ", raw, roomID.Raw())
+			if roomID.String() != raw {
+				t.Fatalf("Raw - Expected: %s Actual: %s ", raw, roomID.String())
 			}
 		})
 	}

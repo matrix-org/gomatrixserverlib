@@ -132,8 +132,8 @@ func TestPerformJoin(t *testing.T) {
 
 	stateKey := ""
 	eb := EventBuilder{
-		Sender:     userID.Raw(),
-		RoomID:     roomID.Raw(),
+		Sender:     userID.String(),
+		RoomID:     roomID.String(),
 		Type:       "m.room.create",
 		StateKey:   &stateKey,
 		PrevEvents: []interface{}{},
@@ -147,10 +147,10 @@ func TestPerformJoin(t *testing.T) {
 		t.Fatalf("Failed building create event: %v", err)
 	}
 
-	stateKey = userID.Raw()
+	stateKey = userID.String()
 	joinEB := EventBuilder{
-		Sender:     userID.Raw(),
-		RoomID:     roomID.Raw(),
+		Sender:     userID.String(),
+		RoomID:     roomID.String(),
 		Type:       "m.room.member",
 		StateKey:   &stateKey,
 		PrevEvents: []interface{}{createEvent.EventID()},
