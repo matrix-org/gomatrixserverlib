@@ -13,7 +13,7 @@ import (
 
 type PerformJoinInput struct {
 	UserID     *spec.UserID
-	RoomID     string
+	RoomID     *spec.RoomID
 	ServerName spec.ServerName
 	Content    map[string]interface{}
 	Unsigned   map[string]interface{}
@@ -46,6 +46,22 @@ func PerformJoin(
 			Err:        fmt.Errorf("UserID is nil"),
 		}
 	}
+	if input.RoomID == nil {
+		return nil, &FederationError{
+			ServerName: input.ServerName,
+			Transient:  false,
+			Reachable:  false,
+			Err:        fmt.Errorf("RoomID is nil"),
+		}
+	}
+	if input.KeyRing == nil {
+		return nil, &FederationError{
+			ServerName: input.ServerName,
+			Transient:  false,
+			Reachable:  false,
+			Err:        fmt.Errorf("KeyRing is nil"),
+		}
+	}
 
 	origin := input.UserID.Domain()
 
@@ -55,7 +71,7 @@ func PerformJoin(
 		ctx,
 		origin,
 		input.ServerName,
-		input.RoomID,
+		input.RoomID.Raw(),
 		input.UserID.Raw(),
 	)
 	if err != nil {
@@ -75,7 +91,7 @@ func PerformJoin(
 	joinEvent.Type = spec.MRoomMember
 	joinEvent.Sender = input.UserID.Raw()
 	joinEvent.StateKey = &stateKey
-	joinEvent.RoomID = input.RoomID
+	joinEvent.RoomID = input.RoomID.Raw()
 	joinEvent.Redacts = ""
 	if input.Content == nil {
 		input.Content = map[string]interface{}{}
@@ -116,7 +132,6 @@ func PerformJoin(
 			Err:        err,
 		}
 	}
-	println(roomVersion)
 
 	// Build the join event.
 	event, err := joinEvent.Build(
@@ -242,13 +257,13 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event *Event, roomID string, userID *spec.UserID) bool {
+func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec.UserID) bool {
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
 		return false
 	}
-	if event.RoomID() != roomID {
+	if event.RoomID() != roomID.Raw() {
 		return false
 	}
 	if !event.StateKeyEquals(userID.Raw()) {
