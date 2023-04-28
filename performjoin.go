@@ -257,7 +257,7 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec.UserID) bool {
+func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec.UserID) bool { // nolint: interfacer
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
