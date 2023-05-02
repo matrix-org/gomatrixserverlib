@@ -230,7 +230,7 @@ func (ac *federationClient) SendJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *federationClient) SendJoinPartialState(
-	ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event,
+	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespSendJoin, err error) {
 	return ac.sendJoin(ctx, origin, s, event, true)
 }
