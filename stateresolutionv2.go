@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // TopologicalOrder represents how to sort a list of events, used primarily in ReverseTopologicalOrdering
@@ -33,39 +35,39 @@ const (
 type stateResolverV2 struct {
 	allower                   *allowerContext               // Used to auth and apply events
 	authProvider              AuthEvents                    // Used in the allower
-	authEventMap              map[string]*Event             // Map of all provided auth events
-	conflictedEventMap        map[string]*Event             // Map of all provided conflicted events
+	authEventMap              map[string]PDU                // Map of all provided auth events
+	conflictedEventMap        map[string]PDU                // Map of all provided conflicted events
 	powerLevelContents        map[string]*PowerLevelContent // A cache of all power level contents
 	powerLevelMainlinePos     map[string]int                // Power level event positions in mainline
-	resolvedCreate            *Event                        // Resolved create event
-	resolvedPowerLevels       *Event                        // Resolved power level event
-	resolvedJoinRules         *Event                        // Resolved join rules event
-	resolvedThirdPartyInvites map[string]*Event             // Resolved third party invite events
-	resolvedMembers           map[string]*Event             // Resolved member events
-	resolvedOthers            map[StateKeyTuple]*Event      // Resolved other events
-	result                    []*Event                      // Final list of resolved events
+	resolvedCreate            PDU                           // Resolved create event
+	resolvedPowerLevels       PDU                           // Resolved power level event
+	resolvedJoinRules         PDU                           // Resolved join rules event
+	resolvedThirdPartyInvites map[string]PDU                // Resolved third party invite events
+	resolvedMembers           map[string]PDU                // Resolved member events
+	resolvedOthers            map[StateKeyTuple]PDU         // Resolved other events
+	result                    []PDU                         // Final list of resolved events
 }
 
 // ResolveStateConflicts takes a list of state events with conflicting state
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
 func ResolveStateConflictsV2(
-	conflicted, unconflicted []*Event,
-	authEvents []*Event,
-) []*Event {
+	conflicted, unconflicted []PDU,
+	authEvents []PDU,
+) []PDU {
 	// Prepare the state resolver.
-	conflictedControlEvents := make([]*Event, 0, len(conflicted))
-	conflictedOthers := make([]*Event, 0, len(conflicted))
+	conflictedControlEvents := make([]PDU, 0, len(conflicted))
+	conflictedOthers := make([]PDU, 0, len(conflicted))
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
 		authProvider:              NewAuthEvents(nil),
 		conflictedEventMap:        eventMapFromEvents(conflicted),
 		powerLevelContents:        make(map[string]*PowerLevelContent),
 		powerLevelMainlinePos:     make(map[string]int),
-		resolvedThirdPartyInvites: make(map[string]*Event, len(conflicted)),
-		resolvedMembers:           make(map[string]*Event, len(conflicted)),
-		resolvedOthers:            make(map[StateKeyTuple]*Event, len(conflicted)),
-		result:                    make([]*Event, 0, len(conflicted)+len(unconflicted)),
+		resolvedThirdPartyInvites: make(map[string]PDU, len(conflicted)),
+		resolvedMembers:           make(map[string]PDU, len(conflicted)),
+		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
+		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
 	}
 	r.allower = newAllowerContext(&r.authProvider)
 
@@ -86,9 +88,9 @@ func ResolveStateConflictsV2(
 	// effectively allow us to pull in all related events for any control
 	// event, even if those related events are themselves not control events.
 	visited := make(map[string]struct{}, len(conflicted)+len(authEvents))
-	var fullControlSet func(event *Event) []*Event
-	fullControlSet = func(event *Event) []*Event {
-		events := []*Event{event}
+	var fullControlSet func(event PDU) []PDU
+	fullControlSet = func(event PDU) []PDU {
+		events := []PDU{event}
 		for _, authEventID := range event.AuthEventIDs() {
 			if _, ok := visited[authEventID]; ok {
 				continue
@@ -187,7 +189,7 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func ReverseTopologicalOrdering(input []*Event, order TopologicalOrder) []*Event {
+func ReverseTopologicalOrdering(input []PDU, order TopologicalOrder) []PDU {
 	r := stateResolverV2{}
 	return r.reverseTopologicalOrdering(input, order)
 }
@@ -196,19 +198,16 @@ func ReverseTopologicalOrdering(input []*Event, order TopologicalOrder) []*Event
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
-func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order TopologicalOrder) []*HeaderedEvent {
+func HeaderedReverseTopologicalOrdering(events []PDU, order TopologicalOrder) []PDU {
 	r := stateResolverV2{}
-	input := make([]*Event, len(events))
-	hisVis := make(map[string]HistoryVisibility, len(events))
+	input := make([]PDU, len(events))
 	for i := range events {
-		unwrapped := events[i].Unwrap()
+		unwrapped := events[i]
 		input[i] = unwrapped
-		hisVis[unwrapped.EventID()] = events[i].Visibility
 	}
-	result := make([]*HeaderedEvent, len(input))
+	result := make([]PDU, len(input))
 	for i, e := range r.reverseTopologicalOrdering(input, order) {
-		result[i] = e.Headered(e.roomVersion)
-		result[i].Visibility = hisVis[e.EventID()]
+		result[i] = e
 	}
 	return result
 }
@@ -216,15 +215,15 @@ func HeaderedReverseTopologicalOrdering(events []*HeaderedEvent, order Topologic
 // isControlEvent returns true if the event meets the criteria for being classed
 // as a "control" event for reverse topological sorting. If not then the event
 // will be mainline sorted.
-func isControlEvent(e *Event) bool {
+func isControlEvent(e PDU) bool {
 	switch e.Type() {
-	case MRoomPowerLevels:
+	case spec.MRoomPowerLevels:
 		// Power level events with an empty state key are control events.
 		return e.StateKeyEquals("")
-	case MRoomJoinRules:
+	case spec.MRoomJoinRules:
 		// Join rule events with an empty state key are control events.
 		return e.StateKeyEquals("")
-	case MRoomMember:
+	case spec.MRoomMember:
 		// Membership events must not have an empty state key.
 		if e.StateKey() == nil || e.StateKeyEquals("") {
 			break
@@ -242,7 +241,7 @@ func isControlEvent(e *Event) bool {
 		}
 		// If the "membership" key is set and is set to either "leave" or "ban" then
 		// the event is a control event.
-		if content.Membership == Leave || content.Membership == Ban {
+		if content.Membership == spec.Leave || content.Membership == spec.Ban {
 			return true
 		}
 	default:
@@ -252,13 +251,13 @@ func isControlEvent(e *Event) bool {
 	return false
 }
 
-func (r *stateResolverV2) calculateAuthDifference() []*Event {
-	authDifference := make([]*Event, 0, len(r.conflictedEventMap)*3)
-	authSets := make(map[string]map[string]*Event, len(r.conflictedEventMap))
+func (r *stateResolverV2) calculateAuthDifference() []PDU {
+	authDifference := make([]PDU, 0, len(r.conflictedEventMap)*3)
+	authSets := make(map[string]map[string]PDU, len(r.conflictedEventMap))
 
 	// This function helps us to work out whether an event exists in one of the
 	// auth sets.
-	isInAuthList := func(k string, event *Event) bool {
+	isInAuthList := func(k string, event PDU) bool {
 		events, ok := authSets[k]
 		if !ok {
 			return false
@@ -268,7 +267,7 @@ func (r *stateResolverV2) calculateAuthDifference() []*Event {
 	}
 
 	// This function works out if an event exists in all of the auth sets.
-	isInAllAuthLists := func(event *Event) bool {
+	isInAllAuthLists := func(event PDU) bool {
 		for k, event := range authSets[event.EventID()] {
 			if !isInAuthList(k, event) {
 				return false
@@ -278,15 +277,15 @@ func (r *stateResolverV2) calculateAuthDifference() []*Event {
 	}
 
 	// For each conflicted event, work out the auth chain iteratively.
-	var iter func(eventID string, event *Event)
-	iter = func(eventID string, event *Event) {
+	var iter func(eventID string, event PDU)
+	iter = func(eventID string, event PDU) {
 		for _, authEventID := range event.AuthEventIDs() {
 			authEvent, ok := r.authEventMap[authEventID]
 			if !ok {
 				continue
 			}
 			if _, ok := authSets[eventID]; !ok {
-				authSets[eventID] = map[string]*Event{}
+				authSets[eventID] = map[string]PDU{}
 			}
 			if _, ok := authSets[eventID][authEventID]; ok {
 				// Don't repeat work for events we've already iterated on.
@@ -317,12 +316,12 @@ func (r *stateResolverV2) calculateAuthDifference() []*Event {
 // ordering and working our way back to the room creation. Note that we populate
 // the result here in reverse, so that the room creation is at the beginning of
 // the list, rather than the end.
-func (r *stateResolverV2) createPowerLevelMainline() []*Event {
-	var mainline []*Event
+func (r *stateResolverV2) createPowerLevelMainline() []PDU {
+	var mainline []PDU
 
 	// Define our iterator function.
-	var iter func(event *Event)
-	iter = func(event *Event) {
+	var iter func(event PDU)
+	iter = func(event PDU) {
 		// Append this event to the beginning of the mainline.
 		mainline = append(mainline, nil)
 		copy(mainline[1:], mainline)
@@ -333,7 +332,7 @@ func (r *stateResolverV2) createPowerLevelMainline() []*Event {
 			// that we can look up the event type.
 			if authEvent, ok := r.authEventMap[authEventID]; ok {
 				// Is the event a power event?
-				if authEvent.Type() == MRoomPowerLevels && authEvent.StateKeyEquals("") {
+				if authEvent.Type() == spec.MRoomPowerLevels && authEvent.StateKeyEquals("") {
 					// We found a power level event in the event's auth events - start
 					// the iterator from this new event.
 					iter(authEvent)
@@ -357,20 +356,20 @@ func (r *stateResolverV2) createPowerLevelMainline() []*Event {
 // createPowerLevelMainline. This function returns three things: the event that
 // was found in the mainline, the position in the mainline of the found event
 // and the number of steps it took to reach the mainline.
-func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
-	mainlineEvent *Event, mainlinePosition int, steps int,
+func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
+	mainlineEvent PDU, mainlinePosition int, steps int,
 ) {
 	// Define a function that the iterator can use to determine whether the event
 	// is in the mainline set or not.
-	isInMainline := func(searchEvent *Event) (int, bool) {
+	isInMainline := func(searchEvent PDU) (int, bool) {
 		// If we already know the mainline position then return it.
 		pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]
 		return pos, ok
 	}
 
 	// Define our iterator function.
-	var iter func(event *Event)
-	iter = func(event *Event) {
+	var iter func(event PDU)
+	iter = func(event PDU) {
 		// In much the same way as we do in createPowerLevelMainline, we loop
 		// through the event's auth events, checking that it exists in our supplied
 		// auth event map and finding power level events.
@@ -382,7 +381,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 				continue
 			}
 			// If the event isn't a power level event then we'll ignore it.
-			if authEvent.Type() != MRoomPowerLevels || !authEvent.StateKeyEquals("") {
+			if authEvent.Type() != spec.MRoomPowerLevels || !authEvent.StateKeyEquals("") {
 				continue
 			}
 			// Is the event in the mainline?
@@ -414,13 +413,13 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event *Event) (
 // also apply them on top of the partial state. If they fail auth checks then
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
-func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
+func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 	for _, event := range events {
 		r.authProvider.Clear()
 
 		// Now layer on the partial state events that we do know. This should
 		// mean that we make forward progress.
-		needed := StateNeededForAuth([]*Event{event})
+		needed := StateNeededForAuth([]PDU{event})
 		if event := r.resolvedCreate; needed.Create && event != nil {
 			_ = r.authProvider.AddEvent(event)
 		}
@@ -451,12 +450,12 @@ func (r *stateResolverV2) authAndApplyEvents(events []*Event) {
 
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
-		r.applyEvents([]*Event{event})
+		r.applyEvents([]PDU{event})
 	}
 }
 
 // applyEvents applies the events on top of the partial state.
-func (r *stateResolverV2) applyEvents(events []*Event) {
+func (r *stateResolverV2) applyEvents(events []PDU) {
 	for _, event := range events {
 		if st, sk := event.Type(), event.StateKey(); sk == nil {
 			continue
@@ -465,11 +464,11 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 			// i.e. create events, power level events, join rules.
 			// Otherwise, they go in the "others".
 			switch st {
-			case MRoomCreate:
+			case spec.MRoomCreate:
 				r.resolvedCreate = event
-			case MRoomPowerLevels:
+			case spec.MRoomPowerLevels:
 				r.resolvedPowerLevels = event
-			case MRoomJoinRules:
+			case spec.MRoomJoinRules:
 				r.resolvedJoinRules = event
 			default:
 				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
@@ -479,9 +478,9 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 			// i.e. membership events and 3PID invites. Otherwise,
 			// they go in the "others".
 			switch st {
-			case MRoomThirdPartyInvite:
+			case spec.MRoomThirdPartyInvite:
 				r.resolvedThirdPartyInvites[*sk] = event
-			case MRoomMember:
+			case spec.MRoomMember:
 				r.resolvedMembers[*sk] = event
 			default:
 				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
@@ -492,8 +491,8 @@ func (r *stateResolverV2) applyEvents(events []*Event) {
 
 // eventMapFromEvents takes a list of events and returns a map, where the key
 // for each value is the event ID.
-func eventMapFromEvents(events []*Event) map[string]*Event {
-	r := make(map[string]*Event, len(events))
+func eventMapFromEvents(events []PDU) map[string]PDU {
+	r := make(map[string]PDU, len(events))
 	for _, e := range events {
 		if _, ok := r[e.EventID()]; !ok {
 			r[e.EventID()] = e
@@ -505,7 +504,7 @@ func eventMapFromEvents(events []*Event) map[string]*Event {
 // wrapPowerLevelEventsForSort takes the input power level events and wraps them
 // in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []*Event) []*stateResV2ConflictedPowerLevel {
+func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []PDU) []*stateResV2ConflictedPowerLevel {
 	block := make([]*stateResV2ConflictedPowerLevel, len(events))
 	for i, event := range events {
 		block[i] = &stateResV2ConflictedPowerLevel{
@@ -521,7 +520,7 @@ func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []*Event) []*stateR
 // wrapOtherEventsForSort takes the input non-power level events and wraps them
 // in stateResV2ConflictedPowerLevel structs so that we have the necessary
 // information pre-calculated ahead of sorting.
-func (r *stateResolverV2) wrapOtherEventsForSort(events []*Event) []*stateResV2ConflictedOther {
+func (r *stateResolverV2) wrapOtherEventsForSort(events []PDU) []*stateResV2ConflictedOther {
 	block := make([]*stateResV2ConflictedOther, len(events))
 	for i, event := range events {
 		_, pos, steps := r.getFirstPowerLevelMainlineEvent(event)
@@ -539,8 +538,8 @@ func (r *stateResolverV2) wrapOtherEventsForSort(events []*Event) []*stateResV2C
 // reverseTopologicalOrdering takes a set of input events, prepares them using
 // wrapPowerLevelEventsForSort and then starts the Kahn's algorithm in order to
 // topologically sort them. The result that is returned is correctly ordered.
-func (r *stateResolverV2) reverseTopologicalOrdering(events []*Event, order TopologicalOrder) []*Event {
-	result := make([]*Event, 0, len(events))
+func (r *stateResolverV2) reverseTopologicalOrdering(events []PDU, order TopologicalOrder) []PDU {
+	result := make([]PDU, 0, len(events))
 	switch order {
 	case TopologicalOrderByAuthEvents:
 		block := r.wrapPowerLevelEventsForSort(events)
@@ -561,9 +560,9 @@ func (r *stateResolverV2) reverseTopologicalOrdering(events []*Event, order Topo
 // mainlineOrdering takes a set of input events, prepares them using
 // wrapOtherEventsForSort and then sorts them based on mainline ordering. The
 // result that is returned is correctly ordered.
-func (r *stateResolverV2) mainlineOrdering(events []*Event) []*Event {
+func (r *stateResolverV2) mainlineOrdering(events []PDU) []PDU {
 	block := r.wrapOtherEventsForSort(events)
-	result := make([]*Event, 0, len(block))
+	result := make([]PDU, 0, len(block))
 	sort.Sort(stateResV2ConflictedOtherHeap(block))
 	for _, s := range block {
 		result = append(result, s.event)
@@ -574,7 +573,7 @@ func (r *stateResolverV2) mainlineOrdering(events []*Event) []*Event {
 // getPowerLevelFromAuthEvents tries to determine the effective power level of
 // the sender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
-func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
+func (r *stateResolverV2) getPowerLevelFromAuthEvents(event PDU) int64 {
 	user := event.Sender()
 	for _, authID := range event.AuthEventIDs() {
 		// Then check and see if we have the auth event in the auth map, if not
@@ -585,7 +584,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event *Event) int64 {
 		}
 
 		// Ignore the auth event if it isn't a power level event.
-		if authEvent.Type() != MRoomPowerLevels || *authEvent.StateKey() != "" {
+		if authEvent.Type() != spec.MRoomPowerLevels || *authEvent.StateKey() != "" {
 			continue
 		}
 

@@ -24,26 +24,32 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
-func VerifyAllEventSignatures(ctx context.Context, events []*Event, verifier JSONVerifier) []error {
+func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier) []error {
 	errors := make([]error, 0, len(events))
 	for _, e := range events {
-		errors = append(errors, e.VerifyEventSignatures(ctx, verifier))
+		errors = append(errors, VerifyEventSignatures(ctx, e, verifier))
 	}
 	return errors
 }
 
-func (e *Event) VerifySelfSignature(ctx context.Context) (restrictedJoinServer ServerName, err error) {
+func VerifySelfSignature(ctx context.Context, e PDU) (restrictedJoinServer spec.ServerName, err error) {
 	// The localpart _is_ the base32 encoded public key
 	signingKey, err := PublicKeyForPseudoID(e.Sender())
 	if err != nil {
 		return "", fmt.Errorf("failed to extract pubkey from sender: %w", err)
 	}
 
-	redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+	verImpl, err := GetRoomVersion(e.Version())
+	if err != nil {
+		return "", err
+	}
+
+	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
 		return "", fmt.Errorf("failed to redact event: %w", err)
 	}
@@ -54,10 +60,10 @@ func (e *Event) VerifySelfSignature(ctx context.Context) (restrictedJoinServer S
 	if err != nil {
 		return "", fmt.Errorf("invalid self signature: %w", err)
 	}
-	if e.Type() == MRoomMember {
+	if e.Type() == spec.MRoomMember {
 		membership, _ := e.Membership()
 		// invites need to be signed by the invitee as well (who isn't a sender)
-		if membership == Invite {
+		if membership == spec.Invite {
 			inviteeKey, _, err := SplitID('@', *e.StateKey())
 			if err != nil {
 				return "", fmt.Errorf("failed to split state key: %w", err)
@@ -70,9 +76,8 @@ func (e *Event) VerifySelfSignature(ctx context.Context) (restrictedJoinServer S
 			}
 		}
 		// For restricted join rules, the authorising server should have signed.
-		if restricted, err := e.roomVersion.MayAllowRestrictedJoinsInEventAuth(); err != nil {
-			return "", fmt.Errorf("failed to check if restricted joins allowed: %w", err)
-		} else if restricted && membership == Join {
+		allowRestrictedJoins := verImpl.MayAllowRestrictedJoinsInEventAuth()
+		if allowRestrictedJoins && membership == spec.Join {
 			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
 				_, serverName, err := SplitID('@', v.String())
 				if err != nil {
@@ -85,25 +90,27 @@ func (e *Event) VerifySelfSignature(ctx context.Context) (restrictedJoinServer S
 	return "", nil
 }
 
-func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier) error {
-	needed := map[ServerName]struct{}{}
+func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) error {
+	needed := map[spec.ServerName]struct{}{}
 
-	sigCheckAlgorithm, err := e.roomVersion.SignatureCheckAlgorithm()
+	verImpl, err := GetRoomVersion(e.Version())
 	if err != nil {
-		return fmt.Errorf("failed to check signature algorithm to use: %w", err)
+		return err
 	}
+
+	sigCheckAlgorithm := verImpl.SignatureCheckAlgorithm()
 
 	// this is a self-verifying event: the sender localpart _is_ the public key. We're going to
 	// short circuit everything here as everything below is pointless for this algorithm:
 	// we don't care about validity periods or server names, or anything like that.
 	if sigCheckAlgorithm == SigCheckSelf {
-		restrictedJoinServer, err := e.VerifySelfSignature(ctx)
+		restrictedJoinServer, err := VerifySelfSignature(ctx, e)
 		if err != nil {
 			return fmt.Errorf("VerifyEventSignatures(self): %w", err)
 		}
 		// this is a restricted join event which needs the server key to be checked
 		if restrictedJoinServer != "" {
-			redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+			redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 			if err != nil {
 				return fmt.Errorf("failed to redact event: %w", err)
 			}
@@ -136,9 +143,8 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 	// In room versions 1 and 2, we should also check that the server
 	// that created the event is included too. This is probably the
 	// same as the sender.
-	if format, err := e.roomVersion.EventIDFormat(); err != nil {
-		return fmt.Errorf("failed to get event ID format: %w", err)
-	} else if format == EventIDFormatV1 {
+	format := verImpl.EventIDFormat()
+	if format == EventIDFormatV1 {
 		_, serverName, err = SplitID('$', e.EventID())
 		if err != nil {
 			return fmt.Errorf("failed to split event ID: %w", err)
@@ -147,14 +153,14 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 	}
 
 	// Special checks for membership events.
-	if e.Type() == MRoomMember {
+	if e.Type() == spec.MRoomMember {
 		membership, err := e.Membership()
 		if err != nil {
 			return fmt.Errorf("failed to get membership of membership event: %w", err)
 		}
 
 		// For invites, the invited server should have signed the event.
-		if membership == Invite {
+		if membership == spec.Invite {
 			_, serverName, err = SplitID('@', *e.StateKey())
 			if err != nil {
 				return fmt.Errorf("failed to split state key: %w", err)
@@ -163,9 +169,8 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		}
 
 		// For restricted join rules, the authorising server should have signed.
-		if restricted, err := e.roomVersion.MayAllowRestrictedJoinsInEventAuth(); err != nil {
-			return fmt.Errorf("failed to check if restricted joins allowed: %w", err)
-		} else if restricted && membership == Join {
+		restricted := verImpl.MayAllowRestrictedJoinsInEventAuth()
+		if restricted && membership == spec.Join {
 			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
 				_, serverName, err = SplitID('@', v.String())
 				if err != nil {
@@ -176,7 +181,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 		}
 	}
 
-	redactedJSON, err := RedactEventJSON(e.eventJSON, e.roomVersion)
+	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
 		return fmt.Errorf("failed to redact event: %w", err)
 	}
@@ -210,7 +215,7 @@ func (e *Event) VerifyEventSignatures(ctx context.Context, verifier JSONVerifier
 // This hash is used to detect whether the unredacted content of the event is valid.
 // Returns the event JSON with a "hashes" key added to it.
 func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
-	var event map[string]RawJSON
+	var event map[string]spec.RawJSON
 
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
@@ -235,8 +240,8 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 	hashes := struct {
-		Sha256 Base64Bytes `json:"sha256"`
-	}{Base64Bytes(sha256Hash[:])}
+		Sha256 spec.Base64Bytes `json:"sha256"`
+	}{spec.Base64Bytes(sha256Hash[:])}
 	hashesJSON, err := json.Marshal(&hashes)
 	if err != nil {
 		return nil, err
@@ -248,7 +253,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	if len(signatures) > 0 {
 		event["signatures"] = signatures
 	}
-	event["hashes"] = RawJSON(hashesJSON)
+	event["hashes"] = spec.RawJSON(hashesJSON)
 
 	return json.Marshal(event)
 }
@@ -259,7 +264,7 @@ func checkEventContentHash(eventJSON []byte) error {
 	var err error
 
 	result := gjson.GetBytes(eventJSON, "hashes.sha256")
-	var hash Base64Bytes
+	var hash spec.Base64Bytes
 	if err = hash.Decode(result.Str); err != nil {
 		return err
 	}
@@ -284,12 +289,16 @@ func checkEventContentHash(eventJSON []byte) error {
 // ReferenceSha256HashOfEvent returns the SHA-256 hash of the redacted event content.
 // This is used when referring to this event from other events.
 func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference, error) {
-	redactedJSON, err := RedactEventJSON(eventJSON, roomVersion)
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return EventReference{}, err
+	}
+	redactedJSON, err := verImpl.RedactEventJSON(eventJSON)
 	if err != nil {
 		return EventReference{}, err
 	}
 
-	var event map[string]RawJSON
+	var event map[string]spec.RawJSON
 	if err = json.Unmarshal(redactedJSON, &event); err != nil {
 		return EventReference{}, err
 	}
@@ -310,14 +319,8 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 	var eventID string
 
-	eventFormat, err := roomVersion.EventFormat()
-	if err != nil {
-		return EventReference{}, err
-	}
-	eventIDFormat, err := roomVersion.EventIDFormat()
-	if err != nil {
-		return EventReference{}, err
-	}
+	eventFormat := verImpl.EventFormat()
+	eventIDFormat := verImpl.EventIDFormat()
 
 	switch eventFormat {
 	case EventFormatV1:
@@ -346,8 +349,12 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 
 // SignEvent adds a ED25519 signature to the event for the given key.
 func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, eventJSON []byte, roomVersion RoomVersion) ([]byte, error) {
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, err
+	}
 	// Redact the event before signing so signature that will remain valid even if the event is redacted.
-	redactedJSON, err := RedactEventJSON(eventJSON, roomVersion)
+	redactedJSON, err := verImpl.RedactEventJSON(eventJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -360,14 +367,14 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 	}
 
 	var signedEvent struct {
-		Signatures RawJSON `json:"signatures"`
+		Signatures spec.RawJSON `json:"signatures"`
 	}
 	if err := json.Unmarshal(signedJSON, &signedEvent); err != nil {
 		return nil, err
 	}
 
 	// Unmarshal the event JSON so that we can replace the signatures key.
-	var event map[string]RawJSON
+	var event map[string]spec.RawJSON
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}

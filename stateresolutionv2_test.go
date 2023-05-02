@@ -17,6 +17,8 @@ package gomatrixserverlib
 import (
 	"sort"
 	"testing"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 var (
@@ -31,14 +33,14 @@ var emptyStateKey = ""
 
 // separate takes a list of events and works out which events are conflicted and
 // which are unconflicted.
-func separate(events []*Event) (conflicted, unconflicted []*Event) {
+func separate(events []PDU) (conflicted, unconflicted []PDU) {
 	// The stack maps event type -> event state key -> list of state events.
-	stack := make(map[string]map[string][]*Event)
+	stack := make(map[string]map[string][]PDU)
 	// Prepare the map.
 	for _, event := range events {
 		// If we haven't encountered an entry of this type yet, create an entry.
 		if _, ok := stack[event.Type()]; !ok {
-			stack[event.Type()] = make(map[string][]*Event)
+			stack[event.Type()] = make(map[string][]PDU)
 		}
 		// Work out the state key in a crash-proof manner.
 		statekey := ""
@@ -77,15 +79,15 @@ func separate(events []*Event) (conflicted, unconflicted []*Event) {
 	return
 }
 
-func getBaseStateResV2Graph() []*Event {
-	return []*Event{
-		{
+func getBaseStateResV2Graph() []PDU {
+	return []PDU{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$CREATE:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomCreate,
+					Type:           spec.MRoomCreate,
 					OriginServerTS: 1,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -93,13 +95,13 @@ func getBaseStateResV2Graph() []*Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMA:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 2,
 					Sender:         ALICE,
 					StateKey:       &ALICE,
@@ -113,13 +115,13 @@ func getBaseStateResV2Graph() []*Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IPOWER:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomPowerLevels,
+					Type:           spec.MRoomPowerLevels,
 					OriginServerTS: 3,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -134,13 +136,13 @@ func getBaseStateResV2Graph() []*Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IJR:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomJoinRules,
+					Type:           spec.MRoomJoinRules,
 					OriginServerTS: 4,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -156,13 +158,13 @@ func getBaseStateResV2Graph() []*Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMB:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 5,
 					Sender:         BOB,
 					StateKey:       &BOB,
@@ -178,13 +180,13 @@ func getBaseStateResV2Graph() []*Event {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMC:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 6,
 					Sender:         CHARLIE,
 					StateKey:       &CHARLIE,
@@ -209,7 +211,7 @@ func TestStateResolutionBase(t *testing.T) {
 		"$IMA:example.com", "$IMB:example.com", "$IMC:example.com",
 	}
 
-	runStateResolutionV2(t, []*Event{}, expected)
+	runStateResolutionV2(t, []PDU{}, expected)
 }
 
 func BenchmarkStateResolutionBanVsPowerLevel(b *testing.B) {
@@ -226,14 +228,14 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 		"$MB:example.com",
 	}
 
-	runStateResolutionV2(t, []*Event{
-		{
+	runStateResolutionV2(t, []PDU{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$PA:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomPowerLevels,
+					Type:           spec.MRoomPowerLevels,
 					OriginServerTS: 7,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -252,13 +254,13 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$PB:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomPowerLevels,
+					Type:           spec.MRoomPowerLevels,
 					OriginServerTS: 8,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -277,13 +279,13 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$MB:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 9,
 					Sender:         ALICE,
 					StateKey:       &EVELYN,
@@ -299,13 +301,13 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IME:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 10,
 					Sender:         EVELYN,
 					StateKey:       &EVELYN,
@@ -331,14 +333,14 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 		"$IMZ:example.com",
 	}
 
-	runStateResolutionV2(t, []*Event{
-		{
+	runStateResolutionV2(t, []PDU{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$JR:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomJoinRules,
+					Type:           spec.MRoomJoinRules,
 					OriginServerTS: 8,
 					Sender:         ALICE,
 					StateKey:       &emptyStateKey,
@@ -354,13 +356,13 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 				},
 			},
 		},
-		{
+		&Event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMZ:example.com",
 				eventFields: eventFields{
 					RoomID:         "!ROOM:example.com",
-					Type:           MRoomMember,
+					Type:           spec.MRoomMember,
 					OriginServerTS: 9,
 					Sender:         ZARA,
 					StateKey:       &ZARA,
@@ -416,7 +418,7 @@ func TestLexicographicalSorting(t *testing.T) {
 func TestReverseTopologicalEventSorting(t *testing.T) {
 	r := stateResolverV2{}
 	graph := getBaseStateResV2Graph()
-	var base []*Event
+	var base []PDU
 	base = append(base, graph...)
 	input := r.reverseTopologicalOrdering(base, TopologicalOrderByAuthEvents)
 
@@ -459,9 +461,9 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 		/* second user joins       */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$RTbObai9XOoujyGg2pz90sbOZHJ1807sF9ic-mqSGL8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI"],"content":{"avatar_url":"","displayname":"anon-20220512_124253-2","membership":"join"},"depth":7,"hashes":{"sha256":"BLec3G4mLa99dr8K1NaVvGh1pDWCOHZd10/mcVc7hMA"},"origin":"localhost:8800","origin_server_ts":1652359375689,"prev_events":["$oUu8vxS4Sikr6tUITnHbnMrW-8fQpJWnLfO0sNB7kW4"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-2:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"gyF1Qph/s1Z94Ne3QI42FsOLjiZs7DbEB6+vAu59XEY5SkoCdm5THqXfrIkbOIcebKcE2HntSjNZOyhGXSETBQ"}},"state_key":"@anon-20220512_124253-2:localhost:8800","type":"m.room.member","unsigned":{}}`,
 		/* first user kicks second */ `{"auth_events":["$497roGiLBBI5Q2ZKPCoSegSi8f8sSfWJW9JLPGnlGw8","$i2hsVdh5QxBroLmgpo91TxPcHQzd9VnQKgoYwY66SxI","$00fae_PeYsZWsrtXYTSfauzH51QfRVe43ADCUIjtN1E","$Djpz6XCVAF39psdQSwgZdiYyDDwKEPBgs9M6Bmbw11s"],"content":{"displayname":"anon-20220512_124253-2","membership":"leave","reason":"testing"},"depth":8,"hashes":{"sha256":"I9EXGDXtPo6WRVpbr06ppeQYEJtEkx/pxsveNR8pmj0"},"origin":"localhost:8800","origin_server_ts":1652359375738,"prev_events":["$Djpz6XCVAF39psdQSwgZdiYyDDwKEPBgs9M6Bmbw11s"],"prev_state":[],"room_id":"!3CHu7khd0phWyTm5:localhost:8800","sender":"@anon-20220512_124253-1:localhost:8800","signatures":{"localhost:8800":{"ed25519:rhNBRg":"ho7JrdMV3FgFD94grYNmdgS7lbuenE180ATVGYlae14IH7IsS071Vg7HMjihGc+2KXiaM5Njwy9+9VUXvbiJBA"}},"state_key":"@anon-20220512_124253-2:localhost:8800","type":"m.room.member"}`,
 	}
-	events := make([]*Event, 0, len(eventJSONs))
+	events := make([]PDU, 0, len(eventJSONs))
 	for _, eventJSON := range eventJSONs {
-		event, err := NewEventFromTrustedJSON([]byte(eventJSON), false, RoomVersionV6)
+		event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV6))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -491,7 +493,7 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 	}
 	found := false
 	for _, v := range result {
-		if v.EventID() == events[len(eventJSONs)-1].eventID {
+		if v.EventID() == events[len(eventJSONs)-1].EventID() {
 			found = true
 			break
 		}
@@ -501,7 +503,7 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 	}
 }
 
-func runStateResolutionV2(t *testing.T, additional []*Event, expected []string) {
+func runStateResolutionV2(t *testing.T, additional []PDU, expected []string) {
 	input := append(getBaseStateResV2Graph(), additional...)
 	conflicted, unconflicted := separate(input)
 

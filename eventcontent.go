@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // CreateContent is the JSON content of a m.room.create event along with
@@ -52,7 +54,7 @@ type PreviousRoom struct {
 // NewCreateContentFromAuthEvents loads the create event content from the create event in the
 // auth events.
 func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateContent, err error) {
-	var createEvent *Event
+	var createEvent PDU
 	if createEvent, err = authEvents.Create(); err != nil {
 		return
 	}
@@ -146,14 +148,14 @@ type MemberThirdPartyInviteSigned struct {
 // NewMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
 // Returns an error if there was an error loading the member event or parsing the event content.
 func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string) (c MemberContent, err error) {
-	var memberEvent *Event
+	var memberEvent PDU
 	if memberEvent, err = authEvents.Member(userID); err != nil {
 		return
 	}
 	if memberEvent == nil {
 		// If there isn't a member event then the membership for the user
 		// defaults to leave.
-		c.Membership = Leave
+		c.Membership = spec.Leave
 		return
 	}
 	return NewMemberContentFromEvent(memberEvent)
@@ -161,7 +163,7 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 
 // NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
-func NewMemberContentFromEvent(event *Event) (c MemberContent, err error) {
+func NewMemberContentFromEvent(event PDU) (c MemberContent, err error) {
 	if err = json.Unmarshal(event.Content(), &c); err != nil {
 		var partial membershipContent
 		if err = json.Unmarshal(event.Content(), &partial); err != nil {
@@ -188,14 +190,14 @@ type ThirdPartyInviteContent struct {
 
 // PublicKey is the "PublicKeys" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-third-party-invite
 type PublicKey struct {
-	PublicKey      Base64Bytes `json:"public_key"`
-	KeyValidityURL string      `json:"key_validity_url"`
+	PublicKey      spec.Base64Bytes `json:"public_key"`
+	KeyValidityURL string           `json:"key_validity_url"`
 }
 
 // NewThirdPartyInviteContentFromAuthEvents loads the third party invite content from the third party invite event for the state key (token) in the auth events.
 // Returns an error if there was an error loading the third party invite event or parsing the event content.
 func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, token string) (t ThirdPartyInviteContent, err error) {
-	var thirdPartyInviteEvent *Event
+	var thirdPartyInviteEvent PDU
 	if thirdPartyInviteEvent, err = authEvents.ThirdPartyInvite(token); err != nil {
 		return
 	}
@@ -290,7 +292,7 @@ type JoinRuleContentAllowRule struct {
 func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleContent, err error) {
 	// Start off with "invite" as the default. Hopefully the unmarshal
 	// step later will replace it with a better value.
-	c.JoinRule = Invite
+	c.JoinRule = spec.Invite
 	// Then see if the specified join event contains something better.
 	joinRulesEvent, err := authEvents.JoinRules()
 	if err != nil {
@@ -336,7 +338,7 @@ func (c *PowerLevelContent) UserLevel(userID string) int64 {
 
 // EventLevel returns the power level needed to send an event in the room.
 func (c *PowerLevelContent) EventLevel(eventType string, isState bool) int64 {
-	if eventType == MRoomThirdPartyInvite {
+	if eventType == spec.MRoomThirdPartyInvite {
 		// Special case third_party_invite events to have the same level as
 		// m.room.member invite events.
 		// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L182
@@ -406,14 +408,16 @@ func (c *PowerLevelContent) Defaults() {
 }
 
 // NewPowerLevelContentFromEvent loads the power level content from an event.
-func NewPowerLevelContentFromEvent(event *Event) (c PowerLevelContent, err error) {
+func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 	// Set the levels to their default values.
 	c.Defaults()
 
-	var strict bool
-	if strict, err = event.roomVersion.RequireIntegerPowerLevels(); err != nil {
-		return
-	} else if strict {
+	verImpl, err := GetRoomVersion(event.Version())
+	if err != nil {
+		return c, err
+	}
+
+	if verImpl.RequireIntegerPowerLevels() {
 		// Unmarshal directly to PowerLevelContent, since that will kick up an
 		// error if one of the power levels isn't an int64.
 		if err = json.Unmarshal(event.Content(), &c); err != nil {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 var privateKeySeed1 = `QJvXAPj0D9MUb1exkD8pIWmCvT1xajlsB8jRYz/G5HE`
@@ -43,7 +45,7 @@ func (db testKeyDatabase) FetcherName() string {
 }
 
 func (db *testKeyDatabase) FetchKeys(
-	ctx context.Context, requests map[PublicKeyLookupRequest]Timestamp,
+	ctx context.Context, requests map[PublicKeyLookupRequest]spec.Timestamp,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
 
@@ -141,10 +143,10 @@ func TestStrictCheckingKeyValidity(t *testing.T) {
 	// https://matrix.org/docs/spec/rooms/v5#signing-key-validity-period
 	publicKeyLookup := PublicKeyLookupResult{
 		ExpiredTS:    PublicKeyNotExpired,
-		ValidUntilTS: AsTimestamp(time.Now().Add(time.Hour * 24 * 14)),
+		ValidUntilTS: spec.AsTimestamp(time.Now().Add(time.Hour * 24 * 14)),
 	}
-	shouldPass := AsTimestamp(time.Now().Add(time.Hour * 24 * 5))
-	shouldFail := AsTimestamp(time.Now().Add(time.Hour * 24 * 9))
+	shouldPass := spec.AsTimestamp(time.Now().Add(time.Hour * 24 * 5))
+	shouldFail := spec.AsTimestamp(time.Now().Add(time.Hour * 24 * 9))
 
 	// This test should pass because we are only looking
 	// 5 days in the future, which is less than 7 days.
@@ -164,8 +166,8 @@ func TestExpiredTS(t *testing.T) {
 	publicKeyLookup := PublicKeyLookupResult{
 		ExpiredTS: 1000,
 	}
-	shouldPass := Timestamp(999)
-	shouldFail := Timestamp(1000)
+	shouldPass := spec.Timestamp(999)
+	shouldFail := spec.Timestamp(1000)
 
 	// This test should pass because it is less than ExpiredTS.
 	if !publicKeyLookup.WasValidAt(shouldPass, true) {
@@ -215,7 +217,7 @@ func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 
 func TestVerifyJSONsDistantFutureFails(t *testing.T) {
 	// Check that trying to verify JSON from the distant future fails.
-	distantFuture := Timestamp(2000000000000)
+	distantFuture := spec.Timestamp(2000000000000)
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
 		ServerName:             "unknown:8800",
@@ -254,7 +256,7 @@ type TestRequestKeyDummy struct {
 	didRequest bool
 }
 
-func (d *TestRequestKeyDummy) FetchKeys(ctx context.Context, requests map[PublicKeyLookupRequest]Timestamp) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
+func (d *TestRequestKeyDummy) FetchKeys(ctx context.Context, requests map[PublicKeyLookupRequest]spec.Timestamp) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
 	d.didRequest = true
 	return map[PublicKeyLookupRequest]PublicKeyLookupResult{}, nil
 }
@@ -341,7 +343,7 @@ func (e erroringKeyDatabase) FetcherName() string {
 }
 
 func (e *erroringKeyDatabase) FetchKeys(
-	ctx context.Context, requests map[PublicKeyLookupRequest]Timestamp,
+	ctx context.Context, requests map[PublicKeyLookupRequest]spec.Timestamp,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
 	return nil, &testErrorFetch
 }

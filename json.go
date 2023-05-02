@@ -23,23 +23,20 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
-type EventJSONs []RawJSON
-
-func (e RawJSON) TrustedEvent(roomVersion RoomVersion, redacted bool) (*Event, error) {
-	return NewEventFromTrustedJSON(e, redacted, roomVersion)
-}
-
-func (e RawJSON) UntrustedEvent(roomVersion RoomVersion) (*Event, error) {
-	return NewEventFromUntrustedJSON(e, roomVersion)
-}
+type EventJSONs []spec.RawJSON
 
 func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Event {
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil
+	}
 	events := make([]*Event, 0, len(e))
 	for _, js := range e {
-		event, err := NewEventFromTrustedJSON(js, redacted, roomVersion)
+		event, err := verImpl.NewEventFromTrustedJSON(js, redacted)
 		if err != nil {
 			continue
 		}
@@ -49,21 +46,17 @@ func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []*Eve
 }
 
 func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []*Event {
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil
+	}
 	events := make([]*Event, 0, len(e))
 	for _, js := range e {
-		event, err := NewEventFromUntrustedJSON(js, roomVersion)
+		event, err := verImpl.NewEventFromUntrustedJSON(js)
 		if err != nil {
 			continue
 		}
 		events = append(events, event)
-	}
-	return events
-}
-
-func NewEventJSONsFromHeaderedEvents(he []*HeaderedEvent) EventJSONs {
-	events := make(EventJSONs, len(he))
-	for i := range he {
-		events[i] = he[i].JSON()
 	}
 	return events
 }
@@ -100,7 +93,11 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 //
 // Returns a gomatrixserverlib.BadJSONError if JSON validation fails.
 func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error) {
-	if enforce, err := roomVersion.EnforceCanonicalJSON(); err == nil && enforce {
+	roomVersionImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, err
+	}
+	if enforce := roomVersionImpl.EnforceCanonicalJSON(); enforce {
 		if err = verifyEnforcedCanonicalJSON(input); err != nil {
 			return nil, BadJSONError{err}
 		}

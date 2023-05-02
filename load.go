@@ -9,7 +9,7 @@ import (
 
 // EventLoadResult is the result of loading and verifying an event in the EventsLoader.
 type EventLoadResult struct {
-	Event    *HeaderedEvent
+	Event    PDU
 	Error    error
 	SoftFail bool
 }
@@ -18,7 +18,7 @@ type EventLoadResult struct {
 type EventsLoader struct {
 	roomVer       RoomVersion
 	keyRing       JSONVerifier
-	provider      AuthChainProvider
+	provider      EventProvider
 	stateProvider StateProvider
 	// Set to true to do:
 	// 6. Passes authorization rules based on the current state of the room, otherwise it is "soft failed".
@@ -27,7 +27,7 @@ type EventsLoader struct {
 }
 
 // NewEventsLoader returns a new events loader
-func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider AuthChainProvider, performSoftFailCheck bool) *EventsLoader {
+func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider StateProvider, provider EventProvider, performSoftFailCheck bool) *EventsLoader {
 	return &EventsLoader{
 		roomVer:              roomVer,
 		keyRing:              keyRing,
@@ -46,12 +46,17 @@ func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider St
 func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage, sortOrder TopologicalOrder) ([]EventLoadResult, error) {
 	results := make([]EventLoadResult, len(rawEvents))
 
+	verImpl, err := GetRoomVersion(l.roomVer)
+	if err != nil {
+		return nil, err
+	}
+
 	// 1. Is a valid event, otherwise it is dropped.
 	// 3. Passes hash checks, otherwise it is redacted before being processed further.
-	events := make([]*Event, 0, len(rawEvents))
+	events := make([]PDU, 0, len(rawEvents))
 	errs := make([]error, 0, len(rawEvents))
 	for _, rawEv := range rawEvents {
-		event, err := NewEventFromUntrustedJSON(rawEv, l.roomVer)
+		event, err := newEventFromUntrustedJSON(rawEv, verImpl)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -78,7 +83,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
 	}
 	for i := range events {
-		h := events[i].Headered(l.roomVer)
+		h := events[i]
 		results[i] = EventLoadResult{
 			Event: h,
 		}

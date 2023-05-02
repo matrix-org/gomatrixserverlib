@@ -16,6 +16,8 @@ package gomatrixserverlib
 
 import (
 	"strings"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // A stateResV2ConflictedPowerLevel is used to sort the events by effective
@@ -25,9 +27,9 @@ import (
 // sort.
 type stateResV2ConflictedPowerLevel struct {
 	powerLevel     int64
-	originServerTS Timestamp
+	originServerTS spec.Timestamp
 	eventID        string
-	event          *Event
+	event          PDU
 }
 
 // A stateResV2ConflictedPowerLevelHeap is used to sort the events using
@@ -89,9 +91,9 @@ func (s *stateResV2ConflictedPowerLevelHeap) Pop() interface{} {
 type stateResV2ConflictedOther struct {
 	mainlinePosition int
 	mainlineSteps    int
-	originServerTS   Timestamp
+	originServerTS   spec.Timestamp
 	eventID          string
-	event            *Event
+	event            PDU
 }
 
 // A stateResV2ConflictedOtherHeap is used to sort the events using

@@ -41,7 +41,7 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyOK := func(input string) {
-		redactedInput, err := RedactEventJSON([]byte(input), RoomVersionV1)
+		redactedInput, err := MustGetRoomVersion(RoomVersionV1).RedactEventJSON([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func TestVerifyEventSignatureTestVectors(t *testing.T) {
 	}
 
 	testVerifyNotOK := func(reason, input string) {
-		redactedInput, err := RedactEventJSON([]byte(input), RoomVersionV1)
+		redactedInput, err := MustGetRoomVersion(RoomVersionV1).RedactEventJSON([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -373,12 +373,12 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 		"origin_server_ts": 123456
 	}`)
 
-	event, err := NewEventFromTrustedJSON(eventJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Error(err)
 	}
 
-	events := []*Event{event}
+	events := []PDU{event}
 	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
 	for _, err := range errors {
 		if err != nil {
@@ -390,7 +390,7 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 	if len(verifier.requests) != 1 {
 		t.Fatalf("Number of requests: got %d, want 1", len(verifier.requests))
 	}
-	wantContent, err := RedactEventJSON(eventJSON, RoomVersionV1)
+	wantContent, err := MustGetRoomVersion(RoomVersionV1).RedactEventJSON(eventJSON)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,12 +431,12 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 		"origin_server_ts": 123456
 	}`)
 
-	event, err := NewEventFromTrustedJSON(eventJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Error(err)
 	}
 
-	events := []*Event{event}
+	events := []PDU{event}
 	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
 	for _, err := range errors {
 		if err != nil {
@@ -448,7 +448,7 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 	if len(verifier.requests) != 2 {
 		t.Fatalf("Number of requests: got %d, want 2", len(verifier.requests))
 	}
-	wantContent, err := RedactEventJSON(eventJSON, RoomVersionV1)
+	wantContent, err := MustGetRoomVersion(RoomVersionV1).RedactEventJSON(eventJSON)
 	if err != nil {
 		t.Fatal(err)
 	}

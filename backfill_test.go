@@ -8,42 +8,44 @@ import (
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 const (
-	serverA    = ServerName("baba.is.you")
+	serverA    = spec.ServerName("baba.is.you")
 	testRoomID = "!roomid:baba.is.you"
 )
 
 type testBackfillRequester struct {
-	servers                         []ServerName
-	backfillFn                      func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
+	servers                         []spec.ServerName
+	backfillFn                      func(origin, server spec.ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error)
 	authEventsToProvide             [][]byte
 	stateIDsAtEvent                 map[string][]string
 	callOrderForStateIDsBeforeEvent []string // event IDs called
 }
 
-func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent *HeaderedEvent) ([]string, error) {
+func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
 	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
 	return t.stateIDsAtEvent[atEvent.EventID()], nil
 }
-func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event *HeaderedEvent, eventIDs []string) (map[string]*Event, error) {
+func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []ServerName {
+func (t *testBackfillRequester) ServersAtEvent(ctx context.Context, roomID, eventID string) []spec.ServerName {
 	return t.servers
 }
-func (t *testBackfillRequester) Backfill(ctx context.Context, origin, server ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error) {
+func (t *testBackfillRequester) Backfill(ctx context.Context, origin, server spec.ServerName, roomID string, limit int, fromEventIDs []string) (Transaction, error) {
 	txn, err := t.backfillFn(origin, server, roomID, fromEventIDs, limit)
 	if err != nil {
 		return Transaction{}, err
 	}
 	return *txn, nil
 }
-func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []*Event, err error) {
+func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []PDU, err error) {
 	eventMap := make(map[string]*Event)
 	for _, eventBytes := range t.authEventsToProvide {
-		ev, err := NewEventFromTrustedJSON(eventBytes, false, RoomVersionV1)
+		ev, err := newEventFromTrustedJSON(eventBytes, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			panic("Failed to load event: " + err.Error())
 		}
@@ -72,7 +74,7 @@ func (t *testNopJSONVerifier) VerifyJSONs(ctx context.Context, requests []Verify
 // Together, the events from server A and server B exceed the `limit` criteria which then gets returned to the caller.
 func TestRequestBackfillMultipleServers(t *testing.T) {
 	ctx := context.Background()
-	serverB := ServerName("wall.is.stop")
+	serverB := spec.ServerName("wall.is.stop")
 	// currently we have no way of checking that the events returned link back to the from event, so anything works here.
 	testFromEventIDs := []string{"foo"}
 	testLimit := 3
@@ -87,7 +89,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 	}
 	keyRing := &testNopJSONVerifier{}
 	tbr := &testBackfillRequester{
-		servers:             []ServerName{serverA, serverB},
+		servers:             []spec.ServerName{serverA, serverB},
 		authEventsToProvide: testBackfillEvents,
 		stateIDsAtEvent: map[string][]string{
 			"$4Kp0G1yWZ6tNpeI7:baba.is.you": {"$fnwGrQEpiOIUoDU2:baba.is.you", "$WCraVpPZe5TtHAqs:baba.is.you"},
@@ -95,7 +97,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 			"$fnwGrQEpiOIUoDU2:baba.is.you": {"$WCraVpPZe5TtHAqs:baba.is.you"},
 			"$WCraVpPZe5TtHAqs:baba.is.you": nil,
 		},
-		backfillFn: func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+		backfillFn: func(origin, server spec.ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)
 			}
@@ -103,7 +105,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 				// server A returns events 1 and 3.
 				return &Transaction{
 					Origin:         origin,
-					OriginServerTS: AsTimestamp(time.Now()),
+					OriginServerTS: spec.AsTimestamp(time.Now()),
 					PDUs: []json.RawMessage{
 						testBackfillEvents[1], testBackfillEvents[3],
 					},
@@ -112,7 +114,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 				// server B returns events 0 and 2 and 3.
 				return &Transaction{
 					Origin:         origin,
-					OriginServerTS: AsTimestamp(time.Now()),
+					OriginServerTS: spec.AsTimestamp(time.Now()),
 					PDUs: []json.RawMessage{
 						testBackfillEvents[0], testBackfillEvents[2], testBackfillEvents[3],
 					},
@@ -150,7 +152,7 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 	}
 	keyRing := &testNopJSONVerifier{}
 	tbr := &testBackfillRequester{
-		servers:             []ServerName{serverA},
+		servers:             []spec.ServerName{serverA},
 		authEventsToProvide: testBackfillEvents,
 		stateIDsAtEvent: map[string][]string{
 			"$4Kp0G1yWZ6tNpeI7:baba.is.you": {"$fnwGrQEpiOIUoDU2:baba.is.you", "$WCraVpPZe5TtHAqs:baba.is.you"},
@@ -158,14 +160,14 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 			"$fnwGrQEpiOIUoDU2:baba.is.you": {"$WCraVpPZe5TtHAqs:baba.is.you"},
 			"$WCraVpPZe5TtHAqs:baba.is.you": nil,
 		},
-		backfillFn: func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+		backfillFn: func(origin, server spec.ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)
 			}
 			if server == serverA {
 				return &Transaction{
 					Origin:         origin,
-					OriginServerTS: AsTimestamp(time.Now()),
+					OriginServerTS: spec.AsTimestamp(time.Now()),
 					PDUs: []json.RawMessage{
 						testBackfillEvents[0], testBackfillEvents[1], testBackfillEvents[2], testBackfillEvents[3],
 					},
@@ -209,8 +211,8 @@ func TestRequestBackfillError(t *testing.T) {
 		[]byte(`{"auth_events":[],"content":{"creator":"@userid:baba.is.you"},"depth":0,"event_id":"$WCraVpPZe5TtHAqs:baba.is.you","hashes":{"sha256":"EehWNbKy+oDOMC0vIvYl1FekdDxMNuabXKUVzV7DG74"},"origin":"baba.is.you","origin_server_ts":0,"prev_events":[],"prev_state":[],"room_id":"!roomid:baba.is.you","sender":"@userid:baba.is.you","signatures":{"baba.is.you":{"ed25519:auto":"08aF4/bYWKrdGPFdXmZCQU6IrOE1ulpevmWBM3kiShJPAbRbZ6Awk7buWkIxlMF6kX3kb4QpbAlZfHLQgncjCw"}},"state_key":"","type":"m.room.create"}`),
 	}
 	tbr := &testBackfillRequester{
-		servers: []ServerName{serverA, serverA},
-		backfillFn: func(origin, server ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
+		servers: []spec.ServerName{serverA, serverA},
+		backfillFn: func(origin, server spec.ServerName, roomID string, fromEventIDs []string, limit int) (*Transaction, error) {
 			if roomID != testRoomID {
 				return nil, fmt.Errorf("bad room id: %s", roomID)
 			}
@@ -219,7 +221,7 @@ func TestRequestBackfillError(t *testing.T) {
 			}
 			return &Transaction{
 				Origin:         origin,
-				OriginServerTS: AsTimestamp(time.Now()),
+				OriginServerTS: spec.AsTimestamp(time.Now()),
 				PDUs: []json.RawMessage{
 					testBackfillEvents[0], testBackfillEvents[1], testBackfillEvents[2], testBackfillEvents[3],
 				},
@@ -232,7 +234,7 @@ func TestRequestBackfillError(t *testing.T) {
 	}
 }
 
-func assertUnsortedEqual(t *testing.T, result []*HeaderedEvent, want [][]byte) {
+func assertUnsortedEqual(t *testing.T, result []PDU, want [][]byte) {
 	if len(result) != len(want) {
 		t.Fatalf("RequestBackfill got %d events, want %d", len(result), len(want))
 	}
@@ -240,7 +242,7 @@ func assertUnsortedEqual(t *testing.T, result []*HeaderedEvent, want [][]byte) {
 	sort.Sort(sortedWant)
 	var got [][]byte
 	for _, e := range result {
-		got = append(got, e.eventJSON)
+		got = append(got, e.JSON())
 	}
 	sortedGot := sortByteSlices(got)
 	sort.Sort(sortedGot)

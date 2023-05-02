@@ -18,6 +18,8 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -49,16 +51,16 @@ func stateNeededEquals(a, b StateNeeded) bool {
 	return true
 }
 
-type testEventList []*Event
+type testEventList []PDU
 
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
-	var eventJSONs []RawJSON
-	var events []*Event
+	var eventJSONs []spec.RawJSON
+	var events []PDU
 	if err := json.Unmarshal(data, &eventJSONs); err != nil {
 		return err
 	}
 	for _, eventJSON := range eventJSONs {
-		event, err := NewEventFromTrustedJSON(eventJSON, false, RoomVersionV1)
+		event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			return err
 		}
@@ -211,55 +213,55 @@ type testAuthEvents struct {
 	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
 }
 
-func (tae *testAuthEvents) Create() (*Event, error) {
+func (tae *testAuthEvents) Create() (PDU, error) {
 	if len(tae.CreateJSON) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.CreateJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.CreateJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
 	return event, nil
 }
 
-func (tae *testAuthEvents) JoinRules() (*Event, error) {
+func (tae *testAuthEvents) JoinRules() (PDU, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.JoinRulesJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.JoinRulesJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
 	return event, nil
 }
 
-func (tae *testAuthEvents) PowerLevels() (*Event, error) {
+func (tae *testAuthEvents) PowerLevels() (PDU, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.PowerLevelsJSON, false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.PowerLevelsJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
 	return event, nil
 }
 
-func (tae *testAuthEvents) Member(stateKey string) (*Event, error) {
+func (tae *testAuthEvents) Member(stateKey string) (PDU, error) {
 	if len(tae.MemberJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.MemberJSON[stateKey], false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.MemberJSON[stateKey], false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
 	return event, nil
 }
 
-func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (*Event, error) {
+func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (PDU, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false, RoomVersionV1)
+	event, err := newEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +284,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {
-		event, err := NewEventFromTrustedJSON(data, false, RoomVersionV1)
+		event, err := newEventFromTrustedJSON(data, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			panic(err)
 		}
@@ -291,7 +293,7 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		}
 	}
 	for _, data := range tc.NotAllowed {
-		event, err := NewEventFromTrustedJSON(data, false, RoomVersionV1)
+		event, err := newEventFromTrustedJSON(data, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
 			panic(err)
 		}
@@ -1002,7 +1004,7 @@ func TestRedactAllowed(t *testing.T) {
 }
 
 func TestAuthEvents(t *testing.T) {
-	power, err := NewEventFromTrustedJSON(RawJSON(`{
+	power, err := newEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1014,16 +1016,16 @@ func TestAuthEvents(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
-	a := NewAuthEvents([]*Event{power})
-	var e *Event
+	a := NewAuthEvents([]PDU{power})
+	var e PDU
 	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
 	}
-	create, err := NewEventFromTrustedJSON(RawJSON(`{
+	create, err := newEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.create",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1032,7 +1034,7 @@ func TestAuthEvents(t *testing.T) {
 		"content": {
 			"creator": "@u1:a"
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create create event: %s", err)
 	}
@@ -1086,7 +1088,7 @@ var powerLevelTestRoom = &testAuthEvents{
 func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
-	powerChangeShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
+	powerChangeShouldSucceed, err := newEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1099,7 +1101,7 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1111,7 +1113,7 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 	// User shouldn't be able to promote the user default
 	// level above their own effective level.
-	powerChangeShouldFail, err := NewEventFromTrustedJSON(RawJSON(`{
+	powerChangeShouldFail, err := newEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u2:a",
@@ -1124,7 +1126,7 @@ func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 			},
 			"redact": 100
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1184,7 +1186,7 @@ var negativePowerLevelTestRoom = &testAuthEvents{
 func TestNegativePowerLevels(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
-	eventShouldSucceed, err := NewEventFromTrustedJSON(RawJSON(`{
+	eventShouldSucceed, err := newEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.message",
 		"sender": "@u1:a",
 		"room_id": "!r1:a",
@@ -1192,7 +1194,7 @@ func TestNegativePowerLevels(t *testing.T) {
 		"content": {
 			"stuff": "i am a message event"
 		}
-	}`), false, RoomVersionV1)
+	}`), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
