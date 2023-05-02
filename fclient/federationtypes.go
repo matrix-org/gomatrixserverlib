@@ -68,7 +68,7 @@ type RespPeek struct {
 	RoomVersion gomatrixserverlib.RoomVersion `json:"room_version"`
 	// The ID of the event whose state snapshot this is - i.e. the
 	// most recent forward extremity in the room.
-	LatestEvent *gomatrixserverlib.Event `json:"latest_event"`
+	LatestEvent gomatrixserverlib.PDU `json:"latest_event"`
 }
 
 func (r *RespPeek) GetStateEvents() gomatrixserverlib.EventJSONs {
@@ -220,7 +220,7 @@ func (r RespPeek) MarshalJSON() ([]byte, error) {
 		StateEvents     gomatrixserverlib.EventJSONs  `json:"state"`
 		AuthEvents      gomatrixserverlib.EventJSONs  `json:"auth_chain"`
 		RoomVersion     gomatrixserverlib.RoomVersion `json:"room_version"`
-		LatestEvent     *gomatrixserverlib.Event      `json:"latest_event"`
+		LatestEvent     gomatrixserverlib.PDU         `json:"latest_event"`
 	}{
 		RenewalInterval: r.RenewalInterval,
 		StateEvents:     r.StateEvents,

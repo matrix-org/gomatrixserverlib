@@ -26,7 +26,7 @@ type PerformJoinInput struct {
 }
 
 type PerformJoinResponse struct {
-	JoinEvent     *Event
+	JoinEvent     PDU
 	StateSnapshot StateResponse
 }
 
@@ -134,7 +134,8 @@ func PerformJoin(
 	}
 
 	// Build the join event.
-	event, err := joinEvent.Build(
+	var event PDU
+	event, err = joinEvent.Build(
 		time.Now(),
 		origin,
 		input.KeyID,
@@ -272,7 +273,7 @@ func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec
 	return true
 }
 
-func checkEventsContainCreateEvent(events []*Event) error {
+func checkEventsContainCreateEvent(events []PDU) error {
 	// sanity check we have a create event and it has a known room version
 	for _, ev := range events {
 		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {

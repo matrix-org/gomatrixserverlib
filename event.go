@@ -561,7 +561,7 @@ func (e *Event) Redact() {
 
 // SetUnsigned sets the unsigned key of the event.
 // Returns a copy of the event with the "unsigned" key set.
-func (e *Event) SetUnsigned(unsigned interface{}) (*Event, error) {
+func (e *Event) SetUnsigned(unsigned interface{}) (PDU, error) {
 	var eventAsMap map[string]spec.RawJSON
 	var err error
 	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
@@ -647,7 +647,7 @@ func (e *Event) EventReference() EventReference {
 }
 
 // Sign returns a copy of the event with an additional signature.
-func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) Event {
+func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -657,7 +657,7 @@ func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
-	return Event{
+	return &Event{
 		redacted:    e.redacted,
 		eventID:     e.eventID,
 		eventJSON:   eventJSON,

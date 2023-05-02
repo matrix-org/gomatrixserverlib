@@ -230,7 +230,7 @@ func checkAllowedByAuthEvents(
 func CheckStateResponse(
 	ctx context.Context, r StateResponse, roomVersion RoomVersion,
 	keyRing JSONVerifier, missingAuth EventProvider,
-) ([]*Event, []*Event, error) {
+) ([]PDU, []PDU, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
 	stateEvents := r.GetStateEvents().UntrustedEvents(roomVersion)

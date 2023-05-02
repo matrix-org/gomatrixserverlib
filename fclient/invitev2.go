@@ -12,7 +12,7 @@ import (
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
-func NewInviteV2Request(event *gomatrixserverlib.Event, state []InviteV2StrippedState) (
+func NewInviteV2Request(event gomatrixserverlib.PDU, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
 	if !gomatrixserverlib.KnownRoomVersion(event.Version()) {
@@ -38,7 +38,7 @@ type inviteV2RequestHeaders struct {
 type InviteV2Request struct {
 	fields struct {
 		inviteV2RequestHeaders
-		Event *gomatrixserverlib.Event `json:"event"`
+		Event gomatrixserverlib.PDU `json:"event"`
 	}
 }
 
@@ -66,7 +66,7 @@ func (i *InviteV2Request) UnmarshalJSON(data []byte) error {
 }
 
 // Event returns the invite event.
-func (i *InviteV2Request) Event() *gomatrixserverlib.Event {
+func (i *InviteV2Request) Event() gomatrixserverlib.PDU {
 	return i.fields.Event
 }
 
@@ -94,7 +94,7 @@ type InviteV2StrippedState struct {
 
 // NewInviteV2StrippedState creates a stripped state event from a
 // regular state event.
-func NewInviteV2StrippedState(event *gomatrixserverlib.Event) (ss InviteV2StrippedState) {
+func NewInviteV2StrippedState(event gomatrixserverlib.PDU) (ss InviteV2StrippedState) {
 	ss.fields.Content = event.Content()
 	ss.fields.StateKey = event.StateKey()
 	ss.fields.Type = event.Type()

@@ -27,7 +27,7 @@ type FederationClient interface {
 	LookupRoomAlias(ctx context.Context, origin, s spec.ServerName, roomAlias string) (res RespDirectory, err error)
 	Peek(ctx context.Context, origin, s spec.ServerName, roomID, peekID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespPeek, err error)
 	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeJoin, err error)
-	SendJoin(ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event) (res RespSendJoin, err error)
+	SendJoin(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (res RespSendJoin, err error)
 	MakeLeave(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeLeave, err error)
 	SendLeave(ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event) (err error)
 	SendInviteV2(ctx context.Context, origin, s spec.ServerName, request InviteV2Request) (res RespInviteV2, err error)
@@ -219,7 +219,7 @@ func (ac *federationClient) MakeJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *federationClient) SendJoin(
-	ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event,
+	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespSendJoin, err error) {
 	return ac.sendJoin(ctx, origin, s, event, false)
 }
@@ -230,14 +230,14 @@ func (ac *federationClient) SendJoin(
 // This is used to join a room the local server isn't a member of.
 // See https://matrix.org/docs/spec/server_server/unstable.html#joining-rooms
 func (ac *federationClient) SendJoinPartialState(
-	ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event,
+	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespSendJoin, err error) {
 	return ac.sendJoin(ctx, origin, s, event, true)
 }
 
 // sendJoin is an internal implementation shared between SendJoin and SendJoinPartialState
 func (ac *federationClient) sendJoin(
-	ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event, partialState bool,
+	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU, partialState bool,
 ) (res RespSendJoin, err error) {
 	path := federationPathPrefixV2 + "/send_join/" +
 		url.PathEscape(event.RoomID()) + "/" +
@@ -364,7 +364,7 @@ func (ac *federationClient) SendLeave(
 // SendInvite sends an invite m.room.member event to an invited server to be
 // signed by it. This is used to invite a user that is not on the local server.
 func (ac *federationClient) SendInvite(
-	ctx context.Context, origin, s spec.ServerName, event *gomatrixserverlib.Event,
+	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
 		url.PathEscape(event.RoomID()) + "/" +
