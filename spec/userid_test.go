@@ -38,8 +38,8 @@ func TestValidUserIDs(t *testing.T) {
 			if userID.Domain() != spec.ServerName(tc.domain) {
 				t.Fatalf("Domain - Expected: %s Actual: %s ", spec.ServerName(tc.domain), userID.Domain())
 			}
-			if userID.Raw() != raw {
-				t.Fatalf("Raw - Expected: %s Actual: %s ", raw, userID.Raw())
+			if userID.String() != raw {
+				t.Fatalf("Raw - Expected: %s Actual: %s ", raw, userID.String())
 			}
 		})
 	}

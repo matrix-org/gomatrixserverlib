@@ -71,8 +71,8 @@ func PerformJoin(
 		ctx,
 		origin,
 		input.ServerName,
-		input.RoomID.Raw(),
-		input.UserID.Raw(),
+		input.RoomID.String(),
+		input.UserID.String(),
 	)
 	if err != nil {
 		// TODO: Check if the user was not allowed to join the room.
@@ -86,12 +86,12 @@ func PerformJoin(
 
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
-	stateKey := input.UserID.Raw()
+	stateKey := input.UserID.String()
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	joinEvent.Sender = input.UserID.Raw()
+	joinEvent.Sender = input.UserID.String()
 	joinEvent.StateKey = &stateKey
-	joinEvent.RoomID = input.RoomID.Raw()
+	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
 	if input.Content == nil {
 		input.Content = map[string]interface{}{}
@@ -258,16 +258,16 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec.UserID) bool {
+func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec.UserID) bool { // nolint: interfacer
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
 		return false
 	}
-	if event.RoomID() != roomID.Raw() {
+	if event.RoomID() != roomID.String() {
 		return false
 	}
-	if !event.StateKeyEquals(userID.Raw()) {
+	if !event.StateKeyEquals(userID.String()) {
 		return false
 	}
 	return true
