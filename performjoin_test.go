@@ -71,7 +71,7 @@ func (t *TestFederatedJoinClient) MakeJoin(ctx context.Context, origin, s spec.S
 
 	return &TestMakeJoinResponse{joinEvent: t.joinEventBuilder, roomVersion: t.roomVersion}, nil
 }
-func (t *TestFederatedJoinClient) SendJoin(ctx context.Context, origin, s spec.ServerName, event *Event) (res SendJoinResponse, err error) {
+func (t *TestFederatedJoinClient) SendJoin(ctx context.Context, origin, s spec.ServerName, event PDU) (res SendJoinResponse, err error) {
 	if t.shouldSendFail {
 		return nil, gomatrix.HTTPError{}
 	}

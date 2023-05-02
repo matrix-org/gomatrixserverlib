@@ -8,7 +8,7 @@ import (
 
 type FederatedJoinClient interface {
 	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res MakeJoinResponse, err error)
-	SendJoin(ctx context.Context, origin, s spec.ServerName, event *Event) (res SendJoinResponse, err error)
+	SendJoin(ctx context.Context, origin, s spec.ServerName, event PDU) (res SendJoinResponse, err error)
 }
 
 type MakeJoinResponse interface {

@@ -26,7 +26,7 @@ type PerformJoinInput struct {
 }
 
 type PerformJoinResponse struct {
-	JoinEvent     *Event
+	JoinEvent     PDU
 	StateSnapshot StateResponse
 }
 
@@ -134,7 +134,8 @@ func PerformJoin(
 	}
 
 	// Build the join event.
-	event, err := joinEvent.Build(
+	var event PDU
+	event, err = joinEvent.Build(
 		time.Now(),
 		origin,
 		input.KeyID,

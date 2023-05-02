@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"golang.org/x/crypto/ed25519"
 )
 
 type PDU interface {
@@ -20,6 +21,11 @@ type PDU interface {
 	OriginServerTS() spec.Timestamp
 	Sender() string
 	Unsigned() []byte
+	// SetUnsigned sets the unsigned key of the event.
+	// Returns a copy of the event with the "unsigned" key set.
+	SetUnsigned(unsigned interface{}) (PDU, error)
+	// Sign returns a copy of the event with an additional signature.
+	Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU
 	EventReference() EventReference  // TODO: remove
 	Depth() int64                    // TODO: remove
 	JSON() []byte                    // TODO: remove
