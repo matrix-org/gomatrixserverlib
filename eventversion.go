@@ -444,7 +444,9 @@ func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result PDU
 }
 
 func (v RoomVersionImpl) NewEventBuilder() *EventBuilder {
-	return &EventBuilder{}
+	return &EventBuilder{
+		version: v,
+	}
 }
 func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBuilder {
 	eb := v.NewEventBuilder()

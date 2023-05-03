@@ -142,7 +142,6 @@ func PerformJoin(
 		origin,
 		input.KeyID,
 		input.PrivateKey,
-		verImpl.Version(),
 	)
 	if err != nil {
 		return nil, &FederationError{

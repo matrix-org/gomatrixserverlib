@@ -40,6 +40,9 @@ type EventBuilder struct {
 	Content spec.RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
 	Unsigned spec.RawJSON `json:"unsigned,omitempty"`
+
+	// private: forces the user to go through NewEventBuilder
+	version IRoomVersion
 }
 
 // SetContent sets the JSON content key of the event.
@@ -55,7 +58,7 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 }
 
 func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
-	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
+	evTime time.Time, keyID KeyID, privateKey ed25519.PrivateKey,
 ) (PDU, error) {
 	eventsNeeded, err := StateNeededForEventBuilder(eb)
 	if err != nil {
@@ -68,7 +71,7 @@ func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provid
 	eb.AuthEvents = refs
 	event, err := eb.Build(
 		evTime, serverName, keyID,
-		privateKey, roomVersion,
+		privateKey,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot build event %s : Builder failed to build. %w", eb.Type, err)
@@ -83,15 +86,14 @@ func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provid
 // A different event ID must be supplied each time this is called.
 func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
-	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
+	privateKey ed25519.PrivateKey,
 ) (result PDU, err error) {
-	verImpl, err := GetRoomVersion(roomVersion)
-	if err != nil {
-		return nil, err
+	if eb.version == nil {
+		return nil, fmt.Errorf("EventBuilder.Build: unknown version, did you create this via NewEventBuilder?")
 	}
 
-	eventFormat := verImpl.EventFormat()
-	eventIDFormat := verImpl.EventIDFormat()
+	eventFormat := eb.version.EventFormat()
+	eventIDFormat := eb.version.EventIDFormat()
 	var eventStruct struct {
 		EventBuilder
 		EventID        string          `json:"event_id"`
@@ -177,16 +179,16 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {
+	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, eb.version.Version()); err != nil {
 		return
 	}
 
-	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, roomVersion); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, eb.version.Version()); err != nil {
 		return
 	}
 
 	res := &event{}
-	res.roomVersion = roomVersion
+	res.roomVersion = eb.version.Version()
 
 	if err = res.populateFieldsFromJSON("", eventJSON); err != nil {
 		return
