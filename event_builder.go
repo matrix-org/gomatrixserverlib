@@ -57,26 +57,22 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 	return
 }
 
-func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
-	evTime time.Time, keyID KeyID, privateKey ed25519.PrivateKey,
-) (PDU, error) {
-	eventsNeeded, err := StateNeededForEventBuilder(eb)
+func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
+	eventsNeeded, err := StateNeededForProtoEvent(&ProtoEvent{
+		Type:     eb.Type,
+		StateKey: eb.StateKey,
+		Content:  eb.Content,
+		Sender:   eb.Sender,
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	refs, err := eventsNeeded.AuthEventReferences(provider)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	eb.AuthEvents = refs
-	event, err := eb.Build(
-		evTime, serverName, keyID,
-		privateKey,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("cannot build event %s : Builder failed to build. %w", eb.Type, err)
-	}
-	return event, nil
+	return nil
 }
 
 // Build a new Event.

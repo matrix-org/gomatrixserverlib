@@ -256,8 +256,11 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = builder.AddAuthEvents(provider); err != nil {
+		t.Fatal(err)
+	}
 
-	eventStruct, err := builder.AddAuthEventsAndBuild("origin", provider, time.Now(), "ed25519:test", privateKey1)
+	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,8 +298,7 @@ func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
 	}
 
 	provider := &authProvider{valid: true, fail: true}
-	_, err = builder.AddAuthEventsAndBuild("origin", provider, time.Now(), "ed25519:test", privateKey1)
-	if err == nil {
+	if err = builder.AddAuthEvents(provider); err == nil {
 		t.Fatal("Building didn't fail")
 	}
 	println(err.Error())

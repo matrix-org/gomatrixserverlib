@@ -114,20 +114,20 @@ type membershipContent struct {
 	AuthorizedVia string `json:"join_authorised_via_users_server,omitempty"`
 }
 
-// StateNeededForEventBuilder returns the event types and state_keys needed to authenticate the
+// StateNeededForProtoEvent returns the event types and state_keys needed to authenticate the
 // event being built. These events should be put under 'auth_events' for the event being built.
 // Returns an error if the state needed could not be calculated with the given builder, e.g
 // if there is a m.room.member without a membership key.
-func StateNeededForEventBuilder(builder *EventBuilder) (result StateNeeded, err error) {
+func StateNeededForProtoEvent(protoEvent *ProtoEvent) (result StateNeeded, err error) {
 	// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 	var content *membershipContent
-	if builder.Type == spec.MRoomMember {
-		if err = json.Unmarshal(builder.Content, &content); err != nil {
+	if protoEvent.Type == spec.MRoomMember {
+		if err = json.Unmarshal(protoEvent.Content, &content); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
 		}
 	}
-	err = accumulateStateNeeded(&result, builder.Type, builder.Sender, builder.StateKey, content)
+	err = accumulateStateNeeded(&result, protoEvent.Type, protoEvent.Sender, protoEvent.StateKey, content)
 	result.Member = util.UniqueStrings(result.Member)
 	result.ThirdPartyInvite = util.UniqueStrings(result.ThirdPartyInvite)
 	return

@@ -70,7 +70,7 @@ func (tel *testEventList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func testStateNeededForAuth(t *testing.T, eventdata string, builder *EventBuilder, want StateNeeded) {
+func testStateNeededForAuth(t *testing.T, eventdata string, protoEvent *ProtoEvent, want StateNeeded) {
 	var events testEventList
 	if err := json.Unmarshal([]byte(eventdata), &events); err != nil {
 		panic(err)
@@ -79,8 +79,8 @@ func testStateNeededForAuth(t *testing.T, eventdata string, builder *EventBuilde
 	if !stateNeededEquals(got, want) {
 		t.Errorf("Testing StateNeededForAuth(%#v), wanted %#v got %#v", events, want, got)
 	}
-	if builder != nil {
-		got, err := StateNeededForEventBuilder(builder)
+	if protoEvent != nil {
+		got, err := StateNeededForProtoEvent(protoEvent)
 		if !stateNeededEquals(got, want) {
 			t.Errorf("Testing StateNeededForEventBuilder(%#v), wanted %#v got %#v", events, want, got)
 		}
@@ -93,7 +93,7 @@ func testStateNeededForAuth(t *testing.T, eventdata string, builder *EventBuilde
 func TestStateNeededForCreate(t *testing.T) {
 	// Create events don't need anything.
 	skey := ""
-	testStateNeededForAuth(t, `[{"type": "m.room.create"}]`, &EventBuilder{
+	testStateNeededForAuth(t, `[{"type": "m.room.create"}]`, &ProtoEvent{
 		Type:     "m.room.create",
 		StateKey: &skey,
 	}, StateNeeded{})
@@ -104,7 +104,7 @@ func TestStateNeededForMessage(t *testing.T) {
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.message",
 		"sender": "@u1:a"
-	}]`, &EventBuilder{
+	}]`, &ProtoEvent{
 		Type:   "m.room.message",
 		Sender: "@u1:a",
 	}, StateNeeded{
@@ -116,7 +116,7 @@ func TestStateNeededForMessage(t *testing.T) {
 
 func TestStateNeededForAlias(t *testing.T) {
 	// Alias events need only the create event.
-	testStateNeededForAuth(t, `[{"type": "m.room.aliases"}]`, &EventBuilder{
+	testStateNeededForAuth(t, `[{"type": "m.room.aliases"}]`, &ProtoEvent{
 		Type: "m.room.aliases",
 	}, StateNeeded{
 		Create: true,
@@ -125,7 +125,7 @@ func TestStateNeededForAlias(t *testing.T) {
 
 func TestStateNeededForJoin(t *testing.T) {
 	skey := "@u1:a"
-	b := EventBuilder{
+	b := ProtoEvent{
 		Type:     "m.room.member",
 		StateKey: &skey,
 		Sender:   "@u1:a",
@@ -148,7 +148,7 @@ func TestStateNeededForJoin(t *testing.T) {
 
 func TestStateNeededForInvite(t *testing.T) {
 	skey := "@u2:b"
-	b := EventBuilder{
+	b := ProtoEvent{
 		Type:     "m.room.member",
 		StateKey: &skey,
 		Sender:   "@u1:a",
@@ -171,7 +171,7 @@ func TestStateNeededForInvite(t *testing.T) {
 
 func TestStateNeededForInvite3PID(t *testing.T) {
 	skey := "@u2:b"
-	b := EventBuilder{
+	b := ProtoEvent{
 		Type:     "m.room.member",
 		StateKey: &skey,
 		Sender:   "@u1:a",

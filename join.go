@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 )
@@ -37,6 +38,11 @@ type ProtoEvent struct {
 	Content spec.RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
 	Unsigned spec.RawJSON `json:"unsigned,omitempty"`
+}
+
+func (pe *ProtoEvent) SetContent(content interface{}) (err error) {
+	pe.Content, err = json.Marshal(content)
+	return
 }
 
 type MakeJoinResponse interface {
