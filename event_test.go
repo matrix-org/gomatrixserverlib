@@ -220,11 +220,10 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 	}
 
 	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
-	println(eventStruct.fields)
-	if eventStruct.redacted != expectedEvent.redacted {
+	if eventStruct.Redacted() != expectedEvent.redacted {
 		t.Fatal("Event Redacted state doesn't match")
 	}
-	if eventStruct.roomVersion != expectedEvent.roomVersion {
+	if eventStruct.Version() != expectedEvent.roomVersion {
 		t.Fatal("Event Room Version doesn't match")
 	}
 	if eventStruct.Type() != "m.room.member" {
@@ -264,11 +263,10 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	}
 
 	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
-	println(eventStruct.fields)
-	if eventStruct.redacted != expectedEvent.redacted {
+	if eventStruct.Redacted() != expectedEvent.redacted {
 		t.Fatal("Event Redacted state doesn't match")
 	}
-	if eventStruct.roomVersion != expectedEvent.roomVersion {
+	if eventStruct.Version() != expectedEvent.roomVersion {
 		t.Fatal("Event Room Version doesn't match")
 	}
 	if eventStruct.Type() != "m.room.create" {

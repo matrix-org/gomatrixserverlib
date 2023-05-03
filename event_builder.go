@@ -56,7 +56,7 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 
 func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
 	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
-) (*event, error) {
+) (PDU, error) {
 	eventsNeeded, err := StateNeededForEventBuilder(eb)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provid
 func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
-) (result *event, err error) {
+) (result PDU, err error) {
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
 		return nil, err
@@ -185,16 +185,16 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	result = &event{}
-	result.roomVersion = roomVersion
+	res := &event{}
+	res.roomVersion = roomVersion
 
-	if err = result.populateFieldsFromJSON("", eventJSON); err != nil {
+	if err = res.populateFieldsFromJSON("", eventJSON); err != nil {
 		return
 	}
 
-	if err = result.CheckFields(); err != nil {
+	if err = res.CheckFields(); err != nil {
 		return
 	}
 
-	return
+	return res, nil
 }
