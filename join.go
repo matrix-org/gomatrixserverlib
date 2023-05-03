@@ -45,6 +45,12 @@ func (pe *ProtoEvent) SetContent(content interface{}) (err error) {
 	return
 }
 
+// SetUnsigned sets the JSON unsigned key of the event.
+func (pe *ProtoEvent) SetUnsigned(unsigned interface{}) (err error) {
+	pe.Unsigned, err = json.Marshal(unsigned)
+	return
+}
+
 type MakeJoinResponse interface {
 	GetJoinEvent() ProtoEvent
 	GetRoomVersion() RoomVersion
