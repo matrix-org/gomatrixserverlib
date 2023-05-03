@@ -71,7 +71,7 @@ func TestVerifyEventAuthChainCascadeFailure(t *testing.T) {
 }
 
 func provideEvents(t *testing.T, events [][]byte) gomatrixserverlib.EventProvider {
-	eventMap := make(map[string]*gomatrixserverlib.Event)
+	eventMap := make(map[string]gomatrixserverlib.PDU)
 	for _, eventBytes := range events {
 		ev, err := gomatrixserverlib.MustGetRoomVersion(gomatrixserverlib.RoomVersionV1).NewEventFromTrustedJSON(eventBytes, false)
 		if err != nil {

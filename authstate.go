@@ -60,7 +60,7 @@ type FederatedStateProvider struct {
 	RememberAuthEvents bool
 	// Maps which are populated if AuthEvents is true, so you know which events are required to do PDU checks.
 	EventToAuthEventIDs map[string][]string
-	AuthEventMap        map[string]*Event
+	AuthEventMap        map[string]PDU
 }
 
 // StateIDsBeforeEvent implements StateProvider

@@ -172,7 +172,7 @@ func PerformJoin(
 	// the send_join response then we should use that instead. It may
 	// contain signatures that we don't know about.
 	if len(respSendJoin.GetJoinEvent()) > 0 {
-		var remoteEvent *Event
+		var remoteEvent PDU
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
 			remoteEvent, input.RoomID, input.UserID,
@@ -258,7 +258,7 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event *Event, roomID *spec.RoomID, userID *spec.UserID) bool { // nolint: interfacer
+func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, userID *spec.UserID) bool { // nolint: interfacer
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
