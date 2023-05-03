@@ -81,7 +81,7 @@ func separate(events []PDU) (conflicted, unconflicted []PDU) {
 
 func getBaseStateResV2Graph() []PDU {
 	return []PDU{
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$CREATE:example.com",
@@ -95,7 +95,7 @@ func getBaseStateResV2Graph() []PDU {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMA:example.com",
@@ -115,7 +115,7 @@ func getBaseStateResV2Graph() []PDU {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IPOWER:example.com",
@@ -136,7 +136,7 @@ func getBaseStateResV2Graph() []PDU {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IJR:example.com",
@@ -158,7 +158,7 @@ func getBaseStateResV2Graph() []PDU {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMB:example.com",
@@ -180,7 +180,7 @@ func getBaseStateResV2Graph() []PDU {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMC:example.com",
@@ -229,7 +229,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 	}
 
 	runStateResolutionV2(t, []PDU{
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$PA:example.com",
@@ -254,7 +254,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$PB:example.com",
@@ -279,7 +279,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$MB:example.com",
@@ -301,7 +301,7 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IME:example.com",
@@ -334,7 +334,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 	}
 
 	runStateResolutionV2(t, []PDU{
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$JR:example.com",
@@ -356,7 +356,7 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 				},
 			},
 		},
-		&Event{
+		&event{
 			roomVersion: RoomVersionV2,
 			fields: eventFormatV1Fields{
 				EventID: "$IMZ:example.com",

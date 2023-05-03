@@ -56,7 +56,7 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 
 func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
 	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
-) (*Event, error) {
+) (*event, error) {
 	eventsNeeded, err := StateNeededForEventBuilder(eb)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provid
 func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
-) (result *Event, err error) {
+) (result *event, err error) {
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (eb *EventBuilder) Build(
 
 	eventFormat := verImpl.EventFormat()
 	eventIDFormat := verImpl.EventIDFormat()
-	var event struct {
+	var eventStruct struct {
 		EventBuilder
 		EventID        string          `json:"event_id"`
 		OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
@@ -102,23 +102,23 @@ func (eb *EventBuilder) Build(
 		// Otherwise it points to an empty list and omitempty keeps it.
 		PrevState *[]EventReference `json:"prev_state,omitempty"`
 	}
-	event.EventBuilder = *eb
+	eventStruct.EventBuilder = *eb
 	if eventIDFormat == EventIDFormatV1 {
-		event.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
+		eventStruct.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
 	}
-	event.OriginServerTS = spec.AsTimestamp(now)
-	event.Origin = origin
+	eventStruct.OriginServerTS = spec.AsTimestamp(now)
+	eventStruct.Origin = origin
 	switch eventFormat {
 	case EventFormatV1:
 		// If either prev_events or auth_events are nil slices then Go will
 		// marshal them into 'null' instead of '[]', which is bad. Since the
 		// EventBuilder struct is instantiated outside of gomatrixserverlib
 		// let's just make sure that they haven't been left as nil slices.
-		if event.PrevEvents == nil {
-			event.PrevEvents = []EventReference{}
+		if eventStruct.PrevEvents == nil {
+			eventStruct.PrevEvents = []EventReference{}
 		}
-		if event.AuthEvents == nil {
-			event.AuthEvents = []EventReference{}
+		if eventStruct.AuthEvents == nil {
+			eventStruct.AuthEvents = []EventReference{}
 		}
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
@@ -126,44 +126,44 @@ func (eb *EventBuilder) Build(
 		// Since gomatrixserverlib otherwise deals with EventReferences,
 		// take the event IDs out of these and replace the prev_events and
 		// auth_events with those new arrays.
-		switch prevEvents := event.PrevEvents.(type) {
+		switch prevEvents := eventStruct.PrevEvents.(type) {
 		case []string:
-			event.PrevEvents = prevEvents
+			eventStruct.PrevEvents = prevEvents
 		case []EventReference:
 			resPrevEvents := []string{}
 			for _, prevEvent := range prevEvents {
 				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
 			}
-			event.PrevEvents = resPrevEvents
+			eventStruct.PrevEvents = resPrevEvents
 		case nil:
-			event.PrevEvents = []string{}
+			eventStruct.PrevEvents = []string{}
 		}
-		switch authEvents := event.AuthEvents.(type) {
+		switch authEvents := eventStruct.AuthEvents.(type) {
 		case []string:
-			event.AuthEvents = authEvents
+			eventStruct.AuthEvents = authEvents
 		case []EventReference:
 			resAuthEvents := []string{}
 			for _, authEvent := range authEvents {
 				resAuthEvents = append(resAuthEvents, authEvent.EventID)
 			}
-			event.AuthEvents = resAuthEvents
+			eventStruct.AuthEvents = resAuthEvents
 		case nil:
-			event.AuthEvents = []string{}
+			eventStruct.AuthEvents = []string{}
 		}
 	}
 
-	if event.StateKey != nil {
+	if eventStruct.StateKey != nil {
 		// In early versions of the matrix protocol state events
 		// had a "prev_state" key that listed the state events with
 		// the same type and state key that this event replaced.
 		// This was later dropped from the protocol.
 		// Synapse ignores the contents of the key but still expects
 		// the key to be present in state events.
-		event.PrevState = &emptyEventReferenceList
+		eventStruct.PrevState = &emptyEventReferenceList
 	}
 
 	var eventJSON []byte
-	if eventJSON, err = json.Marshal(&event); err != nil {
+	if eventJSON, err = json.Marshal(&eventStruct); err != nil {
 		return
 	}
 
@@ -185,7 +185,7 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	result = &Event{}
+	result = &event{}
 	result.roomVersion = roomVersion
 
 	if err = result.populateFieldsFromJSON("", eventJSON); err != nil {

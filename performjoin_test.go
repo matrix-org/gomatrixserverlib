@@ -27,8 +27,8 @@ func (t *TestMakeJoinResponse) GetRoomVersion() RoomVersion {
 }
 
 type TestSendJoinResponse struct {
-	createEvent *Event
-	joinEvent   *Event
+	createEvent *event
+	joinEvent   *event
 }
 
 func (t *TestSendJoinResponse) GetAuthEvents() EventJSONs {
@@ -59,8 +59,8 @@ type TestFederatedJoinClient struct {
 	shouldMakeFail   bool
 	shouldSendFail   bool
 	roomVersion      RoomVersion
-	createEvent      *Event
-	joinEvent        *Event
+	createEvent      *event
+	joinEvent        *event
 	joinEventBuilder EventBuilder
 }
 

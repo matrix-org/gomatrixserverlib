@@ -7,7 +7,7 @@ import (
 
 type TestStateProvider struct {
 	StateIDs []string
-	Events   []*Event
+	Events   []PDU
 }
 
 func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
@@ -140,7 +140,7 @@ func TestVerifyAuthRulesAtStateBadAuthRuleButValidState(t *testing.T) {
 	}
 }
 
-func makeEvents(t *testing.T, in [][]byte) (out []*Event) {
+func makeEvents(t *testing.T, in [][]byte) (out []PDU) {
 	for _, raw := range in {
 		ev, err := newEventFromTrustedJSON(raw, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {

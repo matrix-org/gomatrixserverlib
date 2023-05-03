@@ -214,26 +214,26 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	event, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1, RoomVersionV10)
+	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1, RoomVersionV10)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedEvent := Event{redacted: false, roomVersion: RoomVersionV10}
-	println(event.fields)
-	if event.redacted != expectedEvent.redacted {
+	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
+	println(eventStruct.fields)
+	if eventStruct.redacted != expectedEvent.redacted {
 		t.Fatal("Event Redacted state doesn't match")
 	}
-	if event.roomVersion != expectedEvent.roomVersion {
+	if eventStruct.roomVersion != expectedEvent.roomVersion {
 		t.Fatal("Event Room Version doesn't match")
 	}
-	if event.Type() != "m.room.member" {
+	if eventStruct.Type() != "m.room.member" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if event.Sender() != sender {
+	if eventStruct.Sender() != sender {
 		t.Fatal("Event Sender doesn't match")
 	}
-	if *event.StateKey() != sender {
+	if *eventStruct.StateKey() != sender {
 		t.Fatal("Event State Key doesn't match")
 	}
 }
@@ -258,26 +258,26 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	event, err := builder.AddAuthEventsAndBuild("origin", provider, time.Now(), RoomVersionV10, "ed25519:test", privateKey1)
+	eventStruct, err := builder.AddAuthEventsAndBuild("origin", provider, time.Now(), RoomVersionV10, "ed25519:test", privateKey1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedEvent := Event{redacted: false, roomVersion: RoomVersionV10}
-	println(event.fields)
-	if event.redacted != expectedEvent.redacted {
+	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
+	println(eventStruct.fields)
+	if eventStruct.redacted != expectedEvent.redacted {
 		t.Fatal("Event Redacted state doesn't match")
 	}
-	if event.roomVersion != expectedEvent.roomVersion {
+	if eventStruct.roomVersion != expectedEvent.roomVersion {
 		t.Fatal("Event Room Version doesn't match")
 	}
-	if event.Type() != "m.room.create" {
+	if eventStruct.Type() != "m.room.create" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if event.Sender() != sender {
+	if eventStruct.Sender() != sender {
 		t.Fatal("Event Sender doesn't match")
 	}
-	if *event.StateKey() != sender {
+	if *eventStruct.StateKey() != sender {
 		t.Fatal("Event State Key doesn't match")
 	}
 }
@@ -350,17 +350,17 @@ func (a *authProvider) Create() (PDU, error) {
 }
 
 func (a *authProvider) PowerLevels() (PDU, error) {
-	return &Event{}, nil
+	return &event{}, nil
 }
 
 func (a *authProvider) JoinRules() (PDU, error) {
-	return &Event{}, nil
+	return &event{}, nil
 }
 
 func (a *authProvider) Member(stateKey string) (PDU, error) {
-	return &Event{}, nil
+	return &event{}, nil
 }
 
 func (a *authProvider) ThirdPartyInvite(stateKey string) (PDU, error) {
-	return &Event{}, nil
+	return &event{}, nil
 }
