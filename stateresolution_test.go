@@ -20,9 +20,9 @@ func TestConflictEventSorter(t *testing.T) {
 	f2.Depth = 2
 	f3.Depth = 2
 	input := []PDU{
-		&Event{roomVersion: RoomVersionV1, fields: f1},
-		&Event{roomVersion: RoomVersionV1, fields: f2},
-		&Event{roomVersion: RoomVersionV1, fields: f3},
+		&event{roomVersion: RoomVersionV1, fields: f1},
+		&event{roomVersion: RoomVersionV1, fields: f2},
+		&event{roomVersion: RoomVersionV1, fields: f3},
 	}
 
 	got := sortConflictedEventsByDepthAndSHA1(input)

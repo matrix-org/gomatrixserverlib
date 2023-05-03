@@ -22,42 +22,13 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 	"unsafe"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
-	"github.com/matrix-org/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
 )
-
-// A StateKeyTuple is the combination of an event type and an event state key.
-// It is often used as a key in maps.
-type StateKeyTuple struct {
-	// The "type" key of a matrix event.
-	EventType string
-	// The "state_key" of a matrix event.
-	// The empty string is a legitimate value for the "state_key" in matrix
-	// so take care to initialise this field lest you accidentally request a
-	// "state_key" with the go default of the empty string.
-	StateKey string
-}
-
-// An EventReference is a reference to a matrix event.
-type EventReference struct {
-	// The event ID of the event.
-	EventID string
-	// The sha256 of the redacted event.
-	EventSHA256 spec.Base64Bytes
-}
-
-type HashValues struct {
-	SHA256 spec.Base64Bytes `json:"sha256"`
-}
-
-type SignatureValues struct {
-}
 
 // Event validation errors
 const (
@@ -74,78 +45,13 @@ func (e EventValidationError) Error() string {
 	return e.Message
 }
 
-// An EventBuilder is used to build a new event.
-// These can be exchanged between matrix servers in the federation APIs when
-// joining or leaving a room.
-type EventBuilder struct {
-	// The user ID of the user sending the event.
-	Sender string `json:"sender"`
-	// The room ID of the room this event is in.
-	RoomID string `json:"room_id"`
-	// The type of the event.
-	Type string `json:"type"`
-	// The state_key of the event if the event is a state event or nil if the event is not a state event.
-	StateKey *string `json:"state_key,omitempty"`
-	// The events that immediately preceded this event in the room history. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
-	PrevEvents interface{} `json:"prev_events"`
-	// The events needed to authenticate this event. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
-	AuthEvents interface{} `json:"auth_events"`
-	// The event ID of the event being redacted if this event is a "m.room.redaction".
-	Redacts string `json:"redacts,omitempty"`
-	// The depth of the event, This should be one greater than the maximum depth of the previous events.
-	// The create event has a depth of 1.
-	Depth int64 `json:"depth"`
-	// The JSON object for "signatures" key of the event.
-	Signature spec.RawJSON `json:"signatures,omitempty"`
-	// The JSON object for "content" key of the event.
-	Content spec.RawJSON `json:"content"`
-	// The JSON object for the "unsigned" key
-	Unsigned spec.RawJSON `json:"unsigned,omitempty"`
-}
-
-// SetContent sets the JSON content key of the event.
-func (eb *EventBuilder) SetContent(content interface{}) (err error) {
-	eb.Content, err = json.Marshal(content)
-	return
-}
-
-// SetUnsigned sets the JSON unsigned key of the event.
-func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
-	eb.Unsigned, err = json.Marshal(unsigned)
-	return
-}
-
-func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
-	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
-) (*Event, error) {
-	eventsNeeded, err := StateNeededForEventBuilder(eb)
-	if err != nil {
-		return nil, err
-	}
-	refs, err := eventsNeeded.AuthEventReferences(provider)
-	if err != nil {
-		return nil, err
-	}
-	eb.AuthEvents = refs
-	event, err := eb.Build(
-		evTime, serverName, keyID,
-		privateKey, roomVersion,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("cannot build event %s : Builder failed to build. %w", eb.Type, err)
-	}
-	return event, nil
-}
-
 // An Event is a matrix event.
 // The event should always contain valid JSON.
 // If the event content hash is invalid then the event is redacted.
 // Redacted events contain only the fields covered by the event signature.
 // The fields have different formats depending on the room version - see
 // eventFormatV1Fields, eventFormatV2Fields.
-type Event struct {
+type event struct {
 	redacted  bool
 	eventID   string
 	eventJSON []byte
@@ -183,7 +89,7 @@ type eventFormatV2Fields struct {
 	AuthEvents []string `json:"auth_events"`
 }
 
-func (e *Event) CacheCost() int {
+func (e *event) CacheCost() int {
 	return int(unsafe.Sizeof(*e)) +
 		len(e.eventID) +
 		(cap(e.eventJSON) * 2) +
@@ -235,134 +141,11 @@ func (e eventFormatV2Fields) CacheCost() int {
 
 var emptyEventReferenceList = []EventReference{}
 
-// Build a new Event.
-// This is used when a local event is created on this server.
-// Call this after filling out the necessary fields.
-// This can be called multiple times on the same builder.
-// A different event ID must be supplied each time this is called.
-func (eb *EventBuilder) Build(
-	now time.Time, origin spec.ServerName, keyID KeyID,
-	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
-) (result *Event, err error) {
-	verImpl, err := GetRoomVersion(roomVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	eventFormat := verImpl.EventFormat()
-	eventIDFormat := verImpl.EventIDFormat()
-	var event struct {
-		EventBuilder
-		EventID        string          `json:"event_id"`
-		OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
-		Origin         spec.ServerName `json:"origin"`
-		// This key is either absent or an empty list.
-		// If it is absent then the pointer is nil and omitempty removes it.
-		// Otherwise it points to an empty list and omitempty keeps it.
-		PrevState *[]EventReference `json:"prev_state,omitempty"`
-	}
-	event.EventBuilder = *eb
-	if eventIDFormat == EventIDFormatV1 {
-		event.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
-	}
-	event.OriginServerTS = spec.AsTimestamp(now)
-	event.Origin = origin
-	switch eventFormat {
-	case EventFormatV1:
-		// If either prev_events or auth_events are nil slices then Go will
-		// marshal them into 'null' instead of '[]', which is bad. Since the
-		// EventBuilder struct is instantiated outside of gomatrixserverlib
-		// let's just make sure that they haven't been left as nil slices.
-		if event.PrevEvents == nil {
-			event.PrevEvents = []EventReference{}
-		}
-		if event.AuthEvents == nil {
-			event.AuthEvents = []EventReference{}
-		}
-	case EventFormatV2:
-		// In this event format, prev_events and auth_events are lists of
-		// event IDs as a []string, rather than full-blown []EventReference.
-		// Since gomatrixserverlib otherwise deals with EventReferences,
-		// take the event IDs out of these and replace the prev_events and
-		// auth_events with those new arrays.
-		switch prevEvents := event.PrevEvents.(type) {
-		case []string:
-			event.PrevEvents = prevEvents
-		case []EventReference:
-			resPrevEvents := []string{}
-			for _, prevEvent := range prevEvents {
-				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
-			}
-			event.PrevEvents = resPrevEvents
-		case nil:
-			event.PrevEvents = []string{}
-		}
-		switch authEvents := event.AuthEvents.(type) {
-		case []string:
-			event.AuthEvents = authEvents
-		case []EventReference:
-			resAuthEvents := []string{}
-			for _, authEvent := range authEvents {
-				resAuthEvents = append(resAuthEvents, authEvent.EventID)
-			}
-			event.AuthEvents = resAuthEvents
-		case nil:
-			event.AuthEvents = []string{}
-		}
-	}
-
-	if event.StateKey != nil {
-		// In early versions of the matrix protocol state events
-		// had a "prev_state" key that listed the state events with
-		// the same type and state key that this event replaced.
-		// This was later dropped from the protocol.
-		// Synapse ignores the contents of the key but still expects
-		// the key to be present in state events.
-		event.PrevState = &emptyEventReferenceList
-	}
-
-	var eventJSON []byte
-	if eventJSON, err = json.Marshal(&event); err != nil {
-		return
-	}
-
-	if eventFormat == EventFormatV2 {
-		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
-		}
-	}
-
-	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {
-		return
-	}
-
-	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {
-		return
-	}
-
-	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, roomVersion); err != nil {
-		return
-	}
-
-	result = &Event{}
-	result.roomVersion = roomVersion
-
-	if err = result.populateFieldsFromJSON("", eventJSON); err != nil {
-		return
-	}
-
-	if err = result.CheckFields(); err != nil {
-		return
-	}
-
-	return
-}
-
 // newEventFromUntrustedJSON loads a new event from some JSON that may be invalid.
 // This checks that the event is valid JSON.
 // It also checks the content hashes to ensure the event has not been tampered with.
 // This should be used when receiving new events from remote servers.
-func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (result *Event, err error) {
+func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (result *event, err error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))
 		return
@@ -374,7 +157,7 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 		}
 	}
 
-	result = &Event{}
+	result = &event{}
 	result.roomVersion = roomVersion.Version()
 
 	eventFormat := roomVersion.EventFormat()
@@ -435,8 +218,8 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 // newEventFromTrustedJSON loads a new event from some JSON that must be valid.
 // This will be more efficient than NewEventFromUntrustedJSON since it can skip cryptographic checks.
 // This can be used when loading matrix events from a local database.
-func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *Event, err error) {
-	result = &Event{}
+func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *event, err error) {
+	result = &event{}
 	result.roomVersion = roomVersion.Version()
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON("", eventJSON) // "" -> event ID not known
@@ -448,15 +231,15 @@ func newEventFromTrustedJSON(eventJSON []byte, redacted bool, roomVersion IRoomV
 // an event from the database and NEVER when accepting an event over federation.
 // This will be more efficient than NewEventFromTrustedJSON since, if the event
 // ID is known, we skip all the reference hash and canonicalisation work.
-func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *Event, err error) {
-	result = &Event{}
+func newEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result *event, err error) {
+	result = &event{}
 	result.roomVersion = roomVersion.Version()
 	result.redacted = redacted
 	err = result.populateFieldsFromJSON(eventID, eventJSON)
 	return
 }
 
-func (e *Event) ToHeaderedJSON() ([]byte, error) {
+func (e *event) ToHeaderedJSON() ([]byte, error) {
 	var err error
 	eventJSON := e.JSON()
 	eventJSON, err = sjson.SetBytes(eventJSON, "_room_version", e.Version())
@@ -476,7 +259,7 @@ func (e *Event) ToHeaderedJSON() ([]byte, error) {
 // avoiding all of the canonicalisation and reference hash
 // calculations etc as they are expensive operations. If the event
 // ID isn't known, pass an empty string and we'll work it out.
-func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) error {
+func (e *event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) error {
 	verImpl, err := GetRoomVersion(e.roomVersion)
 	if err != nil {
 		return err
@@ -527,16 +310,16 @@ func (e *Event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 }
 
 // Redacted returns whether the event is redacted.
-func (e *Event) Redacted() bool { return e.redacted }
+func (e *event) Redacted() bool { return e.redacted }
 
 // Version returns the version of this event
-func (e *Event) Version() RoomVersion { return e.roomVersion }
+func (e *event) Version() RoomVersion { return e.roomVersion }
 
 // JSON returns the JSON bytes for the event.
-func (e *Event) JSON() []byte { return e.eventJSON }
+func (e *event) JSON() []byte { return e.eventJSON }
 
 // Redact redacts the event.
-func (e *Event) Redact() {
+func (e *event) Redact() {
 	if e.redacted {
 		return
 	}
@@ -561,7 +344,7 @@ func (e *Event) Redact() {
 
 // SetUnsigned sets the unsigned key of the event.
 // Returns a copy of the event with the "unsigned" key set.
-func (e *Event) SetUnsigned(unsigned interface{}) (PDU, error) {
+func (e *event) SetUnsigned(unsigned interface{}) (PDU, error) {
 	var eventAsMap map[string]spec.RawJSON
 	var err error
 	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
@@ -592,7 +375,7 @@ func (e *Event) SetUnsigned(unsigned interface{}) (PDU, error) {
 // path is a dot separated path into the unsigned dict (see gjson package
 // for details on format). In particular some characters like '.' and '*' must
 // be escaped.
-func (e *Event) SetUnsignedField(path string, value interface{}) error {
+func (e *event) SetUnsignedField(path string, value interface{}) error {
 	// The safest way is to change the unsigned json and then reparse the
 	// event fully. But since we are only changing the unsigned section,
 	// which doesn't affect the signatures or hashes, we can cheat and
@@ -618,7 +401,7 @@ func (e *Event) SetUnsignedField(path string, value interface{}) error {
 
 // updateUnsignedFields sets the value of the unsigned field and then
 // fixes nil slices if needed.
-func (e *Event) updateUnsignedFields(unsigned []byte) error {
+func (e *event) updateUnsignedFields(unsigned []byte) error {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		fields.Unsigned = unsigned
@@ -636,7 +419,7 @@ func (e *Event) updateUnsignedFields(unsigned []byte) error {
 
 // EventReference returns an EventReference for the event.
 // The reference can be used to refer to this event from other events.
-func (e *Event) EventReference() EventReference {
+func (e *event) EventReference() EventReference {
 	reference, err := referenceOfEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -647,7 +430,7 @@ func (e *Event) EventReference() EventReference {
 }
 
 // Sign returns a copy of the event with an additional signature.
-func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
+func (e *event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
 	if err != nil {
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -657,7 +440,7 @@ func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
-	return &Event{
+	return &event{
 		redacted:    e.redacted,
 		eventID:     e.eventID,
 		eventJSON:   eventJSON,
@@ -667,7 +450,7 @@ func (e *Event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 }
 
 // KeyIDs returns a list of key IDs that the named entity has signed the event with.
-func (e *Event) KeyIDs(signingName string) []KeyID {
+func (e *event) KeyIDs(signingName string) []KeyID {
 	keyIDs, err := ListKeyIDs(signingName, e.eventJSON)
 	if err != nil {
 		// This should unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
@@ -677,7 +460,7 @@ func (e *Event) KeyIDs(signingName string) []KeyID {
 }
 
 // StateKey returns the "state_key" of the event, or the nil if the event is not a state event.
-func (e *Event) StateKey() *string {
+func (e *event) StateKey() *string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.StateKey
@@ -689,7 +472,7 @@ func (e *Event) StateKey() *string {
 }
 
 // StateKeyEquals returns true if the event is a state event and the "state_key" matches.
-func (e *Event) StateKeyEquals(stateKey string) bool {
+func (e *event) StateKeyEquals(stateKey string) bool {
 	var sk *string
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
@@ -720,7 +503,7 @@ const (
 // Returns an error if the total length of the event JSON is too long.
 // Returns an error if the event ID doesn't match the origin of the event.
 // https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
-func (e *Event) CheckFields() error { // nolint: gocyclo
+func (e *event) CheckFields() error { // nolint: gocyclo
 	var fields eventFields
 	switch f := e.fields.(type) {
 	case eventFormatV1Fields:
@@ -792,7 +575,7 @@ func checkID(id, kind string, sigil byte) (err error) {
 	return
 }
 
-func (e *Event) generateEventID() (eventID string, err error) {
+func (e *event) generateEventID() (eventID string, err error) {
 	verImpl, err := GetRoomVersion(e.roomVersion)
 	if err != nil {
 		return "", err
@@ -815,7 +598,7 @@ func (e *Event) generateEventID() (eventID string, err error) {
 }
 
 // EventID returns the event ID of the event.
-func (e *Event) EventID() string {
+func (e *event) EventID() string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.EventID
@@ -827,7 +610,7 @@ func (e *Event) EventID() string {
 }
 
 // Sender returns the user ID of the sender of the event.
-func (e *Event) Sender() string {
+func (e *event) Sender() string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.Sender
@@ -839,7 +622,7 @@ func (e *Event) Sender() string {
 }
 
 // Type returns the type of the event.
-func (e *Event) Type() string {
+func (e *event) Type() string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.Type
@@ -851,7 +634,7 @@ func (e *Event) Type() string {
 }
 
 // OriginServerTS returns the unix timestamp when this event was created on the origin server, with millisecond resolution.
-func (e *Event) OriginServerTS() spec.Timestamp {
+func (e *event) OriginServerTS() spec.Timestamp {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.OriginServerTS
@@ -863,7 +646,7 @@ func (e *Event) OriginServerTS() spec.Timestamp {
 }
 
 // Unsigned returns the object under the 'unsigned' key of the event.
-func (e *Event) Unsigned() []byte {
+func (e *event) Unsigned() []byte {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.Unsigned
@@ -875,7 +658,7 @@ func (e *Event) Unsigned() []byte {
 }
 
 // Content returns the content JSON of the event.
-func (e *Event) Content() []byte {
+func (e *event) Content() []byte {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return []byte(fields.Content)
@@ -887,7 +670,7 @@ func (e *Event) Content() []byte {
 }
 
 // PrevEvents returns references to the direct ancestors of the event.
-func (e *Event) PrevEvents() []EventReference {
+func (e *event) PrevEvents() []EventReference {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.PrevEvents
@@ -914,7 +697,7 @@ func (e *Event) PrevEvents() []EventReference {
 }
 
 // PrevEventIDs returns the event IDs of the direct ancestors of the event.
-func (e *Event) PrevEventIDs() []string {
+func (e *event) PrevEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		result := make([]string, 0, len(fields.PrevEvents))
@@ -929,7 +712,7 @@ func (e *Event) PrevEventIDs() []string {
 	}
 }
 
-func (e *Event) extractContent(eventType string, content interface{}) error {
+func (e *event) extractContent(eventType string, content interface{}) error {
 	verImpl, err := GetRoomVersion(e.roomVersion)
 	if err != nil {
 		panic(err)
@@ -954,7 +737,7 @@ func (e *Event) extractContent(eventType string, content interface{}) error {
 // is an "m.room.member" event.
 // Returns an error if the event is not a m.room.member event or if the content
 // is not valid m.room.member content.
-func (e *Event) Membership() (string, error) {
+func (e *event) Membership() (string, error) {
 	var content struct {
 		Membership string `json:"membership"`
 	}
@@ -971,7 +754,7 @@ func (e *Event) Membership() (string, error) {
 // is an "m.room.join_rules" event.
 // Returns an error if the event is not a m.room.join_rules event or if the content
 // is not valid m.room.join_rules content.
-func (e *Event) JoinRule() (string, error) {
+func (e *event) JoinRule() (string, error) {
 	if !e.StateKeyEquals("") {
 		return "", fmt.Errorf("gomatrixserverlib: JoinRule() event is not a m.room.join_rules event, bad state key")
 	}
@@ -986,7 +769,7 @@ func (e *Event) JoinRule() (string, error) {
 // is an "m.room.history_visibility" event.
 // Returns an error if the event is not a m.room.history_visibility event or if the content
 // is not valid m.room.history_visibility content.
-func (e *Event) HistoryVisibility() (HistoryVisibility, error) {
+func (e *event) HistoryVisibility() (HistoryVisibility, error) {
 	if !e.StateKeyEquals("") {
 		return "", fmt.Errorf("gomatrixserverlib: HistoryVisibility() event is not a m.room.history_visibility event, bad state key")
 	}
@@ -1001,7 +784,7 @@ func (e *Event) HistoryVisibility() (HistoryVisibility, error) {
 // is an "m.room.power_levels" event.
 // Returns an error if the event is not a m.room.power_levels event or if the content
 // is not valid m.room.power_levels content.
-func (e *Event) PowerLevels() (*PowerLevelContent, error) {
+func (e *event) PowerLevels() (*PowerLevelContent, error) {
 	if !e.StateKeyEquals("") {
 		return nil, fmt.Errorf("gomatrixserverlib: PowerLevels() event is not a m.room.power_levels event, bad state key")
 	}
@@ -1013,7 +796,7 @@ func (e *Event) PowerLevels() (*PowerLevelContent, error) {
 }
 
 // AuthEvents returns references to the events needed to auth the event.
-func (e *Event) AuthEvents() []EventReference {
+func (e *event) AuthEvents() []EventReference {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.AuthEvents
@@ -1036,7 +819,7 @@ func (e *Event) AuthEvents() []EventReference {
 }
 
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
-func (e *Event) AuthEventIDs() []string {
+func (e *event) AuthEventIDs() []string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		result := make([]string, 0, len(fields.AuthEvents))
@@ -1052,7 +835,7 @@ func (e *Event) AuthEventIDs() []string {
 }
 
 // Redacts returns the event ID of the event this event redacts.
-func (e *Event) Redacts() string {
+func (e *event) Redacts() string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.Redacts
@@ -1064,7 +847,7 @@ func (e *Event) Redacts() string {
 }
 
 // RoomID returns the room ID of the room the event is in.
-func (e *Event) RoomID() string {
+func (e *event) RoomID() string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.RoomID
@@ -1076,7 +859,7 @@ func (e *Event) RoomID() string {
 }
 
 // Depth returns the depth of the event.
-func (e *Event) Depth() int64 {
+func (e *event) Depth() int64 {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.Depth
@@ -1088,44 +871,11 @@ func (e *Event) Depth() int64 {
 }
 
 // MarshalJSON implements json.Marshaller
-func (e Event) MarshalJSON() ([]byte, error) {
+func (e event) MarshalJSON() ([]byte, error) {
 	if e.eventJSON == nil {
 		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
 	}
 	return e.eventJSON, nil
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (er *EventReference) UnmarshalJSON(data []byte) error {
-	var tuple []spec.RawJSON
-	if err := json.Unmarshal(data, &tuple); err != nil {
-		return err
-	}
-	if len(tuple) != 2 {
-		return fmt.Errorf("gomatrixserverlib: invalid event reference, invalid length: %d != 2", len(tuple))
-	}
-	if err := json.Unmarshal(tuple[0], &er.EventID); err != nil {
-		return fmt.Errorf("gomatrixserverlib: invalid event reference, first element is invalid: %q %v", string(tuple[0]), err)
-	}
-	var hashes struct {
-		SHA256 spec.Base64Bytes `json:"sha256"`
-	}
-	if err := json.Unmarshal(tuple[1], &hashes); err != nil {
-		return fmt.Errorf("gomatrixserverlib: invalid event reference, second element is invalid: %q %v", string(tuple[1]), err)
-	}
-	er.EventSHA256 = hashes.SHA256
-	return nil
-}
-
-// MarshalJSON implements json.Marshaller
-func (er EventReference) MarshalJSON() ([]byte, error) {
-	hashes := struct {
-		SHA256 spec.Base64Bytes `json:"sha256"`
-	}{er.EventSHA256}
-
-	tuple := []interface{}{er.EventID, hashes}
-
-	return json.Marshal(&tuple)
 }
 
 // SplitID splits a matrix ID into a local part and a server name.
@@ -1169,7 +919,7 @@ func (e *eventFormatV2Fields) fixNilSlices() {
 }
 
 // invalidFieldType is used to generate something semi-helpful when panicing.
-func (e *Event) invalidFieldType() string {
+func (e *event) invalidFieldType() string {
 	if e == nil {
 		return "gomatrixserverlib: attempt to call function on nil event"
 	}

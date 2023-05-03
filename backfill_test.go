@@ -43,7 +43,7 @@ func (t *testBackfillRequester) Backfill(ctx context.Context, origin, server spe
 	return *txn, nil
 }
 func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []string) (result []PDU, err error) {
-	eventMap := make(map[string]*Event)
+	eventMap := make(map[string]PDU)
 	for _, eventBytes := range t.authEventsToProvide {
 		ev, err := newEventFromTrustedJSON(eventBytes, false, MustGetRoomVersion(RoomVersionV1))
 		if err != nil {
