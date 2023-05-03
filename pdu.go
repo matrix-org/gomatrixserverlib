@@ -62,13 +62,3 @@ func ToPDUs[T PDU](events []T) []PDU {
 	}
 	return result
 }
-
-// Temporary function to convert []PDU to []*Event. Panics if other types are given.
-// Remove this function when Dendrite no longer needs this (i.e it uses []PDU natively throughout)
-func TempCastToEvents(pdus []PDU) []*Event {
-	result := make([]*Event, len(pdus))
-	for i := range pdus {
-		result[i] = pdus[i].(*Event)
-	}
-	return result
-}

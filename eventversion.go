@@ -25,9 +25,9 @@ type IRoomVersion interface {
 	EnforceCanonicalJSON() bool
 	RequireIntegerPowerLevels() bool
 	RedactEventJSON(eventJSON []byte) ([]byte, error)
-	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error)
-	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error)
-	NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error)
+	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error)
+	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result PDU, err error)
+	NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error)
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
@@ -429,21 +429,21 @@ func (v RoomVersionImpl) RedactEventJSON(eventJSON []byte) ([]byte, error) {
 	return v.redactionAlgorithm(eventJSON)
 }
 
-func (v RoomVersionImpl) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error) {
 	return newEventFromTrustedJSON(eventJSON, redacted, v)
 }
 
-func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result PDU, err error) {
 	return newEventFromTrustedJSONWithEventID(eventID, eventJSON, redacted, v)
 }
 
-func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result *Event, err error) {
+func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
 }
 
 // NewEventFromHeaderedJSON creates a new event where the room version is embedded in the JSON bytes.
 // The version is contained in the top level "_room_version" key.
-func NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (*Event, error) {
+func NewEventFromHeaderedJSON(headeredEventJSON []byte, redacted bool) (PDU, error) {
 	eventID := gjson.GetBytes(headeredEventJSON, "_event_id").String()
 	roomVer := RoomVersion(gjson.GetBytes(headeredEventJSON, "_room_version").String())
 	verImpl, err := GetRoomVersion(roomVer)
