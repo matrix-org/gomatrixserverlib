@@ -93,27 +93,6 @@ func PerformJoin(
 	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
-	if input.Content == nil {
-		input.Content = map[string]interface{}{}
-	}
-	_ = json.Unmarshal(joinEvent.Content, &input.Content)
-	input.Content["membership"] = spec.Join
-	if err = joinEvent.SetContent(input.Content); err != nil {
-		return nil, &FederationError{
-			ServerName: input.ServerName,
-			Transient:  false,
-			Reachable:  true,
-			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err),
-		}
-	}
-	if err = joinEvent.SetUnsigned(struct{}{}); err != nil {
-		return nil, &FederationError{
-			ServerName: input.ServerName,
-			Transient:  false,
-			Reachable:  true,
-			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetUnsigned: %w", err),
-		}
-	}
 
 	// Work out if we support the room version that has been supplied in
 	// the make_join response.
@@ -133,14 +112,37 @@ func PerformJoin(
 		}
 	}
 
+	joinEB := verImpl.NewEventBuilderFromProtoEvent(&joinEvent)
+	if input.Content == nil {
+		input.Content = map[string]interface{}{}
+	}
+	_ = json.Unmarshal(joinEvent.Content, &input.Content)
+	input.Content["membership"] = spec.Join
+	if err = joinEB.SetContent(input.Content); err != nil {
+		return nil, &FederationError{
+			ServerName: input.ServerName,
+			Transient:  false,
+			Reachable:  true,
+			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err),
+		}
+	}
+	if err = joinEB.SetUnsigned(struct{}{}); err != nil {
+		return nil, &FederationError{
+			ServerName: input.ServerName,
+			Transient:  false,
+			Reachable:  true,
+			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetUnsigned: %w", err),
+		}
+	}
+
 	// Build the join event.
 	var event PDU
-	event, err = joinEvent.Build(
+	event, err = joinEB.Build(
 		time.Now(),
 		origin,
 		input.KeyID,
 		input.PrivateKey,
-		roomVersion,
+		verImpl.Version(),
 	)
 	if err != nil {
 		return nil, &FederationError{
@@ -233,7 +235,7 @@ func PerformJoin(
 }
 
 func setDefaultRoomVersionFromJoinEvent(
-	joinEvent EventBuilder,
+	joinEvent ProtoEvent,
 ) RoomVersion {
 	// if auth events are not event references we know it must be v3+
 	// we have to do these shenanigans to satisfy sytest, specifically for:
