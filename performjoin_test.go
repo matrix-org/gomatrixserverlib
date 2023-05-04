@@ -15,10 +15,10 @@ import (
 
 type TestMakeJoinResponse struct {
 	roomVersion RoomVersion
-	joinEvent   EventBuilder
+	joinEvent   ProtoEvent
 }
 
-func (t *TestMakeJoinResponse) GetJoinEvent() EventBuilder {
+func (t *TestMakeJoinResponse) GetJoinEvent() ProtoEvent {
 	return t.joinEvent
 }
 
@@ -61,7 +61,7 @@ type TestFederatedJoinClient struct {
 	roomVersion      RoomVersion
 	createEvent      PDU
 	joinEvent        PDU
-	joinEventBuilder EventBuilder
+	joinEventBuilder ProtoEvent
 }
 
 func (t *TestFederatedJoinClient) MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res MakeJoinResponse, err error) {
@@ -131,7 +131,7 @@ func TestPerformJoin(t *testing.T) {
 	}
 
 	stateKey := ""
-	eb := EventBuilder{
+	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:     userID.String(),
 		RoomID:     roomID.String(),
 		Type:       "m.room.create",
@@ -141,14 +141,14 @@ func TestPerformJoin(t *testing.T) {
 		Depth:      0,
 		Content:    spec.RawJSON(`{"creator":"@user:server","m.federate":true,"room_version":"10"}`),
 		Unsigned:   spec.RawJSON(""),
-	}
-	createEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk, RoomVersionV10)
+	})
+	createEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}
 
 	stateKey = userID.String()
-	joinEB := EventBuilder{
+	joinProto := ProtoEvent{
 		Sender:     userID.String(),
 		RoomID:     roomID.String(),
 		Type:       "m.room.member",
@@ -159,7 +159,8 @@ func TestPerformJoin(t *testing.T) {
 		Content:    spec.RawJSON(`{"membership":"join"}`),
 		Unsigned:   spec.RawJSON(""),
 	}
-	joinEvent, err := joinEB.Build(time.Now(), userID.Domain(), keyID, sk, RoomVersionV10)
+	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&joinProto)
+	joinEvent, err := joinEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}
@@ -227,7 +228,7 @@ func TestPerformJoin(t *testing.T) {
 			ExpectedRoomVersion: joinEvent.Version(),
 		},
 		"default_room_version": {
-			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: "", createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinEB},
+			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: "", createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinProto},
 			Input: PerformJoinInput{
 				UserID:        userID,
 				RoomID:        roomID,
@@ -241,7 +242,7 @@ func TestPerformJoin(t *testing.T) {
 			ExpectedRoomVersion: RoomVersionV4,
 		},
 		"successful_join": {
-			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10, createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinEB},
+			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10, createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinProto},
 			Input: PerformJoinInput{
 				UserID:        userID,
 				RoomID:        roomID,

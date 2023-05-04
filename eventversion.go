@@ -28,6 +28,8 @@ type IRoomVersion interface {
 	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error)
 	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result PDU, err error)
 	NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error)
+	NewEventBuilder() *EventBuilder
+	NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBuilder
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
@@ -439,6 +441,28 @@ func (v RoomVersionImpl) NewEventFromTrustedJSONWithEventID(eventID string, even
 
 func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error) {
 	return newEventFromUntrustedJSON(eventJSON, v)
+}
+
+func (v RoomVersionImpl) NewEventBuilder() *EventBuilder {
+	return &EventBuilder{
+		version: v,
+	}
+}
+func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBuilder {
+	eb := v.NewEventBuilder()
+	// for now copies all fields, but we should be specific depending on the room version
+	eb.AuthEvents = pe.AuthEvents
+	eb.Content = pe.Content
+	eb.Depth = pe.Depth
+	eb.PrevEvents = pe.PrevEvents
+	eb.Redacts = pe.Redacts
+	eb.RoomID = pe.RoomID
+	eb.Sender = pe.Sender
+	eb.Signature = pe.Signature
+	eb.StateKey = pe.StateKey
+	eb.Type = pe.Type
+	eb.Unsigned = pe.Unsigned
+	return eb
 }
 
 // NewEventFromHeaderedJSON creates a new event where the room version is embedded in the JSON bytes.

@@ -202,19 +202,19 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 
 func TestEventBuilderBuildsEvent(t *testing.T) {
 	sender := "@sender:id"
-	builder := EventBuilder{
+	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:   sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.member",
 		StateKey: &sender,
-	}
+	})
 
 	err := builder.SetContent(newMemberContent("join", nil))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1, RoomVersionV10)
+	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,12 +239,12 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 
 func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	sender := "@sender:id"
-	builder := EventBuilder{
+	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:   sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.create",
 		StateKey: &sender,
-	}
+	})
 
 	provider := &authProvider{valid: true}
 	content, err := NewCreateContentFromAuthEvents(provider)
@@ -256,8 +256,11 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = builder.AddAuthEvents(provider); err != nil {
+		t.Fatal(err)
+	}
 
-	eventStruct, err := builder.AddAuthEventsAndBuild("origin", provider, time.Now(), RoomVersionV10, "ed25519:test", privateKey1)
+	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,12 +285,12 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 
 func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
 	sender := "@sender3:id"
-	builder := EventBuilder{
+	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:   sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.member",
 		StateKey: &sender,
-	}
+	})
 
 	err := builder.SetContent(newMemberContent("join", nil))
 	if err != nil {
@@ -295,8 +298,7 @@ func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
 	}
 
 	provider := &authProvider{valid: true, fail: true}
-	_, err = builder.AddAuthEventsAndBuild("origin", provider, time.Now(), RoomVersionV10, "ed25519:test", privateKey1)
-	if err == nil {
+	if err = builder.AddAuthEvents(provider); err == nil {
 		t.Fatal("Building didn't fail")
 	}
 	println(err.Error())

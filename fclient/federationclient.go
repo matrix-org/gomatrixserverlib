@@ -42,7 +42,7 @@ type FederationClient interface {
 	MSC2836EventRelationships(ctx context.Context, origin, dst spec.ServerName, r MSC2836EventRelationshipsRequest, roomVersion gomatrixserverlib.RoomVersion) (res MSC2836EventRelationshipsResponse, err error)
 	MSC2946Spaces(ctx context.Context, origin, dst spec.ServerName, roomID string, suggestedOnly bool) (res MSC2946SpacesResponse, err error)
 
-	ExchangeThirdPartyInvite(ctx context.Context, origin, s spec.ServerName, builder gomatrixserverlib.EventBuilder) (err error)
+	ExchangeThirdPartyInvite(ctx context.Context, origin, s spec.ServerName, builder gomatrixserverlib.ProtoEvent) (err error)
 	LookupState(ctx context.Context, origin, s spec.ServerName, roomID string, eventID string, roomVersion gomatrixserverlib.RoomVersion) (res RespState, err error)
 	LookupStateIDs(ctx context.Context, origin, s spec.ServerName, roomID string, eventID string) (res RespStateIDs, err error)
 	LookupMissingEvents(ctx context.Context, origin, s spec.ServerName, roomID string, missing MissingEvents, roomVersion gomatrixserverlib.RoomVersion) (res RespMissingEvents, err error)
@@ -415,12 +415,12 @@ func (ac *federationClient) SendInviteV2(
 // This is used to exchange a m.room.third_party_invite event for a m.room.member
 // one in a room the local server isn't a member of.
 func (ac *federationClient) ExchangeThirdPartyInvite(
-	ctx context.Context, origin, s spec.ServerName, builder gomatrixserverlib.EventBuilder,
+	ctx context.Context, origin, s spec.ServerName, proto gomatrixserverlib.ProtoEvent,
 ) (err error) {
 	path := federationPathPrefixV1 + "/exchange_third_party_invite/" +
-		url.PathEscape(builder.RoomID)
+		url.PathEscape(proto.RoomID)
 	req := NewFederationRequest("PUT", origin, s, path)
-	if err = req.SetContent(builder); err != nil {
+	if err = req.SetContent(proto); err != nil {
 		return
 	}
 	res := struct{}{}

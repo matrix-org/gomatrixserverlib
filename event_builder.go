@@ -40,6 +40,9 @@ type EventBuilder struct {
 	Content spec.RawJSON `json:"content"`
 	// The JSON object for the "unsigned" key
 	Unsigned spec.RawJSON `json:"unsigned,omitempty"`
+
+	// private: forces the user to go through NewEventBuilder
+	version IRoomVersion
 }
 
 // SetContent sets the JSON content key of the event.
@@ -54,26 +57,22 @@ func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
 	return
 }
 
-func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provider AuthEventProvider,
-	evTime time.Time, roomVersion RoomVersion, keyID KeyID, privateKey ed25519.PrivateKey,
-) (PDU, error) {
-	eventsNeeded, err := StateNeededForEventBuilder(eb)
+func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
+	eventsNeeded, err := StateNeededForProtoEvent(&ProtoEvent{
+		Type:     eb.Type,
+		StateKey: eb.StateKey,
+		Content:  eb.Content,
+		Sender:   eb.Sender,
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	refs, err := eventsNeeded.AuthEventReferences(provider)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	eb.AuthEvents = refs
-	event, err := eb.Build(
-		evTime, serverName, keyID,
-		privateKey, roomVersion,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("cannot build event %s : Builder failed to build. %w", eb.Type, err)
-	}
-	return event, nil
+	return nil
 }
 
 // Build a new Event.
@@ -83,15 +82,14 @@ func (eb *EventBuilder) AddAuthEventsAndBuild(serverName spec.ServerName, provid
 // A different event ID must be supplied each time this is called.
 func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
-	privateKey ed25519.PrivateKey, roomVersion RoomVersion,
+	privateKey ed25519.PrivateKey,
 ) (result PDU, err error) {
-	verImpl, err := GetRoomVersion(roomVersion)
-	if err != nil {
-		return nil, err
+	if eb.version == nil {
+		return nil, fmt.Errorf("EventBuilder.Build: unknown version, did you create this via NewEventBuilder?")
 	}
 
-	eventFormat := verImpl.EventFormat()
-	eventIDFormat := verImpl.EventIDFormat()
+	eventFormat := eb.version.EventFormat()
+	eventIDFormat := eb.version.EventIDFormat()
 	var eventStruct struct {
 		EventBuilder
 		EventID        string          `json:"event_id"`
@@ -177,16 +175,16 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, roomVersion); err != nil {
+	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, eb.version.Version()); err != nil {
 		return
 	}
 
-	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, roomVersion); err != nil {
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, eb.version.Version()); err != nil {
 		return
 	}
 
 	res := &event{}
-	res.roomVersion = roomVersion
+	res.roomVersion = eb.version.Version()
 
 	if err = res.populateFieldsFromJSON("", eventJSON); err != nil {
 		return
