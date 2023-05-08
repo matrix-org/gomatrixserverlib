@@ -1,5 +1,7 @@
 package spec
 
+type MatrixEventType string
+
 const (
 	// Join is the string constant "join"
 	Join = "join"
