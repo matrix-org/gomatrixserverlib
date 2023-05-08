@@ -10,62 +10,6 @@ import (
 	"github.com/matrix-org/util"
 )
 
-// What should this do?
-
-// Make Join:
-// Validate room version is supported
-// Only accept valid userID/roomID (check if nil?)
-// Validate join was sent by user's server
-// Validate our server is participating in the room
-// Validate restricted room join info
-// Build join event template
-// Validate join is allowed
-// Return join event template
-
-// Send Join:
-// Validate room version info
-// Parse event
-// Validate state key
-// Validate sender belongs to sending server
-// Validate room IDs match
-// Validate Event:
-// Validate event ID
-// Validate this is a join event
-// Validate signatures
-// Validate state/auth for this user joining
-// Validate authorised via
-// sign the event
-// process the event on our side
-// return the final join event
-
-// First:
-// Move over `checkRestrictedJoin` in a commit
-// This involves pulling over `QueryRestrictedJoinAllowed` logic from the roomserver
-// Needs DB access for:
-// - room info
-// - getStateEvent
-// - pending invite
-// - local server in room
-// - membership & events
-
-// How does this help with power DAGs?
-// What is the abstraction I need here?
-
-// MakeJoin returns the join event template & room version
-// MakeJoin powerDAG will be the same
-
-// SendJoin returns the join event & state/auth events
-// SendJoin powerDAG will return the join event & powerDAG events, possibly some state too
-// Could return some form of interface thing that provides auth/power & state events on request
-// What is a good name for auth/power?
-
-// For now just create a HandleMakeJoin & HandleSendJoin in gmsl
-// Return interfaces which provide common results
-// Then in dendrite both the current join endpoints & the new powerDAG join endpoint can
-// call through to the same gmsl functions.
-
-// In GMSL, it can deal with properly handling the different logic based on room version.
-
 // TODO: This is currently copied from clientapi... what do?
 type MatrixError struct {
 	ErrCode string `json:"errcode"`
@@ -142,7 +86,7 @@ type HandleMakeJoinInput struct {
 	RequestOrigin      spec.ServerName
 	RequestDestination spec.ServerName
 	LocalServerName    spec.ServerName
-	RoomQuerier        RoomQuerier
+	RoomQuerier        JoinRoomQuerier
 	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse)
 }
 
@@ -254,7 +198,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 func checkRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
-	roomQuerier RoomQuerier,
+	roomQuerier JoinRoomQuerier,
 	roomVersion RoomVersion,
 	roomID *spec.RoomID, userID *spec.UserID,
 ) (*util.JSONResponse, string, error) {
@@ -310,7 +254,7 @@ func checkRestrictedJoin(
 }
 
 // nolint:gocyclo
-func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.ServerName, roomQuerier RoomQuerier, req *QueryRestrictedJoinAllowedRequest, res *QueryRestrictedJoinAllowedResponse) error {
+func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.ServerName, roomQuerier JoinRoomQuerier, req *QueryRestrictedJoinAllowedRequest, res *QueryRestrictedJoinAllowedResponse) error {
 	// Look up if we know anything about the room. If it doesn't exist
 	// or is a stub entry then we can't do anything.
 	//roomInfo, err := r.DB.RoomInfo(ctx, req.RoomID)
