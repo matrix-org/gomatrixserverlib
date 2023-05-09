@@ -15,12 +15,10 @@
 package spec
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/matrix-org/util"
-	"github.com/sirupsen/logrus"
 )
 
 // MatrixError represents the "standard error response" in Matrix.
@@ -217,14 +215,5 @@ func NotTrusted(serverName string) *MatrixError {
 	return &MatrixError{
 		ErrCode: "M_SERVER_NOT_TRUSTED",
 		Err:     fmt.Sprintf("Untrusted server '%s'", serverName),
-	}
-}
-
-// InternalAPIError is returned when Dendrite failed to reach an internal API.
-func InternalAPIError(ctx context.Context, err error) util.JSONResponse {
-	logrus.WithContext(ctx).WithError(err).Error("Error reaching an internal API")
-	return util.JSONResponse{
-		Code: http.StatusInternalServerError,
-		JSON: Unknown("Internal Server Error - Dendrite encountered an error reaching an internal API."),
 	}
 }
