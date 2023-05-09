@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jsonerror
+package spec
 
 import (
 	"encoding/json"

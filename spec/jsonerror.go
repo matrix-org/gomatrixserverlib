@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jsonerror
+package spec
 
 import (
 	"context"
 	"fmt"
 	"net/http"
 
-	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
 )
@@ -184,10 +183,10 @@ type IncompatibleRoomVersionError struct {
 
 // IncompatibleRoomVersion is an error which is returned when the client
 // requests a room with a version that is unsupported.
-func IncompatibleRoomVersion(roomVersion gomatrixserverlib.RoomVersion) *IncompatibleRoomVersionError {
+func IncompatibleRoomVersion(roomVersion string) *IncompatibleRoomVersionError {
 	return &IncompatibleRoomVersionError{
 		Code:        "M_INCOMPATIBLE_ROOM_VERSION",
-		RoomVersion: string(roomVersion),
+		RoomVersion: roomVersion,
 		Error:       "Your homeserver does not support the features required to join this room",
 	}
 }
