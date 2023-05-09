@@ -76,18 +76,6 @@ func NotFound(msg string) *MatrixError {
 	return &MatrixError{"M_NOT_FOUND", msg}
 }
 
-// MissingArgument is an error when the client tries to access a resource
-// without providing an argument that is required.
-func MissingArgument(msg string) *MatrixError {
-	return &MatrixError{"M_MISSING_ARGUMENT", msg}
-}
-
-// InvalidArgumentValue is an error when the client tries to provide an
-// invalid value for a valid argument
-func InvalidArgumentValue(msg string) *MatrixError {
-	return &MatrixError{"M_INVALID_ARGUMENT_VALUE", msg}
-}
-
 // MissingToken is an error when the client tries to access a resource which
 // requires authentication without supplying credentials.
 func MissingToken(msg string) *MatrixError {
@@ -144,14 +132,14 @@ func InvalidSignature(msg string) *MatrixError {
 	return &MatrixError{"M_INVALID_SIGNATURE", msg}
 }
 
-// InvalidParam is an error that is returned when a parameter was invalid,
-// traditionally with cross-signing.
+// InvalidParam is an error that is returned when a parameter has the wrong
+// value or type.
 func InvalidParam(msg string) *MatrixError {
 	return &MatrixError{"M_INVALID_PARAM", msg}
 }
 
-// MissingParam is an error that is returned when a parameter was incorrect,
-// traditionally with cross-signing.
+// MissingParam is an error that is returned when a parameter is missing from
+// a request.
 func MissingParam(msg string) *MatrixError {
 	return &MatrixError{"M_MISSING_PARAM", msg}
 }
@@ -238,9 +226,6 @@ func InternalAPIError(ctx context.Context, err error) util.JSONResponse {
 	logrus.WithContext(ctx).WithError(err).Error("Error reaching an internal API")
 	return util.JSONResponse{
 		Code: http.StatusInternalServerError,
-		JSON: &MatrixError{
-			ErrCode: "M_INTERNAL_SERVER_ERROR",
-			Err:     "Dendrite encountered an error reaching an internal API.",
-		},
+		JSON: Unknown("Internal Server Error - Dendrite encountered an error reaching an internal API."),
 	}
 }
