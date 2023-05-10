@@ -188,6 +188,7 @@ func (eb *EventBuilderV1) Build(
 		return nil, err
 	}
 	res.event.fields = res.fields
+	res.fields.EventID = res.eventID
 
 	if err = checkFields(res.fields, eventJSON); err != nil {
 		return
