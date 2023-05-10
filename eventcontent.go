@@ -42,7 +42,7 @@ type CreateContent struct {
 	// The version of the room. Should be treated as "1" when the key doesn't exist.
 	RoomVersion *RoomVersion `json:"room_version,omitempty"`
 	// The predecessor of the room.
-	Predecessor PreviousRoom `json:"predecessor,omitempty"`
+	Predecessor *PreviousRoom `json:"predecessor,omitempty"`
 }
 
 // PreviousRoom is the "Previous Room" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-create

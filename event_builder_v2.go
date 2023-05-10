@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
-	"github.com/matrix-org/util"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
 )
 
-// An EventBuilder is used to build a new event.
+// An EventBuilderV2 is used to build a new event.
 // These can be exchanged between matrix servers in the federation APIs when
 // joining or leaving a room.
-type EventBuilder struct {
+type EventBuilderV2 struct {
 	// The user ID of the user sending the event.
 	Sender string `json:"sender"`
 	// The room ID of the room this event is in.
@@ -25,10 +24,10 @@ type EventBuilder struct {
 	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceded this event in the room history. This can be
 	// either []EventReference for room v1/v2, and []string for room v3 onwards.
-	PrevEvents interface{} `json:"prev_events"`
+	PrevEvents []string `json:"prev_events"`
 	// The events needed to authenticate this event. This can be
 	// either []EventReference for room v1/v2, and []string for room v3 onwards.
-	AuthEvents interface{} `json:"auth_events"`
+	AuthEvents []string `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
@@ -46,18 +45,44 @@ type EventBuilder struct {
 }
 
 // SetContent sets the JSON content key of the event.
-func (eb *EventBuilder) SetContent(content interface{}) (err error) {
+func (eb *EventBuilderV2) SetContent(content interface{}) (err error) {
 	eb.Content, err = json.Marshal(content)
 	return
 }
 
 // SetUnsigned sets the JSON unsigned key of the event.
-func (eb *EventBuilder) SetUnsigned(unsigned interface{}) (err error) {
+func (eb *EventBuilderV2) SetUnsigned(unsigned interface{}) (err error) {
 	eb.Unsigned, err = json.Marshal(unsigned)
 	return
 }
 
-func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
+func (eb *EventBuilderV2) SetPrevEvents(evs any) {
+	switch e := evs.(type) {
+	case []EventReference:
+		for _, ev := range e {
+			eb.PrevEvents = append(eb.PrevEvents, ev.EventID)
+		}
+	case []string:
+		eb.PrevEvents = e
+	default:
+		panic("invalid type")
+	}
+}
+
+func (eb *EventBuilderV2) SetAuthEvents(evs any) {
+	switch e := evs.(type) {
+	case []EventReference:
+		for _, ev := range e {
+			eb.AuthEvents = append(eb.AuthEvents, ev.EventID)
+		}
+	case []string:
+		eb.AuthEvents = e
+	default:
+		panic("invalid type")
+	}
+}
+
+func (eb *EventBuilderV2) AddAuthEvents(provider AuthEventProvider) error {
 	eventsNeeded, err := StateNeededForProtoEvent(&ProtoEvent{
 		Type:     eb.Type,
 		StateKey: eb.StateKey,
@@ -71,7 +96,8 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 	if err != nil {
 		return err
 	}
-	eb.AuthEvents = refs
+
+	eb.SetAuthEvents(refs)
 	return nil
 }
 
@@ -80,18 +106,16 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 // Call this after filling out the necessary fields.
 // This can be called multiple times on the same builder.
 // A different event ID must be supplied each time this is called.
-func (eb *EventBuilder) Build(
+func (eb *EventBuilderV2) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey,
 ) (result PDU, err error) {
 	if eb.version == nil {
-		return nil, fmt.Errorf("EventBuilder.Build: unknown version, did you create this via NewEventBuilder?")
+		return nil, fmt.Errorf("EventBuilderV2.Build: unknown version, did you create this via NewEventBuilder?")
 	}
 
-	eventFormat := eb.version.EventFormat()
-	eventIDFormat := eb.version.EventIDFormat()
 	var eventStruct struct {
-		EventBuilder
+		EventBuilderV2
 		EventID        string          `json:"event_id"`
 		OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
 		Origin         spec.ServerName `json:"origin"`
@@ -100,54 +124,20 @@ func (eb *EventBuilder) Build(
 		// Otherwise it points to an empty list and omitempty keeps it.
 		PrevState *[]EventReference `json:"prev_state,omitempty"`
 	}
-	eventStruct.EventBuilder = *eb
-	if eventIDFormat == EventIDFormatV1 {
-		eventStruct.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
-	}
+	eventStruct.EventBuilderV2 = *eb
 	eventStruct.OriginServerTS = spec.AsTimestamp(now)
 	eventStruct.Origin = origin
-	switch eventFormat {
-	case EventFormatV1:
-		// If either prev_events or auth_events are nil slices then Go will
-		// marshal them into 'null' instead of '[]', which is bad. Since the
-		// EventBuilder struct is instantiated outside of gomatrixserverlib
-		// let's just make sure that they haven't been left as nil slices.
-		if eventStruct.PrevEvents == nil {
-			eventStruct.PrevEvents = []EventReference{}
-		}
-		if eventStruct.AuthEvents == nil {
-			eventStruct.AuthEvents = []EventReference{}
-		}
-	case EventFormatV2:
-		// In this event format, prev_events and auth_events are lists of
-		// event IDs as a []string, rather than full-blown []EventReference.
-		// Since gomatrixserverlib otherwise deals with EventReferences,
-		// take the event IDs out of these and replace the prev_events and
-		// auth_events with those new arrays.
-		switch prevEvents := eventStruct.PrevEvents.(type) {
-		case []string:
-			eventStruct.PrevEvents = prevEvents
-		case []EventReference:
-			resPrevEvents := []string{}
-			for _, prevEvent := range prevEvents {
-				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
-			}
-			eventStruct.PrevEvents = resPrevEvents
-		case nil:
-			eventStruct.PrevEvents = []string{}
-		}
-		switch authEvents := eventStruct.AuthEvents.(type) {
-		case []string:
-			eventStruct.AuthEvents = authEvents
-		case []EventReference:
-			resAuthEvents := []string{}
-			for _, authEvent := range authEvents {
-				resAuthEvents = append(resAuthEvents, authEvent.EventID)
-			}
-			eventStruct.AuthEvents = resAuthEvents
-		case nil:
-			eventStruct.AuthEvents = []string{}
-		}
+
+	// In this event format, prev_events and auth_events are lists of
+	// event IDs as a []string, rather than full-blown []EventReference.
+	// Since gomatrixserverlib otherwise deals with EventReferences,
+	// take the event IDs out of these and replace the prev_events and
+	// auth_events with those new arrays.
+	if eventStruct.PrevEvents == nil || len(eventStruct.PrevEvents) == 0 {
+		eventStruct.PrevEvents = []string{}
+	}
+	if eventStruct.AuthEvents == nil || len(eventStruct.AuthEvents) == 0 {
+		eventStruct.AuthEvents = []string{}
 	}
 
 	if eventStruct.StateKey != nil {
@@ -165,10 +155,8 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventFormat == EventFormatV2 {
-		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-			return
-		}
+	if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+		return
 	}
 
 	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {

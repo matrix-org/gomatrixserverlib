@@ -107,12 +107,12 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 	result = &event{}
 	result.roomVersion = roomVersion.Version()
 
-	eventFormat := roomVersion.EventFormat()
+	eb := roomVersion.NewEventBuilder()
 
 	if eventJSON, err = sjson.DeleteBytes(eventJSON, "unsigned"); err != nil {
 		return
 	}
-	if eventFormat == EventFormatV2 {
+	if _, ok := eb.(*EventBuilderV2); ok {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
 			return
 		}
@@ -212,13 +212,9 @@ func (e *event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		return err
 	}
 	// Work out the format of the event from the room version.
-	eventFormat := verImpl.EventFormat()
-	if err != nil {
-		return err
-	}
 
-	switch eventFormat {
-	case EventFormatV1:
+	switch verImpl.eventBuilder.(type) {
+	case *EventBuilderV1:
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV1Fields{}
@@ -231,7 +227,7 @@ func (e *event) populateFieldsFromJSON(eventIDIfKnown string, eventJSON []byte) 
 		// In room versions 1 and 2, we will use the event_id from the
 		// event itself.
 		e.eventID = fields.EventID
-	case EventFormatV2:
+	case *EventBuilderV2:
 		e.eventJSON = eventJSON
 		// Unmarshal the event fields.
 		fields := eventFormatV2Fields{}
@@ -276,11 +272,11 @@ func (e *event) Redact() {
 	}
 	eventJSON, err := verImpl.RedactEventJSON(e.eventJSON)
 	if err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		// This is unreachable for events created with EventBuilderV1.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
 	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		// This is unreachable for events created with EventBuilderV1.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
 	if err = e.populateFieldsFromJSON(e.EventID(), eventJSON); err != nil {
@@ -369,7 +365,7 @@ func (e *event) updateUnsignedFields(unsigned []byte) error {
 func (e *event) EventReference() EventReference {
 	reference, err := referenceOfEvent(e.eventJSON, e.roomVersion)
 	if err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		// This is unreachable for events created with EventBuilderV1.Build or NewEventFromUntrustedJSON
 		// This can be reached if NewEventFromTrustedJSON is given JSON from an untrusted source.
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
@@ -380,11 +376,11 @@ func (e *event) EventReference() EventReference {
 func (e *event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
 	if err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		// This is unreachable for events created with EventBuilderV1.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
 	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		// This is unreachable for events created with EventBuilderV1.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
 	}
 	return &event{
@@ -400,7 +396,7 @@ func (e *event) Sign(signingName string, keyID KeyID, privateKey ed25519.Private
 func (e *event) KeyIDs(signingName string) []KeyID {
 	keyIDs, err := ListKeyIDs(signingName, e.eventJSON)
 	if err != nil {
-		// This should unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		// This should unreachable for events created with EventBuilderV1.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
 	}
 	return keyIDs
@@ -527,11 +523,10 @@ func (e *event) generateEventID() (eventID string, err error) {
 	if err != nil {
 		return "", err
 	}
-	eventFormat := verImpl.EventFormat()
-	switch eventFormat {
-	case EventFormatV1:
+	switch verImpl.eventBuilder.(type) {
+	case *EventBuilderV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
-	case EventFormatV2:
+	case *EventBuilderV2:
 		var reference EventReference
 		reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
 		if err != nil {
@@ -664,12 +659,11 @@ func (e *event) extractContent(eventType string, content interface{}) error {
 	if err != nil {
 		panic(err)
 	}
-	eventFormat := verImpl.EventFormat()
 	var fields eventFields
-	switch eventFormat {
-	case EventFormatV1:
+	switch verImpl.eventBuilder.(type) {
+	case *EventBuilderV1:
 		fields = e.fields.(eventFormatV1Fields).eventFields
-	case EventFormatV2:
+	case *EventBuilderV2:
 		fields = e.fields.(eventFormatV2Fields).eventFields
 	default:
 		panic(e.invalidFieldType())

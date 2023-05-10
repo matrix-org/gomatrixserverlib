@@ -233,15 +233,14 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 	sha256Hash := sha256.Sum256(hashableEventJSON)
 	var eventID string
 
-	eventFormat := verImpl.EventFormat()
 	eventIDFormat := verImpl.EventIDFormat()
 
-	switch eventFormat {
-	case EventFormatV1:
+	switch verImpl.eventBuilder.(type) {
+	case *EventBuilderV1:
 		if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
 			return EventReference{}, err
 		}
-	case EventFormatV2:
+	case *EventBuilderV2:
 		var encoder *base64.Encoding
 		switch eventIDFormat {
 		case EventIDFormatV2:

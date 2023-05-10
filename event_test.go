@@ -202,106 +202,115 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 
 func TestEventBuilderBuildsEvent(t *testing.T) {
 	sender := "@sender:id"
-	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
-		RoomID:   "!room:id",
-		Type:     "m.room.member",
-		StateKey: &sender,
-	})
+	for rv := range RoomVersions() {
+		builder := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
+			Sender:   sender,
+			RoomID:   "!room:id",
+			Type:     "m.room.member",
+			StateKey: &sender,
+		})
 
-	err := builder.SetContent(newMemberContent("join", nil))
-	if err != nil {
-		t.Fatal(err)
-	}
+		err := builder.SetContent(newMemberContent("join", nil))
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
-	if eventStruct.Redacted() != expectedEvent.redacted {
-		t.Fatal("Event Redacted state doesn't match")
-	}
-	if eventStruct.Version() != expectedEvent.roomVersion {
-		t.Fatal("Event Room Version doesn't match")
-	}
-	if eventStruct.Type() != "m.room.member" {
-		t.Fatal("Event Type doesn't match")
-	}
-	if eventStruct.Sender() != sender {
-		t.Fatal("Event Sender doesn't match")
-	}
-	if *eventStruct.StateKey() != sender {
-		t.Fatal("Event State Key doesn't match")
+		eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("%s", string(eventStruct.JSON()))
+		expectedEvent := event{redacted: false, roomVersion: rv}
+		if eventStruct.Redacted() != expectedEvent.redacted {
+			t.Fatal("Event Redacted state doesn't match")
+		}
+		if eventStruct.Version() != expectedEvent.roomVersion {
+			t.Fatal("Event Room Version doesn't match")
+		}
+		if eventStruct.Type() != "m.room.member" {
+			t.Fatal("Event Type doesn't match")
+		}
+		if eventStruct.Sender() != sender {
+			t.Fatal("Event Sender doesn't match")
+		}
+		if *eventStruct.StateKey() != sender {
+			t.Fatal("Event State Key doesn't match")
+		}
 	}
 }
 
 func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	sender := "@sender:id"
-	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
-		RoomID:   "!room:id",
-		Type:     "m.room.create",
-		StateKey: &sender,
-	})
+	for rv := range RoomVersions() {
+		builder := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
+			Sender:   sender,
+			RoomID:   "!room:id",
+			Type:     "m.room.create",
+			StateKey: &sender,
+		})
 
-	provider := &authProvider{valid: true}
-	content, err := NewCreateContentFromAuthEvents(provider)
-	if err != nil {
-		t.Fatal(err)
-	}
+		provider := &authProvider{valid: true}
+		content, err := NewCreateContentFromAuthEvents(provider)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	err = builder.SetContent(content)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = builder.AddAuthEvents(provider); err != nil {
-		t.Fatal(err)
-	}
+		err = builder.SetContent(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = builder.AddAuthEvents(provider); err != nil {
+			t.Fatal(err)
+		}
 
-	eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
-	if err != nil {
-		t.Fatal(err)
-	}
+		eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
-	if eventStruct.Redacted() != expectedEvent.redacted {
-		t.Fatal("Event Redacted state doesn't match")
-	}
-	if eventStruct.Version() != expectedEvent.roomVersion {
-		t.Fatal("Event Room Version doesn't match")
-	}
-	if eventStruct.Type() != "m.room.create" {
-		t.Fatal("Event Type doesn't match")
-	}
-	if eventStruct.Sender() != sender {
-		t.Fatal("Event Sender doesn't match")
-	}
-	if *eventStruct.StateKey() != sender {
-		t.Fatal("Event State Key doesn't match")
+		t.Logf("%s", string(eventStruct.JSON()))
+
+		expectedEvent := event{redacted: false, roomVersion: rv}
+		if eventStruct.Redacted() != expectedEvent.redacted {
+			t.Fatal("Event Redacted state doesn't match")
+		}
+		if eventStruct.Version() != expectedEvent.roomVersion {
+			t.Fatal("Event Room Version doesn't match")
+		}
+		if eventStruct.Type() != "m.room.create" {
+			t.Fatal("Event Type doesn't match")
+		}
+		if eventStruct.Sender() != sender {
+			t.Fatal("Event Sender doesn't match")
+		}
+		if *eventStruct.StateKey() != sender {
+			t.Fatal("Event State Key doesn't match")
+		}
 	}
 }
 
 func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
 	sender := "@sender3:id"
-	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
-		RoomID:   "!room:id",
-		Type:     "m.room.member",
-		StateKey: &sender,
-	})
+	for rv := range RoomVersions() {
+		builder := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
+			Sender:   sender,
+			RoomID:   "!room:id",
+			Type:     "m.room.member",
+			StateKey: &sender,
+		})
 
-	err := builder.SetContent(newMemberContent("join", nil))
-	if err != nil {
-		t.Fatal(err)
+		err := builder.SetContent(newMemberContent("join", nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		provider := &authProvider{valid: true, fail: true}
+		if err = builder.AddAuthEvents(provider); err == nil {
+			t.Fatal("Building didn't fail")
+		}
+		println(err.Error())
 	}
 
-	provider := &authProvider{valid: true, fail: true}
-	if err = builder.AddAuthEvents(provider); err == nil {
-		t.Fatal("Building didn't fail")
-	}
-	println(err.Error())
 }
 
 type authProvider struct {

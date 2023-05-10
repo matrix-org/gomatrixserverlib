@@ -183,7 +183,7 @@ func makeVersionQueryString(roomVersions []gomatrixserverlib.RoomVersion) string
 // Takes the map of room version implementations and converts it into a list of
 // room version strings.
 func roomVersionsToList(
-	versionsMap map[gomatrixserverlib.RoomVersion]gomatrixserverlib.IRoomVersion,
+	versionsMap map[gomatrixserverlib.RoomVersion]gomatrixserverlib.RoomVersionImpl,
 ) []gomatrixserverlib.RoomVersion {
 	var supportedVersions []gomatrixserverlib.RoomVersion
 	for version := range versionsMap {
