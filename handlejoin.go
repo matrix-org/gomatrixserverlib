@@ -10,73 +10,6 @@ import (
 	"github.com/matrix-org/util"
 )
 
-// TODO: This is currently copied from clientapi... what do?
-type MatrixError struct {
-	ErrCode string `json:"errcode"`
-	Err     string `json:"error"`
-}
-
-func (e MatrixError) Error() string {
-	return fmt.Sprintf("%s: %s", e.ErrCode, e.Err)
-}
-
-func Forbidden(msg string) *MatrixError {
-	return &MatrixError{"M_FORBIDDEN", msg}
-}
-
-func NotFound(msg string) *MatrixError {
-	return &MatrixError{"M_NOT_FOUND", msg}
-}
-
-func InternalServerError() util.JSONResponse {
-	return util.JSONResponse{
-		Code: http.StatusInternalServerError,
-		JSON: Unknown("Internal Server Error"),
-	}
-}
-
-type IncompatibleRoomVersionError struct {
-	RoomVersion string `json:"room_version"`
-	Error       string `json:"error"`
-	Code        string `json:"errcode"`
-}
-
-func IncompatibleRoomVersion(roomVersion RoomVersion) *IncompatibleRoomVersionError {
-	return &IncompatibleRoomVersionError{
-		Code:        "M_INCOMPATIBLE_ROOM_VERSION",
-		RoomVersion: string(roomVersion),
-		Error:       "Your homeserver does not support the features required to join this room",
-	}
-}
-
-// UnableToAuthoriseJoin is an error that is returned when a server can't
-// determine whether to allow a restricted join or not.
-func UnableToAuthoriseJoin(msg string) *MatrixError {
-	return &MatrixError{"M_UNABLE_TO_AUTHORISE_JOIN", msg}
-}
-
-// BadJSON is an error when the client supplies malformed JSON.
-func BadJSON(msg string) *MatrixError {
-	return &MatrixError{"M_BAD_JSON", msg}
-}
-
-// Unknown is an unexpected error
-func Unknown(msg string) *MatrixError {
-	return &MatrixError{"M_UNKNOWN", msg}
-}
-
-func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersion) bool {
-	remoteSupportsVersion := false
-	for _, v := range supportedVersions {
-		if v == roomVersion {
-			remoteSupportsVersion = true
-			break
-		}
-	}
-
-	return remoteSupportsVersion
-}
-
 type HandleMakeJoinInput struct {
 	Context            context.Context
 	UserID             *spec.UserID
@@ -102,13 +35,13 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	// https://matrix.org/docs/spec/server_server/r0.1.3#get-matrix-federation-v1-make-join-roomid-userid
 	// If it isn't, stop trying to join the room.
 	if !roomVersionSupported(input.RoomVersion, input.RemoteVersions) {
-		return nil, &util.JSONResponse{Code: http.StatusBadRequest, JSON: IncompatibleRoomVersion(input.RoomVersion)}
+		return nil, &util.JSONResponse{Code: http.StatusBadRequest, JSON: spec.IncompatibleRoomVersion(string(input.RoomVersion))}
 	}
 
 	if input.UserID.Domain() != input.RequestOrigin {
 		return nil, &util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: Forbidden("The join must be sent by the server of the user"),
+			JSON: spec.Forbidden("The join must be sent by the server of the user"),
 		}
 	}
 
@@ -117,7 +50,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		util.GetLogger(input.Context).WithError(err).Error("ServerInRoom failed")
 		return nil, &util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: InternalServerError(),
+			JSON: spec.InternalServerError(),
 		}
 	}
 
@@ -125,13 +58,13 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	if !inRoomRes.RoomExists {
 		return nil, &util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: NotFound(fmt.Sprintf("Room ID %q was not found on this server", input.RoomID.String())),
+			JSON: spec.NotFound(fmt.Sprintf("Room ID %q was not found on this server", input.RoomID.String())),
 		}
 	}
 	if !inRoomRes.ServerInRoom {
 		return nil, &util.JSONResponse{
 			Code: http.StatusNotFound,
-			JSON: NotFound(fmt.Sprintf("Room ID %q has no remaining users on this server", input.RoomID.String())),
+			JSON: spec.NotFound(fmt.Sprintf("Room ID %q has no remaining users on this server", input.RoomID.String())),
 		}
 	}
 
@@ -140,7 +73,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	res, authorisedVia, err := checkRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomVersion, input.RoomID, input.UserID)
 	if err != nil {
 		util.GetLogger(input.Context).WithError(err).Error("checkRestrictedJoin failed")
-		e := InternalServerError()
+		e := spec.InternalServerError()
 		return nil, &e
 	} else if res != nil {
 		return nil, res
@@ -160,7 +93,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	}
 	if err = proto.SetContent(content); err != nil {
 		util.GetLogger(input.Context).WithError(err).Error("builder.SetContent failed")
-		e := InternalServerError()
+		e := spec.InternalServerError()
 		return nil, &e
 	}
 
@@ -173,7 +106,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	if err = Allowed(event, &provider); err != nil {
 		return nil, &util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: Forbidden(err.Error()),
+			JSON: spec.Forbidden(err.Error()),
 		}
 	}
 
@@ -182,6 +115,18 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		RoomVersion:       input.RoomVersion,
 	}
 	return &makeJoinResponse, nil
+}
+
+func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersion) bool {
+	remoteSupportsVersion := false
+	for _, v := range supportedVersions {
+		if v == roomVersion {
+			remoteSupportsVersion = true
+			break
+		}
+	}
+
+	return remoteSupportsVersion
 }
 
 // checkRestrictedJoin finds out whether or not we can assist in processing
@@ -231,7 +176,7 @@ func checkRestrictedJoin(
 		// instead.
 		return &util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: UnableToAuthoriseJoin("This server cannot authorise the join."),
+			JSON: spec.UnableToAuthoriseJoin("This server cannot authorise the join."),
 		}, "", nil
 
 	case !res.Allowed:
@@ -240,7 +185,7 @@ func checkRestrictedJoin(
 		// and therefore can't join this room.
 		return &util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: Forbidden("You are not joined to any matching rooms."),
+			JSON: spec.Forbidden("You are not joined to any matching rooms."),
 		}, "", nil
 
 	default:
