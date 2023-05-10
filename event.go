@@ -58,6 +58,16 @@ type event struct {
 	roomVersion RoomVersion
 }
 
+type eventV2 struct {
+	fields eventFormatV2Fields
+	event
+}
+
+type eventV1 struct {
+	fields eventFormatV1Fields
+	event
+}
+
 type eventFields struct {
 	RoomID         string         `json:"room_id"`
 	Sender         string         `json:"sender"`
@@ -158,7 +168,7 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 		}
 	}
 
-	err = result.CheckFields()
+	err = checkFields(result.fields, eventJSON)
 	return
 }
 
@@ -441,14 +451,14 @@ const (
 	maxEventLength = 65536
 )
 
-// CheckFields checks that the event fields are valid.
+// checkFields checks that the event fields are valid.
 // Returns an error if the IDs have the wrong format or too long.
 // Returns an error if the total length of the event JSON is too long.
 // Returns an error if the event ID doesn't match the origin of the event.
 // https://matrix.org/docs/spec/client_server/r0.2.0.html#size-limits
-func (e *event) CheckFields() error { // nolint: gocyclo
+func checkFields(versionFields any, eventJSON []byte) error { // nolint: gocyclo
 	var fields eventFields
-	switch f := e.fields.(type) {
+	switch f := versionFields.(type) {
 	case eventFormatV1Fields:
 		if f.AuthEvents == nil || f.PrevEvents == nil {
 			return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
@@ -460,10 +470,10 @@ func (e *event) CheckFields() error { // nolint: gocyclo
 		}
 		fields = f.eventFields
 	default:
-		panic(e.invalidFieldType())
+		panic("e.invalidFieldType()")
 	}
 
-	if l := len(e.eventJSON); l > maxEventLength {
+	if l := len(eventJSON); l > maxEventLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,
 			Message: fmt.Sprintf("gomatrixserverlib: event is too long, length %d bytes > maximum %d bytes", l, maxEventLength),
@@ -536,6 +546,21 @@ func (e *event) generateEventID() (eventID string, err error) {
 	default:
 		err = errors.New("gomatrixserverlib: unknown room version")
 	}
+	return
+}
+
+func (e *eventV1) generateEventID() (eventID string, err error) {
+	eventID = e.eventID
+	return
+}
+
+func (e *eventV2) generateEventID() (eventID string, err error) {
+	var reference EventReference
+	reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
+	if err != nil {
+		return
+	}
+	eventID = reference.EventID
 	return
 }
 

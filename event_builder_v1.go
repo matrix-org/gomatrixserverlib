@@ -161,14 +161,35 @@ func (eb *EventBuilderV1) Build(
 		return
 	}
 
-	res := &event{}
-	res.roomVersion = eb.version.Version()
-
-	if err = res.populateFieldsFromJSON("", eventJSON); err != nil {
-		return
+	ev := event{
+		eventJSON:   eventJSON,
+		roomVersion: eb.version.Version(),
 	}
+	res := &eventV1{
+		event: ev,
+		fields: eventFormatV1Fields{
+			eventFields: eventFields{
+				RoomID:         eb.RoomID,
+				Sender:         eb.Sender,
+				Type:           eb.Type,
+				StateKey:       eb.StateKey,
+				Content:        eb.Content,
+				Redacts:        eb.Redacts,
+				Depth:          eb.Depth,
+				Unsigned:       eb.Unsigned,
+				OriginServerTS: eventStruct.OriginServerTS,
+			},
+			PrevEvents: eventStruct.PrevEvents,
+			AuthEvents: eventStruct.AuthEvents,
+		},
+	}
+	res.eventID, err = res.generateEventID()
+	if err != nil {
+		return nil, err
+	}
+	res.event.fields = res.fields
 
-	if err = res.CheckFields(); err != nil {
+	if err = checkFields(res.fields, eventJSON); err != nil {
 		return
 	}
 
