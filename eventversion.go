@@ -455,11 +455,11 @@ func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) EventBuil
 	switch v.eventBuilder.(type) {
 	case *EventBuilderV1:
 		eb := &EventBuilderV1{version: v}
-		if eb.AuthEvents != nil {
+		if pe.AuthEvents != nil {
 			eb.AuthEvents = pe.AuthEvents.([]EventReference)
 		}
 		if eb.PrevEvents != nil {
-			eb.PrevEvents = pe.PrevEvents.([]EventReference)
+			pe.PrevEvents = pe.PrevEvents.([]EventReference)
 		}
 		// for now copies all fields, but we should be specific depending on the room version
 		eb.Content = pe.Content

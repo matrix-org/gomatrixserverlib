@@ -127,10 +127,10 @@ func (eb *EventBuilderV1) Build(
 	// marshal them into 'null' instead of '[]', which is bad. Since the
 	// EventBuilderV1 struct is instantiated outside of gomatrixserverlib
 	// let's just make sure that they haven't been left as nil slices.
-	if eventStruct.PrevEvents == nil {
+	if eb.PrevEvents == nil {
 		eventStruct.PrevEvents = []EventReference{}
 	}
-	if eventStruct.AuthEvents == nil {
+	if eb.AuthEvents == nil {
 		eventStruct.AuthEvents = []EventReference{}
 	}
 
@@ -162,12 +162,14 @@ func (eb *EventBuilderV1) Build(
 	}
 
 	ev := event{
+		eventID:     eventStruct.EventID,
 		eventJSON:   eventJSON,
 		roomVersion: eb.version.Version(),
 	}
 	res := &eventV1{
 		event: ev,
 		fields: eventFormatV1Fields{
+			EventID: eventStruct.EventID,
 			eventFields: eventFields{
 				RoomID:         eb.RoomID,
 				Sender:         eb.Sender,
@@ -188,6 +190,7 @@ func (eb *EventBuilderV1) Build(
 		return nil, err
 	}
 	res.event.fields = res.fields
+	res.event.eventID = res.eventID
 	res.fields.EventID = res.eventID
 
 	if err = checkFields(res.fields, eventJSON); err != nil {
