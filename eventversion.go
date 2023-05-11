@@ -458,8 +458,8 @@ func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) EventBuil
 		if pe.AuthEvents != nil {
 			eb.AuthEvents = pe.AuthEvents.([]EventReference)
 		}
-		if eb.PrevEvents != nil {
-			pe.PrevEvents = pe.PrevEvents.([]EventReference)
+		if pe.PrevEvents != nil {
+			eb.PrevEvents = pe.PrevEvents.([]EventReference)
 		}
 		// for now copies all fields, but we should be specific depending on the room version
 		eb.Content = pe.Content
