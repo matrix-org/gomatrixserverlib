@@ -326,6 +326,60 @@ func TestHandleJoin(t *testing.T) {
 			expectedErr: true,
 			errCode:     403,
 		},
+		"invalid_template_state": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return joinEvent, nil, nil
+				},
+			},
+			expectedErr: true,
+			errCode:     500,
+		},
+		"invalid_template_event": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return nil, []PDU{createEvent, joinRulesEvent}, nil
+				},
+			},
+			expectedErr: true,
+			errCode:     500,
+		},
+		"template_event_not_join": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return createEvent, []PDU{createEvent, joinRulesEvent}, nil
+				},
+			},
+			expectedErr: true,
+			errCode:     500,
+		},
 		"successful": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
