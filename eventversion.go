@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -451,75 +452,59 @@ func (v RoomVersionImpl) NewEventBuilder() EventBuilder {
 	}
 	return nil
 }
-func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) EventBuilder {
+func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(protoEvent *ProtoEvent) EventBuilder {
 	switch v.eventBuilder.(type) {
 	case *EventBuilderV1:
 		eb := &EventBuilderV1{version: v}
-		if pe.AuthEvents != nil {
-			eb.AuthEvents = pe.AuthEvents.([]EventReference)
-		}
-		if pe.PrevEvents != nil {
-			eb.PrevEvents = pe.PrevEvents.([]EventReference)
-		}
 		// for now copies all fields, but we should be specific depending on the room version
-		eb.Content = pe.Content
-		eb.Depth = pe.Depth
-		eb.Redacts = pe.Redacts
-		eb.RoomID = pe.RoomID
-		eb.Sender = pe.Sender
-		eb.Signature = pe.Signature
-		eb.StateKey = pe.StateKey
-		eb.Type = pe.Type
-		eb.Unsigned = pe.Unsigned
+		eb.Content = protoEvent.Content
+		eb.Depth = protoEvent.Depth
+		eb.Redacts = protoEvent.Redacts
+		eb.RoomID = protoEvent.RoomID
+		eb.Sender = protoEvent.Sender
+		eb.Signature = protoEvent.Signature
+		eb.StateKey = protoEvent.StateKey
+		eb.Type = protoEvent.Type
+		eb.Unsigned = protoEvent.Unsigned
+
+		if len(protoEvent.AuthEvents) > 0 {
+			err := json.Unmarshal(protoEvent.AuthEvents, &eb.AuthEvents)
+			if err != nil {
+				panic(err)
+			}
+		}
+		if len(protoEvent.PrevEvents) > 0 {
+			err := json.Unmarshal(protoEvent.PrevEvents, &eb.PrevEvents)
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		return eb
 	case *EventBuilderV2:
 		eb := &EventBuilderV2{version: v}
-		if pe.AuthEvents != nil {
-			switch evs := pe.AuthEvents.(type) {
-			case []interface{}:
-				for _, ae := range evs {
-					if v, ok := ae.(string); ok {
-						eb.AuthEvents = append(eb.AuthEvents, v)
-					}
-				}
-			case []string:
-				eb.AuthEvents = evs
-			case []EventReference:
-				for _, ae := range evs {
-					eb.AuthEvents = append(eb.AuthEvents, ae.EventID)
-				}
-			default:
-				panic("invalid type")
-			}
-		}
-		if pe.PrevEvents != nil {
-			switch evs := pe.PrevEvents.(type) {
-			case []interface{}:
-				for _, ae := range evs {
-					if v, ok := ae.(string); ok {
-						eb.PrevEvents = append(eb.PrevEvents, v)
-					}
-				}
-			case []EventReference:
-				for _, ae := range evs {
-					eb.PrevEvents = append(eb.PrevEvents, ae.EventID)
-				}
-			case []string:
-				eb.PrevEvents = evs
-			default:
-				panic("invalid type")
-			}
-		}
 		// for now copies all fields, but we should be specific depending on the room version
-		eb.Content = pe.Content
-		eb.Depth = pe.Depth
-		eb.Redacts = pe.Redacts
-		eb.RoomID = pe.RoomID
-		eb.Sender = pe.Sender
-		eb.Signature = pe.Signature
-		eb.StateKey = pe.StateKey
-		eb.Type = pe.Type
-		eb.Unsigned = pe.Unsigned
+		eb.Content = protoEvent.Content
+		eb.Depth = protoEvent.Depth
+		eb.Redacts = protoEvent.Redacts
+		eb.RoomID = protoEvent.RoomID
+		eb.Sender = protoEvent.Sender
+		eb.Signature = protoEvent.Signature
+		eb.StateKey = protoEvent.StateKey
+		eb.Type = protoEvent.Type
+		eb.Unsigned = protoEvent.Unsigned
+		if len(protoEvent.AuthEvents) > 0 {
+			err := json.Unmarshal(protoEvent.AuthEvents, &eb.AuthEvents)
+			if err != nil {
+				panic(err)
+			}
+		}
+		if len(protoEvent.PrevEvents) > 0 {
+			err := json.Unmarshal(protoEvent.PrevEvents, &eb.PrevEvents)
+			if err != nil {
+				panic(err)
+			}
+		}
 		return eb
 	default:
 		panic("unknown event builder")

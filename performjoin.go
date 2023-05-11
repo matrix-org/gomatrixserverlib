@@ -239,19 +239,8 @@ func setDefaultRoomVersionFromJoinEvent(
 	// if auth events are not event references we know it must be v3+
 	// we have to do these shenanigans to satisfy sytest, specifically for:
 	// "Outbound federation rejects m.room.create events with an unknown room version"
-	hasEventRefs := true
-	authEvents, ok := joinEvent.AuthEvents.([]interface{})
-	if ok {
-		if len(authEvents) > 0 {
-			_, ok = authEvents[0].(string)
-			if ok {
-				// event refs are objects, not strings, so we know we must be dealing with a v3+ room.
-				hasEventRefs = false
-			}
-		}
-	}
-
-	if hasEventRefs {
+	var refs []EventReference
+	if err := json.Unmarshal(joinEvent.AuthEvents, &refs); err == nil {
 		return RoomVersionV1
 	}
 	return RoomVersionV4

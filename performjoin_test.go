@@ -5,7 +5,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -132,15 +134,13 @@ func TestPerformJoin(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     userID.String(),
-		RoomID:     roomID.String(),
-		Type:       "m.room.create",
-		StateKey:   &stateKey,
-		PrevEvents: []interface{}{},
-		AuthEvents: []interface{}{},
-		Depth:      0,
-		Content:    spec.RawJSON(`{"creator":"@user:server","m.federate":true,"room_version":"10"}`),
-		Unsigned:   spec.RawJSON(""),
+		Sender:   userID.String(),
+		RoomID:   roomID.String(),
+		Type:     "m.room.create",
+		StateKey: &stateKey,
+		Depth:    0,
+		Content:  spec.RawJSON(`{"creator":"@user:server","m.federate":true,"room_version":"10"}`),
+		Unsigned: spec.RawJSON(""),
 	})
 	createEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	if err != nil {
@@ -153,8 +153,8 @@ func TestPerformJoin(t *testing.T) {
 		RoomID:     roomID.String(),
 		Type:       "m.room.member",
 		StateKey:   &stateKey,
-		PrevEvents: []interface{}{createEvent.EventID()},
-		AuthEvents: []interface{}{createEvent.EventID()},
+		PrevEvents: json.RawMessage(fmt.Sprintf(`["%s"]`, createEvent.EventID())),
+		AuthEvents: json.RawMessage(fmt.Sprintf(`["%s"]`, createEvent.EventID())),
 		Depth:      1,
 		Content:    spec.RawJSON(`{"membership":"join"}`),
 		Unsigned:   spec.RawJSON(""),
