@@ -239,7 +239,6 @@ func checkRestrictedJoin(
 func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.ServerName, roomQuerier JoinRoomQuerier, req *QueryRestrictedJoinAllowedRequest, res *QueryRestrictedJoinAllowedResponse) error {
 	// Look up if we know anything about the room. If it doesn't exist
 	// or is a stub entry then we can't do anything.
-	//roomInfo, err := r.DB.RoomInfo(ctx, req.RoomID)
 	roomInfo, err := roomQuerier.RoomInfo(ctx, req.RoomID)
 	if err != nil {
 		return fmt.Errorf("roomQuerier.RoomInfo: %w", err)
@@ -265,7 +264,6 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 	res.Resident = true
 
 	// Get the join rules to work out if the join rule is "restricted".
-	//joinRulesEvent, err := r.DB.GetStateEvent(ctx, req.RoomID, spec.MRoomJoinRules, "")
 	joinRulesEvent, err := roomQuerier.StateEvent(ctx, req.RoomID, spec.MRoomJoinRules, "")
 	if err != nil {
 		return fmt.Errorf("roomQuerier.StateEvent: %w", err)
@@ -287,8 +285,6 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 	// If the user is already invited to the room then the join is allowed
 	// but we don't specify an authorised via user, since the event auth
 	// will allow the join anyway.
-	//var pending bool
-	//if pending, _, _, _, err = helpers.IsInvitePending(ctx, r.DB, req.RoomID, req.UserID); err != nil {
 	if pending, err := roomQuerier.InvitePending(ctx, req.RoomID, req.UserID); err != nil {
 		return fmt.Errorf("helpers.IsInvitePending: %w", err)
 	} else if pending {
@@ -299,7 +295,6 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 	// We need to get the power levels content so that we can determine which
 	// users in the room are entitled to issue invites. We need to use one of
 	// these users as the authorising user.
-	//powerLevelsEvent, err := r.DB.GetStateEvent(ctx, req.RoomID, spec.MRoomPowerLevels, "")
 	powerLevelsEvent, err := roomQuerier.StateEvent(ctx, req.RoomID, spec.MRoomPowerLevels, "")
 	if err != nil {
 		return fmt.Errorf("roomQuerier.StateEvent: %w", err)
@@ -319,7 +314,6 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 
 		// See if the room exists. If it doesn't exist or if it's a stub
 		// room entry then we can't check memberships.
-		//targetRoomInfo, err := r.DB.RoomInfo(ctx, rule.RoomID)
 		roomID, err := spec.NewRoomID(rule.RoomID)
 		if err != nil {
 			continue
@@ -332,7 +326,6 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 
 		// First of all work out if *we* are still in the room, otherwise
 		// it's possible that the memberships will be out of date.
-		//isIn, err := r.DB.GetLocalServerInRoom(ctx, targetRoomInfo.RoomNID)
 		localMembership, err := roomQuerier.ServerInRoom(ctx, localServerName, roomID)
 		if err != nil || !localMembership.ServerInRoom {
 			// If we aren't in the room, we can no longer tell if the room
@@ -343,7 +336,6 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 
 		// At this point we're happy that we are in the room, so now let's
 		// see if the target user is in the room.
-		//_, isIn, _, err = r.DB.GetMembership(ctx, targetRoomInfo.RoomNID, req.UserID)
 		joinerInRoom, err := roomQuerier.Membership(ctx, targetRoomInfo.NID, req.UserID)
 		if err != nil {
 			continue
