@@ -38,6 +38,27 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		return nil, &util.JSONResponse{Code: http.StatusBadRequest, JSON: spec.IncompatibleRoomVersion(string(input.RoomVersion))}
 	}
 
+	if input.Context == nil {
+		return nil, &util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InvalidParam("Context is invalid"),
+		}
+	}
+
+	if input.UserID == nil {
+		return nil, &util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam("UserID is invalid"),
+		}
+	}
+
+	if input.RoomID == nil {
+		return nil, &util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam("UserID is invalid"),
+		}
+	}
+
 	if input.UserID.Domain() != input.RequestOrigin {
 		return nil, &util.JSONResponse{
 			Code: http.StatusForbidden,
@@ -45,8 +66,15 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		}
 	}
 
+	if input.RoomQuerier == nil {
+		util.GetLogger(input.Context).Error("Missing valid RoomQuerier")
+		return nil, &util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError(),
+		}
+	}
 	inRoomRes, err := input.RoomQuerier.ServerInRoom(input.Context, input.LocalServerName, input.RoomID)
-	if err != nil {
+	if err != nil || inRoomRes == nil {
 		util.GetLogger(input.Context).WithError(err).Error("ServerInRoom failed")
 		return nil, &util.JSONResponse{
 			Code: http.StatusNotFound,
@@ -100,6 +128,15 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	event, state, templateErr := input.BuildEventTemplate(&proto)
 	if templateErr != nil {
 		return nil, templateErr
+	}
+	if event == nil || state == nil {
+		e := spec.InternalServerError()
+		return nil, &e
+	}
+	if event.Type() != spec.MRoomMember {
+		util.GetLogger(input.Context).Errorf("expected join event from template builder. got: %s", event.Type())
+		e := spec.InternalServerError()
+		return nil, &e
 	}
 
 	provider := NewAuthEvents(state)
