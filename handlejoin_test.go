@@ -118,6 +118,23 @@ func TestHandleJoin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed building join_rules event: %v", err)
 	}
+	stateKey = ""
+	joinRulesPrivateProto := ProtoEvent{
+		Sender:     validUser.String(),
+		RoomID:     validRoom.String(),
+		Type:       spec.MRoomJoinRules,
+		StateKey:   &stateKey,
+		PrevEvents: []interface{}{createEvent.EventID()},
+		AuthEvents: []interface{}{createEvent.EventID()},
+		Depth:      1,
+		Content:    spec.RawJSON(`{"join_rule":"private"}`), // TODO:
+		Unsigned:   spec.RawJSON(""),
+	}
+	joinRulesPrivateEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&joinRulesPrivateProto)
+	joinRulesPrivateEvent, err := joinRulesPrivateEB.Build(time.Now(), validUser.Domain(), keyID, sk)
+	if err != nil {
+		t.Fatalf("Failed building private join_rules event: %v", err)
+	}
 
 	stateKey = validUser.String()
 	joinProto := ProtoEvent{
@@ -290,6 +307,24 @@ func TestHandleJoin(t *testing.T) {
 			},
 			expectedErr: true,
 			errCode:     http.StatusNotFound,
+		},
+		"cant_join_private_room": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return joinEvent, []PDU{createEvent, joinRulesPrivateEvent}, nil
+				},
+			},
+			expectedErr: true,
+			errCode:     403,
 		},
 		"successful": {
 			input: HandleMakeJoinInput{
