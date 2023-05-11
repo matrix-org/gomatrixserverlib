@@ -24,6 +24,13 @@ type TestJoinRoomQuerier struct {
 	invitePendingErr  bool
 	roomExists        bool
 	serverInRoom      bool
+
+	pendingInvite bool
+	joinerInRoom  bool
+	joinedUsers   []PDU
+
+	joinRulesEvent   PDU
+	powerLevelsEvent PDU
 }
 
 func (r *TestJoinRoomQuerier) RoomInfo(ctx context.Context, roomID *spec.RoomID) (*RoomInfo, error) {
@@ -37,7 +44,13 @@ func (r *TestJoinRoomQuerier) StateEvent(ctx context.Context, roomID *spec.RoomI
 	if r.stateEventErr {
 		return nil, fmt.Errorf("err")
 	}
-	return nil, nil
+	var event PDU
+	if eventType == spec.MRoomJoinRules {
+		event = r.joinRulesEvent
+	} else if eventType == spec.MRoomPowerLevels {
+		event = r.powerLevelsEvent
+	}
+	return event, nil
 }
 
 func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.ServerName, roomID *spec.RoomID) (*JoinedToRoomResponse, error) {
@@ -54,21 +67,21 @@ func (r *TestJoinRoomQuerier) Membership(ctx context.Context, roomNID int64, use
 	if r.membershipErr {
 		return false, fmt.Errorf("err")
 	}
-	return false, nil
+	return r.joinerInRoom, nil
 }
 
 func (r *TestJoinRoomQuerier) GetJoinedUsers(ctx context.Context, roomVersion RoomVersion, roomNID int64) ([]PDU, error) {
 	if r.getJoinedUsersErr {
 		return nil, fmt.Errorf("err")
 	}
-	return []PDU{}, nil
+	return r.joinedUsers, nil
 }
 
 func (r *TestJoinRoomQuerier) InvitePending(ctx context.Context, roomID *spec.RoomID, userID *spec.UserID) (bool, error) {
 	if r.invitePendingErr {
 		return false, fmt.Errorf("err")
 	}
-	return false, nil
+	return r.pendingInvite, nil
 }
 
 func TestHandleJoin(t *testing.T) {
@@ -77,6 +90,10 @@ func TestHandleJoin(t *testing.T) {
 	validUser, err := spec.NewUserID("@user:remote", true)
 	assert.Nil(t, err)
 	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+	joinedUser, err := spec.NewUserID("@joined:local", true)
+	assert.Nil(t, err)
+	allowedRoom, err := spec.NewRoomID("!allowed:local")
 	assert.Nil(t, err)
 
 	_, sk, err := ed25519.GenerateKey(rand.Reader)
@@ -102,7 +119,7 @@ func TestHandleJoin(t *testing.T) {
 	}
 
 	stateKey = ""
-	joinRulesProto := ProtoEvent{
+	joinRulesEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:     validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
@@ -110,16 +127,16 @@ func TestHandleJoin(t *testing.T) {
 		PrevEvents: []interface{}{createEvent.EventID()},
 		AuthEvents: []interface{}{createEvent.EventID()},
 		Depth:      1,
-		Content:    spec.RawJSON(`{"join_rule":"public"}`), // TODO:
+		Content:    spec.RawJSON(`{"join_rule":"public"}`),
 		Unsigned:   spec.RawJSON(""),
-	}
-	joinRulesEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&joinRulesProto)
+	})
 	joinRulesEvent, err := joinRulesEB.Build(time.Now(), validUser.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building join_rules event: %v", err)
 	}
+
 	stateKey = ""
-	joinRulesPrivateProto := ProtoEvent{
+	joinRulesPrivateEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:     validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
@@ -127,29 +144,78 @@ func TestHandleJoin(t *testing.T) {
 		PrevEvents: []interface{}{createEvent.EventID()},
 		AuthEvents: []interface{}{createEvent.EventID()},
 		Depth:      1,
-		Content:    spec.RawJSON(`{"join_rule":"private"}`), // TODO:
+		Content:    spec.RawJSON(`{"join_rule":"private"}`),
 		Unsigned:   spec.RawJSON(""),
-	}
-	joinRulesPrivateEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&joinRulesPrivateProto)
+	})
 	joinRulesPrivateEvent, err := joinRulesPrivateEB.Build(time.Now(), validUser.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building private join_rules event: %v", err)
 	}
 
+	stateKey = ""
+	joinRulesRestrictedEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Sender:     validUser.String(),
+		RoomID:     validRoom.String(),
+		Type:       spec.MRoomJoinRules,
+		StateKey:   &stateKey,
+		PrevEvents: []interface{}{createEvent.EventID()},
+		AuthEvents: []interface{}{createEvent.EventID()},
+		Depth:      1,
+		Content:    spec.RawJSON(`{"join_rule":"restricted","allow":[{"room_id":"!allowed:local","type":"m.room_membership"}]}`),
+		Unsigned:   spec.RawJSON(""),
+	})
+	joinRulesRestrictedEvent, err := joinRulesRestrictedEB.Build(time.Now(), validUser.Domain(), keyID, sk)
+	if err != nil {
+		t.Fatalf("Failed building restricted join_rules event: %v", err)
+	}
+
+	stateKey = ""
+	powerLevelsEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Sender:     validUser.String(),
+		RoomID:     validRoom.String(),
+		Type:       spec.MRoomJoinRules,
+		StateKey:   &stateKey,
+		PrevEvents: []interface{}{createEvent.EventID()},
+		AuthEvents: []interface{}{createEvent.EventID()},
+		Depth:      2,
+		Content:    spec.RawJSON(`{"users":{"@joined:local":100}}`),
+		Unsigned:   spec.RawJSON(""),
+	})
+	powerLevelsEvent, err := powerLevelsEB.Build(time.Now(), validUser.Domain(), keyID, sk)
+	if err != nil {
+		t.Fatalf("Failed building power_levels event: %v", err)
+	}
+
 	stateKey = validUser.String()
-	joinProto := ProtoEvent{
+	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:     validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
-		PrevEvents: []interface{}{joinRulesEvent.EventID()},
-		AuthEvents: []interface{}{createEvent.EventID(), joinRulesEvent.EventID()},
-		Depth:      2,
+		PrevEvents: []interface{}{powerLevelsEvent.EventID()},
+		AuthEvents: []interface{}{createEvent.EventID(), joinRulesEvent.EventID(), powerLevelsEvent.EventID()},
+		Depth:      3,
 		Content:    spec.RawJSON(`{"membership":"join"}`),
 		Unsigned:   spec.RawJSON(""),
-	}
-	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&joinProto)
+	})
 	joinEvent, err := joinEB.Build(time.Now(), validUser.Domain(), keyID, sk)
+	if err != nil {
+		t.Fatalf("Failed building join event: %v", err)
+	}
+
+	stateKey = joinedUser.String()
+	joinedUserEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Sender:     joinedUser.String(),
+		RoomID:     allowedRoom.String(),
+		Type:       spec.MRoomMember,
+		StateKey:   &stateKey,
+		PrevEvents: []interface{}{powerLevelsEvent.EventID()},
+		AuthEvents: []interface{}{createEvent.EventID(), joinRulesEvent.EventID(), powerLevelsEvent.EventID()},
+		Depth:      3,
+		Content:    spec.RawJSON(`{"membership":"join"}`),
+		Unsigned:   spec.RawJSON(""),
+	})
+	joinedUserEvent, err := joinedUserEB.Build(time.Now(), joinedUser.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building join event: %v", err)
 	}
@@ -380,7 +446,7 @@ func TestHandleJoin(t *testing.T) {
 			expectedErr: true,
 			errCode:     500,
 		},
-		"successful": {
+		"success_no_join_rules": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
 				UserID:             validUser,
@@ -391,6 +457,57 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
+				},
+			},
+			expectedErr: false,
+		},
+		"success_with_public_join_rules": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true, joinRulesEvent: joinRulesEvent},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
+				},
+			},
+			expectedErr: false,
+		},
+		"success_restricted_join_pending_invite": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true, pendingInvite: true, joinRulesEvent: joinRulesRestrictedEvent},
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
+				},
+			},
+			expectedErr: false,
+		},
+		"success_restricted_join_member_with_invite_power": {
+			input: HandleMakeJoinInput{
+				Context:            context.Background(),
+				UserID:             validUser,
+				RoomID:             validRoom,
+				RoomVersion:        RoomVersionV10,
+				RemoteVersions:     []RoomVersion{RoomVersionV10},
+				RequestOrigin:      remoteServer,
+				RequestDestination: localServer,
+				LocalServerName:    localServer,
+				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: true, joinerInRoom: true, joinedUsers: []PDU{joinedUserEvent}, joinRulesEvent: joinRulesRestrictedEvent, powerLevelsEvent: powerLevelsEvent},
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},

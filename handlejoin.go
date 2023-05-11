@@ -299,6 +299,9 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 	if err != nil {
 		return fmt.Errorf("roomQuerier.StateEvent: %w", err)
 	}
+	if powerLevelsEvent == nil {
+		return fmt.Errorf("invalid power levels event")
+	}
 	powerLevels, err := powerLevelsEvent.PowerLevels()
 	if err != nil {
 		return fmt.Errorf("unable to get powerlevels: %w", err)
