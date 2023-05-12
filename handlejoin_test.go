@@ -229,11 +229,6 @@ func TestHandleJoin(t *testing.T) {
 		expectedErr bool
 		errCode     int
 	}{
-		"empty_input": {
-			input:       HandleMakeJoinInput{},
-			expectedErr: true,
-			errCode:     http.StatusBadRequest,
-		},
 		"nil_context": {
 			input: HandleMakeJoinInput{
 				Context:            nil,
@@ -281,22 +276,6 @@ func TestHandleJoin(t *testing.T) {
 			},
 			expectedErr: true,
 			errCode:     http.StatusForbidden,
-		},
-		"nil_querier": {
-			input: HandleMakeJoinInput{
-				Context:            context.Background(),
-				UserID:             *validUser,
-				RoomID:             *validRoom,
-				RoomVersion:        RoomVersionV10,
-				RemoteVersions:     []RoomVersion{RoomVersionV10},
-				RequestOrigin:      remoteServer,
-				RequestDestination: localServer,
-				LocalServerName:    localServer,
-				RoomQuerier:        nil,
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
-			},
-			expectedErr: true,
-			errCode:     http.StatusInternalServerError,
 		},
 		"server_in_room_error": {
 			input: HandleMakeJoinInput{
@@ -570,4 +549,8 @@ func TestHandleJoin(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandleJoinNilQuerier(t *testing.T) {
+	assert.Panics(t, func() { HandleMakeJoin(HandleMakeJoinInput{}) })
 }

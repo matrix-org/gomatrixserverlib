@@ -29,13 +29,8 @@ type HandleMakeJoinResponse struct {
 }
 
 func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.JSONResponse) {
-	// Check that the room that the remote side is trying to join is actually
-	// one of the room versions that they listed in their supported ?ver= in
-	// the make_join URL.
-	// https://matrix.org/docs/spec/server_server/r0.1.3#get-matrix-federation-v1-make-join-roomid-userid
-	// If it isn't, stop trying to join the room.
-	if !roomVersionSupported(input.RoomVersion, input.RemoteVersions) {
-		return nil, &util.JSONResponse{Code: http.StatusBadRequest, JSON: spec.IncompatibleRoomVersion(string(input.RoomVersion))}
+	if input.RoomQuerier == nil {
+		panic("Missing valid RoomQuerier")
 	}
 
 	if input.Context == nil {
@@ -43,6 +38,15 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 			Code: http.StatusInternalServerError,
 			JSON: spec.InvalidParam("Context is invalid"),
 		}
+	}
+
+	// Check that the room that the remote side is trying to join is actually
+	// one of the room versions that they listed in their supported ?ver= in
+	// the make_join URL.
+	// https://matrix.org/docs/spec/server_server/r0.1.3#get-matrix-federation-v1-make-join-roomid-userid
+	// If it isn't, stop trying to join the room.
+	if !roomVersionSupported(input.RoomVersion, input.RemoteVersions) {
+		return nil, &util.JSONResponse{Code: http.StatusBadRequest, JSON: spec.IncompatibleRoomVersion(string(input.RoomVersion))}
 	}
 
 	if input.UserID.Domain() != input.RequestOrigin {
@@ -53,13 +57,6 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		}
 	}
 
-	if input.RoomQuerier == nil {
-		util.GetLogger(input.Context).Error("Missing valid RoomQuerier")
-		return nil, &util.JSONResponse{
-			Code: http.StatusInternalServerError,
-			JSON: spec.InternalServerError(),
-		}
-	}
 	inRoomRes, err := input.RoomQuerier.ServerInRoom(input.Context, input.LocalServerName, input.RoomID)
 	if err != nil || inRoomRes == nil {
 		util.GetLogger(input.Context).WithError(err).Error("ServerInRoom failed")
