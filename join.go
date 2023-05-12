@@ -19,12 +19,12 @@ type RoomInfo struct {
 
 // JoinRoomQuerier provides the necessary information about a room to process a join request.
 type JoinRoomQuerier interface {
-	RoomInfo(ctx context.Context, roomID *spec.RoomID) (*RoomInfo, error)
-	StateEvent(ctx context.Context, roomID *spec.RoomID, eventType spec.MatrixEventType, stateKey string) (PDU, error)
-	ServerInRoom(ctx context.Context, server spec.ServerName, roomID *spec.RoomID) (*JoinedToRoomResponse, error)
-	Membership(ctx context.Context, roomNID int64, userID *spec.UserID) (bool, error)
+	RoomInfo(ctx context.Context, roomID spec.RoomID) (*RoomInfo, error)
+	StateEvent(ctx context.Context, roomID spec.RoomID, eventType spec.MatrixEventType, stateKey string) (PDU, error)
+	ServerInRoom(ctx context.Context, server spec.ServerName, roomID spec.RoomID) (*JoinedToRoomResponse, error)
+	Membership(ctx context.Context, roomNID int64, userID spec.UserID) (bool, error)
 	GetJoinedUsers(ctx context.Context, roomVersion RoomVersion, roomNID int64) ([]PDU, error)
-	InvitePending(ctx context.Context, roomID *spec.RoomID, userID *spec.UserID) (bool, error)
+	InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error)
 }
 
 type ProtoEvent struct {
@@ -72,8 +72,8 @@ type JoinedToRoomResponse struct {
 }
 
 type QueryRestrictedJoinAllowedRequest struct {
-	UserID *spec.UserID
-	RoomID *spec.RoomID
+	UserID spec.UserID
+	RoomID spec.RoomID
 }
 
 type QueryRestrictedJoinAllowedResponse struct {

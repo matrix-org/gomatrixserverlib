@@ -12,8 +12,8 @@ import (
 
 type HandleMakeJoinInput struct {
 	Context            context.Context
-	UserID             *spec.UserID
-	RoomID             *spec.RoomID
+	UserID             spec.UserID
+	RoomID             spec.RoomID
 	RoomVersion        RoomVersion
 	RemoteVersions     []RoomVersion
 	RequestOrigin      spec.ServerName
@@ -42,20 +42,6 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		return nil, &util.JSONResponse{
 			Code: http.StatusInternalServerError,
 			JSON: spec.InvalidParam("Context is invalid"),
-		}
-	}
-
-	if input.UserID == nil {
-		return nil, &util.JSONResponse{
-			Code: http.StatusBadRequest,
-			JSON: spec.InvalidParam("UserID is invalid"),
-		}
-	}
-
-	if input.RoomID == nil {
-		return nil, &util.JSONResponse{
-			Code: http.StatusBadRequest,
-			JSON: spec.InvalidParam("UserID is invalid"),
 		}
 	}
 
@@ -182,7 +168,7 @@ func checkRestrictedJoin(
 	localServerName spec.ServerName,
 	roomQuerier JoinRoomQuerier,
 	roomVersion RoomVersion,
-	roomID *spec.RoomID, userID *spec.UserID,
+	roomID spec.RoomID, userID spec.UserID,
 ) (*util.JSONResponse, string, error) {
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
@@ -321,7 +307,7 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 		if err != nil {
 			continue
 		}
-		targetRoomInfo, err := roomQuerier.RoomInfo(ctx, roomID)
+		targetRoomInfo, err := roomQuerier.RoomInfo(ctx, *roomID)
 		if err != nil || targetRoomInfo == nil {
 			res.Resident = false
 			continue
@@ -329,7 +315,7 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 
 		// First of all work out if *we* are still in the room, otherwise
 		// it's possible that the memberships will be out of date.
-		localMembership, err := roomQuerier.ServerInRoom(ctx, localServerName, roomID)
+		localMembership, err := roomQuerier.ServerInRoom(ctx, localServerName, *roomID)
 		if err != nil || !localMembership.ServerInRoom {
 			// If we aren't in the room, we can no longer tell if the room
 			// memberships are up-to-date.

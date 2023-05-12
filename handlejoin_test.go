@@ -33,14 +33,14 @@ type TestJoinRoomQuerier struct {
 	powerLevelsEvent PDU
 }
 
-func (r *TestJoinRoomQuerier) RoomInfo(ctx context.Context, roomID *spec.RoomID) (*RoomInfo, error) {
+func (r *TestJoinRoomQuerier) RoomInfo(ctx context.Context, roomID spec.RoomID) (*RoomInfo, error) {
 	if r.roomInfoErr {
 		return nil, fmt.Errorf("err")
 	}
 	return &RoomInfo{Version: RoomVersionV10}, nil
 }
 
-func (r *TestJoinRoomQuerier) StateEvent(ctx context.Context, roomID *spec.RoomID, eventType spec.MatrixEventType, stateKey string) (PDU, error) {
+func (r *TestJoinRoomQuerier) StateEvent(ctx context.Context, roomID spec.RoomID, eventType spec.MatrixEventType, stateKey string) (PDU, error) {
 	if r.stateEventErr {
 		return nil, fmt.Errorf("err")
 	}
@@ -53,7 +53,7 @@ func (r *TestJoinRoomQuerier) StateEvent(ctx context.Context, roomID *spec.RoomI
 	return event, nil
 }
 
-func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.ServerName, roomID *spec.RoomID) (*JoinedToRoomResponse, error) {
+func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.ServerName, roomID spec.RoomID) (*JoinedToRoomResponse, error) {
 	if r.serverInRoomErr {
 		return nil, fmt.Errorf("err")
 	}
@@ -67,7 +67,7 @@ func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.Serv
 	}, nil
 }
 
-func (r *TestJoinRoomQuerier) Membership(ctx context.Context, roomNID int64, userID *spec.UserID) (bool, error) {
+func (r *TestJoinRoomQuerier) Membership(ctx context.Context, roomNID int64, userID spec.UserID) (bool, error) {
 	if r.membershipErr {
 		return false, fmt.Errorf("err")
 	}
@@ -81,7 +81,7 @@ func (r *TestJoinRoomQuerier) GetJoinedUsers(ctx context.Context, roomVersion Ro
 	return r.joinedUsers, nil
 }
 
-func (r *TestJoinRoomQuerier) InvitePending(ctx context.Context, roomID *spec.RoomID, userID *spec.UserID) (bool, error) {
+func (r *TestJoinRoomQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error) {
 	if r.invitePendingErr {
 		return false, fmt.Errorf("err")
 	}
@@ -237,8 +237,8 @@ func TestHandleJoin(t *testing.T) {
 		"nil_context": {
 			input: HandleMakeJoinInput{
 				Context:            nil,
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -250,43 +250,11 @@ func TestHandleJoin(t *testing.T) {
 			expectedErr: true,
 			errCode:     http.StatusInternalServerError,
 		},
-		"nil_userID": {
-			input: HandleMakeJoinInput{
-				Context:            context.Background(),
-				UserID:             nil,
-				RoomID:             validRoom,
-				RoomVersion:        RoomVersionV10,
-				RemoteVersions:     []RoomVersion{RoomVersionV10},
-				RequestOrigin:      remoteServer,
-				RequestDestination: localServer,
-				LocalServerName:    localServer,
-				RoomQuerier:        &TestJoinRoomQuerier{},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
-			},
-			expectedErr: true,
-			errCode:     http.StatusBadRequest,
-		},
-		"nil_roomID": {
-			input: HandleMakeJoinInput{
-				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             nil,
-				RoomVersion:        RoomVersionV10,
-				RemoteVersions:     []RoomVersion{RoomVersionV10},
-				RequestOrigin:      remoteServer,
-				RequestDestination: localServer,
-				LocalServerName:    localServer,
-				RoomQuerier:        &TestJoinRoomQuerier{},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
-			},
-			expectedErr: true,
-			errCode:     http.StatusBadRequest,
-		},
 		"unsupported_room_version": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{},
 				RequestOrigin:      remoteServer,
@@ -301,8 +269,8 @@ func TestHandleJoin(t *testing.T) {
 		"mismatched_user_and_origin": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      "random.server",
@@ -317,8 +285,8 @@ func TestHandleJoin(t *testing.T) {
 		"nil_querier": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -333,8 +301,8 @@ func TestHandleJoin(t *testing.T) {
 		"server_in_room_error": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -349,8 +317,8 @@ func TestHandleJoin(t *testing.T) {
 		"server_room_doesnt_exist": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -365,8 +333,8 @@ func TestHandleJoin(t *testing.T) {
 		"server_not_in_room": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -381,8 +349,8 @@ func TestHandleJoin(t *testing.T) {
 		"cant_join_private_room": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -399,8 +367,8 @@ func TestHandleJoin(t *testing.T) {
 		"invalid_template_state": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -417,8 +385,8 @@ func TestHandleJoin(t *testing.T) {
 		"invalid_template_event": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -435,8 +403,8 @@ func TestHandleJoin(t *testing.T) {
 		"template_event_not_join": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -453,8 +421,8 @@ func TestHandleJoin(t *testing.T) {
 		"success_no_join_rules": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -470,8 +438,8 @@ func TestHandleJoin(t *testing.T) {
 		"success_with_public_join_rules": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -491,8 +459,8 @@ func TestHandleJoin(t *testing.T) {
 		"success_restricted_join_pending_invite": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -513,8 +481,8 @@ func TestHandleJoin(t *testing.T) {
 		"success_restricted_join_member_with_invite_power": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -538,8 +506,8 @@ func TestHandleJoin(t *testing.T) {
 		"failure_restricted_join_not_resident": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
@@ -563,8 +531,8 @@ func TestHandleJoin(t *testing.T) {
 		"failure_restricted_join_no_member_with_invite_power": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
-				UserID:             validUser,
-				RoomID:             validRoom,
+				UserID:             *validUser,
+				RoomID:             *validRoom,
 				RoomVersion:        RoomVersionV10,
 				RemoteVersions:     []RoomVersion{RoomVersionV10},
 				RequestOrigin:      remoteServer,
