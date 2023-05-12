@@ -48,7 +48,8 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	if input.UserID.Domain() != input.RequestOrigin {
 		return nil, &util.JSONResponse{
 			Code: http.StatusForbidden,
-			JSON: spec.Forbidden("The join must be sent by the server of the user"),
+			JSON: spec.Forbidden(fmt.Sprintf("The join must be sent by the server of the user. Origin %s != %s",
+				input.RequestOrigin, input.UserID.Domain())),
 		}
 	}
 
