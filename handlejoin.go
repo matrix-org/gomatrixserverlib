@@ -113,7 +113,13 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	if templateErr != nil {
 		return nil, templateErr
 	}
-	if event == nil || state == nil {
+	if event == nil {
+		util.GetLogger(input.Context).Errorf("template builder returned nil event")
+		e := spec.InternalServerError()
+		return nil, &e
+	}
+	if state == nil {
+		util.GetLogger(input.Context).Errorf("template builder returned nil event state")
 		e := spec.InternalServerError()
 		return nil, &e
 	}
