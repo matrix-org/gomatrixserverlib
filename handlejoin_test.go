@@ -67,7 +67,7 @@ func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.Serv
 	}, nil
 }
 
-func (r *TestJoinRoomQuerier) Membership(ctx context.Context, roomNID int64, userID spec.UserID) (bool, error) {
+func (r *TestJoinRoomQuerier) UserJoinedToRoom(ctx context.Context, roomNID int64, userID spec.UserID) (bool, error) {
 	if r.membershipErr {
 		return false, fmt.Errorf("err")
 	}

@@ -325,12 +325,12 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 
 		// At this point we're happy that we are in the room, so now let's
 		// see if the target user is in the room.
-		joinerInRoom, err := roomQuerier.Membership(ctx, targetRoomInfo.NID, req.UserID)
+		joinerInRoom, err := roomQuerier.UserJoinedToRoom(ctx, targetRoomInfo.NID, req.UserID)
 		if err != nil {
 			continue
 		}
 
-		// If the user is not in the room then we will skip them.
+		// If the user is not in the room then we will this rule.
 		if !joinerInRoom {
 			continue
 		}
