@@ -96,7 +96,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	proto := ProtoEvent{
 		Sender:   input.UserID.String(),
 		RoomID:   input.RoomID.String(),
-		Type:     "m.room.member",
+		Type:     spec.MRoomMember,
 		StateKey: &rawUserID,
 	}
 	content := MemberContent{
