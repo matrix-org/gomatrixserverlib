@@ -5,12 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
-	"github.com/matrix-org/util"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ed25519"
 )
@@ -224,27 +222,19 @@ func TestHandleJoin(t *testing.T) {
 		t.Fatalf("Failed building join event: %v", err)
 	}
 
+	type ErrorType int
+	const (
+		InternalErr ErrorType = iota
+		MatrixErr
+		IncompatibleRoomVersionErr
+	)
+
 	tests := map[string]struct {
 		input       HandleMakeJoinInput
 		expectedErr bool
-		errCode     int
+		errType     ErrorType
+		errCode     spec.MatrixErrorCode
 	}{
-		"nil_context": {
-			input: HandleMakeJoinInput{
-				Context:            nil,
-				UserID:             *validUser,
-				RoomID:             *validRoom,
-				RoomVersion:        RoomVersionV10,
-				RemoteVersions:     []RoomVersion{RoomVersionV10},
-				RequestOrigin:      remoteServer,
-				RequestDestination: localServer,
-				LocalServerName:    localServer,
-				RoomQuerier:        &TestJoinRoomQuerier{},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
-			},
-			expectedErr: true,
-			errCode:     http.StatusInternalServerError,
-		},
 		"unsupported_room_version": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
@@ -256,10 +246,10 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
-			errCode:     http.StatusBadRequest,
+			errType:     IncompatibleRoomVersionErr,
 		},
 		"mismatched_user_and_origin": {
 			input: HandleMakeJoinInput{
@@ -272,10 +262,11 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
-			errCode:     http.StatusForbidden,
+			errCode:     spec.ErrorForbidden,
+			errType:     MatrixErr,
 		},
 		"server_in_room_error": {
 			input: HandleMakeJoinInput{
@@ -288,10 +279,10 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{serverInRoomErr: true},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
-			errCode:     http.StatusNotFound,
+			errType:     InternalErr,
 		},
 		"server_room_doesnt_exist": {
 			input: HandleMakeJoinInput{
@@ -304,10 +295,11 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{serverInRoom: map[string]bool{validRoom.String(): true}},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, nil, nil },
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
-			errCode:     http.StatusNotFound,
+			errCode:     spec.ErrorNotFound,
+			errType:     MatrixErr,
 		},
 		"server_not_in_room": {
 			input: HandleMakeJoinInput{
@@ -320,10 +312,11 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) { return nil, []PDU{}, nil },
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, []PDU{}, nil },
 			},
 			expectedErr: true,
-			errCode:     http.StatusNotFound,
+			errCode:     spec.ErrorNotFound,
+			errType:     MatrixErr,
 		},
 		"cant_join_private_room": {
 			input: HandleMakeJoinInput{
@@ -336,12 +329,13 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesPrivateEvent}, nil
 				},
 			},
 			expectedErr: true,
-			errCode:     403,
+			errCode:     spec.ErrorForbidden,
+			errType:     MatrixErr,
 		},
 		"invalid_template_state": {
 			input: HandleMakeJoinInput{
@@ -354,12 +348,12 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, nil, nil
 				},
 			},
 			expectedErr: true,
-			errCode:     500,
+			errType:     InternalErr,
 		},
 		"invalid_template_event": {
 			input: HandleMakeJoinInput{
@@ -372,12 +366,12 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return nil, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
 			expectedErr: true,
-			errCode:     500,
+			errType:     InternalErr,
 		},
 		"template_event_not_join": {
 			input: HandleMakeJoinInput{
@@ -390,12 +384,12 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return createEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
 			expectedErr: true,
-			errCode:     500,
+			errType:     InternalErr,
 		},
 		"success_no_join_rules": {
 			input: HandleMakeJoinInput{
@@ -408,7 +402,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
@@ -429,7 +423,7 @@ func TestHandleJoin(t *testing.T) {
 					serverInRoom:   map[string]bool{validRoom.String(): true},
 					joinRulesEvent: joinRulesEvent,
 				},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
@@ -451,7 +445,7 @@ func TestHandleJoin(t *testing.T) {
 					pendingInvite:  true,
 					joinRulesEvent: joinRulesRestrictedEvent,
 				},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
@@ -476,7 +470,7 @@ func TestHandleJoin(t *testing.T) {
 					joinRulesEvent:   joinRulesRestrictedEvent,
 					powerLevelsEvent: powerLevelsEvent,
 				},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
@@ -500,12 +494,13 @@ func TestHandleJoin(t *testing.T) {
 					joinRulesEvent:   joinRulesRestrictedEvent,
 					powerLevelsEvent: powerLevelsEvent,
 				},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
 			expectedErr: true,
-			errCode:     400,
+			errCode:     spec.ErrorUnableToAuthoriseJoin,
+			errType:     MatrixErr,
 		},
 		"failure_restricted_join_no_member_with_invite_power": {
 			input: HandleMakeJoinInput{
@@ -525,12 +520,13 @@ func TestHandleJoin(t *testing.T) {
 					joinRulesEvent:   joinRulesRestrictedEvent,
 					powerLevelsEvent: powerLevelsEvent,
 				},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse) {
+				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
 			},
 			expectedErr: true,
-			errCode:     403,
+			errCode:     spec.ErrorForbidden,
+			errType:     MatrixErr,
 		},
 	}
 
@@ -538,9 +534,18 @@ func TestHandleJoin(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, joinErr := HandleMakeJoin(tc.input)
 			if tc.expectedErr {
-				pass := assert.NotNil(t, joinErr)
-				if pass {
-					assert.Equal(t, tc.errCode, joinErr.Code)
+				switch e := joinErr.(type) {
+				case nil:
+					t.Fatalf("Error should not be nil")
+				case spec.InternalServerError:
+					assert.Equal(t, tc.errType, InternalErr)
+				case spec.MatrixError:
+					assert.Equal(t, tc.errType, MatrixErr)
+					assert.Equal(t, tc.errCode, e.Code)
+				case spec.IncompatibleRoomVersionError:
+					assert.Equal(t, tc.errType, IncompatibleRoomVersionErr)
+				default:
+					t.Fatalf("Unexpected Error Type")
 				}
 			} else {
 				jsonBytes, err := json.Marshal(&joinErr)
@@ -552,5 +557,49 @@ func TestHandleJoin(t *testing.T) {
 }
 
 func TestHandleJoinNilQuerier(t *testing.T) {
-	assert.Panics(t, func() { HandleMakeJoin(HandleMakeJoinInput{}) })
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validUser, err := spec.NewUserID("@user:remote", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	assert.Panics(t, func() {
+		_, _ = HandleMakeJoin(HandleMakeJoinInput{
+			Context:            context.Background(),
+			UserID:             *validUser,
+			RoomID:             *validRoom,
+			RoomVersion:        RoomVersionV10,
+			RemoteVersions:     []RoomVersion{RoomVersionV10},
+			RequestOrigin:      remoteServer,
+			RequestDestination: localServer,
+			LocalServerName:    localServer,
+			RoomQuerier:        nil,
+			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
+		})
+	})
+}
+
+func TestHandleJoinNilContextg(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validUser, err := spec.NewUserID("@user:remote", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	assert.Panics(t, func() {
+		_, _ = HandleMakeJoin(HandleMakeJoinInput{
+			Context:            nil,
+			UserID:             *validUser,
+			RoomID:             *validRoom,
+			RoomVersion:        RoomVersionV10,
+			RemoteVersions:     []RoomVersion{RoomVersionV10},
+			RequestOrigin:      remoteServer,
+			RequestDestination: localServer,
+			LocalServerName:    localServer,
+			RoomQuerier:        &TestJoinRoomQuerier{},
+			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
+		})
+	})
 }

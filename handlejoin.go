@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
@@ -20,7 +19,7 @@ type HandleMakeJoinInput struct {
 	RequestDestination spec.ServerName
 	LocalServerName    spec.ServerName
 	RoomQuerier        JoinRoomQuerier
-	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, *util.JSONResponse)
+	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, error)
 }
 
 type HandleMakeJoinResponse struct {
@@ -28,16 +27,13 @@ type HandleMakeJoinResponse struct {
 	RoomVersion       RoomVersion
 }
 
-func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.JSONResponse) {
+func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) {
 	if input.RoomQuerier == nil {
 		panic("Missing valid RoomQuerier")
 	}
 
 	if input.Context == nil {
-		return nil, &util.JSONResponse{
-			Code: http.StatusInternalServerError,
-			JSON: spec.InvalidParam("Context is invalid"),
-		}
+		panic("Missing valid Context")
 	}
 
 	// Check that the room that the remote side is trying to join is actually
@@ -46,49 +42,37 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 	// https://matrix.org/docs/spec/server_server/r0.1.3#get-matrix-federation-v1-make-join-roomid-userid
 	// If it isn't, stop trying to join the room.
 	if !roomVersionSupported(input.RoomVersion, input.RemoteVersions) {
-		return nil, &util.JSONResponse{Code: http.StatusBadRequest, JSON: spec.IncompatibleRoomVersion(string(input.RoomVersion))}
+		return nil, spec.IncompatibleRoomVersion(string(input.RoomVersion))
 	}
 
 	if input.UserID.Domain() != input.RequestOrigin {
-		return nil, &util.JSONResponse{
-			Code: http.StatusForbidden,
-			JSON: spec.Forbidden(fmt.Sprintf("The join must be sent by the server of the user. Origin %s != %s",
-				input.RequestOrigin, input.UserID.Domain())),
-		}
+		return nil, spec.Forbidden(fmt.Sprintf("The join must be sent by the server of the user. Origin %s != %s",
+			input.RequestOrigin, input.UserID.Domain()))
 	}
 
 	inRoomRes, err := input.RoomQuerier.ServerInRoom(input.Context, input.LocalServerName, input.RoomID)
 	if err != nil || inRoomRes == nil {
-		util.GetLogger(input.Context).WithError(err).Error("ServerInRoom failed")
-		return nil, &util.JSONResponse{
-			Code: http.StatusNotFound,
-			JSON: spec.InternalServerError(),
-		}
+		return nil, spec.InternalServerError{Err: "ServerInRoom failed"}
 	}
 
 	// Check if we think we are still joined to the room
 	if !inRoomRes.RoomExists {
-		return nil, &util.JSONResponse{
-			Code: http.StatusNotFound,
-			JSON: spec.NotFound(fmt.Sprintf("Room ID %q was not found on this server", input.RoomID.String())),
-		}
+		return nil, spec.NotFound(fmt.Sprintf("Room ID %q was not found on this server", input.RoomID.String()))
 	}
 	if !inRoomRes.ServerInRoom {
-		return nil, &util.JSONResponse{
-			Code: http.StatusNotFound,
-			JSON: spec.NotFound(fmt.Sprintf("Room ID %q has no remaining users on this server", input.RoomID.String())),
-		}
+		return nil, spec.NotFound(fmt.Sprintf("Room ID %q has no remaining users on this server", input.RoomID.String()))
 	}
 
 	// Check if the restricted join is allowed. If the room doesn't
 	// support restricted joins then this is effectively a no-op.
-	res, authorisedVia, err := checkRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomVersion, input.RoomID, input.UserID)
-	if err != nil {
+	authorisedVia, err := checkRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomVersion, input.RoomID, input.UserID)
+	switch e := err.(type) {
+	case nil:
+	case spec.MatrixError:
 		util.GetLogger(input.Context).WithError(err).Error("checkRestrictedJoin failed")
-		e := spec.InternalServerError()
-		return nil, &e
-	} else if res != nil {
-		return nil, res
+		return nil, e
+	default:
+		return nil, spec.InternalServerError{Err: "checkRestrictedJoin failed"}
 	}
 
 	// Try building an event for the server
@@ -104,9 +88,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		AuthorisedVia: authorisedVia,
 	}
 	if err = proto.SetContent(content); err != nil {
-		util.GetLogger(input.Context).WithError(err).Error("builder.SetContent failed")
-		e := spec.InternalServerError()
-		return nil, &e
+		return nil, spec.InternalServerError{Err: "builder.SetContent failed"}
 	}
 
 	event, state, templateErr := input.BuildEventTemplate(&proto)
@@ -114,27 +96,18 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, *util.J
 		return nil, templateErr
 	}
 	if event == nil {
-		util.GetLogger(input.Context).Errorf("template builder returned nil event")
-		e := spec.InternalServerError()
-		return nil, &e
+		return nil, spec.InternalServerError{Err: "template builder returned nil event"}
 	}
 	if state == nil {
-		util.GetLogger(input.Context).Errorf("template builder returned nil event state")
-		e := spec.InternalServerError()
-		return nil, &e
+		return nil, spec.InternalServerError{Err: "template builder returned nil event state"}
 	}
 	if event.Type() != spec.MRoomMember {
-		util.GetLogger(input.Context).Errorf("expected join event from template builder. got: %s", event.Type())
-		e := spec.InternalServerError()
-		return nil, &e
+		return nil, spec.InternalServerError{Err: fmt.Sprintf("expected join event from template builder. got: %s", event.Type())}
 	}
 
 	provider := NewAuthEvents(state)
 	if err = Allowed(event, &provider); err != nil {
-		return nil, &util.JSONResponse{
-			Code: http.StatusForbidden,
-			JSON: spec.Forbidden(err.Error()),
-		}
+		return nil, spec.Forbidden(err.Error())
 	}
 
 	makeJoinResponse := HandleMakeJoinResponse{
@@ -173,13 +146,13 @@ func checkRestrictedJoin(
 	roomQuerier JoinRoomQuerier,
 	roomVersion RoomVersion,
 	roomID spec.RoomID, userID spec.UserID,
-) (*util.JSONResponse, string, error) {
+) (string, error) {
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
 	if !verImpl.MayAllowRestrictedJoinsInEventAuth() {
-		return nil, "", nil
+		return "", nil
 	}
 	req := &QueryRestrictedJoinAllowedRequest{
 		RoomID: roomID,
@@ -187,13 +160,13 @@ func checkRestrictedJoin(
 	}
 	res := &QueryRestrictedJoinAllowedResponse{}
 	if err := QueryRestrictedJoinAllowed(ctx, localServerName, roomQuerier, req, res); err != nil {
-		return nil, "", err
+		return "", err
 	}
 
 	switch {
 	case !res.Restricted:
 		// The join rules for the room don't restrict membership.
-		return nil, "", nil
+		return "", nil
 
 	case !res.Resident:
 		// The join rules restrict membership but our server isn't currently
@@ -201,19 +174,13 @@ func checkRestrictedJoin(
 		// whether or not to allow the user to join. This error code should
 		// tell the joining server to try joining via another resident server
 		// instead.
-		return &util.JSONResponse{
-			Code: http.StatusBadRequest,
-			JSON: spec.UnableToAuthoriseJoin("This server cannot authorise the join."),
-		}, "", nil
+		return "", spec.UnableToAuthoriseJoin("This server cannot authorise the join.")
 
 	case !res.Allowed:
 		// The join rules restrict membership, our server is in the relevant
 		// rooms and the user wasn't joined to join any of the allowed rooms
 		// and therefore can't join this room.
-		return &util.JSONResponse{
-			Code: http.StatusForbidden,
-			JSON: spec.Forbidden("You are not joined to any matching rooms."),
-		}, "", nil
+		return "", spec.Forbidden("You are not joined to any matching rooms.")
 
 	default:
 		// The join rules restrict membership, our server is in the relevant
@@ -221,7 +188,7 @@ func checkRestrictedJoin(
 		// of the allowed rooms. We now need to pick one of our own local users
 		// from within the room to use as the authorising user ID, so that it
 		// can be referred to from within the membership content.
-		return nil, res.AuthorisedVia, nil
+		return res.AuthorisedVia, nil
 	}
 }
 
