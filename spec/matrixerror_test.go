@@ -115,7 +115,7 @@ func TestIncompatibleRoomVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal error. %s", err.Error())
 	}
-	want := `{"room_version":"error msg","errcode":"M_INCOMPATIBLE_ROOM_VERSION","error":"Your homeserver does not support the features required to join this room"}`
+	want := `{"errcode":"M_INCOMPATIBLE_ROOM_VERSION","error":"Your homeserver does not support the features required to join this room","room_version":"error msg"}`
 	if string(jsonBytes) != want {
 		t.Errorf("want %s, got %s", want, string(jsonBytes))
 	}

@@ -41,6 +41,7 @@ const (
 	ErrorUnableToAuthoriseJoin
 	ErrorCannotLeaveServerNoticeRoom
 	ErrorWrongRoomKeysVersion
+	ErrorIncompatibleRoomVersion
 	ErrorUnsupportedRoomVersion
 	ErrorLimitExceeded
 	ErrorServerNotTrusted
@@ -214,9 +215,8 @@ func WrongBackupVersionError(currentVersion string) ErrRoomKeysVersion {
 }
 
 type IncompatibleRoomVersionError struct {
+	MatrixError
 	RoomVersion string `json:"room_version"`
-	ErrCode     string `json:"errcode"`
-	Err         string `json:"error"`
 }
 
 func (e IncompatibleRoomVersionError) Error() string {
@@ -232,8 +232,11 @@ func (e IncompatibleRoomVersionError) Unwrap() error {
 func IncompatibleRoomVersion(roomVersion string) IncompatibleRoomVersionError {
 	return IncompatibleRoomVersionError{
 		RoomVersion: roomVersion,
-		ErrCode:     "M_INCOMPATIBLE_ROOM_VERSION",
-		Err:         "Your homeserver does not support the features required to join this room",
+		MatrixError: MatrixError{
+			Code:    ErrorIncompatibleRoomVersion,
+			ErrCode: "M_INCOMPATIBLE_ROOM_VERSION",
+			Err:     "Your homeserver does not support the features required to join this room",
+		},
 	}
 }
 
