@@ -453,8 +453,9 @@ func (v RoomVersionImpl) NewEventBuilder() EventBuilder {
 func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(protoEvent *ProtoEvent) EventBuilder {
 	switch v.eventBuilder.(type) {
 	case *ProtoEvent:
-		protoEvent.roomVersion = v.Version()
-		return protoEvent
+		res := &protoEvent
+		(*res).roomVersion = v.Version()
+		return *res
 	default:
 		panic("unknown event builder")
 	}
