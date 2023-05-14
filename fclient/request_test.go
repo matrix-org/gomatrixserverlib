@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/matrix-org/gomatrixserverlib"
-	"github.com/matrix-org/gomatrixserverlib/spec"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -116,7 +116,7 @@ func TestSignPutRequest(t *testing.T) {
 	request := NewFederationRequest(
 		"PUT", "localhost:8800", "localhost:44033", "/_matrix/federation/v1/send/1493385816575/",
 	)
-	if err := request.SetContent(spec.RawJSON([]byte(examplePutContent))); err != nil {
+	if err := request.SetContent(json.RawMessage(examplePutContent)); err != nil {
 		t.Fatal(err)
 	}
 	if err := request.Sign("localhost:8800", "ed25519:a_Obwu", privateKey1); err != nil {

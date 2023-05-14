@@ -65,19 +65,19 @@ type FederatedStateProvider struct {
 
 // StateIDsBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event PDU) ([]string, error) {
-	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID(), event.EventID())
+	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.GetRoomID(), event.GetEventID())
 	if err != nil {
 		return nil, err
 	}
 	if p.RememberAuthEvents {
-		p.EventToAuthEventIDs[event.EventID()] = res.GetAuthEventIDs()
+		p.EventToAuthEventIDs[event.GetEventID()] = res.GetAuthEventIDs()
 	}
 	return res.GetStateEventIDs(), nil
 }
 
 // StateBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
-	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID(), event.EventID(), roomVer)
+	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.GetRoomID(), event.GetEventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 			if err != nil {
 				continue
 			}
-			p.AuthEventMap[event.EventID()] = event
+			p.AuthEventMap[event.GetEventID()] = event
 		}
 	}
 
@@ -101,7 +101,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 		if err != nil {
 			continue
 		}
-		result[event.EventID()] = event
+		result[event.GetEventID()] = event
 	}
 	return result, nil
 }
@@ -118,12 +118,12 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify PDU, allowValidation bool) error {
 	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify)
 	if err != nil {
-		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs before event %s: %w", eventToVerify.EventID(), err)
+		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs before event %s: %w", eventToVerify.GetEventID(), err)
 	}
 
 	if allowValidation {
 		authRulesExistAtState := true
-		for _, authEventID := range eventToVerify.AuthEventIDs() {
+		for _, authEventID := range eventToVerify.GetAuthEventIDs() {
 			found := false
 			for _, stateID := range stateIDs {
 				if stateID == authEventID {
@@ -145,9 +145,9 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	}
 
 	// slow path: fetch the events at this state and check auth
-	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.Version(), eventToVerify, stateIDs)
+	roomState, err := sp.StateBeforeEvent(ctx, eventToVerify.RoomVersion(), eventToVerify, stateIDs)
 	if err != nil {
-		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", eventToVerify.EventID(), err)
+		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot get state at event %s: %w", eventToVerify.GetEventID(), err)
 	}
 	if ctx.Err() != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: context cancelled: %w", ctx.Err())
@@ -155,7 +155,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	if err := checkAllowedByAuthEvents(eventToVerify, roomState, nil); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib.VerifyAuthRulesAtState: event %s is not allowed at state %s : %w",
-			eventToVerify.EventID(), eventToVerify.EventID(), err,
+			eventToVerify.GetEventID(), eventToVerify.GetEventID(), err,
 		)
 	}
 	return nil
@@ -167,22 +167,22 @@ func checkAllowedByAuthEvents(
 ) error {
 	authEvents := NewAuthEvents(nil)
 
-	for _, ae := range event.AuthEventIDs() {
+	for _, ae := range event.GetAuthEventIDs() {
 	retryEvent:
 		authEvent, ok := eventsByID[ae]
 		if !ok {
 			// We don't have an entry in the eventsByID map - neither an event nor nil.
 			if missingAuth != nil {
 				// If we have a EventProvider then ask it for the missing event.
-				if ev, err := missingAuth(event.Version(), []string{ae}); err == nil && len(ev) > 0 {
+				if ev, err := missingAuth(event.RoomVersion(), []string{ae}); err == nil && len(ev) > 0 {
 					// It claims to have returned events - populate the eventsByID
 					// map and the authEvents provider so that we can retry with the
 					// new events.
 					for _, e := range ev {
 						if err := authEvents.AddEvent(e); err == nil {
-							eventsByID[e.EventID()] = e
+							eventsByID[e.GetEventID()] = e
 						} else {
-							eventsByID[e.EventID()] = nil
+							eventsByID[e.GetEventID()] = nil
 						}
 					}
 				} else {
@@ -213,11 +213,11 @@ func checkAllowedByAuthEvents(
 	}
 
 	// If we made it this far then we've successfully got as many of the auth events as
-	// as described by AuthEventIDs(). Check if they allow the event.
+	// as described by GetAuthEventIDs(). Check if they allow the event.
 	if err := Allowed(event, &authEvents); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
-			event.EventID(), err.Error(),
+			event.GetEventID(), err.Error(),
 		)
 	}
 	return nil
@@ -236,22 +236,22 @@ func CheckStateResponse(
 	stateEvents := r.GetStateEvents().UntrustedEvents(roomVersion)
 	var allEvents []PDU
 	for _, event := range authEvents {
-		if event.StateKey() == nil {
-			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		if event.GetStateKey() == nil {
+			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.GetEventID())
 		}
 		allEvents = append(allEvents, event)
 	}
 
 	stateTuples := map[StateKeyTuple]bool{}
 	for _, event := range stateEvents {
-		if event.StateKey() == nil {
-			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.EventID())
+		if event.GetStateKey() == nil {
+			return nil, nil, fmt.Errorf("gomatrixserverlib: event %q does not have a state key", event.GetEventID())
 		}
-		stateTuple := StateKeyTuple{EventType: event.Type(), StateKey: *event.StateKey()}
+		stateTuple := StateKeyTuple{EventType: event.GetType(), StateKey: *event.GetStateKey()}
 		if stateTuples[stateTuple] {
 			return nil, nil, fmt.Errorf(
 				"gomatrixserverlib: duplicate state key tuple (%q, %q)",
-				event.Type(), *event.StateKey(),
+				event.GetType(), *event.GetStateKey(),
 			)
 		}
 		stateTuples[stateTuple] = true
@@ -269,24 +269,24 @@ func CheckStateResponse(
 	failures := map[string]error{}
 	for i, e := range allEvents {
 		if errors[i] != nil {
-			logrus.WithError(errors[i]).Warnf("Signature validation failed for event %q", e.EventID())
-			failures[e.EventID()] = errors[i]
+			logrus.WithError(errors[i]).Warnf("Signature validation failed for event %q: %#v", e.GetEventID(), e)
+			failures[e.GetEventID()] = errors[i]
 		}
 	}
 
 	// Collect a map of event reference to event.
 	eventsByID := map[string]PDU{}
 	for i := range allEvents {
-		if _, ok := failures[allEvents[i].EventID()]; !ok {
-			eventsByID[allEvents[i].EventID()] = allEvents[i]
+		if _, ok := failures[allEvents[i].GetEventID()]; !ok {
+			eventsByID[allEvents[i].GetEventID()] = allEvents[i]
 		}
 	}
 
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
 		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
-			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.EventID())
-			failures[event.EventID()] = err
+			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.GetEventID())
+			failures[event.GetEventID()] = err
 		}
 	}
 
@@ -296,13 +296,13 @@ func CheckStateResponse(
 		logger.Warnf("Discarding %d auth/state event(s) due to invalid signatures", f)
 
 		for i := 0; i < len(authEvents); i++ {
-			if _, ok := failures[authEvents[i].EventID()]; ok {
+			if _, ok := failures[authEvents[i].GetEventID()]; ok {
 				authEvents = append(authEvents[:i], authEvents[i+1:]...)
 				i--
 			}
 		}
 		for i := 0; i < len(stateEvents); i++ {
-			if _, ok := failures[stateEvents[i].EventID()]; ok {
+			if _, ok := failures[stateEvents[i].GetEventID()]; ok {
 				stateEvents = append(stateEvents[:i], stateEvents[i+1:]...)
 				i--
 			}
@@ -341,20 +341,20 @@ func CheckSendJoinResponse(
 	// auth events by ID only, we will build a map which contains references
 	// to all of the auth events.
 	for i, event := range authEvents {
-		eventsByID[event.EventID()] = authEvents[i]
+		eventsByID[event.GetEventID()] = authEvents[i]
 	}
 
 	// Then we add the current state events too, since our newly formed
 	// membership event will likely refer to these as auth events too.
 	for i, event := range stateEvents {
-		eventsByID[event.EventID()] = stateEvents[i]
+		eventsByID[event.GetEventID()] = stateEvents[i]
 	}
 
 	// Now check that the join event is valid against its auth events.
 	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
-			joinEvent.EventID(), err,
+			joinEvent.GetEventID(), err,
 		)
 	}
 
@@ -372,7 +372,7 @@ func CheckSendJoinResponse(
 	if err := Allowed(joinEvent, &authEventProvider); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
-			joinEvent.EventID(), err,
+			joinEvent.GetEventID(), err,
 		)
 	}
 
@@ -390,10 +390,10 @@ func LineariseStateResponse(roomVersion RoomVersion, r StateResponse) []PDU {
 	stateEvents := r.GetStateEvents().UntrustedEvents(roomVersion)
 	eventsByID := make(map[string]PDU, len(authEvents)+len(stateEvents))
 	for i, event := range authEvents {
-		eventsByID[event.EventID()] = authEvents[i]
+		eventsByID[event.GetEventID()] = authEvents[i]
 	}
 	for i, event := range stateEvents {
-		eventsByID[event.EventID()] = stateEvents[i]
+		eventsByID[event.GetEventID()] = stateEvents[i]
 	}
 	allEvents := make([]PDU, 0, len(eventsByID))
 	for _, event := range eventsByID {

@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/matrix-org/gomatrixserverlib"
-	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
@@ -15,14 +14,14 @@ import (
 func NewInviteV2Request(event gomatrixserverlib.PDU, state []InviteV2StrippedState) (
 	request InviteV2Request, err error,
 ) {
-	if !gomatrixserverlib.KnownRoomVersion(event.Version()) {
+	if !gomatrixserverlib.KnownRoomVersion(event.RoomVersion()) {
 		err = gomatrixserverlib.UnsupportedRoomVersionError{
-			Version: event.Version(),
+			Version: event.RoomVersion(),
 		}
 		return
 	}
 	request.fields.inviteV2RequestHeaders = inviteV2RequestHeaders{
-		RoomVersion:     event.Version(),
+		RoomVersion:     event.RoomVersion(),
 		InviteRoomState: state,
 	}
 	request.fields.Event = event
@@ -85,20 +84,20 @@ func (i *InviteV2Request) InviteRoomState() []InviteV2StrippedState {
 // events that allow the invited server to identify the room.
 type InviteV2StrippedState struct {
 	fields struct {
-		Content  spec.RawJSON `json:"content"`
-		StateKey *string      `json:"state_key"`
-		Type     string       `json:"type"`
-		Sender   string       `json:"sender"`
+		Content  json.RawMessage `json:"content"`
+		StateKey *string         `json:"state_key"`
+		Type     string          `json:"type"`
+		Sender   string          `json:"sender"`
 	}
 }
 
 // NewInviteV2StrippedState creates a stripped state event from a
 // regular state event.
 func NewInviteV2StrippedState(event gomatrixserverlib.PDU) (ss InviteV2StrippedState) {
-	ss.fields.Content = event.Content()
-	ss.fields.StateKey = event.StateKey()
-	ss.fields.Type = event.Type()
-	ss.fields.Sender = event.Sender()
+	ss.fields.Content = event.GetContent()
+	ss.fields.StateKey = event.GetStateKey()
+	ss.fields.Type = event.GetType()
+	ss.fields.Sender = event.GetSender()
 	return
 }
 
@@ -113,7 +112,7 @@ func (i *InviteV2StrippedState) UnmarshalJSON(data []byte) error {
 }
 
 // Content returns the content of the stripped state.
-func (i *InviteV2StrippedState) Content() spec.RawJSON {
+func (i *InviteV2StrippedState) Content() json.RawMessage {
 	return i.fields.Content
 }
 

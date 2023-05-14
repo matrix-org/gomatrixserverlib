@@ -45,7 +45,7 @@ func (t *TestSendJoinResponse) GetOrigin() spec.ServerName {
 	return "server"
 }
 
-func (t *TestSendJoinResponse) GetJoinEvent() spec.RawJSON {
+func (t *TestSendJoinResponse) GetJoinEvent() json.RawMessage {
 	return t.joinEvent.JSON()
 }
 
@@ -133,41 +133,45 @@ func TestPerformJoin(t *testing.T) {
 	}
 
 	stateKey := ""
-	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   userID.String(),
-		RoomID:   roomID.String(),
-		Type:     "m.room.create",
-		StateKey: &stateKey,
-		Depth:    0,
-		Content:  spec.RawJSON(`{"creator":"@user:server","m.federate":true,"room_version":"10"}`),
-		Unsigned: spec.RawJSON(""),
-	})
-	createEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
+
+	pe := ProtoEvent{
+		Sender:      userID.String(),
+		RoomID:      roomID.String(),
+		Type:        "m.room.create",
+		StateKey:    &stateKey,
+		Depth:       0,
+		Content:     json.RawMessage(`{"creator":"@user:server","m.federate":true,"room_version":"10"}`),
+		Unsigned:    json.RawMessage(""),
+		roomVersion: RoomVersionV10,
+	}
+
+	createEvent, err := pe.Build(time.Now(), userID.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}
 
 	stateKey = userID.String()
 	joinProto := ProtoEvent{
-		Sender:     userID.String(),
-		RoomID:     roomID.String(),
-		Type:       "m.room.member",
-		StateKey:   &stateKey,
-		PrevEvents: json.RawMessage(fmt.Sprintf(`["%s"]`, createEvent.EventID())),
-		AuthEvents: json.RawMessage(fmt.Sprintf(`["%s"]`, createEvent.EventID())),
-		Depth:      1,
-		Content:    spec.RawJSON(`{"membership":"join"}`),
-		Unsigned:   spec.RawJSON(""),
+		Sender:      userID.String(),
+		RoomID:      roomID.String(),
+		Type:        "m.room.member",
+		StateKey:    &stateKey,
+		PrevEvents:  json.RawMessage(fmt.Sprintf(`["%s"]`, createEvent.GetEventID())),
+		AuthEvents:  json.RawMessage(fmt.Sprintf(`["%s"]`, createEvent.GetEventID())),
+		Depth:       1,
+		Content:     json.RawMessage(`{"membership":"join"}`),
+		Unsigned:    json.RawMessage(""),
+		roomVersion: RoomVersionV10,
 	}
-	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&joinProto)
-	joinEvent, err := joinEB.Build(time.Now(), userID.Domain(), keyID, sk)
+
+	joinEvent, err := joinProto.Build(time.Now(), userID.Domain(), keyID, sk)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}
 
 	eventProvider := func(roomVer RoomVersion, eventIDs []string) ([]PDU, error) {
 		for _, eventID := range eventIDs {
-			if eventID == createEvent.EventID() {
+			if eventID == createEvent.GetEventID() {
 				return []PDU{createEvent}, nil
 			}
 		}
@@ -190,7 +194,7 @@ func TestPerformJoin(t *testing.T) {
 			},
 			ExpectedErr:         true,
 			ExpectedHTTPErr:     false,
-			ExpectedRoomVersion: joinEvent.Version(),
+			ExpectedRoomVersion: joinEvent.RoomVersion(),
 		},
 		"invalid_room_id": {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10},
@@ -201,7 +205,7 @@ func TestPerformJoin(t *testing.T) {
 			},
 			ExpectedErr:         true,
 			ExpectedHTTPErr:     false,
-			ExpectedRoomVersion: joinEvent.Version(),
+			ExpectedRoomVersion: joinEvent.RoomVersion(),
 		},
 		"make_join_http_err": {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: true, shouldSendFail: false, roomVersion: RoomVersionV10},
@@ -212,7 +216,7 @@ func TestPerformJoin(t *testing.T) {
 			},
 			ExpectedErr:         true,
 			ExpectedHTTPErr:     true,
-			ExpectedRoomVersion: joinEvent.Version(),
+			ExpectedRoomVersion: joinEvent.RoomVersion(),
 		},
 		"send_join_http_err": {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: true, roomVersion: RoomVersionV10},
@@ -225,7 +229,7 @@ func TestPerformJoin(t *testing.T) {
 			},
 			ExpectedErr:         true,
 			ExpectedHTTPErr:     true,
-			ExpectedRoomVersion: joinEvent.Version(),
+			ExpectedRoomVersion: joinEvent.RoomVersion(),
 		},
 		"default_room_version": {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: "", createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinProto},
@@ -253,7 +257,7 @@ func TestPerformJoin(t *testing.T) {
 			},
 			ExpectedErr:         false,
 			ExpectedHTTPErr:     false,
-			ExpectedRoomVersion: joinEvent.Version(),
+			ExpectedRoomVersion: joinEvent.RoomVersion(),
 		},
 	}
 
@@ -278,11 +282,11 @@ func TestPerformJoin(t *testing.T) {
 					t.Fatalf("Nil response received")
 				}
 
-				if res.JoinEvent.EventID() != joinEvent.EventID() {
-					t.Fatalf("Expected join eventID %v, got %v", joinEvent.EventID(), res.JoinEvent.EventID())
+				if res.JoinEvent.GetEventID() != joinEvent.GetEventID() {
+					t.Fatalf("Expected join eventID %v, got %v", joinEvent.GetEventID(), res.JoinEvent.GetEventID())
 				}
-				if res.JoinEvent.Version() != tc.ExpectedRoomVersion {
-					t.Fatalf("Expected room version %v, got %v", tc.ExpectedRoomVersion, res.JoinEvent.Version())
+				if res.JoinEvent.RoomVersion() != tc.ExpectedRoomVersion {
+					t.Fatalf("Expected room version %v, got %v", tc.ExpectedRoomVersion, res.JoinEvent.RoomVersion())
 				}
 			}
 		})

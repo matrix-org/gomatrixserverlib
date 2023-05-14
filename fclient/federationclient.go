@@ -240,8 +240,8 @@ func (ac *federationClient) sendJoin(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU, partialState bool,
 ) (res RespSendJoin, err error) {
 	path := federationPathPrefixV2 + "/send_join/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.PathEscape(event.GetRoomID()) + "/" +
+		url.PathEscape(event.GetEventID())
 	if partialState {
 		path += "?omit_members=true"
 	}
@@ -255,8 +255,8 @@ func (ac *federationClient) sendJoin(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_join/" +
-			url.PathEscape(event.RoomID()) + "/" +
-			url.PathEscape(event.EventID())
+			url.PathEscape(event.GetRoomID()) + "/" +
+			url.PathEscape(event.GetEventID())
 		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
@@ -299,8 +299,8 @@ func (ac *federationClient) SendKnock(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespSendKnock, err error) {
 	path := federationPathPrefixV1 + "/send_knock/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.PathEscape(event.GetRoomID()) + "/" +
+		url.PathEscape(event.GetEventID())
 
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
@@ -334,8 +334,8 @@ func (ac *federationClient) SendLeave(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.PathEscape(event.GetRoomID()) + "/" +
+		url.PathEscape(event.GetEventID())
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
@@ -346,8 +346,8 @@ func (ac *federationClient) SendLeave(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_leave/" +
-			url.PathEscape(event.RoomID()) + "/" +
-			url.PathEscape(event.EventID())
+			url.PathEscape(event.GetRoomID()) + "/" +
+			url.PathEscape(event.GetEventID())
 		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
 			return
@@ -367,8 +367,8 @@ func (ac *federationClient) SendInvite(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.PathEscape(event.GetRoomID()) + "/" +
+		url.PathEscape(event.GetEventID())
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
 		return
@@ -384,8 +384,8 @@ func (ac *federationClient) SendInviteV2(
 ) (res RespInviteV2, err error) {
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
-		url.PathEscape(event.RoomID()) + "/" +
-		url.PathEscape(event.EventID())
+		url.PathEscape(event.GetRoomID()) + "/" +
+		url.PathEscape(event.GetEventID())
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(request); err != nil {
 		return

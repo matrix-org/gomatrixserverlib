@@ -1,6 +1,6 @@
 /* Copyright 2016-2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -17,17 +17,17 @@ package gomatrixserverlib
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"sort"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
-type EventJSONs []spec.RawJSON
+type EventJSONs []json.RawMessage
 
 func (e EventJSONs) TrustedEvents(roomVersion RoomVersion, redacted bool) []PDU {
 	verImpl, err := GetRoomVersion(roomVersion)

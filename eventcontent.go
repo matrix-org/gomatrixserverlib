@@ -1,6 +1,6 @@
 /* Copyright 2016-2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -62,13 +62,13 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateConte
 		err = errorf("missing create event")
 		return
 	}
-	if err = json.Unmarshal(createEvent.Content(), &c); err != nil {
+	if err = json.Unmarshal(createEvent.GetContent(), &c); err != nil {
 		err = errorf("unparsable create event content: %s", err.Error())
 		return
 	}
-	c.roomID = createEvent.RoomID()
-	c.eventID = createEvent.EventID()
-	if c.senderDomain, err = domainFromID(createEvent.Sender()); err != nil {
+	c.roomID = createEvent.GetRoomID()
+	c.eventID = createEvent.GetEventID()
+	if c.senderDomain, err = domainFromID(createEvent.GetSender()); err != nil {
 		return
 	}
 	return
@@ -164,9 +164,9 @@ func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string)
 // NewMemberContentFromEvent parse the member content from an event.
 // Returns an error if the content couldn't be parsed.
 func NewMemberContentFromEvent(event PDU) (c MemberContent, err error) {
-	if err = json.Unmarshal(event.Content(), &c); err != nil {
+	if err = json.Unmarshal(event.GetContent(), &c); err != nil {
 		var partial membershipContent
-		if err = json.Unmarshal(event.Content(), &partial); err != nil {
+		if err = json.Unmarshal(event.GetContent(), &partial); err != nil {
 			err = errorf("unparsable member event content: %s", err.Error())
 			return
 		}
@@ -206,7 +206,7 @@ func NewThirdPartyInviteContentFromAuthEvents(authEvents AuthEventProvider, toke
 		err = errorf("Couldn't find third party invite event")
 		return
 	}
-	if err = json.Unmarshal(thirdPartyInviteEvent.Content(), &t); err != nil {
+	if err = json.Unmarshal(thirdPartyInviteEvent.GetContent(), &t); err != nil {
 		err = errorf("unparsable third party invite event content: %s", err.Error())
 	}
 	return
@@ -301,7 +301,7 @@ func NewJoinRuleContentFromAuthEvents(authEvents AuthEventProvider) (c JoinRuleC
 	if joinRulesEvent == nil {
 		return
 	}
-	if err = json.Unmarshal(joinRulesEvent.Content(), &c); err != nil {
+	if err = json.Unmarshal(joinRulesEvent.GetContent(), &c); err != nil {
 		err = errorf("unparsable join_rules event content: %s", err.Error())
 		return
 	}
@@ -412,7 +412,7 @@ func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 	// Set the levels to their default values.
 	c.Defaults()
 
-	verImpl, err := GetRoomVersion(event.Version())
+	verImpl, err := GetRoomVersion(event.RoomVersion())
 	if err != nil {
 		return c, err
 	}
@@ -420,7 +420,7 @@ func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 	if verImpl.RequireIntegerPowerLevels() {
 		// Unmarshal directly to PowerLevelContent, since that will kick up an
 		// error if one of the power levels isn't an int64.
-		if err = json.Unmarshal(event.Content(), &c); err != nil {
+		if err = json.Unmarshal(event.GetContent(), &c); err != nil {
 			err = errorf("unparsable power_levels event content: %s", err.Error())
 			return
 		}
@@ -439,7 +439,7 @@ func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 			EventDefaultLevel  levelJSONValue            `json:"events_default"`
 			NotificationLevels map[string]levelJSONValue `json:"notifications"`
 		}
-		if err = json.Unmarshal(event.Content(), &content); err != nil {
+		if err = json.Unmarshal(event.GetContent(), &content); err != nil {
 			err = errorf("unparsable power_levels event content: %s", err.Error())
 			return
 		}

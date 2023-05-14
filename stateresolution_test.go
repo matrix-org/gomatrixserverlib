@@ -12,17 +12,10 @@ const (
 )
 
 func TestConflictEventSorter(t *testing.T) {
-	var f1, f2, f3 eventFormatV1Fields
-	f1.EventID = "@1:a"
-	f2.EventID = "@2:a"
-	f3.EventID = "@3:b"
-	f1.Depth = 1
-	f2.Depth = 2
-	f3.Depth = 2
 	input := []PDU{
-		&event{roomVersion: RoomVersionV1, fields: f1},
-		&event{roomVersion: RoomVersionV1, fields: f2},
-		&event{roomVersion: RoomVersionV1, fields: f3},
+		&ProtoEvent{roomVersion: RoomVersionV1, Depth: 1, EventID: "@1:a"},
+		&ProtoEvent{roomVersion: RoomVersionV1, Depth: 2, EventID: "@2:a"},
+		&ProtoEvent{roomVersion: RoomVersionV1, Depth: 2, EventID: "@3:b"},
 	}
 
 	got := sortConflictedEventsByDepthAndSHA1(input)

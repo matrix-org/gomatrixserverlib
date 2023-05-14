@@ -26,8 +26,8 @@ type testBackfillRequester struct {
 }
 
 func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
-	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
-	return t.stateIDsAtEvent[atEvent.EventID()], nil
+	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.GetEventID())
+	return t.stateIDsAtEvent[atEvent.GetEventID()], nil
 }
 func (t *testBackfillRequester) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
 	return nil, fmt.Errorf("not implemented")
@@ -49,7 +49,7 @@ func (t *testBackfillRequester) ProvideEvents(roomVer RoomVersion, eventIDs []st
 		if err != nil {
 			panic("Failed to load event: " + err.Error())
 		}
-		eventMap[ev.EventID()] = ev
+		eventMap[ev.GetEventID()] = ev
 	}
 	for _, id := range eventIDs {
 		if ev, ok := eventMap[id]; ok {
@@ -235,6 +235,7 @@ func TestRequestBackfillError(t *testing.T) {
 }
 
 func assertUnsortedEqual(t *testing.T, result []PDU, want [][]byte) {
+	t.Helper()
 	if len(result) != len(want) {
 		t.Fatalf("RequestBackfill got %d events, want %d", len(result), len(want))
 	}

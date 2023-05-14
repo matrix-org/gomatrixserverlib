@@ -91,10 +91,10 @@ func RequestBackfill(ctx context.Context, origin spec.ServerName, b BackfillRequ
 			default:
 				continue
 			}
-			if haveEventIDs[res.Event.EventID()] {
+			if haveEventIDs[res.Event.GetEventID()] {
 				continue // we got this event from a different server
 			}
-			haveEventIDs[res.Event.EventID()] = true
+			haveEventIDs[res.Event.GetEventID()] = true
 			result = append(result, res.Event)
 		}
 	}

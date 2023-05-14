@@ -1,6 +1,6 @@
 /* Copyright 2016-2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -139,12 +139,12 @@ func StateNeededForAuth(events []PDU) (result StateNeeded) {
 	for _, event := range events {
 		// Extract the 'content' object from the event if it is m.room.member as we need to know 'membership'
 		var content *membershipContent
-		if event.Type() == spec.MRoomMember {
-			_ = json.Unmarshal(event.Content(), &content)
+		if event.GetType() == spec.MRoomMember {
+			_ = json.Unmarshal(event.GetContent(), &content)
 		}
 		// Ignore errors when accumulating state needed.
 		// The event will be rejected when the actual checks encounter the same error.
-		_ = accumulateStateNeeded(&result, event.Type(), event.Sender(), event.StateKey(), content)
+		_ = accumulateStateNeeded(&result, event.GetType(), event.GetSender(), event.GetStateKey(), content)
 	}
 
 	// Deduplicate the state keys.
@@ -169,7 +169,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		// Member events need:
 		//  * The previous membership of the target.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L355
-		//  * The current membership state of the sender.
+		//  * The current membership state of the GetSender.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L348
 		//  * The join rules for the room if the event is a join event.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L361
@@ -205,7 +205,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		}
 	default:
 		// All other events need:
-		//  * The membership of the sender.
+		//  * The membership of the GetSender.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L177
 		//  * The power levels for the room.
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L196
@@ -255,11 +255,11 @@ func (a *AuthEvents) Valid() bool {
 // AddEvent adds an event to the provider. If an event already existed for the (type, state_key) then
 // the event is replaced with the new event. Only returns an error if the event is not a state event.
 func (a *AuthEvents) AddEvent(event PDU) error {
-	if event.StateKey() == nil {
-		return fmt.Errorf("AddEvent: event %q does not have a state key", event.Type())
+	if event.GetStateKey() == nil {
+		return fmt.Errorf("AddEvent: event %q does not have a state key", event.GetType())
 	}
-	a.roomIDs[event.RoomID()] = struct{}{}
-	a.events[StateKeyTuple{event.Type(), *event.StateKey()}] = event
+	a.roomIDs[event.GetRoomID()] = struct{}{}
+	a.events[StateKeyTuple{event.GetType(), *event.GetStateKey()}] = event
 	return nil
 }
 
@@ -380,7 +380,7 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
 func (a *allowerContext) allowed(event PDU) error {
-	switch event.Type() {
+	switch event.GetType() {
 	case spec.MRoomCreate:
 		return a.createEventAllowed(event)
 	case spec.MRoomAliases:
@@ -410,27 +410,27 @@ func Allowed(event PDU, authEvents AuthEventProvider) error {
 // It returns an error if the event is not allowed.
 func (a *allowerContext) createEventAllowed(event PDU) error {
 	if !event.StateKeyEquals("") {
-		return errorf("create event state key is not empty: %v", event.StateKey())
+		return errorf("create event state key is not empty: %v", event.GetStateKey())
 	}
-	if len(event.PrevEventIDs()) > 0 {
-		return errorf("create event must be the first event in the room: found %d prev_events", len(event.PrevEventIDs()))
+	if len(event.GetPrevEventIDs()) > 0 {
+		return errorf("create event must be the first event in the room: found %d prev_events", len(event.GetPrevEventIDs()))
 	}
-	roomIDDomain, err := domainFromID(event.RoomID())
+	roomIDDomain, err := domainFromID(event.GetRoomID())
 	if err != nil {
 		return err
 	}
-	senderDomain, err := domainFromID(event.Sender())
+	senderDomain, err := domainFromID(event.GetSender())
 	if err != nil {
 		return err
 	}
 	if senderDomain != roomIDDomain {
-		return errorf("create event room ID domain does not match sender: %q != %q", roomIDDomain, senderDomain)
+		return errorf("create event room ID domain does not match GetSender: %q != %q", roomIDDomain, senderDomain)
 	}
 	c := struct {
 		Creator     *string      `json:"creator"`
 		RoomVersion *RoomVersion `json:"room_version"`
 	}{}
-	if err := json.Unmarshal(event.Content(), &c); err != nil {
+	if err := json.Unmarshal(event.GetContent(), &c); err != nil {
 		return errorf("create event has invalid content: %s", err.Error())
 	}
 	if c.Creator == nil {
@@ -458,19 +458,19 @@ func (a *allowerContext) memberEventAllowed(event PDU) error {
 // Alias events have different authentication rules to ordinary events.
 func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// The alias events have different auth rules to ordinary events.
-	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
+	// In particular we allow any server to send a m.room.aliases event without checking if the GetSender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
 
-	senderDomain, err := domainFromID(event.Sender())
+	senderDomain, err := domainFromID(event.GetSender())
 	if err != nil {
 		return err
 	}
 
-	if event.RoomID() != a.create.roomID {
+	if event.GetRoomID() != a.create.roomID {
 		return errorf(
 			"create event has different roomID: %q (%s) != %q (%s)",
-			event.RoomID(), event.EventID(), a.create.roomID, a.create.eventID,
+			event.GetRoomID(), event.GetEventID(), a.create.roomID, a.create.eventID,
 		)
 	}
 
@@ -483,7 +483,7 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// Check that the state key matches the server sending this event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
 	if !event.StateKeyEquals(senderDomain) {
-		return errorf("alias state_key does not match sender domain, %q != %q", senderDomain, *event.StateKey())
+		return errorf("alias state_key does not match GetSender domain, %q != %q", senderDomain, *event.GetStateKey())
 	}
 
 	return nil
@@ -493,7 +493,7 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
 func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
-	allower, err := a.newEventAllower(event.Sender())
+	allower, err := a.newEventAllower(event.GetSender())
 	if err != nil {
 		return err
 	}
@@ -520,7 +520,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 
 	// Grab the old levels so that we can compare new the levels against them.
 	oldPowerLevels := a.powerLevels
-	senderLevel := oldPowerLevels.UserLevel(event.Sender())
+	senderLevel := oldPowerLevels.UserLevel(event.GetSender())
 
 	// Check that the changes in event levels are allowed.
 	if err = checkEventLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
@@ -528,7 +528,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	}
 
 	// Check that the changes in notification levels are allowed.
-	verImpl, err := GetRoomVersion(event.Version())
+	verImpl, err := GetRoomVersion(event.RoomVersion())
 	if err != nil {
 		return nil
 	}
@@ -539,7 +539,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	}
 
 	// Check that the changes in user levels are allowed.
-	return checkUserLevels(senderLevel, event.Sender(), oldPowerLevels, newPowerLevels)
+	return checkUserLevels(senderLevel, event.GetSender(), oldPowerLevels, newPowerLevels)
 }
 
 // checkEventLevels checks that the changes in event levels are allowed.
@@ -606,8 +606,8 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLev
 		// Check if the user is trying to set any of the levels to above their own.
 		if senderLevel < level.new {
 			return errorf(
-				"sender with level %d is not allowed to change level from %d to %d"+
-					" because the new level is above the level of the sender",
+				"GetSender with level %d is not allowed to change level from %d to %d"+
+					" because the new level is above the level of the GetSender",
 				senderLevel, level.old, level.new,
 			)
 		}
@@ -615,8 +615,8 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLev
 		// Check if the user is trying to set a level that was above their own.
 		if senderLevel < level.old {
 			return errorf(
-				"sender with level %d is not allowed to change level from %d to %d"+
-					" because the current level is above the level of the sender",
+				"GetSender with level %d is not allowed to change level from %d to %d"+
+					" because the current level is above the level of the GetSender",
 				senderLevel, level.old, level.new,
 			)
 		}
@@ -668,8 +668,8 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		// Check if the user is trying to set any of the levels to above their own.
 		if senderLevel < level.new {
 			return errorf(
-				"sender %q with level %d is not allowed change user %q level from %d to %d"+
-					" because the new level is above the level of the sender",
+				"GetSender %q with level %d is not allowed change user %q level from %d to %d"+
+					" because the new level is above the level of the GetSender",
 				senderID, senderLevel, userID, level.old, level.new,
 			)
 		}
@@ -684,8 +684,8 @@ func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowe
 		// Check if the user is changing the level that was above or the same as their own.
 		if senderLevel <= level.old {
 			return errorf(
-				"sender %q with level %d is not allowed to change user %q level from %d to %d"+
-					" because the old level is equal to or above the level of the sender",
+				"GetSender %q with level %d is not allowed to change user %q level from %d to %d"+
+					" because the old level is equal to or above the level of the GetSender",
 				senderID, senderLevel, userID, level.old, level.new,
 			)
 		}
@@ -732,15 +732,15 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 		}
 
 		// Users are allowed to change the notification level if:
-		//   * If the current value is less than or equal to the `sender`'s current power level
-		//   * If the new value is less than or equal to the `sender`'s current power level
+		//   * If the current value is less than or equal to the `GetSender`'s current power level
+		//   * If the new value is less than or equal to the `GetSender`'s current power level
 		// https://matrix.org/docs/spec/rooms/v6#authorization-rules-for-events
 
 		// Check if the user is trying to set any of the levels to above their own.
 		if senderLevel < level.new {
 			return errorf(
-				"sender with level %d is not allowed change notification level from %d to %d"+
-					" because the new level is above the level of the sender",
+				"GetSender with level %d is not allowed change notification level from %d to %d"+
+					" because the new level is above the level of the GetSender",
 				senderLevel, level.old, level.new,
 			)
 		}
@@ -748,8 +748,8 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 		// Check if the user is changing the level that was above or the same as their own.
 		if senderLevel <= level.old {
 			return errorf(
-				"sender with level %d is not allowed to change notification level from %d to %d"+
-					" because the old level is equal to or above the level of the sender",
+				"GetSender with level %d is not allowed to change notification level from %d to %d"+
+					" because the old level is equal to or above the level of the GetSender",
 				senderLevel, level.old, level.new,
 			)
 		}
@@ -760,13 +760,13 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 
 // redactEventAllowed checks whether the m.room.redaction event is allowed to
 // enter the DAG of a room. Note that for v1, v2 rooms, this doesn't check if
-// the redactor is the sender of the redacted event, and for rooms >= v3, this
+// the redactor is the GetSender of the redacted event, and for rooms >= v3, this
 // doesn't provide substantial checks other than some basic checks (e.g.
 // membership) on the event.
 // It returns an error if the event is not allowed or if there was a problem
 // loading the auth events needed.
 func (a *allowerContext) redactEventAllowed(event PDU) error {
-	allower, err := a.newEventAllower(event.Sender())
+	allower, err := a.newEventAllower(event.GetSender())
 	if err != nil {
 		return err
 	}
@@ -783,13 +783,13 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 		return nil
 	}
 
-	sender := event.Sender()
+	sender := event.GetSender()
 	senderDomain, err := domainFromID(sender)
 	if err != nil {
 		return err
 	}
 
-	redactDomain, err := domainFromID(event.Redacts())
+	redactDomain, err := domainFromID(event.GetRedacts())
 	if err != nil {
 		return err
 	}
@@ -798,14 +798,14 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 	// This is so that users can redact their own messages, but since
 	// we don't know which user ID sent the message being redacted
 	// the only check we can do is to compare the domains of the
-	// sender and the redacted event.
+	// GetSender and the redacted event.
 	// We leave it up to the sending server to implement the additional checks
 	// to ensure that only events that should be redacted are redacted.
 	if senderDomain == redactDomain {
 		return nil
 	}
 
-	// Otherwise the sender must have enough power.
+	// Otherwise the GetSender must have enough power.
 	// This allows room admins and ops to redact messages sent by other servers.
 	senderLevel := allower.powerLevels.UserLevel(sender)
 	redactLevel := allower.powerLevels.Redact
@@ -824,7 +824,7 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 // It returns an error if the event is not allowed or if there was a
 // problem loading the auth events needed.
 func (a *allowerContext) defaultEventAllowed(event PDU) error {
-	allower, err := a.newEventAllower(event.Sender())
+	allower, err := a.newEventAllower(event.GetSender())
 	if err != nil {
 		return err
 	}
@@ -835,7 +835,7 @@ func (a *allowerContext) defaultEventAllowed(event PDU) error {
 // other than m.room.create, m.room.member and m.room.aliases which are special.
 type eventAllower struct {
 	*allowerContext
-	// The content of the m.room.member event for the sender.
+	// The content of the m.room.member event for the GetSender.
 	member MemberContent
 }
 
@@ -852,32 +852,32 @@ func (a *allowerContext) newEventAllower(senderID string) (e eventAllower, err e
 // commonChecks does the checks that are applied to all events types other than
 // m.room.create, m.room.member, or m.room.alias.
 func (e *eventAllower) commonChecks(event PDU) error {
-	if event.RoomID() != e.create.roomID {
+	if event.GetRoomID() != e.create.roomID {
 		return errorf(
 			"create event has different roomID: %q (%s) != %q (%s)",
-			event.RoomID(), event.EventID(), e.create.roomID, e.create.eventID,
+			event.GetRoomID(), event.GetEventID(), e.create.roomID, e.create.eventID,
 		)
 	}
 
-	sender := event.Sender()
-	stateKey := event.StateKey()
+	sender := event.GetSender()
+	stateKey := event.GetStateKey()
 
 	if err := e.create.UserIDAllowed(sender); err != nil {
 		return err
 	}
 
-	// Check that the sender is in the room.
+	// Check that the GetSender is in the room.
 	// Every event other than m.room.create, m.room.member and m.room.aliases require this.
 	if e.member.Membership != spec.Join {
-		return errorf("sender %q not in room", sender)
+		return errorf("GetSender %q not in room", sender)
 	}
 
 	senderLevel := e.powerLevels.UserLevel(sender)
-	eventLevel := e.powerLevels.EventLevel(event.Type(), stateKey != nil)
+	eventLevel := e.powerLevels.EventLevel(event.GetType(), stateKey != nil)
 	if senderLevel < eventLevel {
 		return errorf(
-			"sender %q is not allowed to send event. %d < %d",
-			event.Sender(), senderLevel, eventLevel,
+			"GetSender %q is not allowed to send event. %d < %d",
+			event.GetSender(), senderLevel, eventLevel,
 		)
 	}
 
@@ -886,7 +886,7 @@ func (e *eventAllower) commonChecks(event PDU) error {
 	if stateKey != nil && len(*stateKey) > 0 && (*stateKey)[0] == '@' {
 		if *stateKey != sender {
 			return errorf(
-				"sender %q is not allowed to modify the state belonging to %q",
+				"GetSender %q is not allowed to modify the state belonging to %q",
 				sender, *stateKey,
 			)
 		}
@@ -921,18 +921,18 @@ type membershipAllower struct {
 // from the auth events.
 func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, event PDU) (m membershipAllower, err error) { // nolint: gocyclo
 	m.allowerContext = a
-	m.roomVersionImpl, err = GetRoomVersion(event.Version())
+	m.roomVersionImpl, err = GetRoomVersion(event.RoomVersion())
 	if err != nil {
 		return
 	}
-	stateKey := event.StateKey()
+	stateKey := event.GetStateKey()
 	if stateKey == nil {
 		err = errorf("m.room.member must be a state event")
 		return
 	}
 	// TODO: Check that the IDs are valid user IDs.
 	m.targetID = *stateKey
-	m.senderID = event.Sender()
+	m.senderID = event.GetSender()
 	if m.newMember, err = NewMemberContentFromEvent(event); err != nil {
 		return
 	}
@@ -954,10 +954,10 @@ func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, even
 
 // membershipAllowed checks whether the membership event is allowed
 func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocyclo
-	if m.create.roomID != event.RoomID() {
+	if m.create.roomID != event.GetRoomID() {
 		return errorf(
 			"create event has different roomID: %q (%s) != %q (%s)",
-			event.RoomID(), event.EventID(), m.create.roomID, m.create.eventID,
+			event.GetRoomID(), event.GetEventID(), m.create.roomID, m.create.eventID,
 		)
 	}
 	if err := m.create.UserIDAllowed(m.senderID); err != nil {
@@ -971,10 +971,10 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 	if m.targetID == m.create.Creator &&
 		m.newMember.Membership == spec.Join &&
 		m.senderID == m.targetID &&
-		len(event.PrevEventIDs()) == 1 {
+		len(event.GetPrevEventIDs()) == 1 {
 
 		// Grab the event ID of the previous event.
-		prevEventID := event.PrevEventIDs()[0]
+		prevEventID := event.GetPrevEventIDs()[0]
 
 		if prevEventID == m.create.eventID {
 			// If this is the room creator joining the room directly after the
@@ -991,7 +991,7 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 	}
 
 	if m.targetID == m.senderID {
-		// If the state_key and the sender are the same then this is an attempt
+		// If the state_key and the GetSender are the same then this is an attempt
 		// by a user to update their own membership.
 		return m.membershipAllowedSelf()
 	}
@@ -1123,7 +1123,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 			// The user is already joined, invited or banned, therefore they
 			// can't knock.
 			return m.membershipFailed(
-				"sender is already joined/invited/banned",
+				"GetSender is already joined/invited/banned",
 			)
 		default:
 			// A non-joined, non-invited, non-banned user is allowed to knock.
@@ -1166,14 +1166,14 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 			return nil
 		default:
 			return m.membershipFailed(
-				"sender cannot leave from membership state %q",
+				"GetSender cannot leave from membership state %q",
 				m.oldMember.Membership,
 			)
 		}
 
 	case spec.Invite, spec.Ban:
 		return m.membershipFailed(
-			"sender cannot set their own membership to %q", m.newMember.Membership,
+			"GetSender cannot set their own membership to %q", m.newMember.Membership,
 		)
 
 	default:
@@ -1190,7 +1190,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 
 	// You may only modify the membership of another user if you are in the room.
 	if m.senderMember.Membership != spec.Join {
-		return errorf("sender %q is not in the room", m.senderID)
+		return errorf("GetSender %q is not in the room", m.senderID)
 	}
 
 	switch m.newMember.Membership {
@@ -1201,7 +1201,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			return nil
 		}
 		return m.membershipFailed(
-			"sender has insufficient power to ban (sender level %d, target level %d, ban level %d)",
+			"GetSender has insufficient power to ban (GetSender level %d, target level %d, ban level %d)",
 			senderLevel, targetLevel, m.powerLevels.Ban,
 		)
 
@@ -1215,7 +1215,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 				return nil
 			}
 			return m.membershipFailed(
-				"sender has insufficient power to unban (sender level %d, ban level %d)",
+				"GetSender has insufficient power to unban (GetSender level %d, ban level %d)",
 				senderLevel, m.powerLevels.Ban,
 			)
 		}
@@ -1226,7 +1226,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 			return nil
 		}
 		return m.membershipFailed(
-			"sender has insufficient power to kick (sender level %d, target level %d, kick level %d)",
+			"GetSender has insufficient power to kick (GetSender level %d, target level %d, kick level %d)",
 			senderLevel, targetLevel, m.powerLevels.Kick,
 		)
 
@@ -1235,7 +1235,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 		// to do so.
 		if senderLevel < m.powerLevels.Invite {
 			return m.membershipFailed(
-				"sender has insufficient power to invite (sender level %d, invite level %d)",
+				"GetSender has insufficient power to invite (GetSender level %d, invite level %d)",
 				senderLevel, m.powerLevels.Invite,
 			)
 		}
@@ -1259,7 +1259,7 @@ func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
 
 	case spec.Knock, spec.Join:
 		return m.membershipFailed(
-			"sender cannot set membership of another user to %q", m.newMember.Membership,
+			"GetSender cannot set membership of another user to %q", m.newMember.Membership,
 		)
 
 	default:

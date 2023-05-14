@@ -77,7 +77,7 @@ func provideEvents(t *testing.T, events [][]byte) gomatrixserverlib.EventProvide
 		if err != nil {
 			t.Fatalf("Failed to load event: %s", err)
 		}
-		eventMap[ev.EventID()] = ev
+		eventMap[ev.GetEventID()] = ev
 	}
 	return func(roomVer gomatrixserverlib.RoomVersion, eventIDs []string) (result []gomatrixserverlib.PDU, err error) {
 		for _, id := range eventIDs {

@@ -13,8 +13,8 @@ func TestEventIDForRoomVersionV1(t *testing.T) {
 		t.Error(err)
 	}
 
-	if event.EventID() != expectedEventID {
-		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	if event.GetEventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.GetEventID(), expectedEventID)
 	}
 }
 
@@ -27,8 +27,8 @@ func TestEventIDForRoomVersionV3(t *testing.T) {
 		t.Error(err)
 	}
 
-	if event.EventID() != expectedEventID {
-		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	if event.GetEventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.GetEventID(), expectedEventID)
 	}
 }
 
@@ -41,7 +41,7 @@ func TestEventIDForRoomVersionV4(t *testing.T) {
 		t.Error(err)
 	}
 
-	if event.EventID() != expectedEventID {
-		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	if event.GetEventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.GetEventID(), expectedEventID)
 	}
 }

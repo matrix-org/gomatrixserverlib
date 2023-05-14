@@ -1,6 +1,6 @@
 /* Copyright 2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -116,7 +116,7 @@ func (r *stateResolver) addConflicted(events []PDU) { // nolint: gocyclo
 	// Separate the auth events into specifically named lists because they have
 	// special rules for state resolution.
 	for _, event := range events {
-		key := conflictKey{event.Type(), *event.StateKey()}
+		key := conflictKey{event.GetType(), *event.GetStateKey()}
 		// Work out which block to add the event to.
 		// By default we add the event to a block in the others list.
 		blockList := &r.others
@@ -150,7 +150,7 @@ func (r *stateResolver) addConflicted(events []PDU) { // nolint: gocyclo
 			*blockList = append(*blockList, nil)
 			offsets[key] = offset
 		}
-		// Get the address of the block in the block list.
+		// GetRoomID the address of the block in the block list.
 		block := &(*blockList)[offset]
 		// Add the event to the block.
 		*block = append(*block, event)
@@ -159,13 +159,13 @@ func (r *stateResolver) addConflicted(events []PDU) { // nolint: gocyclo
 
 // Add an event to the resolved auth events.
 func (r *stateResolver) addAuthEvent(event PDU) {
-	if event.RoomID() != "" && r.roomID == "" {
-		r.roomID = event.RoomID()
+	if event.GetRoomID() != "" && r.roomID == "" {
+		r.roomID = event.GetRoomID()
 	}
-	if r.roomID != event.RoomID() {
+	if r.roomID != event.GetRoomID() {
 		r.valid = false
 	}
-	switch event.Type() {
+	switch event.GetType() {
 	case spec.MRoomCreate:
 		if event.StateKeyEquals("") {
 			r.resolvedCreate = event
@@ -179,9 +179,9 @@ func (r *stateResolver) addAuthEvent(event PDU) {
 			r.resolvedJoinRules = event
 		}
 	case spec.MRoomMember:
-		r.resolvedMembers[*event.StateKey()] = event
+		r.resolvedMembers[*event.GetStateKey()] = event
 	case spec.MRoomThirdPartyInvite:
-		r.resolvedThirdPartyInvites[*event.StateKey()] = event
+		r.resolvedThirdPartyInvites[*event.GetStateKey()] = event
 	}
 }
 
@@ -257,7 +257,7 @@ func (r *stateResolver) resolveAuthBlock(events []PDU) PDU {
 	// Discard the event from the auth events.
 	// We'll add it back later when all events of the same type have been resolved.
 	// (SPEC: This is done to avoid the result of state resolution depending on the iteration order)
-	r.removeAuthEvent(result.Type(), *result.StateKey())
+	r.removeAuthEvent(result.GetType(), *result.GetStateKey())
 	return result
 }
 
@@ -286,8 +286,8 @@ func sortConflictedEventsByDepthAndSHA1(events []PDU) []conflictedEvent {
 	for i := range events {
 		event := events[i]
 		block[i] = conflictedEvent{
-			depth:       event.Depth(),
-			eventIDSHA1: sha1.Sum([]byte(event.EventID())),
+			depth:       event.GetDepth(),
+			eventIDSHA1: sha1.Sum([]byte(event.GetEventID())),
 			event:       event,
 		}
 	}
@@ -346,17 +346,17 @@ func ResolveConflicts(
 	// that we can easily spot events that are "conflicted", e.g.
 	// there are duplicate values for the same tuple key.
 	for _, event := range events {
-		if _, ok := eventIDMap[event.EventID()]; ok {
+		if _, ok := eventIDMap[event.GetEventID()]; ok {
 			continue
 		}
-		eventIDMap[event.EventID()] = struct{}{}
-		if event.StateKey() == nil {
+		eventIDMap[event.GetEventID()] = struct{}{}
+		if event.GetStateKey() == nil {
 			// Ignore events that are not state events.
 			continue
 		}
 		// Append the events if there is already a conflicted list for
 		// this tuple key, create it if not.
-		tuple := stateKeyTuple{event.Type(), *event.StateKey()}
+		tuple := stateKeyTuple{event.GetType(), *event.GetStateKey()}
 		eventMap[tuple] = append(eventMap[tuple], event)
 	}
 

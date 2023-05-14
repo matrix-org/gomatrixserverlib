@@ -2,27 +2,25 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
-
-	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // For satisfying "Upon receipt of a redaction event, the server must strip off any keys not in the following list:"
 type unredactableEventFields struct {
-	EventID        spec.RawJSON           `json:"event_id,omitempty"`
+	EventID        json.RawMessage        `json:"event_id,omitempty"`
 	Type           string                 `json:"type"`
-	RoomID         spec.RawJSON           `json:"room_id,omitempty"`
-	Sender         spec.RawJSON           `json:"sender,omitempty"`
-	StateKey       spec.RawJSON           `json:"state_key,omitempty"`
+	RoomID         json.RawMessage        `json:"room_id,omitempty"`
+	Sender         json.RawMessage        `json:"sender,omitempty"`
+	StateKey       json.RawMessage        `json:"state_key,omitempty"`
 	Content        map[string]interface{} `json:"content"`
-	Hashes         spec.RawJSON           `json:"hashes,omitempty"`
-	Signatures     spec.RawJSON           `json:"signatures,omitempty"`
-	Depth          spec.RawJSON           `json:"depth,omitempty"`
-	PrevEvents     spec.RawJSON           `json:"prev_events,omitempty"`
-	PrevState      spec.RawJSON           `json:"prev_state,omitempty"`
-	AuthEvents     spec.RawJSON           `json:"auth_events,omitempty"`
-	Origin         spec.RawJSON           `json:"origin,omitempty"`
-	OriginServerTS spec.RawJSON           `json:"origin_server_ts,omitempty"`
-	Membership     spec.RawJSON           `json:"membership,omitempty"`
+	Hashes         json.RawMessage        `json:"hashes,omitempty"`
+	Signatures     json.RawMessage        `json:"signatures,omitempty"`
+	Depth          json.RawMessage        `json:"depth,omitempty"`
+	PrevEvents     json.RawMessage        `json:"prev_events,omitempty"`
+	PrevState      json.RawMessage        `json:"prev_state,omitempty"`
+	AuthEvents     json.RawMessage        `json:"auth_events,omitempty"`
+	Origin         json.RawMessage        `json:"origin,omitempty"`
+	OriginServerTS json.RawMessage        `json:"origin_server_ts,omitempty"`
+	Membership     json.RawMessage        `json:"membership,omitempty"`
 }
 
 // For satisfying "The content object must also be stripped of all keys, unless it is one of one of the following event types:"

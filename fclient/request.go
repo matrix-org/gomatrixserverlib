@@ -25,7 +25,7 @@ type FederationRequest struct {
 	// fields implement the JSON format needed for signing
 	// specified in https://matrix.org/docs/spec/server_server/unstable.html#request-authentication
 	fields struct {
-		Content     spec.RawJSON                                           `json:"content,omitempty"`
+		Content     json.RawMessage                                        `json:"content,omitempty"`
 		Destination spec.ServerName                                        `json:"destination"`
 		Method      string                                                 `json:"method"`
 		Origin      spec.ServerName                                        `json:"origin"`
@@ -61,7 +61,7 @@ func (r *FederationRequest) SetContent(content interface{}) error {
 	if err != nil {
 		return err
 	}
-	r.fields.Content = spec.RawJSON(data)
+	r.fields.Content = json.RawMessage(data)
 	return nil
 }
 
@@ -281,7 +281,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	if len(content) != 0 {
 		mimetype, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
 		if err != nil {
-			return nil, fmt.Errorf("gomatrixserverlib: The request had an invalid Content-Type header: %w", err)
+			return nil, fmt.Errorf("gomatrixserverlib: The request had an invalid GetContent-GetType header: %w", err)
 		}
 		if mimetype != "application/json" {
 			return nil, fmt.Errorf("gomatrixserverlib: The request must be \"application/json\" not %q", mimetype)
@@ -291,7 +291,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 		if !utf8.Valid(content) {
 			return nil, fmt.Errorf("gomatrixserverlib: The request contained invalid UTF-8")
 		}
-		result.fields.Content = spec.RawJSON(content)
+		result.fields.Content = json.RawMessage(content)
 	}
 
 	for _, authorization := range req.Header["Authorization"] {

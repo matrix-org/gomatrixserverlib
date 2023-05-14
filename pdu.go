@@ -9,11 +9,11 @@ import (
 )
 
 type PDU interface {
-	EventID() string
-	StateKey() *string
+	GetEventID() string
+	GetStateKey() *string
 	StateKeyEquals(s string) bool
-	Type() string
-	Content() []byte
+	GetType() string
+	GetContent() []byte
 	// JoinRule returns the value of the content.join_rule field if this event
 	// is an "m.room.join_rules" event.
 	// Returns an error if the event is not a m.room.join_rules event or if the content
@@ -26,18 +26,18 @@ type PDU interface {
 	HistoryVisibility() (HistoryVisibility, error)
 	Membership() (string, error)
 	PowerLevels() (*PowerLevelContent, error)
-	Version() RoomVersion
-	RoomID() string
-	Redacts() string
+	RoomVersion() RoomVersion
+	GetRoomID() string
+	GetRedacts() string
 	// Redacted returns whether the event is redacted.
-	Redacted() bool
-	PrevEventIDs() []string
-	PrevEvents() []EventReference // TODO: remove, used in Dendrite in (d *EventDatabase) StoreEvent
-	OriginServerTS() spec.Timestamp
+	IsRedacted() bool
+	GetPrevEventIDs() []string
+	GetPrevEvents() []EventReference // TODO: remove, used in Dendrite in (d *EventDatabase) StoreEvent
+	GetOriginServerTS() spec.Timestamp
 	// Redact redacts the event.
 	Redact()
-	Sender() string
-	Unsigned() []byte
+	GetSender() string
+	GetUnsigned() []byte
 	// SetUnsigned sets the unsigned key of the event.
 	// Returns a copy of the event with the "unsigned" key set.
 	SetUnsigned(unsigned interface{}) (PDU, error)
@@ -50,9 +50,9 @@ type PDU interface {
 	// Sign returns a copy of the event with an additional signature.
 	Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU
 	EventReference() EventReference  // TODO: remove
-	Depth() int64                    // TODO: remove
+	GetDepth() int64                 // TODO: remove
 	JSON() []byte                    // TODO: remove
-	AuthEventIDs() []string          // TODO: remove
+	GetAuthEventIDs() []string       // TODO: remove
 	ToHeaderedJSON() ([]byte, error) // TODO: remove
 }
 
@@ -88,7 +88,7 @@ type EventReference struct {
 
 // UnmarshalJSON implements json.Unmarshaller
 func (er *EventReference) UnmarshalJSON(data []byte) error {
-	var tuple []spec.RawJSON
+	var tuple []json.RawMessage
 	if err := json.Unmarshal(data, &tuple); err != nil {
 		return err
 	}

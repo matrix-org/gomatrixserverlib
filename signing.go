@@ -1,6 +1,6 @@
 /* Copyright 2016-2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -35,7 +35,7 @@ type KeyID string
 func SignJSON(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, message []byte) (signed []byte, err error) {
 	preserve := struct {
 		Signatures map[string]map[KeyID]spec.Base64Bytes `json:"signatures"`
-		Unsigned   spec.RawJSON                          `json:"unsigned"`
+		Unsigned   json.RawMessage                       `json:"unsigned"`
 	}{
 		Signatures: map[string]map[KeyID]spec.Base64Bytes{},
 	}

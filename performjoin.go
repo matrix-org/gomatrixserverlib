@@ -126,14 +126,6 @@ func PerformJoin(
 			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetContent: %w", err),
 		}
 	}
-	if err = joinEB.SetUnsigned(struct{}{}); err != nil {
-		return nil, &FederationError{
-			ServerName: input.ServerName,
-			Transient:  false,
-			Reachable:  true,
-			Err:        fmt.Errorf("respMakeJoin.JoinEvent.SetUnsigned: %w", err),
-		}
-	}
 
 	// Build the join event.
 	var event PDU
@@ -254,7 +246,7 @@ func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, userID *spec.Us
 	} else if membership != spec.Join {
 		return false
 	}
-	if event.RoomID() != roomID.String() {
+	if event.GetRoomID() != roomID.String() {
 		return false
 	}
 	if !event.StateKeyEquals(userID.String()) {
@@ -266,9 +258,9 @@ func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, userID *spec.Us
 func checkEventsContainCreateEvent(events []PDU) error {
 	// sanity check we have a create event and it has a known room version
 	for _, ev := range events {
-		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
+		if ev.GetType() == spec.MRoomCreate && ev.StateKeyEquals("") {
 			// make sure the room version is known
-			content := ev.Content()
+			content := ev.GetContent()
 			verBody := struct {
 				Version string `json:"room_version"`
 			}{}

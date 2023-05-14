@@ -1,6 +1,6 @@
 /* Copyright 2017 New Vector Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -103,8 +102,8 @@ func TestRedact(t *testing.T) {
 		t.Fatal(err)
 	}
 	event.Redact()
-	if !reflect.DeepEqual([]byte(`{}`), event.Content()) {
-		t.Fatalf("content not redacted: %s", string(event.Content()))
+	if !reflect.DeepEqual([]byte(`{}`), event.GetContent()) {
+		t.Fatalf("content not redacted: %s", string(event.GetContent()))
 	}
 
 	// v5 event
@@ -114,8 +113,8 @@ func TestRedact(t *testing.T) {
 		t.Fatal(err)
 	}
 	event.Redact()
-	if !reflect.DeepEqual([]byte(`{}`), event.Content()) {
-		t.Fatalf("content not redacted: %s", string(event.Content()))
+	if !reflect.DeepEqual([]byte(`{}`), event.GetContent()) {
+		t.Fatalf("content not redacted: %s", string(event.GetContent()))
 	}
 }
 
@@ -200,119 +199,6 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	}
 }
 
-func TestEventBuilderBuildsEvent(t *testing.T) {
-	sender := "@sender:id"
-	for rv := range RoomVersions() {
-		builder := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
-			Sender:   sender,
-			RoomID:   "!room:id",
-			Type:     "m.room.member",
-			StateKey: &sender,
-		})
-
-		err := builder.SetContent(newMemberContent("join", nil))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("%s", string(eventStruct.JSON()))
-		expectedEvent := event{redacted: false, roomVersion: rv}
-		if eventStruct.Redacted() != expectedEvent.redacted {
-			t.Fatal("Event Redacted state doesn't match")
-		}
-		if eventStruct.Version() != expectedEvent.roomVersion {
-			t.Fatal("Event Room Version doesn't match")
-		}
-		if eventStruct.Type() != "m.room.member" {
-			t.Fatal("Event Type doesn't match")
-		}
-		if eventStruct.Sender() != sender {
-			t.Fatal("Event Sender doesn't match")
-		}
-		if *eventStruct.StateKey() != sender {
-			t.Fatal("Event State Key doesn't match")
-		}
-	}
-}
-
-func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
-	sender := "@sender:id"
-	for rv := range RoomVersions() {
-		builder := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
-			Sender:   sender,
-			RoomID:   "!room:id",
-			Type:     "m.room.create",
-			StateKey: &sender,
-		})
-
-		provider := &authProvider{valid: true}
-		content, err := NewCreateContentFromAuthEvents(provider)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = builder.SetContent(content)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = builder.AddAuthEvents(provider); err != nil {
-			t.Fatal(err)
-		}
-
-		eventStruct, err := builder.Build(time.Now(), "origin", "ed25519:test", privateKey1)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		t.Logf("%s", string(eventStruct.JSON()))
-
-		expectedEvent := event{redacted: false, roomVersion: rv}
-		if eventStruct.Redacted() != expectedEvent.redacted {
-			t.Fatal("Event Redacted state doesn't match")
-		}
-		if eventStruct.Version() != expectedEvent.roomVersion {
-			t.Fatal("Event Room Version doesn't match")
-		}
-		if eventStruct.Type() != "m.room.create" {
-			t.Fatal("Event Type doesn't match")
-		}
-		if eventStruct.Sender() != sender {
-			t.Fatal("Event Sender doesn't match")
-		}
-		if *eventStruct.StateKey() != sender {
-			t.Fatal("Event State Key doesn't match")
-		}
-	}
-}
-
-func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
-	sender := "@sender3:id"
-	for rv := range RoomVersions() {
-		builder := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
-			Sender:   sender,
-			RoomID:   "!room:id",
-			Type:     "m.room.member",
-			StateKey: &sender,
-		})
-
-		err := builder.SetContent(newMemberContent("join", nil))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		provider := &authProvider{valid: true, fail: true}
-		if err = builder.AddAuthEvents(provider); err == nil {
-			t.Fatal("Building didn't fail")
-		}
-		println(err.Error())
-	}
-
-}
-
 type authProvider struct {
 	valid bool
 	fail  bool
@@ -359,17 +245,17 @@ func (a *authProvider) Create() (PDU, error) {
 }
 
 func (a *authProvider) PowerLevels() (PDU, error) {
-	return &event{}, nil
+	return &ProtoEvent{}, nil
 }
 
 func (a *authProvider) JoinRules() (PDU, error) {
-	return &event{}, nil
+	return &ProtoEvent{}, nil
 }
 
 func (a *authProvider) Member(stateKey string) (PDU, error) {
-	return &event{}, nil
+	return &ProtoEvent{}, nil
 }
 
 func (a *authProvider) ThirdPartyInvite(stateKey string) (PDU, error) {
-	return &event{}, nil
+	return &ProtoEvent{}, nil
 }

@@ -54,7 +54,7 @@ func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*Well
 		return nil, errNoWellKnown
 	}
 
-	// If the remote server reports a Content-Length to us then make sure
+	// If the remote server reports a GetContent-Length to us then make sure
 	// that the well-known response size doesn't exceed WellKnownMaxSize.
 	contentLengthHeader := resp.Header.Get("Content-Length")
 	if l, err := strconv.Atoi(contentLengthHeader); err == nil && l > WellKnownMaxSize {
@@ -98,7 +98,7 @@ func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*Well
 	}
 
 	// By this point we hope that we've caught any huge well-known records
-	// by checking Content-Length, but it's possible that header will be
+	// by checking GetContent-Length, but it's possible that header will be
 	// missing. Better to be safe than sorry by reading no more than the
 	// WellKnownMaxSize in any case.
 	bodyBuffer := make([]byte, WellKnownMaxSize)

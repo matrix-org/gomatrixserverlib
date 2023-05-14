@@ -22,7 +22,7 @@ type EventProvider func(roomVer RoomVersion, eventIDs []string) ([]PDU, error)
 func VerifyEventAuthChain(ctx context.Context, eventToVerify PDU, provideEvents EventProvider) error {
 	eventsByID := make(map[string]PDU) // A lookup table for verifying this auth chain
 	evv := eventToVerify
-	eventsByID[evv.EventID()] = evv
+	eventsByID[evv.GetEventID()] = evv
 	verifiedEvents := make(map[string]bool) // events are put here when they are fully verified.
 	eventsToVerify := []PDU{evv}
 	var curr PDU
@@ -32,33 +32,33 @@ func VerifyEventAuthChain(ctx context.Context, eventToVerify PDU, provideEvents 
 		// A stack works best here as it means we do depth-first verification which reduces the
 		// number of duplicate events to verify.
 		curr, eventsToVerify = eventsToVerify[len(eventsToVerify)-1], eventsToVerify[:len(eventsToVerify)-1]
-		if verifiedEvents[curr.EventID()] {
+		if verifiedEvents[curr.GetEventID()] {
 			continue // already verified
 		}
 		// work out which events we need to fetch, if any.
 		var need []string
-		for _, needEventID := range curr.AuthEventIDs() {
+		for _, needEventID := range curr.GetAuthEventIDs() {
 			if eventsByID[needEventID] == nil {
 				need = append(need, needEventID)
 			}
 		}
 		// fetch the events and add them to the lookup table
 		if len(need) > 0 {
-			newEvents, err := provideEvents(eventToVerify.Version(), need)
+			newEvents, err := provideEvents(eventToVerify.RoomVersion(), need)
 			if err != nil {
 				return fmt.Errorf("gomatrixserverlib: VerifyEventAuthChain failed to obtain auth events: %w", err)
 			}
 			for i := range newEvents {
-				eventsByID[newEvents[i].EventID()] = newEvents[i] // add to lookup table
+				eventsByID[newEvents[i].GetEventID()] = newEvents[i] // add to lookup table
 			}
 			eventsToVerify = append(eventsToVerify, newEvents...) // verify these events too
 		}
 		// verify the event
 		if err := checkAllowedByAuthEvents(curr, eventsByID, provideEvents); err != nil {
-			return fmt.Errorf("gomatrixserverlib: VerifyEventAuthChain %v failed auth check: %w", curr.EventID(), err)
+			return fmt.Errorf("gomatrixserverlib: VerifyEventAuthChain %v failed auth check: %w", curr.GetEventID(), err)
 		}
 		// add to the verified list
-		verifiedEvents[curr.EventID()] = true
+		verifiedEvents[curr.GetEventID()] = true
 	}
 	return nil
 }

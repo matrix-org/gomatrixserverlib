@@ -30,7 +30,7 @@ func TestUnmarshalHeaderedV4AndVerifyEventID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if event.EventID() != expectedEventID {
-		t.Fatalf("event ID '%s' does not match expected '%s'", event.EventID(), expectedEventID)
+	if event.GetEventID() != expectedEventID {
+		t.Fatalf("event ID '%s' does not match expected '%s'", event.GetEventID(), expectedEventID)
 	}
 }

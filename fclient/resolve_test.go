@@ -244,7 +244,7 @@ func setupFakeDNS(answerSRV bool) (cleanup func()) {
 		panic(fmt.Errorf("failed to ListenUDP: %v", err))
 	}
 
-	// Get the actual address and port we're listening on.
+	// GetRoomID the actual address and port we're listening on.
 	listenAddr := udpConn.LocalAddr().String()
 
 	// Start a DNS server with our custom handler.

@@ -16,7 +16,7 @@ func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent PDU
 func (p *TestStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
 	result := make(map[string]PDU, len(p.Events))
 	for i := range p.Events {
-		result[p.Events[i].EventID()] = p.Events[i]
+		result[p.Events[i].GetEventID()] = p.Events[i]
 	}
 	return result, nil
 }

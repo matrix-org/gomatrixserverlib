@@ -1,6 +1,6 @@
 /* Copyright 2016-2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -18,8 +18,6 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"testing"
-
-	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -54,7 +52,7 @@ func stateNeededEquals(a, b StateNeeded) bool {
 type testEventList []PDU
 
 func (tel *testEventList) UnmarshalJSON(data []byte) error {
-	var eventJSONs []spec.RawJSON
+	var eventJSONs []json.RawMessage
 	var events []PDU
 	if err := json.Unmarshal(data, &eventJSONs); err != nil {
 		return err
@@ -100,7 +98,7 @@ func TestStateNeededForCreate(t *testing.T) {
 }
 
 func TestStateNeededForMessage(t *testing.T) {
-	// Message events need the create event, the sender and the power_levels.
+	// Message events need the create event, the GetSender and the power_levels.
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.message",
 		"sender": "@u1:a"
@@ -364,7 +362,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 			"event_id": "$e5:a",
 			"content": {"creator": "@u1:a"},
 			"unsigned": {
-				"not_allowed": "Sender is not a valid user ID"
+				"not_allowed": "GetSender is not a valid user ID"
 			}
 		}, {
 			"type": "m.room.create",
@@ -427,7 +425,7 @@ func TestAllowedFirstJoin(t *testing.T) {
 			"event_id": "$e3:a",
 			"content": {"body": "test"},
 			"unsigned": {
-				"not_allowed": "Sender is not in the room"
+				"not_allowed": "GetSender is not in the room"
 			}
 		}, {
 			"type": "m.room.member",
@@ -491,7 +489,7 @@ func TestAllowedFirstJoin(t *testing.T) {
 			"content": {"membership": "join"},
 			"prev_events": [["$e1:a", {}]],
 			"unsigned": {
-				"not_allowed": "The sender doesn't match the joining user"
+				"not_allowed": "The GetSender doesn't match the joining user"
 			}
 		}, {
 			"type": "m.room.member",
@@ -544,7 +542,7 @@ func TestAllowedWithNoPowerLevels(t *testing.T) {
 			"event_id": "$e4:a",
 			"content": {"body": "Test"},
 			"unsigned": {
-				"not_allowed": "Sender is not in room"
+				"not_allowed": "GetSender is not in room"
 			}
 		}]
 	}`)
@@ -728,7 +726,7 @@ func TestAllowedNoFederation(t *testing.T) {
 			"event_id": "$e4:a",
 			"content": {"body": "Test"},
 			"unsigned": {
-				"not_allowed": "Sender is from a different server."
+				"not_allowed": "GetSender is from a different server."
 			}
 		}]
 	}`)
@@ -1004,7 +1002,7 @@ func TestRedactAllowed(t *testing.T) {
 }
 
 func TestAuthEvents(t *testing.T) {
-	power, err := newEventFromTrustedJSON(spec.RawJSON(`{
+	power, err := newEventFromTrustedJSON(json.RawMessage(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1025,7 +1023,7 @@ func TestAuthEvents(t *testing.T) {
 	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
 	}
-	create, err := newEventFromTrustedJSON(spec.RawJSON(`{
+	create, err := newEventFromTrustedJSON(json.RawMessage(`{
 		"type": "m.room.create",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1088,7 +1086,7 @@ var powerLevelTestRoom = &testAuthEvents{
 func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
-	powerChangeShouldSucceed, err := newEventFromTrustedJSON(spec.RawJSON(`{
+	powerChangeShouldSucceed, err := newEventFromTrustedJSON(json.RawMessage(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1113,7 +1111,7 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 	// User shouldn't be able to promote the user default
 	// level above their own effective level.
-	powerChangeShouldFail, err := newEventFromTrustedJSON(spec.RawJSON(`{
+	powerChangeShouldFail, err := newEventFromTrustedJSON(json.RawMessage(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u2:a",
@@ -1186,7 +1184,7 @@ var negativePowerLevelTestRoom = &testAuthEvents{
 func TestNegativePowerLevels(t *testing.T) {
 	// User should be able to demote the user default level
 	// below their own effective level.
-	eventShouldSucceed, err := newEventFromTrustedJSON(spec.RawJSON(`{
+	eventShouldSucceed, err := newEventFromTrustedJSON(json.RawMessage(`{
 		"type": "m.room.message",
 		"sender": "@u1:a",
 		"room_id": "!r1:a",

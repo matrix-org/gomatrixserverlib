@@ -1,6 +1,6 @@
 // Copyright 2020 The Matrix.org Foundation C.I.C.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the Apache License, RoomVersion 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -76,10 +76,10 @@ func ResolveStateConflictsV2(
 	// conflicted set later.
 	isUnconflicted := make(map[string]struct{}, len(unconflicted))
 	for _, u := range unconflicted {
-		isUnconflicted[u.EventID()] = struct{}{}
+		isUnconflicted[u.GetEventID()] = struct{}{}
 	}
 
-	// Get the full conflicted set, that is the conflicted events and the
+	// GetRoomID the full conflicted set, that is the conflicted events and the
 	// auth difference (events that don't appear in all auth chains).
 	fullConflictedSet := append(conflicted, r.calculateAuthDifference()...)
 
@@ -91,7 +91,7 @@ func ResolveStateConflictsV2(
 	var fullControlSet func(event PDU) []PDU
 	fullControlSet = func(event PDU) []PDU {
 		events := []PDU{event}
-		for _, authEventID := range event.AuthEventIDs() {
+		for _, authEventID := range event.GetAuthEventIDs() {
 			if _, ok := visited[authEventID]; ok {
 				continue
 			}
@@ -108,13 +108,13 @@ func ResolveStateConflictsV2(
 	// pull in the control events and any events directly related to them.
 	conflictedPulledIn := make(map[string]struct{}, len(conflicted)+len(authEvents))
 	for _, p := range fullConflictedSet {
-		if _, unconflicted := isUnconflicted[p.EventID()]; unconflicted {
+		if _, unconflicted := isUnconflicted[p.GetEventID()]; unconflicted {
 			continue
 		}
 		if isControlEvent(p) {
 			relatedEvents := fullControlSet(p)
 			for _, event := range relatedEvents {
-				conflictedPulledIn[event.EventID()] = struct{}{}
+				conflictedPulledIn[event.GetEventID()] = struct{}{}
 			}
 			conflictedControlEvents = append(conflictedControlEvents, relatedEvents...)
 		}
@@ -124,7 +124,7 @@ func ResolveStateConflictsV2(
 	// that were left over from the last loop — that is, events that are
 	// either not control events or weren't pulled in to the control set.
 	for _, p := range fullConflictedSet {
-		eventID := p.EventID()
+		eventID := p.GetEventID()
 		if _, unconflicted := isUnconflicted[eventID]; unconflicted || isControlEvent(p) {
 			continue
 		}
@@ -150,7 +150,7 @@ func ResolveStateConflictsV2(
 	// events based on the mainline ordering and auth those too. The successfully
 	// authed events are also layered on top of the partial state.
 	for pos, event := range r.createPowerLevelMainline() {
-		r.powerLevelMainlinePos[event.EventID()] = pos
+		r.powerLevelMainlinePos[event.GetEventID()] = pos
 	}
 	conflictedOthers = r.mainlineOrdering(conflictedOthers)
 	r.authAndApplyEvents(conflictedOthers)
@@ -216,7 +216,7 @@ func HeaderedReverseTopologicalOrdering(events []PDU, order TopologicalOrder) []
 // as a "control" event for reverse topological sorting. If not then the event
 // will be mainline sorted.
 func isControlEvent(e PDU) bool {
-	switch e.Type() {
+	switch e.GetType() {
 	case spec.MRoomPowerLevels:
 		// Power level events with an empty state key are control events.
 		return e.StateKeyEquals("")
@@ -225,18 +225,18 @@ func isControlEvent(e PDU) bool {
 		return e.StateKeyEquals("")
 	case spec.MRoomMember:
 		// Membership events must not have an empty state key.
-		if e.StateKey() == nil || e.StateKeyEquals("") {
+		if e.GetStateKey() == nil || e.StateKeyEquals("") {
 			break
 		}
-		// Membership events are only control events if the sender does not match
+		// Membership events are only control events if the GetSender does not match
 		// the state key, i.e. because the event is caused by an admin or moderator.
-		if e.StateKeyEquals(e.Sender()) {
+		if e.StateKeyEquals(e.GetSender()) {
 			break
 		}
 		// Membership events are only control events if the "membership" key in the
 		// content is "leave" or "ban" so we need to extract the content.
 		var content MemberContent
-		if err := json.Unmarshal(e.Content(), &content); err != nil {
+		if err := json.Unmarshal(e.GetContent(), &content); err != nil {
 			break
 		}
 		// If the "membership" key is set and is set to either "leave" or "ban" then
@@ -262,13 +262,13 @@ func (r *stateResolverV2) calculateAuthDifference() []PDU {
 		if !ok {
 			return false
 		}
-		_, ok = events[event.EventID()]
+		_, ok = events[event.GetEventID()]
 		return ok
 	}
 
 	// This function works out if an event exists in all of the auth sets.
 	isInAllAuthLists := func(event PDU) bool {
-		for k, event := range authSets[event.EventID()] {
+		for k, event := range authSets[event.GetEventID()] {
 			if !isInAuthList(k, event) {
 				return false
 			}
@@ -279,7 +279,7 @@ func (r *stateResolverV2) calculateAuthDifference() []PDU {
 	// For each conflicted event, work out the auth chain iteratively.
 	var iter func(eventID string, event PDU)
 	iter = func(eventID string, event PDU) {
-		for _, authEventID := range event.AuthEventIDs() {
+		for _, authEventID := range event.GetAuthEventIDs() {
 			authEvent, ok := r.authEventMap[authEventID]
 			if !ok {
 				continue
@@ -327,12 +327,12 @@ func (r *stateResolverV2) createPowerLevelMainline() []PDU {
 		copy(mainline[1:], mainline)
 		mainline[0] = event
 		// Work through all of the auth event IDs that this event refers to.
-		for _, authEventID := range event.AuthEventIDs() {
+		for _, authEventID := range event.GetAuthEventIDs() {
 			// Check that we actually have the auth event in our map - we need this so
 			// that we can look up the event type.
 			if authEvent, ok := r.authEventMap[authEventID]; ok {
 				// Is the event a power event?
-				if authEvent.Type() == spec.MRoomPowerLevels && authEvent.StateKeyEquals("") {
+				if authEvent.GetType() == spec.MRoomPowerLevels && authEvent.StateKeyEquals("") {
 					// We found a power level event in the event's auth events - start
 					// the iterator from this new event.
 					iter(authEvent)
@@ -363,7 +363,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
 	// is in the mainline set or not.
 	isInMainline := func(searchEvent PDU) (int, bool) {
 		// If we already know the mainline position then return it.
-		pos, ok := r.powerLevelMainlinePos[searchEvent.EventID()]
+		pos, ok := r.powerLevelMainlinePos[searchEvent.GetEventID()]
 		return pos, ok
 	}
 
@@ -373,7 +373,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
 		// In much the same way as we do in createPowerLevelMainline, we loop
 		// through the event's auth events, checking that it exists in our supplied
 		// auth event map and finding power level events.
-		for _, authEventID := range event.AuthEventIDs() {
+		for _, authEventID := range event.GetAuthEventIDs() {
 			// Check that we actually have the auth event in our map - we need this so
 			// that we can look up the event type.
 			authEvent, ok := r.authEventMap[authEventID]
@@ -381,7 +381,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
 				continue
 			}
 			// If the event isn't a power level event then we'll ignore it.
-			if authEvent.Type() != spec.MRoomPowerLevels || !authEvent.StateKeyEquals("") {
+			if authEvent.GetType() != spec.MRoomPowerLevels || !authEvent.StateKeyEquals("") {
 				continue
 			}
 			// Is the event in the mainline?
@@ -392,7 +392,7 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
 				mainlinePosition = pos
 				// Cache the result so that a future request for this position will
 				// be faster.
-				r.powerLevelMainlinePos[mainlineEvent.EventID()] = mainlinePosition
+				r.powerLevelMainlinePos[mainlineEvent.GetEventID()] = mainlinePosition
 				return
 			}
 			// It isn't - increase the step count and then run the iterator again
@@ -457,7 +457,7 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 // applyEvents applies the events on top of the partial state.
 func (r *stateResolverV2) applyEvents(events []PDU) {
 	for _, event := range events {
-		if st, sk := event.Type(), event.StateKey(); sk == nil {
+		if st, sk := event.GetType(), event.GetStateKey(); sk == nil {
 			continue
 		} else if *sk == "" {
 			// Some events with empty state keys are special,
@@ -494,8 +494,8 @@ func (r *stateResolverV2) applyEvents(events []PDU) {
 func eventMapFromEvents(events []PDU) map[string]PDU {
 	r := make(map[string]PDU, len(events))
 	for _, e := range events {
-		if _, ok := r[e.EventID()]; !ok {
-			r[e.EventID()] = e
+		if _, ok := r[e.GetEventID()]; !ok {
+			r[e.GetEventID()] = e
 		}
 	}
 	return r
@@ -509,8 +509,8 @@ func (r *stateResolverV2) wrapPowerLevelEventsForSort(events []PDU) []*stateResV
 	for i, event := range events {
 		block[i] = &stateResV2ConflictedPowerLevel{
 			powerLevel:     r.getPowerLevelFromAuthEvents(event),
-			originServerTS: event.OriginServerTS(),
-			eventID:        event.EventID(),
+			originServerTS: event.GetOriginServerTS(),
+			eventID:        event.GetEventID(),
 			event:          event,
 		}
 	}
@@ -527,8 +527,8 @@ func (r *stateResolverV2) wrapOtherEventsForSort(events []PDU) []*stateResV2Conf
 		block[i] = &stateResV2ConflictedOther{
 			mainlinePosition: pos,
 			mainlineSteps:    steps,
-			originServerTS:   event.OriginServerTS(),
-			eventID:          event.EventID(),
+			originServerTS:   event.GetOriginServerTS(),
+			eventID:          event.GetEventID(),
 			event:            event,
 		}
 	}
@@ -571,11 +571,11 @@ func (r *stateResolverV2) mainlineOrdering(events []PDU) []PDU {
 }
 
 // getPowerLevelFromAuthEvents tries to determine the effective power level of
-// the sender at the time that of the given event, based on the auth events.
+// the GetSender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
 func (r *stateResolverV2) getPowerLevelFromAuthEvents(event PDU) int64 {
-	user := event.Sender()
-	for _, authID := range event.AuthEventIDs() {
+	user := event.GetSender()
+	for _, authID := range event.GetAuthEventIDs() {
 		// Then check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.
 		authEvent, ok := r.authEventMap[authID]
@@ -584,7 +584,7 @@ func (r *stateResolverV2) getPowerLevelFromAuthEvents(event PDU) int64 {
 		}
 
 		// Ignore the auth event if it isn't a power level event.
-		if authEvent.Type() != spec.MRoomPowerLevels || *authEvent.StateKey() != "" {
+		if authEvent.GetType() != spec.MRoomPowerLevels || *authEvent.GetStateKey() != "" {
 			continue
 		}
 
@@ -634,7 +634,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 
 		// Find each of the auth events that this event depends on and make a note
 		// for each auth event that there's an additional incoming dependency.
-		for _, auth := range event.event.AuthEventIDs() {
+		for _, auth := range event.event.GetAuthEventIDs() {
 			inDegree[auth]++
 		}
 	}
@@ -667,7 +667,7 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 		// Since this event is now in the graph, the event's outgoing auth
 		// dependencies are no longer valid - those map to incoming dependencies on
 		// the auth events, so let's update those.
-		for _, auth := range event.event.AuthEventIDs() {
+		for _, auth := range event.event.GetAuthEventIDs() {
 			inDegree[auth]--
 
 			// If we see, by updating the incoming dependencies, that the auth event
@@ -720,7 +720,7 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 
 		// Find each of the prev events that this event depends on and make a note
 		// for each prev event that there's an additional incoming dependency.
-		for _, prev := range event.event.PrevEventIDs() {
+		for _, prev := range event.event.GetPrevEventIDs() {
 			inDegree[prev]++
 		}
 	}
@@ -753,7 +753,7 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 		// Since this event is now in the graph, the event's outgoing prev
 		// dependencies are no longer valid - those map to incoming dependencies on
 		// the prev events, so let's update those.
-		for _, prev := range event.event.PrevEventIDs() {
+		for _, prev := range event.event.GetPrevEventIDs() {
 			inDegree[prev]--
 
 			// If we see, by updating the incoming dependencies, that the prev event

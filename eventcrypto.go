@@ -1,6 +1,6 @@
 /* Copyright 2016-2017 Vector Creations Ltd
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -40,24 +40,24 @@ func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVe
 func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) error {
 	needed := map[spec.ServerName]struct{}{}
 
-	// The sender should have signed the event in all cases.
-	_, serverName, err := SplitID('@', e.Sender())
+	// The GetSender should have signed the event in all cases.
+	_, serverName, err := SplitID('@', e.GetSender())
 	if err != nil {
-		return fmt.Errorf("failed to split sender: %w", err)
+		return fmt.Errorf("failed to split GetSender: %w", err)
 	}
 	needed[serverName] = struct{}{}
 
-	verImpl, err := GetRoomVersion(e.Version())
+	verImpl, err := GetRoomVersion(e.RoomVersion())
 	if err != nil {
 		return err
 	}
 
 	// In room versions 1 and 2, we should also check that the server
 	// that created the event is included too. This is probably the
-	// same as the sender.
+	// same as the GetSender.
 	format := verImpl.EventIDFormat()
 	if format == EventIDFormatV1 {
-		_, serverName, err = SplitID('$', e.EventID())
+		_, serverName, err = SplitID('$', e.GetEventID())
 		if err != nil {
 			return fmt.Errorf("failed to split event ID: %w", err)
 		}
@@ -65,7 +65,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 	}
 
 	// Special checks for membership events.
-	if e.Type() == spec.MRoomMember {
+	if e.GetType() == spec.MRoomMember {
 		membership, err := e.Membership()
 		if err != nil {
 			return fmt.Errorf("failed to get membership of membership event: %w", err)
@@ -73,7 +73,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 
 		// For invites, the invited server should have signed the event.
 		if membership == spec.Invite {
-			_, serverName, err = SplitID('@', *e.StateKey())
+			_, serverName, err = SplitID('@', *e.GetStateKey())
 			if err != nil {
 				return fmt.Errorf("failed to split state key: %w", err)
 			}
@@ -83,7 +83,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 		// For restricted join rules, the authorising server should have signed.
 		restricted := verImpl.MayAllowRestrictedJoinsInEventAuth()
 		if restricted && membership == spec.Join {
-			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
+			if v := gjson.GetBytes(e.GetContent(), "join_authorised_via_users_server"); v.Exists() {
 				_, serverName, err = SplitID('@', v.String())
 				if err != nil {
 					return fmt.Errorf("failed to split authorised server: %w", err)
@@ -104,7 +104,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 	for serverName := range needed {
 		v := VerifyJSONRequest{
 			Message:                redactedJSON,
-			AtTS:                   e.OriginServerTS(),
+			AtTS:                   e.GetOriginServerTS(),
 			ServerName:             serverName,
 			StrictValidityChecking: strictValidityChecking,
 		}
@@ -129,7 +129,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 // This hash is used to detect whether the unredacted content of the event is valid.
 // Returns the event JSON with a "hashes" key added to it.
 func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
-	var event map[string]spec.RawJSON
+	var event map[string]json.RawMessage
 
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	if len(signatures) > 0 {
 		event["signatures"] = signatures
 	}
-	event["hashes"] = spec.RawJSON(hashesJSON)
+	event["hashes"] = json.RawMessage(hashesJSON)
 
 	return json.Marshal(event)
 }
@@ -212,7 +212,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 		return EventReference{}, err
 	}
 
-	var event map[string]spec.RawJSON
+	var event map[string]json.RawMessage
 	if err = json.Unmarshal(redactedJSON, &event); err != nil {
 		return EventReference{}, err
 	}
@@ -236,13 +236,14 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (EventReference
 	eventIDFormat := verImpl.EventIDFormat()
 
 	switch verImpl.eventBuilder.(type) {
-	case *EventBuilderV1:
-		if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
-			return EventReference{}, err
-		}
-	case *EventBuilderV2:
+	case *ProtoEvent:
 		var encoder *base64.Encoding
 		switch eventIDFormat {
+		case EventIDFormatV1:
+			if err = json.Unmarshal(event["event_id"], &eventID); err != nil {
+				return EventReference{}, err
+			}
+			return EventReference{eventID, sha256Hash[:]}, nil
 		case EventIDFormatV2:
 			encoder = base64.RawStdEncoding.WithPadding(base64.NoPadding)
 		case EventIDFormatV3:
@@ -280,14 +281,14 @@ func signEvent(signingName string, keyID KeyID, privateKey ed25519.PrivateKey, e
 	}
 
 	var signedEvent struct {
-		Signatures spec.RawJSON `json:"signatures"`
+		Signatures json.RawMessage `json:"signatures"`
 	}
 	if err := json.Unmarshal(signedJSON, &signedEvent); err != nil {
 		return nil, err
 	}
 
 	// Unmarshal the event JSON so that we can replace the signatures key.
-	var event map[string]spec.RawJSON
+	var event map[string]json.RawMessage
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return nil, err
 	}

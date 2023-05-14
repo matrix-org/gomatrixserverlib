@@ -2,7 +2,6 @@ package gomatrixserverlib
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -35,12 +34,11 @@ type IRoomVersion interface {
 }
 
 type EventBuilder interface {
-	SetContent(content interface{}) (err error)
-	SetUnsigned(unsigned interface{}) (err error)
-	AddAuthEvents(provider AuthEventProvider) error
 	Build(now time.Time, origin spec.ServerName, keyID KeyID, privateKey ed25519.PrivateKey) (result PDU, err error)
-	SetPrevEvents(any)
-	SetAuthEvents(evs any)
+	SetContent(content any) error
+	SetPrevEvents(prevEvents []EventReference) error
+	SetAuthEvents(authEvents []EventReference) error
+	AddAuthEvents(provider AuthEventProvider) error
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
@@ -116,7 +114,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV1{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV2: RoomVersionImpl{
 		ver:                             RoomVersionV2,
@@ -130,7 +128,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV1{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV3: RoomVersionImpl{
 		ver:                             RoomVersionV3,
@@ -144,7 +142,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV4: RoomVersionImpl{
 		ver:                             RoomVersionV4,
@@ -158,7 +156,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV5: RoomVersionImpl{
 		ver:                             RoomVersionV5,
@@ -172,7 +170,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV6: RoomVersionImpl{
 		ver:                             RoomVersionV6,
@@ -186,7 +184,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV7: RoomVersionImpl{
 		ver:                             RoomVersionV7,
@@ -200,7 +198,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV8: RoomVersionImpl{
 		ver:                             RoomVersionV8,
@@ -214,7 +212,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV9: RoomVersionImpl{
 		ver:                             RoomVersionV9,
@@ -228,7 +226,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	RoomVersionV10: RoomVersionImpl{
 		ver:                             RoomVersionV10,
@@ -242,7 +240,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       true,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	"org.matrix.msc3667": RoomVersionImpl{ // based on room version 7
 		ver:                             RoomVersion("org.matrix.msc3667"),
@@ -256,7 +254,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       true,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 	"org.matrix.msc3787": RoomVersionImpl{ // roughly, the union of v7 and v9
 		ver:                             RoomVersion("org.matrix.msc3787"),
@@ -270,7 +268,7 @@ var roomVersionMeta = map[RoomVersion]RoomVersionImpl{
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       false,
-		eventBuilder:                    &EventBuilderV2{},
+		eventBuilder:                    &ProtoEvent{},
 	},
 }
 
@@ -445,67 +443,18 @@ func (v RoomVersionImpl) NewEventFromUntrustedJSON(eventJSON []byte) (result PDU
 
 func (v RoomVersionImpl) NewEventBuilder() EventBuilder {
 	switch v.eventBuilder.(type) {
-	case *EventBuilderV1:
-		return &EventBuilderV1{version: v}
-	case *EventBuilderV2:
-		return &EventBuilderV2{version: v}
+	case *ProtoEvent:
+		return &ProtoEvent{roomVersion: v.Version()}
+	default:
+		panic("unknown event builder")
 	}
 	return nil
 }
 func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(protoEvent *ProtoEvent) EventBuilder {
 	switch v.eventBuilder.(type) {
-	case *EventBuilderV1:
-		eb := &EventBuilderV1{version: v}
-		// for now copies all fields, but we should be specific depending on the room version
-		eb.Content = protoEvent.Content
-		eb.Depth = protoEvent.Depth
-		eb.Redacts = protoEvent.Redacts
-		eb.RoomID = protoEvent.RoomID
-		eb.Sender = protoEvent.Sender
-		eb.Signature = protoEvent.Signature
-		eb.StateKey = protoEvent.StateKey
-		eb.Type = protoEvent.Type
-		eb.Unsigned = protoEvent.Unsigned
-
-		if len(protoEvent.AuthEvents) > 0 {
-			err := json.Unmarshal(protoEvent.AuthEvents, &eb.AuthEvents)
-			if err != nil {
-				panic(err)
-			}
-		}
-		if len(protoEvent.PrevEvents) > 0 {
-			err := json.Unmarshal(protoEvent.PrevEvents, &eb.PrevEvents)
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		return eb
-	case *EventBuilderV2:
-		eb := &EventBuilderV2{version: v}
-		// for now copies all fields, but we should be specific depending on the room version
-		eb.Content = protoEvent.Content
-		eb.Depth = protoEvent.Depth
-		eb.Redacts = protoEvent.Redacts
-		eb.RoomID = protoEvent.RoomID
-		eb.Sender = protoEvent.Sender
-		eb.Signature = protoEvent.Signature
-		eb.StateKey = protoEvent.StateKey
-		eb.Type = protoEvent.Type
-		eb.Unsigned = protoEvent.Unsigned
-		if len(protoEvent.AuthEvents) > 0 {
-			err := json.Unmarshal(protoEvent.AuthEvents, &eb.AuthEvents)
-			if err != nil {
-				panic(err)
-			}
-		}
-		if len(protoEvent.PrevEvents) > 0 {
-			err := json.Unmarshal(protoEvent.PrevEvents, &eb.PrevEvents)
-			if err != nil {
-				panic(err)
-			}
-		}
-		return eb
+	case *ProtoEvent:
+		protoEvent.roomVersion = v.Version()
+		return protoEvent
 	default:
 		panic("unknown event builder")
 	}

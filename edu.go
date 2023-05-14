@@ -1,4 +1,4 @@
-/* Licensed under the Apache License, Version 2.0 (the "License");
+/* Licensed under the Apache License, RoomVersion 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -14,18 +14,17 @@
 package gomatrixserverlib
 
 import (
+	"encoding/json"
 	"unsafe"
-
-	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // EDU represents a EDU received via federation
 // https://matrix.org/docs/spec/server_server/unstable.html#edus
 type EDU struct {
-	Type        string       `json:"edu_type"`
-	Origin      string       `json:"origin"`
-	Destination string       `json:"destination,omitempty"`
-	Content     spec.RawJSON `json:"content,omitempty"`
+	Type        string          `json:"edu_type"`
+	Origin      string          `json:"origin"`
+	Destination string          `json:"destination,omitempty"`
+	Content     json.RawMessage `json:"content,omitempty"`
 }
 
 func (e *EDU) CacheCost() int {

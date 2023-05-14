@@ -109,8 +109,8 @@ func TestRespSendJoinMarshalJSON(t *testing.T) {
 	}
 
 	want := RespSendJoin{
-		StateEvents: []spec.RawJSON{},
-		AuthEvents:  []spec.RawJSON{},
+		StateEvents: []json.RawMessage{},
+		AuthEvents:  []json.RawMessage{},
 		Origin:      "",
 	}
 	if !cmp.Equal(input, want, cmp.AllowUnexported(RespSendJoin{})) {
@@ -140,8 +140,8 @@ func TestRespSendJoinMarshalJSONPartialState(t *testing.T) {
 	}
 
 	want := RespSendJoin{
-		StateEvents:    []spec.RawJSON{},
-		AuthEvents:     []spec.RawJSON{},
+		StateEvents:    []json.RawMessage{},
+		AuthEvents:     []json.RawMessage{},
 		Origin:         "o1",
 		MembersOmitted: true,
 		ServersInRoom:  []string{"s1", "s2"},
