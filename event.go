@@ -379,12 +379,10 @@ func (pe *ProtoEvent) Sign(signingName string, keyID KeyID, privateKey ed25519.P
 		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
 		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(pe.eventJSON)))
 	}
-	return &ProtoEvent{
-		redacted:    pe.redacted,
-		EventID:     pe.EventID,
-		eventJSON:   eventJSON,
-		roomVersion: pe.roomVersion,
-	}
+
+	result := &pe
+	(*result).eventJSON = eventJSON
+	return *result
 }
 
 func (pe *ProtoEvent) EventReference() EventReference {
