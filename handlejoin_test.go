@@ -38,7 +38,7 @@ func (r *TestJoinRoomQuerier) RoomInfo(ctx context.Context, roomID spec.RoomID) 
 	return &RoomInfo{Version: RoomVersionV10}, nil
 }
 
-func (r *TestJoinRoomQuerier) StateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error) {
+func (r *TestJoinRoomQuerier) CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error) {
 	if r.stateEventErr {
 		return nil, fmt.Errorf("err")
 	}

@@ -221,7 +221,7 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 	res.Resident = true
 
 	// Get the join rules to work out if the join rule is "restricted".
-	joinRulesEvent, err := roomQuerier.StateEvent(ctx, req.RoomID, spec.MRoomJoinRules, "")
+	joinRulesEvent, err := roomQuerier.CurrentStateEvent(ctx, req.RoomID, spec.MRoomJoinRules, "")
 	if err != nil {
 		return fmt.Errorf("roomQuerier.StateEvent: %w", err)
 	}
@@ -252,7 +252,7 @@ func QueryRestrictedJoinAllowed(ctx context.Context, localServerName spec.Server
 	// We need to get the power levels content so that we can determine which
 	// users in the room are entitled to issue invites. We need to use one of
 	// these users as the authorising user.
-	powerLevelsEvent, err := roomQuerier.StateEvent(ctx, req.RoomID, spec.MRoomPowerLevels, "")
+	powerLevelsEvent, err := roomQuerier.CurrentStateEvent(ctx, req.RoomID, spec.MRoomPowerLevels, "")
 	if err != nil {
 		return fmt.Errorf("roomQuerier.StateEvent: %w", err)
 	}
