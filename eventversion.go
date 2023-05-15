@@ -1,9 +1,7 @@
 package gomatrixserverlib
 
 import (
-	"crypto/ed25519"
 	"fmt"
-	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
@@ -31,14 +29,6 @@ type IRoomVersion interface {
 	NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error)
 	NewEventBuilder() EventBuilder
 	NewEventBuilderFromProtoEvent(pe *ProtoEvent) EventBuilder
-}
-
-type EventBuilder interface {
-	Build(now time.Time, origin spec.ServerName, keyID KeyID, privateKey ed25519.PrivateKey) (result PDU, err error)
-	SetContent(content any) error
-	SetPrevEvents(prevEvents []EventReference) error
-	SetAuthEvents(authEvents []EventReference) error
-	AddAuthEvents(provider AuthEventProvider) error
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.

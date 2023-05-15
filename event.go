@@ -75,6 +75,14 @@ type ProtoEvent struct {
 	eventJSON   json.RawMessage `json:"-"`
 }
 
+type EventBuilder interface {
+	Build(now time.Time, origin spec.ServerName, keyID KeyID, privateKey ed25519.PrivateKey) (result PDU, err error)
+	SetContent(content any) error
+	SetPrevEvents(prevEvents []EventReference) error
+	SetAuthEvents(authEvents []EventReference) error
+	AddAuthEvents(provider AuthEventProvider) error
+}
+
 func (pe *ProtoEvent) GetEventID() string {
 	// If the eventID is already set, return that
 	if pe.EventID != "" {
@@ -533,13 +541,11 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 	result = &ProtoEvent{}
 	result.roomVersion = roomVersion.Version()
 
-	if eventJSON, err = sjson.DeleteBytes(eventJSON, "unsigned"); err != nil {
-		return
-	}
-
 	if err = json.Unmarshal(eventJSON, &result); err != nil {
 		return
 	}
+
+	result.Unsigned = json.RawMessage{}
 
 	switch MustGetRoomVersion(result.roomVersion).Version() {
 	case RoomVersionV1, RoomVersionV2:
@@ -552,14 +558,6 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 		}
 		if err = json.Unmarshal(result.PrevEvents, &refs); err == nil && len(refs) > 0 {
 			return nil, fmt.Errorf("unexpected event reference")
-		}
-	}
-
-	// Synapse removes these keys from events in case a server accidentally added them.
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/crypto/event_signing.py#L57-L62
-	for _, key := range []string{"outlier", "destinations", "age_ts"} {
-		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
-			return
 		}
 	}
 
