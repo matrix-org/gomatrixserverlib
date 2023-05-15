@@ -12,19 +12,17 @@ type FederatedJoinClient interface {
 	SendJoin(ctx context.Context, origin, s spec.ServerName, event PDU) (res SendJoinResponse, err error)
 }
 
-type RoomInfo struct {
-	Version RoomVersion
-	NID     int64
+type RestrictedRoomJoinInfo struct {
+	LocalServerInRoom bool
+	UserJoinedToRoom  bool
+	JoinedUsers       []PDU
 }
 
 // JoinRoomQuerier provides the necessary information about a room to process a join request.
 type JoinRoomQuerier interface {
-	RoomInfo(ctx context.Context, roomID spec.RoomID) (*RoomInfo, error)
 	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
-	ServerInRoom(ctx context.Context, server spec.ServerName, roomID spec.RoomID) (*JoinedToRoomResponse, error)
-	UserJoinedToRoom(ctx context.Context, roomNID int64, userID spec.UserID) (bool, error)
-	GetJoinedUsers(ctx context.Context, roomVersion RoomVersion, roomNID int64) ([]PDU, error)
 	InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error)
+	RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error)
 }
 
 type ProtoEvent struct {
@@ -64,31 +62,6 @@ func (pe *ProtoEvent) SetContent(content interface{}) (err error) {
 func (pe *ProtoEvent) SetUnsigned(unsigned interface{}) (err error) {
 	pe.Unsigned, err = json.Marshal(unsigned)
 	return
-}
-
-type JoinedToRoomResponse struct {
-	RoomExists   bool
-	ServerInRoom bool
-}
-
-type QueryRestrictedJoinAllowedRequest struct {
-	UserID spec.UserID
-	RoomID spec.RoomID
-}
-
-type QueryRestrictedJoinAllowedResponse struct {
-	// True if the room membership is restricted by the join rule being set to "restricted"
-	Restricted bool `json:"restricted"`
-	// True if our local server is joined to all of the allowed rooms specified in the "allow"
-	// key of the join rule, false if we are missing from some of them and therefore can't
-	// reliably decide whether or not we can satisfy the join
-	Resident bool `json:"resident"`
-	// True if the restricted join is allowed because we found the membership in one of the
-	// allowed rooms from the join rule, false if not
-	Allowed bool `json:"allowed"`
-	// Contains the user ID of the selected user ID that has power to issue invites, this will
-	// get populated into the "join_authorised_via_users_server" content in the membership
-	AuthorisedVia string `json:"authorised_via,omitempty"`
 }
 
 type MakeJoinResponse interface {

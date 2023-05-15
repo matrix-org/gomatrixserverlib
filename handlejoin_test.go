@@ -31,13 +31,6 @@ type TestJoinRoomQuerier struct {
 	powerLevelsEvent PDU
 }
 
-func (r *TestJoinRoomQuerier) RoomInfo(ctx context.Context, roomID spec.RoomID) (*RoomInfo, error) {
-	if r.roomInfoErr {
-		return nil, fmt.Errorf("err")
-	}
-	return &RoomInfo{Version: RoomVersionV10}, nil
-}
-
 func (r *TestJoinRoomQuerier) CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error) {
 	if r.stateEventErr {
 		return nil, fmt.Errorf("err")
@@ -51,7 +44,18 @@ func (r *TestJoinRoomQuerier) CurrentStateEvent(ctx context.Context, roomID spec
 	return event, nil
 }
 
-func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.ServerName, roomID spec.RoomID) (*JoinedToRoomResponse, error) {
+func (r *TestJoinRoomQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error) {
+	if r.invitePendingErr {
+		return false, fmt.Errorf("err")
+	}
+	return r.pendingInvite, nil
+}
+
+func (r *TestJoinRoomQuerier) RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error) {
+	if r.roomInfoErr {
+		return nil, fmt.Errorf("err")
+	}
+
 	if r.serverInRoomErr {
 		return nil, fmt.Errorf("err")
 	}
@@ -59,31 +63,21 @@ func (r *TestJoinRoomQuerier) ServerInRoom(ctx context.Context, server spec.Serv
 	if inRoom, ok := r.serverInRoom[roomID.String()]; ok {
 		serverInRoom = inRoom
 	}
-	return &JoinedToRoomResponse{
-		RoomExists:   r.roomExists,
-		ServerInRoom: serverInRoom,
-	}, nil
-}
+	serverInRoom = r.roomExists && serverInRoom
 
-func (r *TestJoinRoomQuerier) UserJoinedToRoom(ctx context.Context, roomNID int64, userID spec.UserID) (bool, error) {
 	if r.membershipErr {
-		return false, fmt.Errorf("err")
+		return nil, fmt.Errorf("err")
 	}
-	return r.joinerInRoom, nil
-}
 
-func (r *TestJoinRoomQuerier) GetJoinedUsers(ctx context.Context, roomVersion RoomVersion, roomNID int64) ([]PDU, error) {
 	if r.getJoinedUsersErr {
 		return nil, fmt.Errorf("err")
 	}
-	return r.joinedUsers, nil
-}
 
-func (r *TestJoinRoomQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error) {
-	if r.invitePendingErr {
-		return false, fmt.Errorf("err")
-	}
-	return r.pendingInvite, nil
+	return &RestrictedRoomJoinInfo{
+		LocalServerInRoom: serverInRoom,
+		UserJoinedToRoom:  r.joinerInRoom,
+		JoinedUsers:       r.joinedUsers,
+	}, nil
 }
 
 func TestHandleJoin(t *testing.T) {
@@ -268,22 +262,6 @@ func TestHandleJoin(t *testing.T) {
 			errCode:     spec.ErrorForbidden,
 			errType:     MatrixErr,
 		},
-		"server_in_room_error": {
-			input: HandleMakeJoinInput{
-				Context:            context.Background(),
-				UserID:             *validUser,
-				RoomID:             *validRoom,
-				RoomVersion:        RoomVersionV10,
-				RemoteVersions:     []RoomVersion{RoomVersionV10},
-				RequestOrigin:      remoteServer,
-				RequestDestination: localServer,
-				LocalServerName:    localServer,
-				RoomQuerier:        &TestJoinRoomQuerier{serverInRoomErr: true},
-				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
-			},
-			expectedErr: true,
-			errType:     InternalErr,
-		},
 		"server_room_doesnt_exist": {
 			input: HandleMakeJoinInput{
 				Context:            context.Background(),
@@ -328,6 +306,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesPrivateEvent}, nil
@@ -347,6 +326,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, nil, nil
@@ -365,6 +345,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return nil, []PDU{createEvent, joinRulesEvent}, nil
@@ -383,6 +364,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return createEvent, []PDU{createEvent, joinRulesEvent}, nil
@@ -401,6 +383,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier:        &TestJoinRoomQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
@@ -418,6 +401,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier: &TestJoinRoomQuerier{
 					roomExists:     true,
 					serverInRoom:   map[string]bool{validRoom.String(): true},
@@ -439,6 +423,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier: &TestJoinRoomQuerier{
 					roomExists:     true,
 					serverInRoom:   map[string]bool{validRoom.String(): true},
@@ -461,6 +446,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier: &TestJoinRoomQuerier{
 					roomExists: true,
 					serverInRoom: map[string]bool{validRoom.String(): true,
@@ -486,6 +472,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier: &TestJoinRoomQuerier{
 					roomExists:       true,
 					serverInRoom:     map[string]bool{validRoom.String(): true},
@@ -512,6 +499,7 @@ func TestHandleJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				RequestDestination: localServer,
 				LocalServerName:    localServer,
+				LocalServerInRoom:  true,
 				RoomQuerier: &TestJoinRoomQuerier{
 					roomExists: true,
 					serverInRoom: map[string]bool{validRoom.String(): true,
