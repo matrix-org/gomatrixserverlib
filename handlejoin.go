@@ -10,16 +10,17 @@ import (
 )
 
 type HandleMakeJoinInput struct {
-	Context            context.Context
-	UserID             spec.UserID
-	RoomID             spec.RoomID
-	RoomVersion        RoomVersion
-	RemoteVersions     []RoomVersion
-	RequestOrigin      spec.ServerName
-	RequestDestination spec.ServerName
-	LocalServerName    spec.ServerName
-	LocalServerInRoom  bool
-	RoomQuerier        JoinRoomQuerier
+	Context           context.Context
+	UserID            spec.UserID               // The user wanting to join the room
+	RoomID            spec.RoomID               // The room the user wants to join
+	RoomVersion       RoomVersion               // The room version for the room being joined
+	RemoteVersions    []RoomVersion             // Room versions supported by the remote server
+	RequestOrigin     spec.ServerName           // The server that sent the /make_join federation request
+	LocalServerName   spec.ServerName           // The name of this local server
+	LocalServerInRoom bool                      // Whether this local server has a user currently joined to the room
+	RoomQuerier       RestrictedRoomJoinQuerier // Provides access to potentially required information when processing restricted joins
+
+	// Returns a fully built version of the proto event and a list of state events required to auth this event
 	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, error)
 }
 
@@ -133,7 +134,7 @@ func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersi
 func checkRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
-	roomQuerier JoinRoomQuerier,
+	roomQuerier RestrictedRoomJoinQuerier,
 	roomVersion RoomVersion,
 	roomID spec.RoomID, userID spec.UserID,
 ) (string, error) {

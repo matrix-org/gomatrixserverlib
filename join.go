@@ -18,8 +18,8 @@ type RestrictedRoomJoinInfo struct {
 	JoinedUsers       []PDU
 }
 
-// JoinRoomQuerier provides the necessary information about a room to process a join request.
-type JoinRoomQuerier interface {
+// RestrictedRoomJoinQuerier provides the information needed when processing a restricted room join request.
+type RestrictedRoomJoinQuerier interface {
 	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
 	InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error)
 	RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error)
