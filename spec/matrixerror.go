@@ -22,6 +22,7 @@ type MatrixErrorCode string
 
 const (
 	ErrorUnknown                     MatrixErrorCode = "M_UNKNOWN"
+	ErrorUnrecognized                MatrixErrorCode = "M_UNRECOGNIZED"
 	ErrorForbidden                   MatrixErrorCode = "M_FORBIDDEN"
 	ErrorBadJSON                     MatrixErrorCode = "M_BAD_JSON"
 	ErrorBadAlias                    MatrixErrorCode = "M_BAD_ALIAS"
@@ -45,6 +46,9 @@ const (
 	ErrorUnsupportedRoomVersion      MatrixErrorCode = "M_UNSUPPORTED_ROOM_VERSION"
 	ErrorLimitExceeded               MatrixErrorCode = "M_LIMIT_EXCEEDED"
 	ErrorServerNotTrusted            MatrixErrorCode = "M_SERVER_NOT_TRUSTED"
+	ErrorSessionNotValidated         MatrixErrorCode = "M_SESSION_NOT_VALIDATED"
+	ErrorThreePIDInUse               MatrixErrorCode = "M_THREEPID_IN_USE"
+	ErrorThreePIDAuthFailed          MatrixErrorCode = "M_THREEPID_AUTH_FAILED"
 )
 
 // MatrixError represents the "standard error response" in Matrix.
