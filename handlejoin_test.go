@@ -529,7 +529,7 @@ func TestHandleJoin(t *testing.T) {
 					assert.Equal(t, tc.errType, InternalErr)
 				case spec.MatrixError:
 					assert.Equal(t, tc.errType, MatrixErr)
-					assert.Equal(t, tc.errCode, e.Code)
+					assert.Equal(t, tc.errCode, e.ErrCode)
 				case spec.IncompatibleRoomVersionError:
 					assert.Equal(t, tc.errType, IncompatibleRoomVersionErr)
 				default:
