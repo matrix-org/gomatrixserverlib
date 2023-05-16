@@ -80,6 +80,12 @@ func Unknown(msg string) MatrixError {
 	return MatrixError{ErrorUnknown, msg}
 }
 
+// Unrecognized is an error when the server received a request at
+// an unexpected endpoint.
+func Unrecognized(msg string) MatrixError {
+	return MatrixError{ErrorUnrecognized, msg}
+}
+
 // Forbidden is an error when the client tries to access a resource
 // they are not allowed to access.
 func Forbidden(msg string) MatrixError {

@@ -28,6 +28,7 @@ func TestSimpleMatrixErrors(t *testing.T) {
 		errorFunc    func(string) MatrixError
 	}{
 		"m_unknown":                  {errorString: "M_UNKNOWN", errorFunc: Unknown},
+		"m_unrecognized":             {errorString: "M_UNRECOGNIZED", errorFunc: Unrecognized},
 		"m_forbidden":                {errorString: "M_FORBIDDEN", errorFunc: Forbidden},
 		"m_bad_json":                 {errorString: "M_BAD_JSON", errorFunc: BadJSON},
 		"m_bad_alias":                {errorString: "M_BAD_ALIAS", errorFunc: BadAlias},
