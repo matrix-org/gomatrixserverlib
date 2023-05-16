@@ -715,29 +715,6 @@ func (e *event) PowerLevels() (*PowerLevelContent, error) {
 	return &c, nil
 }
 
-// AuthEvents returns references to the events needed to auth the event.
-func (e *event) AuthEvents() []EventReference {
-	switch fields := e.fields.(type) {
-	case eventFormatV1Fields:
-		return fields.AuthEvents
-	case eventFormatV2Fields:
-		result := make([]EventReference, 0, len(fields.AuthEvents))
-		for _, id := range fields.AuthEvents {
-			var sha spec.Base64Bytes
-			if err := sha.Decode(id[1:]); err != nil {
-				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
-			}
-			result = append(result, EventReference{
-				EventID:     id,
-				EventSHA256: sha,
-			})
-		}
-		return result
-	default:
-		panic(e.invalidFieldType())
-	}
-}
-
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
 func (e *event) AuthEventIDs() []string {
 	switch fields := e.fields.(type) {
