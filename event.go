@@ -669,33 +669,6 @@ func (e *event) Content() []byte {
 	}
 }
 
-// PrevEvents returns references to the direct ancestors of the event.
-func (e *event) PrevEvents() []EventReference {
-	switch fields := e.fields.(type) {
-	case eventFormatV1Fields:
-		return fields.PrevEvents
-	case eventFormatV2Fields:
-		result := make([]EventReference, 0, len(fields.PrevEvents))
-		for _, id := range fields.PrevEvents {
-			// In the new event format, the event ID is already the hash of
-			// the event. Since we will have generated the event ID before
-			// now, we can just knock the sigil $ off the front and use that
-			// as the event SHA256.
-			var sha spec.Base64Bytes
-			if err := sha.Decode(id[1:]); err != nil {
-				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
-			}
-			result = append(result, EventReference{
-				EventID:     id,
-				EventSHA256: sha,
-			})
-		}
-		return result
-	default:
-		panic(e.invalidFieldType())
-	}
-}
-
 // PrevEventIDs returns the event IDs of the direct ancestors of the event.
 func (e *event) PrevEventIDs() []string {
 	switch fields := e.fields.(type) {

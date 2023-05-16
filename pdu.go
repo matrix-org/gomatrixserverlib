@@ -32,7 +32,6 @@ type PDU interface {
 	// Redacted returns whether the event is redacted.
 	Redacted() bool
 	PrevEventIDs() []string
-	PrevEvents() []EventReference // TODO: remove, used in Dendrite in (d *EventDatabase) StoreEvent
 	OriginServerTS() spec.Timestamp
 	// Redact redacts the event.
 	Redact()
