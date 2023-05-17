@@ -39,6 +39,20 @@ func (b64 Base64Bytes) Encode() string {
 	return base64.RawStdEncoding.EncodeToString(b64)
 }
 
+// Base64FromEventID returns, if possible, the base64bytes representation
+// of the given eventID. Returns nil if an error occurs while decoding the eventID.
+func Base64FromEventID(eventID string) Base64Bytes {
+	// In the new event format, the event ID is already the hash of
+	// the event. Since we will have generated the event ID before
+	// now, we can just knock the sigil $ off the front and use that
+	// as the event SHA256.
+	var sha Base64Bytes
+	if err := sha.Decode(eventID[1:]); err != nil {
+		return nil
+	}
+	return sha
+}
+
 // Decode decodes the given input into this Base64Bytes
 func (b64 *Base64Bytes) Decode(str string) error {
 	// We must check whether the string was encoded in a URL-safe way in order

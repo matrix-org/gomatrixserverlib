@@ -70,35 +70,35 @@ func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []Eve
 		if e, err = provider.Create(); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64Bytes(e.EventID())})
+			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64FromEventID(e.EventID())})
 		}
 	}
 	if s.JoinRules {
 		if e, err = provider.JoinRules(); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64Bytes(e.EventID())})
+			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64FromEventID(e.EventID())})
 		}
 	}
 	if s.PowerLevels {
 		if e, err = provider.PowerLevels(); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64Bytes(e.EventID())})
+			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64FromEventID(e.EventID())})
 		}
 	}
 	for _, userID := range s.Member {
 		if e, err = provider.Member(userID); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64Bytes(e.EventID())})
+			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64FromEventID(e.EventID())})
 		}
 	}
 	for _, token := range s.ThirdPartyInvite {
 		if e, err = provider.ThirdPartyInvite(token); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64Bytes(e.EventID())})
+			refs = append(refs, EventReference{EventID: e.EventID(), EventSHA256: spec.Base64FromEventID(e.EventID())})
 		}
 	}
 	return
