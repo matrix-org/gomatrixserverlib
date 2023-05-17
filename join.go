@@ -12,6 +12,19 @@ type FederatedJoinClient interface {
 	SendJoin(ctx context.Context, origin, s spec.ServerName, event PDU) (res SendJoinResponse, err error)
 }
 
+type RestrictedRoomJoinInfo struct {
+	LocalServerInRoom bool
+	UserJoinedToRoom  bool
+	JoinedUsers       []PDU
+}
+
+// RestrictedRoomJoinQuerier provides the information needed when processing a restricted room join request.
+type RestrictedRoomJoinQuerier interface {
+	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
+	InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error)
+	RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error)
+}
+
 type ProtoEvent struct {
 	// The user ID of the user sending the event.
 	Sender string `json:"sender"`

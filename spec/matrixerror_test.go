@@ -17,15 +17,18 @@ package spec
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleMatrixErrors(t *testing.T) {
 	tests := map[string]struct {
 		errorString  string
 		customErrMsg string
-		errorFunc    func(string) *MatrixError
+		errorFunc    func(string) MatrixError
 	}{
 		"m_unknown":                  {errorString: "M_UNKNOWN", errorFunc: Unknown},
+		"m_unrecognized":             {errorString: "M_UNRECOGNIZED", errorFunc: Unrecognized},
 		"m_forbidden":                {errorString: "M_FORBIDDEN", errorFunc: Forbidden},
 		"m_bad_json":                 {errorString: "M_BAD_JSON", errorFunc: BadJSON},
 		"m_bad_alias":                {errorString: "M_BAD_ALIAS", errorFunc: BadAlias},
@@ -67,15 +70,8 @@ func TestSimpleMatrixErrors(t *testing.T) {
 }
 
 func TestInternalServerError(t *testing.T) {
-	e := InternalServerError()
-	jsonBytes, err := json.Marshal(&e)
-	if err != nil {
-		t.Fatalf("Failed to marshal error. %s", err.Error())
-	}
-	want := `{"Code":500,"JSON":{"errcode":"M_UNKNOWN","error":"Internal Server Error"},"Headers":null}`
-	if string(jsonBytes) != want {
-		t.Errorf("want %s, got %s", want, string(jsonBytes))
-	}
+	e := InternalServerError{}
+	assert.NotPanics(t, func() { _ = e.Error() })
 }
 
 func TestLimitExceeded(t *testing.T) {
@@ -120,7 +116,7 @@ func TestIncompatibleRoomVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal error. %s", err.Error())
 	}
-	want := `{"room_version":"error msg","error":"Your homeserver does not support the features required to join this room","errcode":"M_INCOMPATIBLE_ROOM_VERSION"}`
+	want := `{"errcode":"M_INCOMPATIBLE_ROOM_VERSION","error":"Your homeserver does not support the features required to join this room","room_version":"error msg"}`
 	if string(jsonBytes) != want {
 		t.Errorf("want %s, got %s", want, string(jsonBytes))
 	}
