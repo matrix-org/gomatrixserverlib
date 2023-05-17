@@ -364,18 +364,6 @@ func (e *event) updateUnsignedFields(unsigned []byte) error {
 	return nil
 }
 
-// EventReference returns an EventReference for the event.
-// The reference can be used to refer to this event from other events.
-func (e *event) EventReference() EventReference {
-	reference, err := referenceOfEvent(e.eventJSON, e.roomVersion)
-	if err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-		// This can be reached if NewEventFromTrustedJSON is given JSON from an untrusted source.
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
-	}
-	return reference
-}
-
 // Sign returns a copy of the event with an additional signature.
 func (e *event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)

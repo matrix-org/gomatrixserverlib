@@ -48,7 +48,6 @@ type PDU interface {
 	SetUnsignedField(path string, value interface{}) error
 	// Sign returns a copy of the event with an additional signature.
 	Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU
-	//EventReference() EventReference  // TODO: remove
 	Depth() int64                    // TODO: remove
 	JSON() []byte                    // TODO: remove
 	AuthEventIDs() []string          // TODO: remove
