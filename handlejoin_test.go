@@ -553,7 +553,7 @@ func TestHandleMakeJoinNilQuerier(t *testing.T) {
 	})
 }
 
-func TestHandleMakeJoinNilContextg(t *testing.T) {
+func TestHandleMakeJoinNilContext(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -597,7 +597,7 @@ func TestHandleSendJoinNilQuerier(t *testing.T) {
 	})
 }
 
-func TestHandleSendJoinNilContextg(t *testing.T) {
+func TestHandleSendJoinNilContext(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validRoom, err := spec.NewRoomID("!room:remote")
