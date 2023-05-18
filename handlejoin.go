@@ -19,7 +19,6 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
@@ -406,7 +405,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 
 	alreadyJoined := false
 	isBanned := false
-	if existingMemberEvent != nil && !reflect.ValueOf(existingMemberEvent).IsNil() {
+	if existingMemberEvent != nil {
 		var memberContent MemberContent
 		if err = json.Unmarshal(existingMemberEvent.Content(), &memberContent); err != nil {
 			return nil, fmt.Errorf("json.Unmarshal: %w", err)
