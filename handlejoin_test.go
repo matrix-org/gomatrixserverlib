@@ -80,7 +80,7 @@ func (r *TestRestrictedRoomJoinQuerier) RestrictedRoomJoinInfo(ctx context.Conte
 	}, nil
 }
 
-func TestHandleJoin(t *testing.T) {
+func TestHandleMakeJoin(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -530,7 +530,7 @@ func TestHandleJoin(t *testing.T) {
 	}
 }
 
-func TestHandleJoinNilQuerier(t *testing.T) {
+func TestHandleMakeJoinNilQuerier(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -553,7 +553,7 @@ func TestHandleJoinNilQuerier(t *testing.T) {
 	})
 }
 
-func TestHandleJoinNilContextg(t *testing.T) {
+func TestHandleMakeJoinNilContextg(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -572,6 +572,46 @@ func TestHandleJoinNilContextg(t *testing.T) {
 			LocalServerName:    localServer,
 			RoomQuerier:        &TestRestrictedRoomJoinQuerier{},
 			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
+		})
+	})
+}
+
+// TODO: TestHandleSendJoin
+
+func TestHandleSendJoinNilQuerier(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:         context.Background(),
+			RoomID:          *validRoom,
+			EventID:         "#event",
+			RoomVersion:     RoomVersionV10,
+			RequestOrigin:   remoteServer,
+			LocalServerName: localServer,
+			StateQuerier:    nil,
+		})
+	})
+}
+
+func TestHandleSendJoinNilContextg(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:         nil,
+			RoomID:          *validRoom,
+			EventID:         "#event",
+			RoomVersion:     RoomVersionV10,
+			RequestOrigin:   remoteServer,
+			LocalServerName: localServer,
+			StateQuerier:    &TestRestrictedRoomJoinQuerier{},
 		})
 	})
 }
