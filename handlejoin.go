@@ -294,10 +294,6 @@ func checkRestrictedJoin(
 	return "", spec.Forbidden("You are not joined to any matching rooms.")
 }
 
-type RoomEventQuerier interface {
-	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
-}
-
 type HandleSendJoinInput struct {
 	Context         context.Context
 	RoomID          spec.RoomID
@@ -309,7 +305,7 @@ type HandleSendJoinInput struct {
 	KeyID           KeyID
 	PrivateKey      ed25519.PrivateKey
 	Verifier        JSONVerifier
-	RoomQuerier     RoomEventQuerier
+	StateQuerier    StateQuerier
 }
 
 type HandleSendJoinResponse struct {
@@ -403,7 +399,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMemberEvent, err := input.RoomQuerier.CurrentStateEvent(input.Context, input.RoomID, spec.MRoomMember, *event.StateKey())
+	existingMemberEvent, err := input.StateQuerier.CurrentStateEvent(input.Context, input.RoomID, spec.MRoomMember, *event.StateKey())
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}
