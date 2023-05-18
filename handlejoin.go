@@ -297,7 +297,7 @@ type HandleSendJoinInput struct {
 	Context         context.Context
 	RoomID          spec.RoomID
 	EventID         string
-	EventContent    spec.RawJSON
+	JoinEvent       spec.RawJSON
 	RoomVersion     RoomVersion     // The room version for the room being joined
 	RequestOrigin   spec.ServerName // The server that sent the /make_join federation request
 	LocalServerName spec.ServerName // The name of this local server
@@ -313,6 +313,9 @@ type HandleSendJoinResponse struct {
 }
 
 func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) {
+	if input.StateQuerier == nil {
+		panic("Missing valid StateQuerier")
+	}
 	if input.Context == nil {
 		panic("Missing valid Context")
 	}
@@ -322,7 +325,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.UnsupportedRoomVersion(fmt.Sprintf("QueryRoomVersionForRoom returned unknown room version: %s", input.RoomVersion))
 	}
 
-	event, err := verImpl.NewEventFromUntrustedJSON(input.EventContent)
+	event, err := verImpl.NewEventFromUntrustedJSON(input.JoinEvent)
 	if err != nil {
 		return nil, spec.BadJSON("The request body could not be decoded into valid JSON: " + err.Error())
 	}
