@@ -412,12 +412,10 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	alreadyJoined := false
 	isBanned := false
 	if existingMemberEvent != nil {
-		var memberContent MemberContent
-		if err = json.Unmarshal(existingMemberEvent.Content(), &memberContent); err != nil {
-			return nil, fmt.Errorf("json.Unmarshal: %w", err)
+		if membership, err := existingMemberEvent.Membership(); err == nil {
+			alreadyJoined = (membership == spec.Join)
+			isBanned = (membership == spec.Ban)
 		}
-		alreadyJoined = (memberContent.Membership == spec.Join)
-		isBanned = (memberContent.Membership == spec.Ban)
 	}
 
 	if isBanned {
