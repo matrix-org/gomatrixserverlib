@@ -294,17 +294,17 @@ func checkRestrictedJoin(
 }
 
 type HandleSendJoinInput struct {
-	Context         context.Context
-	RoomID          spec.RoomID
-	EventID         string
-	JoinEvent       spec.RawJSON
-	RoomVersion     RoomVersion     // The room version for the room being joined
-	RequestOrigin   spec.ServerName // The server that sent the /make_join federation request
-	LocalServerName spec.ServerName // The name of this local server
-	KeyID           KeyID
-	PrivateKey      ed25519.PrivateKey
-	Verifier        JSONVerifier
-	StateQuerier    StateQuerier
+	Context           context.Context
+	RoomID            spec.RoomID
+	EventID           string
+	JoinEvent         spec.RawJSON
+	RoomVersion       RoomVersion     // The room version for the room being joined
+	RequestOrigin     spec.ServerName // The server that sent the /make_join federation request
+	LocalServerName   spec.ServerName // The name of this local server
+	KeyID             KeyID
+	PrivateKey        ed25519.PrivateKey
+	Verifier          JSONVerifier
+	MembershipQuerier MembershipQuerier
 }
 
 type HandleSendJoinResponse struct {
@@ -316,7 +316,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if input.Verifier == nil {
 		panic("Missing valid JSONVerifier")
 	}
-	if input.StateQuerier == nil {
+	if input.MembershipQuerier == nil {
 		panic("Missing valid StateQuerier")
 	}
 	if input.Context == nil {
@@ -404,19 +404,13 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMemberEvent, err := input.StateQuerier.CurrentStateEvent(input.Context, input.RoomID, spec.MRoomMember, *event.StateKey())
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, *sender)
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}
 
-	alreadyJoined := false
-	isBanned := false
-	if existingMemberEvent != nil {
-		if membership, err := existingMemberEvent.Membership(); err == nil {
-			alreadyJoined = (membership == spec.Join)
-			isBanned = (membership == spec.Ban)
-		}
-	}
+	alreadyJoined := (existingMembership == spec.Join)
+	isBanned := (existingMembership == spec.Ban)
 
 	if isBanned {
 		return nil, spec.Forbidden("user is banned")
