@@ -13,6 +13,18 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+type TestSendJoinQuerier struct {
+	memberEventErr bool
+	membership     string
+}
+
+func (s *TestSendJoinQuerier) CurrentMembership(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (string, error) {
+	if s.memberEventErr {
+		return "", fmt.Errorf("err")
+	}
+	return s.membership, nil
+}
+
 type TestRestrictedRoomJoinQuerier struct {
 	roomInfoErr       bool
 	stateEventErr     bool
@@ -29,6 +41,7 @@ type TestRestrictedRoomJoinQuerier struct {
 
 	joinRulesEvent   PDU
 	powerLevelsEvent PDU
+	memberEvent      PDU
 }
 
 func (r *TestRestrictedRoomJoinQuerier) CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error) {
@@ -40,6 +53,8 @@ func (r *TestRestrictedRoomJoinQuerier) CurrentStateEvent(ctx context.Context, r
 		event = r.joinRulesEvent
 	} else if eventType == spec.MRoomPowerLevels {
 		event = r.powerLevelsEvent
+	} else if eventType == spec.MRoomMember {
+		event = r.memberEvent
 	}
 	return event, nil
 }
@@ -80,7 +95,7 @@ func (r *TestRestrictedRoomJoinQuerier) RestrictedRoomJoinInfo(ctx context.Conte
 	}, nil
 }
 
-func TestHandleJoin(t *testing.T) {
+func TestHandleMakeJoin(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -97,6 +112,7 @@ func TestHandleJoin(t *testing.T) {
 		t.Fatalf("Failed generating key: %v", err)
 	}
 	keyID := KeyID("ed25519:1234")
+
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Sender:     validUser.String(),
@@ -530,7 +546,7 @@ func TestHandleJoin(t *testing.T) {
 	}
 }
 
-func TestHandleJoinNilQuerier(t *testing.T) {
+func TestHandleMakeJoinNilQuerier(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -553,7 +569,7 @@ func TestHandleJoinNilQuerier(t *testing.T) {
 	})
 }
 
-func TestHandleJoinNilContextg(t *testing.T) {
+func TestHandleMakeJoinNilContext(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -572,6 +588,475 @@ func TestHandleJoinNilContextg(t *testing.T) {
 			LocalServerName:    localServer,
 			RoomQuerier:        &TestRestrictedRoomJoinQuerier{},
 			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
+		})
+	})
+}
+
+func createEventBuilder(sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
+	return MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Sender:     sender,
+		RoomID:     roomID,
+		Type:       "m.room.member",
+		StateKey:   stateKey,
+		PrevEvents: []interface{}{},
+		AuthEvents: []interface{}{},
+		Depth:      0,
+		Content:    content,
+		Unsigned:   spec.RawJSON(""),
+	})
+
+}
+
+func TestHandleSendJoin(t *testing.T) {
+	userID, err := spec.NewUserID("@user:server", true)
+	assert.Nil(t, err)
+	remoteServer := spec.ServerName("server")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:server")
+	assert.Nil(t, err)
+	badRoom, err := spec.NewRoomID("!bad:room")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	badPK, _, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+	badVerifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: badPK}}
+
+	stateKey := userID.String()
+	eb := createEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	joinEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	ebNotJoin := createEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"ban"}`))
+	notJoinEvent, err := ebNotJoin.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	eb2 := createEventBuilder("@asdf:asdf", validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	joinEventInvalidSender, err := eb2.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	stateKey = ""
+	eb3 := createEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	joinEventNoState, err := eb3.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	stateKey = userID.String()
+	badAuthViaEB := createEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"baduser"}`))
+	badAuthViaEvent, err := badAuthViaEB.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	authViaNotLocalEB := createEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:notlocalserver"}`))
+	authViaNotLocalEvent, err := authViaNotLocalEB.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	authViaEB := createEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:local"}`))
+	authViaEvent, err := authViaEB.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	type ErrorType int
+	const (
+		InternalErr ErrorType = iota
+		MatrixErr
+	)
+
+	tests := map[string]struct {
+		input       HandleSendJoinInput
+		expectedErr bool
+		errType     ErrorType
+		errCode     spec.MatrixErrorCode
+	}{
+		"unsupported_room_version": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       "",
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorUnsupportedRoomVersion,
+		},
+		"invalid_event_json": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         []byte{'b'},
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"invalid_event_state_key": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEventNoState.EventID(),
+				JoinEvent:         joinEventNoState.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"invalid_event_sender": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEventInvalidSender.EventID(),
+				JoinEvent:         joinEventInvalidSender.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"sender_does_not_match_request_origin": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     "bad_origin",
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorForbidden,
+		},
+		"roomid_does_not_match_json": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *badRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"eventid_does_not_match_json": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           "badevent",
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"member_event_not_join": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           notJoinEvent.EventID(),
+				JoinEvent:         notJoinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"event_not_signed_correctly": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          badVerifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorForbidden,
+		},
+		"state_event_lookup_failure": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{memberEventErr: true},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     InternalErr,
+		},
+		"existing_member_banned": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{membership: spec.Ban},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorForbidden,
+		},
+		"auth_via_bad_username": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           badAuthViaEvent.EventID(),
+				JoinEvent:         badAuthViaEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"auth_via_not_local_username": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           authViaNotLocalEvent.EventID(),
+				JoinEvent:         authViaNotLocalEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"existing_member_allowed": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{membership: spec.Join},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: false,
+		},
+		"success_auth_via": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           authViaEvent.EventID(),
+				JoinEvent:         authViaEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: false,
+		},
+		"basic_success": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEvent.EventID(),
+				JoinEvent:         joinEvent.JSON(),
+				RoomVersion:       RoomVersionV10,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestSendJoinQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, joinErr := HandleSendJoin(tc.input)
+			if tc.expectedErr {
+				switch e := joinErr.(type) {
+				case nil:
+					t.Fatalf("Error should not be nil")
+				case spec.InternalServerError:
+					assert.Equal(t, tc.errType, InternalErr)
+				case spec.MatrixError:
+					assert.Equal(t, tc.errType, MatrixErr)
+					assert.Equal(t, tc.errCode, e.ErrCode)
+				default:
+					t.Fatalf("Unexpected Error Type")
+				}
+			} else {
+				jsonBytes, err := json.Marshal(&joinErr)
+				assert.Nil(t, err)
+				assert.Nil(t, joinErr, string(jsonBytes))
+			}
+		})
+	}
+}
+
+func TestHandleSendJoinNilVerifier(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	_, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:           context.Background(),
+			RoomID:            *validRoom,
+			EventID:           "#event",
+			RoomVersion:       RoomVersionV10,
+			RequestOrigin:     remoteServer,
+			LocalServerName:   localServer,
+			MembershipQuerier: &TestSendJoinQuerier{},
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          nil,
+		})
+	})
+}
+
+func TestHandleSendJoinNilQuerier(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:           context.Background(),
+			RoomID:            *validRoom,
+			EventID:           "#event",
+			RoomVersion:       RoomVersionV10,
+			RequestOrigin:     remoteServer,
+			LocalServerName:   localServer,
+			MembershipQuerier: nil,
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+		})
+	})
+}
+
+func TestHandleSendJoinNilContext(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:           nil,
+			RoomID:            *validRoom,
+			EventID:           "#event",
+			RoomVersion:       RoomVersionV10,
+			RequestOrigin:     remoteServer,
+			LocalServerName:   localServer,
+			MembershipQuerier: &TestSendJoinQuerier{},
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
 		})
 	})
 }
