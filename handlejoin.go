@@ -313,6 +313,9 @@ type HandleSendJoinResponse struct {
 }
 
 func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) {
+	if input.Verifier == nil {
+		panic("Missing valid JSONVerifier")
+	}
 	if input.StateQuerier == nil {
 		panic("Missing valid StateQuerier")
 	}
