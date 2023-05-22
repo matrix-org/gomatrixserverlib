@@ -18,6 +18,10 @@ type RestrictedRoomJoinInfo struct {
 	JoinedUsers       []PDU
 }
 
+type MembershipQuerier interface {
+	CurrentMembership(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (string, error)
+}
+
 // RestrictedRoomJoinQuerier provides the information needed when processing a restricted room join request.
 type RestrictedRoomJoinQuerier interface {
 	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
