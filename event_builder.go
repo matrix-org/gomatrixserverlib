@@ -114,9 +114,34 @@ func (eb *EventBuilder) Build(
 		// let's just make sure that they haven't been left as nil slices.
 		if eventStruct.PrevEvents == nil {
 			eventStruct.PrevEvents = []EventReference{}
+		} else {
+			prevEvents, ok := eventStruct.PrevEvents.([]string)
+			if ok {
+				newPrevEvents := make([]EventReference, 0, len(prevEvents))
+				for _, eventID := range prevEvents {
+					newPrevEvents = append(newPrevEvents, EventReference{
+						EventID:     eventID,
+						EventSHA256: base64FromEventID(eventID),
+					})
+				}
+				eventStruct.PrevEvents = newPrevEvents
+			}
 		}
 		if eventStruct.AuthEvents == nil {
 			eventStruct.AuthEvents = []EventReference{}
+		} else {
+			authEvents, ok := eventStruct.AuthEvents.([]string)
+			if ok {
+				newAuthEvents := make([]EventReference, 0, len(authEvents))
+				for _, eventID := range authEvents {
+					newAuthEvents = append(newAuthEvents, EventReference{
+						EventID:     eventID,
+						EventSHA256: base64FromEventID(eventID),
+					})
+				}
+				eventStruct.AuthEvents = newAuthEvents
+			}
+
 		}
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
@@ -195,4 +220,18 @@ func (eb *EventBuilder) Build(
 	}
 
 	return res, nil
+}
+
+// Base64FromEventID returns, if possible, the base64bytes representation
+// of the given eventID. Returns nil if an error occurs while decoding the eventID.
+func base64FromEventID(eventID string) spec.Base64Bytes {
+	// In the new event format, the event ID is already the hash of
+	// the event. Since we will have generated the event ID before
+	// now, we can just knock the sigil $ off the front and use that
+	// as the event SHA256.
+	var sha spec.Base64Bytes
+	if err := sha.Decode(eventID[1:]); err != nil {
+		return sha
+	}
+	return sha
 }
