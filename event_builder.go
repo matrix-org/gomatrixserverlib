@@ -125,6 +125,8 @@ func (eb *EventBuilder) Build(
 					})
 				}
 				eventStruct.PrevEvents = newPrevEvents
+			} else {
+				eventStruct.PrevEvents = []EventReference{}
 			}
 		}
 		if eventStruct.AuthEvents == nil {
@@ -140,8 +142,9 @@ func (eb *EventBuilder) Build(
 					})
 				}
 				eventStruct.AuthEvents = newAuthEvents
+			} else {
+				eventStruct.AuthEvents = []EventReference{}
 			}
-
 		}
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
