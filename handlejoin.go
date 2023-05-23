@@ -119,6 +119,13 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 		return nil, spec.Forbidden(err.Error())
 	}
 
+	// TODO: Remove. This ensures we send event references instead of eventIDs
+	switch input.RoomVersion {
+	case RoomVersionV1, RoomVersionV2:
+		proto.AuthEvents = ToEventReference(event.AuthEventIDs())
+		proto.PrevEvents = ToEventReference(event.PrevEventIDs())
+	}
+
 	makeJoinResponse := HandleMakeJoinResponse{
 		JoinTemplateEvent: proto,
 		RoomVersion:       input.RoomVersion,

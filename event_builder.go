@@ -75,6 +75,48 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 	return nil
 }
 
+// TODO: Remove/unexport
+func ToEventReference(data any) []EventReference {
+	switch evs := data.(type) {
+	case nil:
+		return []EventReference{}
+	case []string:
+		newEvents := make([]EventReference, 0, len(evs))
+		for _, eventID := range evs {
+			newEvents = append(newEvents, EventReference{
+				EventID:     eventID,
+				EventSHA256: base64FromEventID(eventID),
+			})
+		}
+		return newEvents
+	case []EventReference:
+		return evs
+	case []interface{}:
+		evRefs := make([]EventReference, 0, len(evs))
+		for _, b := range evs {
+			evID, ok := b.(string)
+			if ok {
+				evRefs = append(evRefs, EventReference{
+					EventID:     evID,
+					EventSHA256: base64FromEventID(evID)},
+				)
+				continue
+			}
+			ev, ok := b.([]interface{})
+			if ok {
+				evRefs = append(evRefs, EventReference{
+					EventID:     ev[0].(string),
+					EventSHA256: base64FromEventID(ev[0].(string))},
+				)
+				continue
+			}
+		}
+		return evRefs
+	default:
+		return []EventReference{}
+	}
+}
+
 // Build a new Event.
 // This is used when a local event is created on this server.
 // Call this after filling out the necessary fields.
@@ -112,40 +154,8 @@ func (eb *EventBuilder) Build(
 		// marshal them into 'null' instead of '[]', which is bad. Since the
 		// EventBuilder struct is instantiated outside of gomatrixserverlib
 		// let's just make sure that they haven't been left as nil slices.
-		if eventStruct.PrevEvents == nil {
-			eventStruct.PrevEvents = []EventReference{}
-		} else {
-			prevEvents, ok := eventStruct.PrevEvents.([]string)
-			if ok {
-				newPrevEvents := make([]EventReference, 0, len(prevEvents))
-				for _, eventID := range prevEvents {
-					newPrevEvents = append(newPrevEvents, EventReference{
-						EventID:     eventID,
-						EventSHA256: base64FromEventID(eventID),
-					})
-				}
-				eventStruct.PrevEvents = newPrevEvents
-			} else {
-				eventStruct.PrevEvents = []EventReference{}
-			}
-		}
-		if eventStruct.AuthEvents == nil {
-			eventStruct.AuthEvents = []EventReference{}
-		} else {
-			authEvents, ok := eventStruct.AuthEvents.([]string)
-			if ok {
-				newAuthEvents := make([]EventReference, 0, len(authEvents))
-				for _, eventID := range authEvents {
-					newAuthEvents = append(newAuthEvents, EventReference{
-						EventID:     eventID,
-						EventSHA256: base64FromEventID(eventID),
-					})
-				}
-				eventStruct.AuthEvents = newAuthEvents
-			} else {
-				eventStruct.AuthEvents = []EventReference{}
-			}
-		}
+		eventStruct.PrevEvents = ToEventReference(eventStruct.PrevEvents)
+		eventStruct.AuthEvents = ToEventReference(eventStruct.AuthEvents)
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
 		// event IDs as a []string, rather than full-blown []EventReference.
@@ -226,7 +236,7 @@ func (eb *EventBuilder) Build(
 }
 
 // Base64FromEventID returns, if possible, the base64bytes representation
-// of the given eventID. Returns nil if an error occurs while decoding the eventID.
+// of the given eventID. Returns an empty spec.Base64Bytes if an error occurs decoding.
 func base64FromEventID(eventID string) spec.Base64Bytes {
 	// In the new event format, the event ID is already the hash of
 	// the event. Since we will have generated the event ID before
