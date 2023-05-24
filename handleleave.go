@@ -15,9 +15,12 @@
 package gomatrixserverlib
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 type HandleMakeLeaveResponse struct {
@@ -37,6 +40,7 @@ type HandleMakeLeaveInput struct {
 	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, error)
 }
 
+// HandleMakeLeave handles requests to `/make_leave`
 func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, error) {
 
 	if input.UserID.Domain() != input.RequestOrigin {
@@ -97,4 +101,124 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 		RoomVersion:        input.RoomVersion,
 	}
 	return &makeLeaveResponse, nil
+}
+
+type LatestStateQuerier interface {
+	LatestState(ctx context.Context, roomID spec.RoomID, userID spec.UserID) ([]PDU, error)
+}
+
+// HandleSendLeave handles requests to `/send_leave
+// Returns the parsed event and an error.
+func HandleSendLeave(ctx context.Context,
+	requestContent []byte,
+	origin spec.ServerName,
+	roomVersion RoomVersion,
+	eventID, roomID string,
+	querier LatestStateQuerier,
+	verifier JSONVerifier,
+) (PDU, error) {
+
+	rID, err := spec.NewRoomID(roomID)
+	if err != nil {
+		return nil, err
+	}
+
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, spec.UnsupportedRoomVersion(fmt.Sprintf("QueryRoomVersionForRoom returned unknown version: %s", roomVersion))
+
+	}
+
+	// Decode the event JSON from the request.
+	event, err := verImpl.NewEventFromUntrustedJSON(requestContent)
+	switch err.(type) {
+	case BadJSONError:
+		return nil, spec.BadJSON(err.Error())
+	case nil:
+	default:
+		return nil, spec.NotJSON("The request body could not be decoded into valid JSON. " + err.Error())
+	}
+
+	// Check that the room ID is correct.
+	if (event.RoomID()) != roomID {
+		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the leave event JSON")
+	}
+
+	// Check that the event ID is correct.
+	if event.EventID() != eventID {
+		return nil, spec.BadJSON("The event ID in the request path must match the event ID in the leave event JSON")
+
+	}
+
+	if event.StateKey() == nil || event.StateKeyEquals("") {
+		return nil, spec.BadJSON("No state key was provided in the leave event.")
+	}
+	if !event.StateKeyEquals(event.Sender()) {
+		return nil, spec.BadJSON("Event state key must match the event sender.")
+	}
+
+	leavingUser, err := spec.NewUserID(*event.StateKey(), true)
+	if err != nil {
+		return nil, spec.Forbidden("The leaving user ID is invalid")
+	}
+
+	// Check that the sender belongs to the server that is sending us
+	// the request. By this point we've already asserted that the sender
+	// and the state key are equal so we don't need to check both.
+	sender, err := spec.NewUserID(event.Sender(), true)
+	if err != nil {
+		return nil, spec.Forbidden("The sender of the join is invalid")
+	}
+	if sender.Domain() != origin {
+		return nil, spec.Forbidden("The sender does not match the server that originated the request")
+	}
+
+	stateEvents, err := querier.LatestState(ctx, *rID, *leavingUser)
+	if err != nil {
+		return nil, err
+	}
+	// handle cases we can no-op
+	switch {
+	case len(stateEvents) == 0:
+		return nil, nil
+	case len(stateEvents) == 1:
+		if mem, merr := stateEvents[0].Membership(); merr == nil && mem == spec.Leave {
+			return nil, nil
+		}
+	case event.EventID() == stateEvents[0].EventID():
+		return nil, nil
+	}
+
+	// Check that the event is signed by the server sending the request.
+	redacted, err := verImpl.RedactEventJSON(event.JSON())
+	if err != nil {
+		logrus.WithError(err).Errorf("XXX: leave.go")
+		return nil, spec.BadJSON("The event JSON could not be redacted")
+	}
+	verifyRequests := []VerifyJSONRequest{{
+		ServerName:             sender.Domain(),
+		Message:                redacted,
+		AtTS:                   event.OriginServerTS(),
+		StrictValidityChecking: true,
+	}}
+	verifyResults, err := verifier.VerifyJSONs(ctx, verifyRequests)
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("keys.VerifyJSONs failed")
+		return nil, spec.InternalServerError{}
+	}
+	if verifyResults[0].Error != nil {
+		return nil, spec.Forbidden("The leave must be signed by the server it originated on")
+	}
+
+	// check membership is set to leave
+	mem, err := event.Membership()
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("event.Membership failed")
+		return nil, spec.BadJSON("missing content.membership key")
+	}
+	if mem != spec.Leave {
+		return nil, spec.BadJSON("The membership in the event content must be set to leave")
+	}
+
+	return event, nil
 }
