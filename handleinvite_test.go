@@ -11,7 +11,20 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-type TestInviteQuerier struct {
+type TestRoomQuerier struct{}
+
+func (r *TestRoomQuerier) IsKnownRoom(ctx context.Context, roomID spec.RoomID) (bool, error) {
+	return false, nil
+}
+
+type TestStateQuerier struct{}
+
+func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEventProvider, error) {
+	return nil, nil
+}
+
+func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error) {
+	return nil, nil
 }
 
 func TestHandleInvite(t *testing.T) {
@@ -39,7 +52,9 @@ func TestHandleInvite(t *testing.T) {
 			input: HandleInviteInput{
 				RoomID:            *validRoom,
 				RoomVersion:       "",
+				RoomQuerier:       &TestRoomQuerier{},
 				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{},
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -91,7 +106,34 @@ func TestHandleInviteNilVerifier(t *testing.T) {
 			KeyID:             keyID,
 			PrivateKey:        sk,
 			Verifier:          nil,
+			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
+		})
+	})
+}
+
+func TestHandleInviteNilRoomQuerier(t *testing.T) {
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleInvite(context.Background(), HandleInviteInput{
+			RoomID:            *validRoom,
+			RoomVersion:       "",
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+			RoomQuerier:       nil,
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
 		})
 	})
 }
@@ -114,7 +156,34 @@ func TestHandleInviteNilMembershipQuerier(t *testing.T) {
 			KeyID:             keyID,
 			PrivateKey:        sk,
 			Verifier:          verifier,
+			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: nil,
+			StateQuerier:      &TestStateQuerier{},
+		})
+	})
+}
+
+func TestHandleInviteNilStateQuerier(t *testing.T) {
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleInvite(context.Background(), HandleInviteInput{
+			RoomID:            *validRoom,
+			RoomVersion:       "",
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+			RoomQuerier:       &TestRoomQuerier{},
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      nil,
 		})
 	})
 }
@@ -137,7 +206,9 @@ func TestHandleInviteNilContext(t *testing.T) {
 			KeyID:             keyID,
 			PrivateKey:        sk,
 			Verifier:          verifier,
+			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
 		})
 	})
 }

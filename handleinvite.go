@@ -35,7 +35,7 @@ type HandleInviteInput struct {
 	PrivateKey ed25519.PrivateKey // Used to sign the original invite event
 	Verifier   JSONVerifier       // Used to verify the original invite event
 
-	InviteQuerier     RoomQuerier       // Provides information about the room
+	RoomQuerier       RoomQuerier       // Provides information about the room
 	MembershipQuerier MembershipQuerier // Provides information about the room's membership
 	StateQuerier      StateQuerier      // Provides access to state events
 }
@@ -44,8 +44,8 @@ type HandleInviteInput struct {
 // to return back to the remote server.
 // On success returns a fully formed & signed Invite Event
 func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
-	if input.MembershipQuerier == nil {
-		panic("Missing valid MembershipQuerier")
+	if input.RoomQuerier == nil || input.MembershipQuerier == nil || input.StateQuerier == nil {
+		panic("Missing valid Querier")
 	}
 	if input.Verifier == nil {
 		panic("Missing valid JSONVerifier")
@@ -103,7 +103,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.BadJSON("The state key must be populated")
 	}
 
-	isKnownRoom, err := input.InviteQuerier.IsKnownRoom(ctx, input.RoomID)
+	isKnownRoom, err := input.RoomQuerier.IsKnownRoom(ctx, input.RoomID)
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("failed querying known room")
 		return nil, spec.InternalServerError{}
