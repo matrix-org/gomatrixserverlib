@@ -75,8 +75,8 @@ type eventFields struct {
 type eventFormatV1Fields struct {
 	eventFields
 	EventID    string           `json:"event_id,omitempty"`
-	PrevEvents []EventReference `json:"prev_events"`
-	AuthEvents []EventReference `json:"auth_events"`
+	PrevEvents []eventReference `json:"prev_events"`
+	AuthEvents []eventReference `json:"auth_events"`
 }
 
 // Fields for room versions 3, 4, 5.
@@ -86,7 +86,7 @@ type eventFormatV2Fields struct {
 	AuthEvents []string `json:"auth_events"`
 }
 
-var emptyEventReferenceList = []EventReference{}
+var emptyEventReferenceList = []eventReference{}
 
 // newEventFromUntrustedJSON loads a new event from some JSON that may be invalid.
 // This checks that the event is valid JSON.
@@ -520,7 +520,7 @@ func (e *event) generateEventID() (eventID string, err error) {
 	case EventFormatV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
 	case EventFormatV2:
-		var reference EventReference
+		var reference eventReference
 		reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
 		if err != nil {
 			return
@@ -784,10 +784,10 @@ func SplitID(sigil byte, id string) (local string, domain spec.ServerName, err e
 // situation.
 func (e *eventFormatV1Fields) fixNilSlices() {
 	if e.AuthEvents == nil {
-		e.AuthEvents = []EventReference{}
+		e.AuthEvents = []eventReference{}
 	}
 	if e.PrevEvents == nil {
-		e.PrevEvents = []EventReference{}
+		e.PrevEvents = []eventReference{}
 	}
 }
 

@@ -107,10 +107,10 @@ func getBaseStateResV2Graph() []PDU {
 					StateKey:       &ALICE,
 					Content:        []byte(`{"membership": "join"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 				},
 			},
@@ -127,10 +127,10 @@ func getBaseStateResV2Graph() []PDU {
 					StateKey:       &emptyStateKey,
 					Content:        []byte(`{"users": {"` + ALICE + `": 100}}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IMA:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IMA:example.com"},
 				},
@@ -148,10 +148,10 @@ func getBaseStateResV2Graph() []PDU {
 					StateKey:       &emptyStateKey,
 					Content:        []byte(`{"join_rule": "public"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IPOWER:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IMA:example.com"},
 					{EventID: "$IPOWER:example.com"},
@@ -170,10 +170,10 @@ func getBaseStateResV2Graph() []PDU {
 					StateKey:       &BOB,
 					Content:        []byte(`{"membership": "join"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IJR:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IJR:example.com"},
 					{EventID: "$IPOWER:example.com"},
@@ -192,10 +192,10 @@ func getBaseStateResV2Graph() []PDU {
 					StateKey:       &CHARLIE,
 					Content:        []byte(`{"membership": "join"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IMB:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IJR:example.com"},
 					{EventID: "$IPOWER:example.com"},
@@ -244,10 +244,10 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					"` + BOB + `": 50
 				}}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IMZJOIN:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IMA:example.com"},
 					{EventID: "$IPOWER:example.com"},
@@ -269,10 +269,10 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					"` + BOB + `": 50
 				}}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IMC:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IMA:example.com"},
 					{EventID: "$IPOWER:example.com"},
@@ -291,10 +291,10 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					StateKey:       &EVELYN,
 					Content:        []byte(`{"membership": "ban"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$PA:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IMA:example.com"},
 					{EventID: "$PB:example.com"},
@@ -313,10 +313,10 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 					StateKey:       &EVELYN,
 					Content:        []byte(`{"membership": "join"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$MB:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IJR:example.com"},
 					{EventID: "$PA:example.com"},
@@ -346,10 +346,10 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 					StateKey:       &emptyStateKey,
 					Content:        []byte(`{"join_rule": "invite"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$IMZ:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$IMA:example.com"},
 					{EventID: "$IPOWER:example.com"},
@@ -368,10 +368,10 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 					StateKey:       &ZARA,
 					Content:        []byte(`{"membership": "join"}`),
 				},
-				PrevEvents: []EventReference{
+				PrevEvents: []eventReference{
 					{EventID: "$JR:example.com"},
 				},
-				AuthEvents: []EventReference{
+				AuthEvents: []eventReference{
 					{EventID: "$CREATE:example.com"},
 					{EventID: "$JR:example.com"},
 					{EventID: "$IPOWER:example.com"},

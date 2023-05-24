@@ -76,8 +76,8 @@ type StateKeyTuple struct {
 	StateKey string
 }
 
-// An EventReference is a reference to a matrix event.
-type EventReference struct {
+// An eventReference is a reference to a matrix event.
+type eventReference struct {
 	// The event ID of the event.
 	EventID string
 	// The sha256 of the redacted event.
@@ -85,7 +85,7 @@ type EventReference struct {
 }
 
 // UnmarshalJSON implements json.Unmarshaller
-func (er *EventReference) UnmarshalJSON(data []byte) error {
+func (er *eventReference) UnmarshalJSON(data []byte) error {
 	var tuple []spec.RawJSON
 	if err := json.Unmarshal(data, &tuple); err != nil {
 		return err
@@ -107,7 +107,7 @@ func (er *EventReference) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements json.Marshaller
-func (er EventReference) MarshalJSON() ([]byte, error) {
+func (er eventReference) MarshalJSON() ([]byte, error) {
 	hashes := struct {
 		SHA256 spec.Base64Bytes `json:"sha256"`
 	}{er.EventSHA256}

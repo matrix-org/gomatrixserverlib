@@ -24,10 +24,10 @@ type EventBuilder struct {
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
 	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceded this event in the room history. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
+	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	PrevEvents interface{} `json:"prev_events"`
 	// The events needed to authenticate this event. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
+	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	AuthEvents interface{} `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
@@ -76,27 +76,27 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 }
 
 // TODO: Remove?
-func toEventReference(data any) []EventReference {
+func toEventReference(data any) []eventReference {
 	switch evs := data.(type) {
 	case nil:
-		return []EventReference{}
+		return []eventReference{}
 	case []string:
-		newEvents := make([]EventReference, 0, len(evs))
+		newEvents := make([]eventReference, 0, len(evs))
 		for _, eventID := range evs {
-			newEvents = append(newEvents, EventReference{
+			newEvents = append(newEvents, eventReference{
 				EventID:     eventID,
 				EventSHA256: base64FromEventID(eventID),
 			})
 		}
 		return newEvents
-	case []EventReference:
+	case []eventReference:
 		return evs
 	case []interface{}:
-		evRefs := make([]EventReference, 0, len(evs))
+		evRefs := make([]eventReference, 0, len(evs))
 		for _, b := range evs {
 			evID, ok := b.(string)
 			if ok {
-				evRefs = append(evRefs, EventReference{
+				evRefs = append(evRefs, eventReference{
 					EventID:     evID,
 					EventSHA256: base64FromEventID(evID)},
 				)
@@ -104,7 +104,7 @@ func toEventReference(data any) []EventReference {
 			}
 			ev, ok := b.([]interface{})
 			if ok {
-				evRefs = append(evRefs, EventReference{
+				evRefs = append(evRefs, eventReference{
 					EventID:     ev[0].(string),
 					EventSHA256: base64FromEventID(ev[0].(string))},
 				)
@@ -113,7 +113,7 @@ func toEventReference(data any) []EventReference {
 		}
 		return evRefs
 	default:
-		return []EventReference{}
+		return []eventReference{}
 	}
 }
 
@@ -140,7 +140,7 @@ func (eb *EventBuilder) Build(
 		// This key is either absent or an empty list.
 		// If it is absent then the pointer is nil and omitempty removes it.
 		// Otherwise it points to an empty list and omitempty keeps it.
-		PrevState *[]EventReference `json:"prev_state,omitempty"`
+		PrevState *[]eventReference `json:"prev_state,omitempty"`
 	}
 	eventStruct.EventBuilder = *eb
 	if eventIDFormat == EventIDFormatV1 {
@@ -158,14 +158,14 @@ func (eb *EventBuilder) Build(
 		eventStruct.AuthEvents = toEventReference(eventStruct.AuthEvents)
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
-		// event IDs as a []string, rather than full-blown []EventReference.
+		// event IDs as a []string, rather than full-blown []eventReference.
 		// Since gomatrixserverlib otherwise deals with EventReferences,
 		// take the event IDs out of these and replace the prev_events and
 		// auth_events with those new arrays.
 		switch prevEvents := eventStruct.PrevEvents.(type) {
 		case []string:
 			eventStruct.PrevEvents = prevEvents
-		case []EventReference:
+		case []eventReference:
 			resPrevEvents := []string{}
 			for _, prevEvent := range prevEvents {
 				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
@@ -177,7 +177,7 @@ func (eb *EventBuilder) Build(
 		switch authEvents := eventStruct.AuthEvents.(type) {
 		case []string:
 			eventStruct.AuthEvents = authEvents
-		case []EventReference:
+		case []eventReference:
 			resAuthEvents := []string{}
 			for _, authEvent := range authEvents {
 				resAuthEvents = append(resAuthEvents, authEvent.EventID)
