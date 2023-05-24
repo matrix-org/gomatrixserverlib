@@ -17,8 +17,11 @@ package gomatrixserverlib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 type RoomQuerier interface {
@@ -86,8 +89,22 @@ func (i *InviteStrippedState) Sender() string {
 }
 
 func GenerateStrippedState(
-	ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple, inviteEvent PDU, stateQuerier StateQuerier,
+	ctx context.Context, roomID spec.RoomID, inviteEvent PDU, stateQuerier StateQuerier,
 ) ([]InviteStrippedState, error) {
+	// "If they are set on the room, at least the state for m.room.avatar, m.room.canonical_alias, m.room.join_rules, and m.room.name SHOULD be included."
+	// https://matrix.org/docs/spec/client_server/r0.6.0#m-room-member
+	stateWanted := []StateKeyTuple{}
+	for _, t := range []string{
+		spec.MRoomName, spec.MRoomCanonicalAlias,
+		spec.MRoomJoinRules, spec.MRoomAvatar,
+		spec.MRoomEncryption, spec.MRoomCreate,
+	} {
+		stateWanted = append(stateWanted, StateKeyTuple{
+			EventType: t,
+			StateKey:  "",
+		})
+	}
+
 	stateEvents, err := stateQuerier.GetState(ctx, roomID, stateWanted)
 	if err != nil {
 		return nil, err
@@ -103,4 +120,70 @@ func GenerateStrippedState(
 		return inviteState, nil
 	}
 	return nil, nil
+}
+
+func abortIfAlreadyJoined(ctx context.Context, roomID spec.RoomID, invitedUser spec.UserID, membershipQuerier MembershipQuerier) error {
+	membership, err := membershipQuerier.CurrentMembership(ctx, roomID, invitedUser)
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("failed getting user membership")
+		return spec.InternalServerError{}
+
+	}
+	isAlreadyJoined := (membership == spec.Join)
+
+	if isAlreadyJoined {
+		// If the user is joined to the room then that takes precedence over this
+		// invite event. It makes little sense to move a user that is already
+		// joined to the room into the invite state.
+		// This could plausibly happen if an invite request raced with a join
+		// request for a user. For example if a user was invited to a public
+		// room and they joined the room at the same time as the invite was sent.
+		// The other way this could plausibly happen is if an invite raced with
+		// a kick. For example if a user was kicked from a room in error and in
+		// response someone else in the room re-invited them then it is possible
+		// for the invite request to race with the leave event so that the
+		// target receives invite before it learns that it has been kicked.
+		// There are a few ways this could be plausibly handled in the roomserver.
+		// 1) Store the invite, but mark it as retired. That will result in the
+		//    permanent rejection of that invite event. So even if the target
+		//    user leaves the room and the invite is retransmitted it will be
+		//    ignored. However a new invite with a new event ID would still be
+		//    accepted.
+		// 2) Silently discard the invite event. This means that if the event
+		//    was retransmitted at a later date after the target user had left
+		//    the room we would accept the invite. However since we hadn't told
+		//    the sending server that the invite had been discarded it would
+		//    have no reason to attempt to retry.
+		// 3) Signal the sending server that the user is already joined to the
+		//    room.
+		// For now we will implement option 2. Since in the abesence of a retry
+		// mechanism it will be equivalent to option 1, and we don't have a
+		// signalling mechanism to implement option 3.
+		util.GetLogger(ctx).Error("user is already joined to room")
+		return spec.Forbidden("user is already joined to room")
+	}
+	return nil
+}
+
+func createInviteLogger(ctx context.Context, event PDU, roomID spec.RoomID) *logrus.Entry {
+	return util.GetLogger(ctx).WithFields(map[string]interface{}{
+		"inviter":  event.Sender(),
+		"invitee":  *event.StateKey(),
+		"room_id":  roomID.String(),
+		"event_id": event.EventID(),
+	})
+}
+
+func setUnsignedFieldForInvite(event PDU, inviteState []InviteStrippedState) error {
+	if len(inviteState) == 0 {
+		if err := event.SetUnsignedField("invite_room_state", struct{}{}); err != nil {
+			return fmt.Errorf("event.SetUnsignedField: %w", err)
+		}
+	} else {
+		if err := event.SetUnsignedField("invite_room_state", inviteState); err != nil {
+			return fmt.Errorf("event.SetUnsignedField: %w", err)
+		}
+	}
+
+	return nil
 }
