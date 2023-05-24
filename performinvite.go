@@ -49,10 +49,11 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 				StateKey:  "",
 			})
 		}
-		if is, generateErr := GenerateStrippedState(ctx, input.RoomID, stateWanted, input.Event, input.StateQuerier); generateErr == nil {
-			inviteState = is
-		} else {
-			util.GetLogger(ctx).WithError(generateErr).Error("failed querying known room")
+
+		var err error
+		inviteState, err = GenerateStrippedState(ctx, input.RoomID, stateWanted, input.Event, input.StateQuerier)
+		if err != nil {
+			util.GetLogger(ctx).WithError(err).Error("failed querying known room")
 			return nil, spec.InternalServerError{}
 		}
 	}

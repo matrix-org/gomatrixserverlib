@@ -115,9 +115,9 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 				StateKey:  "",
 			})
 		}
-		if is, err := GenerateStrippedState(ctx, input.RoomID, stateWanted, signedEvent, input.StateQuerier); err == nil {
-			inviteState = is
-		} else {
+
+		inviteState, err = GenerateStrippedState(ctx, input.RoomID, stateWanted, signedEvent, input.StateQuerier)
+		if err != nil {
 			util.GetLogger(ctx).WithError(err).Error("failed querying known room")
 			return nil, spec.InternalServerError{}
 		}
