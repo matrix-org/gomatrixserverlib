@@ -119,11 +119,12 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 		return nil, spec.Forbidden(err.Error())
 	}
 
-	// TODO: Remove. This ensures we send event references instead of eventIDs
+	// This ensures we send EventReferences for room version v1 and v2. We need to do this, since we're
+	// returning the proto event, which isn't modified when running `Build`.
 	switch input.RoomVersion {
 	case RoomVersionV1, RoomVersionV2:
-		proto.AuthEvents = ToEventReference(event.AuthEventIDs())
-		proto.PrevEvents = ToEventReference(event.PrevEventIDs())
+		proto.AuthEvents = toEventReference(event.AuthEventIDs())
+		proto.PrevEvents = toEventReference(event.PrevEventIDs())
 	}
 
 	makeJoinResponse := HandleMakeJoinResponse{

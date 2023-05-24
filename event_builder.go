@@ -75,8 +75,8 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 	return nil
 }
 
-// TODO: Remove/unexport
-func ToEventReference(data any) []EventReference {
+// TODO: Remove?
+func toEventReference(data any) []EventReference {
 	switch evs := data.(type) {
 	case nil:
 		return []EventReference{}
@@ -154,8 +154,8 @@ func (eb *EventBuilder) Build(
 		// marshal them into 'null' instead of '[]', which is bad. Since the
 		// EventBuilder struct is instantiated outside of gomatrixserverlib
 		// let's just make sure that they haven't been left as nil slices.
-		eventStruct.PrevEvents = ToEventReference(eventStruct.PrevEvents)
-		eventStruct.AuthEvents = ToEventReference(eventStruct.AuthEvents)
+		eventStruct.PrevEvents = toEventReference(eventStruct.PrevEvents)
+		eventStruct.AuthEvents = toEventReference(eventStruct.AuthEvents)
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
 		// event IDs as a []string, rather than full-blown []EventReference.

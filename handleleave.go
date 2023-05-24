@@ -84,6 +84,14 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 		return nil, spec.Forbidden(err.Error())
 	}
 
+	// This ensures we send EventReferences for room version v1 and v2. We need to do this, since we're
+	// returning the proto event, which isn't modified when running `Build`.
+	switch event.Version() {
+	case RoomVersionV1, RoomVersionV2:
+		proto.PrevEvents = toEventReference(event.PrevEventIDs())
+		proto.AuthEvents = toEventReference(event.AuthEventIDs())
+	}
+
 	makeLeaveResponse := HandleMakeLeaveResponse{
 		LeaveTemplateEvent: proto,
 		RoomVersion:        input.RoomVersion,
