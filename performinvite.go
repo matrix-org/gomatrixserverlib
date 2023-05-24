@@ -34,6 +34,13 @@ type PerformInviteInput struct {
 }
 
 func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
+	logger := createInviteLogger(ctx, input.Event, input.RoomID)
+	logger.WithFields(logrus.Fields{
+		"room_version": input.Event.Version(),
+		"target_local": input.IsTargetLocal,
+		"origin_local": true,
+	}).Debug("processing invite event")
+
 	inviteState := input.StrippedState
 	if len(inviteState) == 0 {
 		var err error
@@ -44,19 +51,12 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		}
 	}
 
-	logger := createInviteLogger(ctx, input.Event, input.RoomID)
-	logger.WithFields(logrus.Fields{
-		"room_version": input.Event.Version(),
-		"target_local": input.IsTargetLocal,
-		"origin_local": true,
-	}).Debug("processing invite event")
-
-	err := setUnsignedFieldForInvite(input.Event, inviteState)
+	err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedUser, input.MembershipQuerier)
 	if err != nil {
 		return nil, err
 	}
 
-	err = abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedUser, input.MembershipQuerier)
+	err = setUnsignedFieldForInvite(input.Event, inviteState)
 	if err != nil {
 		return nil, err
 	}

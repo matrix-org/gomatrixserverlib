@@ -31,9 +31,6 @@ type HandleInviteInput struct {
 	InviteEvent   PDU
 	StrippedState []InviteStrippedState
 
-	// TODO : remove & move logic up a level
-	EventID string
-
 	KeyID      KeyID
 	PrivateKey ed25519.PrivateKey
 	Verifier   JSONVerifier
@@ -55,11 +52,6 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 	// Check that the room ID is correct.
 	if input.InviteEvent.RoomID() != input.RoomID.String() {
 		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the invite event JSON")
-	}
-
-	// Check that the event ID is correct.
-	if input.InviteEvent.EventID() != input.EventID {
-		return nil, spec.BadJSON("The event ID in the request path must match the event ID in the invite event JSON")
 	}
 
 	// Check that the event is signed by the server sending the request.
@@ -103,6 +95,12 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.InternalServerError{}
 	}
 
+	logger := createInviteLogger(ctx, signedEvent, input.RoomID)
+	logger.WithFields(logrus.Fields{
+		"room_version":     signedEvent.Version(),
+		"room_info_exists": isKnownRoom,
+	}).Debug("processing incoming federation invite event")
+
 	inviteState := input.StrippedState
 	if len(inviteState) == 0 {
 		inviteState, err = GenerateStrippedState(ctx, input.RoomID, signedEvent, input.StateQuerier)
@@ -111,26 +109,21 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 			return nil, spec.InternalServerError{}
 		}
 	}
-	// TODO: can len(inviteState) be 0 after this point? what if not a known room?
-	// if it is a known room it should never be 0...
-	// remove check in setUnsignedFieldForInvite & enforce it here
-
-	logger := createInviteLogger(ctx, signedEvent, input.RoomID)
-	logger.WithFields(logrus.Fields{
-		"room_version":     signedEvent.Version(),
-		"room_info_exists": isKnownRoom,
-	}).Debug("processing incoming federation invite event")
-
-	err = setUnsignedFieldForInvite(signedEvent, inviteState)
-	if err != nil {
-		return nil, err
-	}
 
 	if isKnownRoom {
+		if len(inviteState) == 0 {
+			util.GetLogger(ctx).WithError(err).Error("failed generating stripped state for known room")
+			return nil, spec.InternalServerError{}
+		}
 		err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedUser, input.MembershipQuerier)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	err = setUnsignedFieldForInvite(signedEvent, inviteState)
+	if err != nil {
+		return nil, err
 	}
 
 	return signedEvent, nil

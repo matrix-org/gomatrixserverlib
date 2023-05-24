@@ -107,7 +107,7 @@ func GenerateStrippedState(
 
 	stateEvents, err := stateQuerier.GetState(ctx, roomID, stateWanted)
 	if err != nil {
-		return nil, err
+		return []InviteStrippedState{}, err
 	}
 	if stateEvents != nil {
 		inviteState := []InviteStrippedState{
@@ -119,7 +119,7 @@ func GenerateStrippedState(
 		}
 		return inviteState, nil
 	}
-	return nil, nil
+	return []InviteStrippedState{}, nil
 }
 
 func abortIfAlreadyJoined(ctx context.Context, roomID spec.RoomID, invitedUser spec.UserID, membershipQuerier MembershipQuerier) error {
