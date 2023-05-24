@@ -16,7 +16,6 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -25,73 +24,18 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// InviteStrippedState is a cut-down set of fields from room state
-// events that allow the invited server to identify the room.
-type InviteStrippedState struct {
-	fields struct {
-		Content  spec.RawJSON `json:"content"`
-		StateKey *string      `json:"state_key"`
-		Type     string       `json:"type"`
-		Sender   string       `json:"sender"`
-	}
-}
-
-// NewInviteStrippedState creates a stripped state event from a
-// regular state event.
-func NewInviteStrippedState(event PDU) (ss InviteStrippedState) {
-	ss.fields.Content = event.Content()
-	ss.fields.StateKey = event.StateKey()
-	ss.fields.Type = event.Type()
-	ss.fields.Sender = event.Sender()
-	return
-}
-
-// MarshalJSON implements json.Marshaller
-func (i InviteStrippedState) MarshalJSON() ([]byte, error) {
-	return json.Marshal(i.fields)
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (i *InviteStrippedState) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &i.fields)
-}
-
-// Content returns the content of the stripped state.
-func (i *InviteStrippedState) Content() spec.RawJSON {
-	return i.fields.Content
-}
-
-// StateKey returns the state key of the stripped state.
-func (i *InviteStrippedState) StateKey() *string {
-	return i.fields.StateKey
-}
-
-// Type returns the type of the stripped state.
-func (i *InviteStrippedState) Type() string {
-	return i.fields.Type
-}
-
-// Sender returns the sender of the stripped state.
-func (i *InviteStrippedState) Sender() string {
-	return i.fields.Sender
-}
-
-type RoomQuerier interface {
-	IsKnownRoom(ctx context.Context, roomID spec.RoomID) (bool, error)
-}
-
 type HandleInviteInput struct {
-	Context               context.Context
-	RoomVersion           RoomVersion
-	RoomID                spec.RoomID
-	EventID               string
-	InvitedUser           spec.UserID
-	KeyID                 KeyID
-	PrivateKey            ed25519.PrivateKey
-	Verifier              JSONVerifier
-	InviteQuerier         RoomQuerier
-	MembershipQuerier     MembershipQuerier
-	GenerateStrippedState func(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple, inviteEvent PDU) ([]InviteStrippedState, error)
+	Context           context.Context
+	RoomVersion       RoomVersion
+	RoomID            spec.RoomID
+	EventID           string
+	InvitedUser       spec.UserID
+	KeyID             KeyID
+	PrivateKey        ed25519.PrivateKey
+	Verifier          JSONVerifier
+	InviteQuerier     RoomQuerier
+	MembershipQuerier MembershipQuerier
+	StateQuerier      StateQuerier
 
 	InviteEvent   PDU
 	StrippedState []InviteStrippedState
@@ -172,7 +116,7 @@ func HandleInvite(input HandleInviteInput) (PDU, error) {
 				StateKey:  "",
 			})
 		}
-		if is, err := input.GenerateStrippedState(input.Context, input.RoomID, stateWanted, signedEvent); err == nil {
+		if is, err := GenerateStrippedState(input.Context, input.RoomID, stateWanted, signedEvent, input.StateQuerier); err == nil {
 			inviteState = is
 		} else {
 			util.GetLogger(input.Context).WithError(err).Error("failed querying known room")

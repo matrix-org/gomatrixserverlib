@@ -23,24 +23,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type StateQuerier interface {
-	GetAuthEvents(ctx context.Context, event PDU) (AuthEventProvider, error)
-}
-
 type PerformInviteInput struct {
-	Context               context.Context
-	RoomID                spec.RoomID
-	Event                 PDU
-	InvitedUser           spec.UserID
-	IsTargetLocal         bool
-	StrippedState         []InviteStrippedState
-	MembershipQuerier     MembershipQuerier
-	StateQuerier          StateQuerier
-	GenerateStrippedState func(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple, inviteEvent PDU) ([]InviteStrippedState, error)
-}
-
-type FederatedInviteClient interface {
-	SendInvite(ctx context.Context, event PDU, strippedState []InviteStrippedState) (PDU, error)
+	Context           context.Context
+	RoomID            spec.RoomID
+	Event             PDU
+	InvitedUser       spec.UserID
+	IsTargetLocal     bool
+	StrippedState     []InviteStrippedState
+	MembershipQuerier MembershipQuerier
+	StateQuerier      StateQuerier
 }
 
 func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
@@ -59,7 +50,7 @@ func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (P
 				StateKey:  "",
 			})
 		}
-		if is, generateErr := input.GenerateStrippedState(input.Context, input.RoomID, stateWanted, input.Event); generateErr == nil {
+		if is, generateErr := GenerateStrippedState(input.Context, input.RoomID, stateWanted, input.Event, input.StateQuerier); generateErr == nil {
 			inviteState = is
 		} else {
 			util.GetLogger(input.Context).WithError(generateErr).Error("failed querying known room")
