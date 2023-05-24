@@ -44,6 +44,17 @@ type HandleInviteInput struct {
 // to return back to the remote server.
 // On success returns a fully formed & signed Invite Event
 func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
+	if input.MembershipQuerier == nil {
+		panic("Missing valid MembershipQuerier")
+	}
+	if input.Verifier == nil {
+		panic("Missing valid JSONVerifier")
+	}
+
+	if ctx == nil {
+		panic("Missing valid Context")
+	}
+
 	// Check that we can accept invites for this room version.
 	verImpl, err := GetRoomVersion(input.RoomVersion)
 	if err != nil {
