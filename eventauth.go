@@ -63,42 +63,42 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 // AuthEventReferences returns the auth_events references for the StateNeeded. Returns an error if the
 // provider returns an error. If an event is missing from the provider but is required in StateNeeded, it
 // is skipped over: no error is returned.
-func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []EventReference, err error) { // nolint: gocyclo
-	refs = []EventReference{}
+func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []string, err error) { // nolint: gocyclo
+	refs = make([]string, 0, 5) // we'll probably have about ~5 events, so pre allocate that
 	var e PDU
 	if s.Create {
 		if e, err = provider.Create(); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, e.EventReference())
+			refs = append(refs, e.EventID())
 		}
 	}
 	if s.JoinRules {
 		if e, err = provider.JoinRules(); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, e.EventReference())
+			refs = append(refs, e.EventID())
 		}
 	}
 	if s.PowerLevels {
 		if e, err = provider.PowerLevels(); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, e.EventReference())
+			refs = append(refs, e.EventID())
 		}
 	}
 	for _, userID := range s.Member {
 		if e, err = provider.Member(userID); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, e.EventReference())
+			refs = append(refs, e.EventID())
 		}
 	}
 	for _, token := range s.ThirdPartyInvite {
 		if e, err = provider.ThirdPartyInvite(token); err != nil {
 			return
 		} else if e != nil {
-			refs = append(refs, e.EventReference())
+			refs = append(refs, e.EventID())
 		}
 	}
 	return

@@ -39,10 +39,10 @@ type ProtoEvent struct {
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
 	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceded this event in the room history. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
+	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	PrevEvents interface{} `json:"prev_events"`
 	// The events needed to authenticate this event. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
+	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	AuthEvents interface{} `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
