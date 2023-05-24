@@ -23,20 +23,24 @@ import (
 )
 
 type PerformInviteInput struct {
-	RoomID        spec.RoomID
-	InvitedUser   spec.UserID
-	IsTargetLocal bool
-	Event         PDU
-	StrippedState []InviteStrippedState
+	RoomID        spec.RoomID           // The room the user is being invited to join
+	InvitedUser   spec.UserID           // The user being invited join the room
+	IsTargetLocal bool                  // Whether the user being invited is local to this server
+	InviteEvent   PDU                   // The original invite event
+	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
 
-	MembershipQuerier MembershipQuerier
-	StateQuerier      StateQuerier
+	MembershipQuerier MembershipQuerier // Provides information about the room's membership
+	StateQuerier      StateQuerier      // Provides access to state events
 }
 
+// PerformInvite - Performs all the checks required to validate the invite is allowed
+// to happen.
+// On success will return either nothing (in the case of inviting a local user) or
+// a fully formed & signed Invite Event (in the case of inviting a remote user)
 func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
-	logger := createInviteLogger(ctx, input.Event, input.RoomID)
+	logger := createInviteLogger(ctx, input.InviteEvent, input.RoomID)
 	logger.WithFields(logrus.Fields{
-		"room_version": input.Event.Version(),
+		"room_version": input.InviteEvent.Version(),
 		"target_local": input.IsTargetLocal,
 		"origin_local": true,
 	}).Debug("processing invite event")
@@ -44,7 +48,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	inviteState := input.StrippedState
 	if len(inviteState) == 0 {
 		var err error
-		inviteState, err = GenerateStrippedState(ctx, input.RoomID, input.Event, input.StateQuerier)
+		inviteState, err = GenerateStrippedState(ctx, input.RoomID, input.InviteEvent, input.StateQuerier)
 		if err != nil {
 			util.GetLogger(ctx).WithError(err).Error("failed generating stripped state")
 			return nil, spec.InternalServerError{}
@@ -56,7 +60,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		return nil, err
 	}
 
-	err = setUnsignedFieldForInvite(input.Event, inviteState)
+	err = setUnsignedFieldForInvite(input.InviteEvent, inviteState)
 	if err != nil {
 		return nil, err
 	}
@@ -65,34 +69,34 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	// try and see if the user is allowed to make this invite. We can't do
 	// this for invites coming in over federation - we have to take those on
 	// trust.
-	authEventProvider, err := input.StateQuerier.GetAuthEvents(ctx, input.Event)
+	authEventProvider, err := input.StateQuerier.GetAuthEvents(ctx, input.InviteEvent)
 	if err != nil {
-		logger.WithError(err).WithField("event_id", input.Event.EventID()).WithField("auth_event_ids", input.Event.AuthEventIDs()).Error(
+		logger.WithError(err).WithField("event_id", input.InviteEvent.EventID()).WithField("auth_event_ids", input.InviteEvent.AuthEventIDs()).Error(
 			"ProcessInvite.getAuthEvents failed for event",
 		)
 		return nil, spec.Forbidden(err.Error())
 	}
 
 	// Check if the event is allowed.
-	if err = Allowed(input.Event, authEventProvider); err != nil {
-		logger.WithError(err).WithField("event_id", input.Event.EventID()).WithField("auth_event_ids", input.Event.AuthEventIDs()).Error(
+	if err = Allowed(input.InviteEvent, authEventProvider); err != nil {
+		logger.WithError(err).WithField("event_id", input.InviteEvent.EventID()).WithField("auth_event_ids", input.InviteEvent.AuthEventIDs()).Error(
 			"ProcessInvite: event not allowed",
 		)
 		return nil, spec.Forbidden(err.Error())
 	}
 
-	// If the target isn't local then we should try and send the invite
-	// over federation first. It might be that the remote user doesn't exist,
+	// If the target isn't local then we should send the invite
+	// over federation. It might be that the remote user doesn't exist,
 	// in which case we can give up processing here.
-	var inviteEvent PDU
+	var signedEvent PDU
 	if !input.IsTargetLocal {
-		inviteEvent, err = fedClient.SendInvite(ctx, input.Event, inviteState)
+		signedEvent, err = fedClient.SendInvite(ctx, input.InviteEvent, inviteState)
 		if err != nil {
-			logger.WithError(err).WithField("event_id", input.Event.EventID()).Error("fedClient.SendInvite failed")
+			logger.WithError(err).WithField("event_id", input.InviteEvent.EventID()).Error("fedClient.SendInvite failed")
 			return nil, spec.Forbidden(err.Error())
 		}
-		logger.Debugf("Federated SendInvite success with event ID %s", input.Event.EventID())
+		logger.Debugf("Federated SendInvite success with event ID %s", input.InviteEvent.EventID())
 	}
 
-	return inviteEvent, nil
+	return signedEvent, nil
 }

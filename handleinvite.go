@@ -25,21 +25,24 @@ import (
 )
 
 type HandleInviteInput struct {
-	RoomID        spec.RoomID
-	RoomVersion   RoomVersion
-	InvitedUser   spec.UserID
-	InviteEvent   PDU
-	StrippedState []InviteStrippedState
+	RoomID        spec.RoomID           // The room that the user is being invited to join
+	RoomVersion   RoomVersion           // The version of the invited to room
+	InvitedUser   spec.UserID           // The user being invited to join the room
+	InviteEvent   PDU                   // The original invite event
+	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
 
-	KeyID      KeyID
-	PrivateKey ed25519.PrivateKey
-	Verifier   JSONVerifier
+	KeyID      KeyID              // Used to sign the original invite event
+	PrivateKey ed25519.PrivateKey // Used to sign the original invite event
+	Verifier   JSONVerifier       // Used to verify the original invite event
 
-	InviteQuerier     RoomQuerier
-	MembershipQuerier MembershipQuerier
-	StateQuerier      StateQuerier
+	InviteQuerier     RoomQuerier       // Provides information about the room
+	MembershipQuerier MembershipQuerier // Provides information about the room's membership
+	StateQuerier      StateQuerier      // Provides access to state events
 }
 
+// HandleInvite - Ensures the incoming invite request is valid and signs the event
+// to return back to the remote server.
+// On success returns a fully formed & signed Invite Event
 func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 	// Check that we can accept invites for this room version.
 	verImpl, err := GetRoomVersion(input.RoomVersion)
