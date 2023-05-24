@@ -85,7 +85,7 @@ func toEventReference(data any) []eventReference {
 		for _, eventID := range evs {
 			newEvents = append(newEvents, eventReference{
 				EventID:     eventID,
-				EventSHA256: base64FromEventID(eventID),
+				EventSHA256: eventHashFromEventID(eventID),
 			})
 		}
 		return newEvents
@@ -98,7 +98,7 @@ func toEventReference(data any) []eventReference {
 			if ok {
 				evRefs = append(evRefs, eventReference{
 					EventID:     evID,
-					EventSHA256: base64FromEventID(evID)},
+					EventSHA256: eventHashFromEventID(evID)},
 				)
 				continue
 			}
@@ -106,7 +106,7 @@ func toEventReference(data any) []eventReference {
 			if ok {
 				evRefs = append(evRefs, eventReference{
 					EventID:     ev[0].(string),
-					EventSHA256: base64FromEventID(ev[0].(string))},
+					EventSHA256: eventHashFromEventID(ev[0].(string))},
 				)
 				continue
 			}
@@ -158,31 +158,16 @@ func (eb *EventBuilder) Build(
 		eventStruct.AuthEvents = toEventReference(eventStruct.AuthEvents)
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
-		// event IDs as a []string, rather than full-blown []eventReference.
-		// Since gomatrixserverlib otherwise deals with EventReferences,
-		// take the event IDs out of these and replace the prev_events and
-		// auth_events with those new arrays.
+		// event IDs as a []string.
 		switch prevEvents := eventStruct.PrevEvents.(type) {
 		case []string:
 			eventStruct.PrevEvents = prevEvents
-		case []eventReference:
-			resPrevEvents := []string{}
-			for _, prevEvent := range prevEvents {
-				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
-			}
-			eventStruct.PrevEvents = resPrevEvents
 		case nil:
 			eventStruct.PrevEvents = []string{}
 		}
 		switch authEvents := eventStruct.AuthEvents.(type) {
 		case []string:
 			eventStruct.AuthEvents = authEvents
-		case []eventReference:
-			resAuthEvents := []string{}
-			for _, authEvent := range authEvents {
-				resAuthEvents = append(resAuthEvents, authEvent.EventID)
-			}
-			eventStruct.AuthEvents = resAuthEvents
 		case nil:
 			eventStruct.AuthEvents = []string{}
 		}
@@ -237,7 +222,7 @@ func (eb *EventBuilder) Build(
 
 // Base64FromEventID returns, if possible, the base64bytes representation
 // of the given eventID. Returns an empty spec.Base64Bytes if an error occurs decoding.
-func base64FromEventID(eventID string) spec.Base64Bytes {
+func eventHashFromEventID(eventID string) spec.Base64Bytes {
 	// In the new event format, the event ID is already the hash of
 	// the event. Since we will have generated the event ID before
 	// now, we can just knock the sigil $ off the front and use that
