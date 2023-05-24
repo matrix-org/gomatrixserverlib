@@ -25,7 +25,6 @@ import (
 )
 
 type HandleInviteInput struct {
-	Context           context.Context
 	RoomVersion       RoomVersion
 	RoomID            spec.RoomID
 	EventID           string
@@ -41,7 +40,7 @@ type HandleInviteInput struct {
 	StrippedState []InviteStrippedState
 }
 
-func HandleInvite(input HandleInviteInput) (PDU, error) {
+func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 	// Check that we can accept invites for this room version.
 	verImpl, err := GetRoomVersion(input.RoomVersion)
 	if err != nil {
@@ -76,9 +75,9 @@ func HandleInvite(input HandleInviteInput) (PDU, error) {
 		AtTS:                   input.InviteEvent.OriginServerTS(),
 		StrictValidityChecking: true,
 	}}
-	verifyResults, err := input.Verifier.VerifyJSONs(input.Context, verifyRequests)
+	verifyResults, err := input.Verifier.VerifyJSONs(ctx, verifyRequests)
 	if err != nil {
-		util.GetLogger(input.Context).WithError(err).Error("keys.VerifyJSONs failed")
+		util.GetLogger(ctx).WithError(err).Error("keys.VerifyJSONs failed")
 		return nil, spec.InternalServerError{}
 	}
 	if verifyResults[0].Error != nil {
@@ -91,13 +90,13 @@ func HandleInvite(input HandleInviteInput) (PDU, error) {
 	)
 
 	if signedEvent.StateKey() == nil {
-		util.GetLogger(input.Context).Error("invite must be a state event")
+		util.GetLogger(ctx).Error("invite must be a state event")
 		return nil, spec.InternalServerError{}
 	}
 
-	isKnownRoom, err := input.InviteQuerier.IsKnownRoom(input.Context, input.RoomID)
+	isKnownRoom, err := input.InviteQuerier.IsKnownRoom(ctx, input.RoomID)
 	if err != nil {
-		util.GetLogger(input.Context).WithError(err).Error("failed querying known room")
+		util.GetLogger(ctx).WithError(err).Error("failed querying known room")
 		return nil, spec.InternalServerError{}
 	}
 
@@ -116,15 +115,15 @@ func HandleInvite(input HandleInviteInput) (PDU, error) {
 				StateKey:  "",
 			})
 		}
-		if is, err := GenerateStrippedState(input.Context, input.RoomID, stateWanted, signedEvent, input.StateQuerier); err == nil {
+		if is, err := GenerateStrippedState(ctx, input.RoomID, stateWanted, signedEvent, input.StateQuerier); err == nil {
 			inviteState = is
 		} else {
-			util.GetLogger(input.Context).WithError(err).Error("failed querying known room")
+			util.GetLogger(ctx).WithError(err).Error("failed querying known room")
 			return nil, spec.InternalServerError{}
 		}
 	}
 
-	logger := util.GetLogger(input.Context).WithFields(map[string]interface{}{
+	logger := util.GetLogger(ctx).WithFields(map[string]interface{}{
 		"inviter":  signedEvent.Sender(),
 		"invitee":  *signedEvent.StateKey(),
 		"room_id":  input.RoomID.String(),
@@ -137,20 +136,20 @@ func HandleInvite(input HandleInviteInput) (PDU, error) {
 
 	if len(inviteState) == 0 {
 		if err = signedEvent.SetUnsignedField("invite_room_state", struct{}{}); err != nil {
-			util.GetLogger(input.Context).WithError(err).Error("failed setting unsigned field")
+			util.GetLogger(ctx).WithError(err).Error("failed setting unsigned field")
 			return nil, spec.InternalServerError{}
 		}
 	} else {
 		if err = signedEvent.SetUnsignedField("invite_room_state", inviteState); err != nil {
-			util.GetLogger(input.Context).WithError(err).Error("failed setting unsigned field")
+			util.GetLogger(ctx).WithError(err).Error("failed setting unsigned field")
 			return nil, spec.InternalServerError{}
 		}
 	}
 
 	if isKnownRoom {
-		membership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, input.InvitedUser)
+		membership, err := input.MembershipQuerier.CurrentMembership(ctx, input.RoomID, input.InvitedUser)
 		if err != nil {
-			util.GetLogger(input.Context).WithError(err).Error("failed getting user membership")
+			util.GetLogger(ctx).WithError(err).Error("failed getting user membership")
 			return nil, spec.InternalServerError{}
 
 		}
@@ -185,7 +184,7 @@ func HandleInvite(input HandleInviteInput) (PDU, error) {
 			// mechanism it will be equivalent to option 1, and we don't have a
 			// signalling mechanism to implement option 3.
 			logger.Debugf("user already joined")
-			util.GetLogger(input.Context).Error("user is already joined to room")
+			util.GetLogger(ctx).Error("user is already joined to room")
 			return nil, spec.InternalServerError{}
 		}
 	}

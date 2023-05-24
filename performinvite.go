@@ -24,7 +24,6 @@ import (
 )
 
 type PerformInviteInput struct {
-	Context           context.Context
 	RoomID            spec.RoomID
 	Event             PDU
 	InvitedUser       spec.UserID
@@ -34,7 +33,7 @@ type PerformInviteInput struct {
 	StateQuerier      StateQuerier
 }
 
-func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
+func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
 	inviteState := input.StrippedState
 	if len(inviteState) == 0 {
 		// "If they are set on the room, at least the state for m.room.avatar, m.room.canonical_alias, m.room.join_rules, and m.room.name SHOULD be included."
@@ -50,15 +49,15 @@ func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (P
 				StateKey:  "",
 			})
 		}
-		if is, generateErr := GenerateStrippedState(input.Context, input.RoomID, stateWanted, input.Event, input.StateQuerier); generateErr == nil {
+		if is, generateErr := GenerateStrippedState(ctx, input.RoomID, stateWanted, input.Event, input.StateQuerier); generateErr == nil {
 			inviteState = is
 		} else {
-			util.GetLogger(input.Context).WithError(generateErr).Error("failed querying known room")
+			util.GetLogger(ctx).WithError(generateErr).Error("failed querying known room")
 			return nil, spec.InternalServerError{}
 		}
 	}
 
-	logger := util.GetLogger(input.Context).WithFields(map[string]interface{}{
+	logger := util.GetLogger(ctx).WithFields(map[string]interface{}{
 		"inviter":  input.Event.Sender(),
 		"invitee":  *input.Event.StateKey(),
 		"room_id":  input.RoomID.String(),
@@ -80,9 +79,9 @@ func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (P
 		}
 	}
 
-	membership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, input.InvitedUser)
+	membership, err := input.MembershipQuerier.CurrentMembership(ctx, input.RoomID, input.InvitedUser)
 	if err != nil {
-		util.GetLogger(input.Context).WithError(err).Error("failed getting user membership")
+		util.GetLogger(ctx).WithError(err).Error("failed getting user membership")
 		return nil, spec.InternalServerError{}
 
 	}
@@ -124,7 +123,7 @@ func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (P
 	// try and see if the user is allowed to make this invite. We can't do
 	// this for invites coming in over federation - we have to take those on
 	// trust.
-	authEventProvider, err := input.StateQuerier.GetAuthEvents(input.Context, input.Event)
+	authEventProvider, err := input.StateQuerier.GetAuthEvents(ctx, input.Event)
 	if err != nil {
 		logger.WithError(err).WithField("event_id", input.Event.EventID()).WithField("auth_event_ids", input.Event.AuthEventIDs()).Error(
 			"ProcessInvite.getAuthEvents failed for event",
@@ -145,7 +144,7 @@ func PerformInvite(input PerformInviteInput, fedClient FederatedInviteClient) (P
 	// in which case we can give up processing here.
 	var inviteEvent PDU
 	if !input.IsTargetLocal {
-		inviteEvent, err = fedClient.SendInvite(input.Context, input.Event, inviteState)
+		inviteEvent, err = fedClient.SendInvite(ctx, input.Event, inviteState)
 		if err != nil {
 			logger.WithError(err).WithField("event_id", input.Event.EventID()).Error("fedClient.SendInvite failed")
 			return nil, spec.Forbidden(err.Error())
