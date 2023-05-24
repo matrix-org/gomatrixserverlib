@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"unsafe"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
@@ -52,12 +51,10 @@ func (e EventValidationError) Error() string {
 // The fields have different formats depending on the room version - see
 // eventFormatV1Fields, eventFormatV2Fields.
 type event struct {
-	redacted  bool
-	eventID   string
-	eventJSON []byte
-	fields    interface {
-		CacheCost() int
-	}
+	redacted    bool
+	eventID     string
+	eventJSON   []byte
+	fields      any
 	roomVersion RoomVersion
 }
 
@@ -78,8 +75,8 @@ type eventFields struct {
 type eventFormatV1Fields struct {
 	eventFields
 	EventID    string           `json:"event_id,omitempty"`
-	PrevEvents []EventReference `json:"prev_events"`
-	AuthEvents []EventReference `json:"auth_events"`
+	PrevEvents []eventReference `json:"prev_events"`
+	AuthEvents []eventReference `json:"auth_events"`
 }
 
 // Fields for room versions 3, 4, 5.
@@ -89,57 +86,7 @@ type eventFormatV2Fields struct {
 	AuthEvents []string `json:"auth_events"`
 }
 
-func (e *event) CacheCost() int {
-	return int(unsafe.Sizeof(*e)) +
-		len(e.eventID) +
-		(cap(e.eventJSON) * 2) +
-		len(e.roomVersion) +
-		1 + // redacted bool
-		e.fields.CacheCost()
-}
-
-func (e *eventFields) CacheCost() int {
-	cost := int(unsafe.Sizeof(*e)) +
-		len(e.RoomID) +
-		len(e.Sender) +
-		len(e.Type) +
-		cap(e.Content) +
-		len(e.Redacts) +
-		4 + // depth int64
-		cap(e.Unsigned) +
-		4 // originserverts timestamp as uint64
-	if e.StateKey != nil {
-		cost += len(*e.StateKey)
-	}
-	return cost
-}
-
-func (e eventFormatV1Fields) CacheCost() int {
-	cost := e.eventFields.CacheCost() +
-		int(unsafe.Sizeof(e)) +
-		len(e.EventID)
-	for _, v := range e.PrevEvents {
-		cost += len(v.EventID) + cap(v.EventSHA256)
-	}
-	for _, v := range e.AuthEvents {
-		cost += len(v.EventID) + cap(v.EventSHA256)
-	}
-	return cost
-}
-
-func (e eventFormatV2Fields) CacheCost() int {
-	cost := e.eventFields.CacheCost() +
-		int(unsafe.Sizeof(e))
-	for _, v := range e.PrevEvents {
-		cost += len(v)
-	}
-	for _, v := range e.AuthEvents {
-		cost += len(v)
-	}
-	return cost
-}
-
-var emptyEventReferenceList = []EventReference{}
+var emptyEventReferenceList = []eventReference{}
 
 // newEventFromUntrustedJSON loads a new event from some JSON that may be invalid.
 // This checks that the event is valid JSON.
@@ -417,18 +364,6 @@ func (e *event) updateUnsignedFields(unsigned []byte) error {
 	return nil
 }
 
-// EventReference returns an EventReference for the event.
-// The reference can be used to refer to this event from other events.
-func (e *event) EventReference() EventReference {
-	reference, err := referenceOfEvent(e.eventJSON, e.roomVersion)
-	if err != nil {
-		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
-		// This can be reached if NewEventFromTrustedJSON is given JSON from an untrusted source.
-		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
-	}
-	return reference
-}
-
 // Sign returns a copy of the event with an additional signature.
 func (e *event) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
 	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
@@ -585,7 +520,7 @@ func (e *event) generateEventID() (eventID string, err error) {
 	case EventFormatV1:
 		eventID = e.fields.(eventFormatV1Fields).EventID
 	case EventFormatV2:
-		var reference EventReference
+		var reference eventReference
 		reference, err = referenceOfEvent(e.eventJSON, e.roomVersion)
 		if err != nil {
 			return
@@ -664,33 +599,6 @@ func (e *event) Content() []byte {
 		return []byte(fields.Content)
 	case eventFormatV2Fields:
 		return []byte(fields.Content)
-	default:
-		panic(e.invalidFieldType())
-	}
-}
-
-// PrevEvents returns references to the direct ancestors of the event.
-func (e *event) PrevEvents() []EventReference {
-	switch fields := e.fields.(type) {
-	case eventFormatV1Fields:
-		return fields.PrevEvents
-	case eventFormatV2Fields:
-		result := make([]EventReference, 0, len(fields.PrevEvents))
-		for _, id := range fields.PrevEvents {
-			// In the new event format, the event ID is already the hash of
-			// the event. Since we will have generated the event ID before
-			// now, we can just knock the sigil $ off the front and use that
-			// as the event SHA256.
-			var sha spec.Base64Bytes
-			if err := sha.Decode(id[1:]); err != nil {
-				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
-			}
-			result = append(result, EventReference{
-				EventID:     id,
-				EventSHA256: sha,
-			})
-		}
-		return result
 	default:
 		panic(e.invalidFieldType())
 	}
@@ -795,29 +703,6 @@ func (e *event) PowerLevels() (*PowerLevelContent, error) {
 	return &c, nil
 }
 
-// AuthEvents returns references to the events needed to auth the event.
-func (e *event) AuthEvents() []EventReference {
-	switch fields := e.fields.(type) {
-	case eventFormatV1Fields:
-		return fields.AuthEvents
-	case eventFormatV2Fields:
-		result := make([]EventReference, 0, len(fields.AuthEvents))
-		for _, id := range fields.AuthEvents {
-			var sha spec.Base64Bytes
-			if err := sha.Decode(id[1:]); err != nil {
-				panic("gomatrixserverlib: event ID is malformed: " + err.Error())
-			}
-			result = append(result, EventReference{
-				EventID:     id,
-				EventSHA256: sha,
-			})
-		}
-		return result
-	default:
-		panic(e.invalidFieldType())
-	}
-}
-
 // AuthEventIDs returns the event IDs of the events needed to auth the event.
 func (e *event) AuthEventIDs() []string {
 	switch fields := e.fields.(type) {
@@ -899,10 +784,10 @@ func SplitID(sigil byte, id string) (local string, domain spec.ServerName, err e
 // situation.
 func (e *eventFormatV1Fields) fixNilSlices() {
 	if e.AuthEvents == nil {
-		e.AuthEvents = []EventReference{}
+		e.AuthEvents = []eventReference{}
 	}
 	if e.PrevEvents == nil {
-		e.PrevEvents = []EventReference{}
+		e.PrevEvents = []eventReference{}
 	}
 }
 

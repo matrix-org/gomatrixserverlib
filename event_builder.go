@@ -24,10 +24,10 @@ type EventBuilder struct {
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
 	StateKey *string `json:"state_key,omitempty"`
 	// The events that immediately preceded this event in the room history. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
+	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	PrevEvents interface{} `json:"prev_events"`
 	// The events needed to authenticate this event. This can be
-	// either []EventReference for room v1/v2, and []string for room v3 onwards.
+	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	AuthEvents interface{} `json:"auth_events"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
@@ -75,6 +75,48 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 	return nil
 }
 
+// TODO: Remove?
+func toEventReference(data any) []eventReference {
+	switch evs := data.(type) {
+	case nil:
+		return []eventReference{}
+	case []string:
+		newEvents := make([]eventReference, 0, len(evs))
+		for _, eventID := range evs {
+			newEvents = append(newEvents, eventReference{
+				EventID:     eventID,
+				EventSHA256: eventHashFromEventID(eventID),
+			})
+		}
+		return newEvents
+	case []eventReference:
+		return evs
+	case []interface{}:
+		evRefs := make([]eventReference, 0, len(evs))
+		for _, b := range evs {
+			evID, ok := b.(string)
+			if ok {
+				evRefs = append(evRefs, eventReference{
+					EventID:     evID,
+					EventSHA256: eventHashFromEventID(evID)},
+				)
+				continue
+			}
+			ev, ok := b.([]interface{})
+			if ok {
+				evRefs = append(evRefs, eventReference{
+					EventID:     ev[0].(string),
+					EventSHA256: eventHashFromEventID(ev[0].(string))},
+				)
+				continue
+			}
+		}
+		return evRefs
+	default:
+		return []eventReference{}
+	}
+}
+
 // Build a new Event.
 // This is used when a local event is created on this server.
 // Call this after filling out the necessary fields.
@@ -98,7 +140,7 @@ func (eb *EventBuilder) Build(
 		// This key is either absent or an empty list.
 		// If it is absent then the pointer is nil and omitempty removes it.
 		// Otherwise it points to an empty list and omitempty keeps it.
-		PrevState *[]EventReference `json:"prev_state,omitempty"`
+		PrevState *[]eventReference `json:"prev_state,omitempty"`
 	}
 	eventStruct.EventBuilder = *eb
 	if eventIDFormat == EventIDFormatV1 {
@@ -112,39 +154,20 @@ func (eb *EventBuilder) Build(
 		// marshal them into 'null' instead of '[]', which is bad. Since the
 		// EventBuilder struct is instantiated outside of gomatrixserverlib
 		// let's just make sure that they haven't been left as nil slices.
-		if eventStruct.PrevEvents == nil {
-			eventStruct.PrevEvents = []EventReference{}
-		}
-		if eventStruct.AuthEvents == nil {
-			eventStruct.AuthEvents = []EventReference{}
-		}
+		eventStruct.PrevEvents = toEventReference(eventStruct.PrevEvents)
+		eventStruct.AuthEvents = toEventReference(eventStruct.AuthEvents)
 	case EventFormatV2:
 		// In this event format, prev_events and auth_events are lists of
-		// event IDs as a []string, rather than full-blown []EventReference.
-		// Since gomatrixserverlib otherwise deals with EventReferences,
-		// take the event IDs out of these and replace the prev_events and
-		// auth_events with those new arrays.
+		// event IDs as a []string.
 		switch prevEvents := eventStruct.PrevEvents.(type) {
 		case []string:
 			eventStruct.PrevEvents = prevEvents
-		case []EventReference:
-			resPrevEvents := []string{}
-			for _, prevEvent := range prevEvents {
-				resPrevEvents = append(resPrevEvents, prevEvent.EventID)
-			}
-			eventStruct.PrevEvents = resPrevEvents
 		case nil:
 			eventStruct.PrevEvents = []string{}
 		}
 		switch authEvents := eventStruct.AuthEvents.(type) {
 		case []string:
 			eventStruct.AuthEvents = authEvents
-		case []EventReference:
-			resAuthEvents := []string{}
-			for _, authEvent := range authEvents {
-				resAuthEvents = append(resAuthEvents, authEvent.EventID)
-			}
-			eventStruct.AuthEvents = resAuthEvents
 		case nil:
 			eventStruct.AuthEvents = []string{}
 		}
@@ -195,4 +218,18 @@ func (eb *EventBuilder) Build(
 	}
 
 	return res, nil
+}
+
+// Base64FromEventID returns, if possible, the base64bytes representation
+// of the given eventID. Returns an empty spec.Base64Bytes if an error occurs decoding.
+func eventHashFromEventID(eventID string) spec.Base64Bytes {
+	// In the new event format, the event ID is already the hash of
+	// the event. Since we will have generated the event ID before
+	// now, we can just knock the sigil $ off the front and use that
+	// as the event SHA256.
+	var sha spec.Base64Bytes
+	if err := sha.Decode(eventID[1:]); err != nil {
+		return sha
+	}
+	return sha
 }
