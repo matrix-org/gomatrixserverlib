@@ -15,23 +15,30 @@ import (
 
 type TestRoomQuerier struct {
 	shouldFail bool
+	knownRoom  bool
 }
 
 func (r *TestRoomQuerier) IsKnownRoom(ctx context.Context, roomID spec.RoomID) (bool, error) {
 	if r.shouldFail {
 		return false, fmt.Errorf("failed finding room")
 	}
-	return false, nil
+	return r.knownRoom, nil
 }
 
-type TestStateQuerier struct{}
+type TestStateQuerier struct {
+	shouldFail bool
+	state      []PDU
+}
 
 func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEventProvider, error) {
 	return nil, nil
 }
 
 func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error) {
-	return nil, nil
+	if r.shouldFail {
+		return nil, fmt.Errorf("failed getting state")
+	}
+	return r.state, nil
 }
 
 func TestHandleInvite(t *testing.T) {
@@ -51,6 +58,23 @@ func TestHandleInvite(t *testing.T) {
 	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
+
+	stateKey = ""
+	createEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Sender:     userID.String(),
+		RoomID:     validRoom.String(),
+		Type:       "m.room.create",
+		StateKey:   &stateKey,
+		PrevEvents: []interface{}{},
+		AuthEvents: []interface{}{},
+		Depth:      0,
+		Content:    spec.RawJSON(`{"creator":"@user:server","m.federate":true,"room_version":"10"}`),
+		Unsigned:   spec.RawJSON(""),
+	})
+	createEvent, err := createEB.Build(time.Now(), userID.Domain(), keyID, sk)
+	if err != nil {
+		t.Fatalf("Failed building create event: %v", err)
+	}
 
 	type ErrorType int
 	const (
@@ -113,6 +137,86 @@ func TestHandleInvite(t *testing.T) {
 			},
 			expectedErr: true,
 			errType:     InternalErr,
+		},
+		"known_room_no_state": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{knownRoom: true},
+				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     InternalErr,
+		},
+		"known_room_already_joined": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{knownRoom: true},
+				MembershipQuerier: &TestMembershipQuerier{membership: spec.Join},
+				StateQuerier:      &TestStateQuerier{state: []PDU{createEvent}},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorForbidden,
+		},
+		"known_room_state_query_error": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{knownRoom: true},
+				MembershipQuerier: &TestMembershipQuerier{membership: ""},
+				StateQuerier:      &TestStateQuerier{shouldFail: true},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     InternalErr,
+		},
+		"known_room_not_already_joined_membership_error": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{knownRoom: true},
+				MembershipQuerier: &TestMembershipQuerier{memberEventErr: true},
+				StateQuerier:      &TestStateQuerier{state: []PDU{createEvent}},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     InternalErr,
+		},
+		"known_room_not_already_joined": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{knownRoom: true},
+				MembershipQuerier: &TestMembershipQuerier{membership: ""},
+				StateQuerier:      &TestStateQuerier{state: []PDU{createEvent}},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: false,
 		},
 		"success_no_room_state": {
 			input: HandleInviteInput{
