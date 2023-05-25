@@ -20,7 +20,6 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
-	"github.com/sirupsen/logrus"
 )
 
 type HandleMakeLeaveResponse struct {
@@ -126,7 +125,6 @@ func HandleSendLeave(ctx context.Context,
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
 		return nil, spec.UnsupportedRoomVersion(fmt.Sprintf("QueryRoomVersionForRoom returned unknown version: %s", roomVersion))
-
 	}
 
 	// Decode the event JSON from the request.
@@ -150,6 +148,7 @@ func HandleSendLeave(ctx context.Context,
 
 	}
 
+	// Sanity check that we really received a state event
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the leave event.")
 	}
@@ -180,19 +179,22 @@ func HandleSendLeave(ctx context.Context,
 	// handle cases we can no-op
 	switch {
 	case len(stateEvents) == 0:
+		// we weren't joined at all
 		return nil, nil
 	case len(stateEvents) == 1:
+		// We are/were joined/invited/banned or something
 		if mem, merr := stateEvents[0].Membership(); merr == nil && mem == spec.Leave {
 			return nil, nil
 		}
 	case event.EventID() == stateEvents[0].EventID():
+		// we already processed this event
 		return nil, nil
 	}
 
 	// Check that the event is signed by the server sending the request.
 	redacted, err := verImpl.RedactEventJSON(event.JSON())
 	if err != nil {
-		logrus.WithError(err).Errorf("XXX: leave.go")
+		util.GetLogger(ctx).WithError(err).Errorf("unable to redact event")
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 	verifyRequests := []VerifyJSONRequest{{
