@@ -26,16 +26,29 @@ func (r *TestRoomQuerier) IsKnownRoom(ctx context.Context, roomID spec.RoomID) (
 }
 
 type TestStateQuerier struct {
-	shouldFailState bool
-	shouldFailAuth  bool
-	state           []PDU
+	shouldFailState    bool
+	shouldFailAuth     bool
+	state              []PDU
+	createEvent        PDU
+	inviterMemberEvent PDU
 }
 
 func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEventProvider, error) {
 	if r.shouldFailAuth {
 		return nil, fmt.Errorf("failed getting auth provider")
 	}
-	return &AuthEvents{}, nil
+
+	eventProvider := AuthEvents{}
+	if r.createEvent != nil {
+		eventProvider = NewAuthEvents([]PDU{r.createEvent})
+		if r.inviterMemberEvent != nil {
+			err := eventProvider.AddEvent(r.inviterMemberEvent)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return &eventProvider, nil
 }
 
 func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error) {
