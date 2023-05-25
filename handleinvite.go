@@ -98,11 +98,6 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		string(input.InvitedUser.Domain()), input.KeyID, input.PrivateKey,
 	)
 
-	if signedEvent.StateKey() == nil {
-		util.GetLogger(ctx).Error("invite must be a state event")
-		return nil, spec.BadJSON("The state key must be populated")
-	}
-
 	isKnownRoom, err := input.RoomQuerier.IsKnownRoom(ctx, input.RoomID)
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("failed querying known room")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,9 +13,14 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-type TestRoomQuerier struct{}
+type TestRoomQuerier struct {
+	shouldFail bool
+}
 
 func (r *TestRoomQuerier) IsKnownRoom(ctx context.Context, roomID spec.RoomID) (bool, error) {
+	if r.shouldFail {
+		return false, fmt.Errorf("failed finding room")
+	}
 	return false, nil
 }
 
@@ -91,6 +97,22 @@ func TestHandleInvite(t *testing.T) {
 			expectedErr: true,
 			errType:     MatrixErr,
 			errCode:     spec.ErrorBadJSON,
+		},
+		"room_querier_error": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{shouldFail: true},
+				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     InternalErr,
 		},
 		"success_no_room_state": {
 			input: HandleInviteInput{
