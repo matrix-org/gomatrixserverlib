@@ -38,6 +38,13 @@ type PerformInviteInput struct {
 // On success will return either nothing (in the case of inviting a local user) or
 // a fully formed & signed Invite Event (in the case of inviting a remote user)
 func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
+	if input.MembershipQuerier == nil || input.StateQuerier == nil {
+		panic("Missing valid Querier")
+	}
+	if ctx == nil {
+		panic("Missing valid Context")
+	}
+
 	logger := createInviteLogger(ctx, input.InviteEvent, input.RoomID)
 	logger.WithFields(logrus.Fields{
 		"room_version": input.InviteEvent.Version(),

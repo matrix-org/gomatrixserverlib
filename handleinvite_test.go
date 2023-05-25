@@ -31,7 +31,7 @@ type TestStateQuerier struct {
 }
 
 func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEventProvider, error) {
-	return nil, nil
+	return &AuthEvents{}, nil
 }
 
 func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error) {
