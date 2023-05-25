@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/stretchr/testify/assert"
@@ -28,13 +29,22 @@ func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, sta
 }
 
 func TestHandleInvite(t *testing.T) {
+	userID, err := spec.NewUserID("@user:server", true)
+	assert.Nil(t, err)
 	validRoom, err := spec.NewRoomID("!room:server")
+	assert.Nil(t, err)
+	badRoom, err := spec.NewRoomID("!bad:room")
 	assert.Nil(t, err)
 
 	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	assert.Nil(t, err)
 	keyID := KeyID("ed25519:1234")
 	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	stateKey := userID.String()
+	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
 
 	type ErrorType int
 	const (
@@ -52,6 +62,8 @@ func TestHandleInvite(t *testing.T) {
 			input: HandleInviteInput{
 				RoomID:            *validRoom,
 				RoomVersion:       "",
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
 				RoomQuerier:       &TestRoomQuerier{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{},
@@ -62,6 +74,38 @@ func TestHandleInvite(t *testing.T) {
 			expectedErr: true,
 			errType:     MatrixErr,
 			errCode:     spec.ErrorUnsupportedRoomVersion,
+		},
+		"mismatched_room_ids": {
+			input: HandleInviteInput{
+				RoomID:            *badRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{},
+				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorBadJSON,
+		},
+		"success_no_room_state": {
+			input: HandleInviteInput{
+				RoomID:            *validRoom,
+				RoomVersion:       RoomVersionV10,
+				InvitedUser:       *userID,
+				InviteEvent:       inviteEvent,
+				RoomQuerier:       &TestRoomQuerier{},
+				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{},
+				KeyID:             keyID,
+				PrivateKey:        sk,
+				Verifier:          verifier,
+			},
+			expectedErr: false,
 		},
 	}
 
