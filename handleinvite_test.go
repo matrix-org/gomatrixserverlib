@@ -26,16 +26,20 @@ func (r *TestRoomQuerier) IsKnownRoom(ctx context.Context, roomID spec.RoomID) (
 }
 
 type TestStateQuerier struct {
-	shouldFail bool
-	state      []PDU
+	shouldFailState bool
+	shouldFailAuth  bool
+	state           []PDU
 }
 
 func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEventProvider, error) {
+	if r.shouldFailAuth {
+		return nil, fmt.Errorf("failed getting auth provider")
+	}
 	return &AuthEvents{}, nil
 }
 
 func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error) {
-	if r.shouldFail {
+	if r.shouldFailState {
 		return nil, fmt.Errorf("failed getting state")
 	}
 	return r.state, nil
@@ -179,7 +183,7 @@ func TestHandleInvite(t *testing.T) {
 				InviteEvent:       inviteEvent,
 				RoomQuerier:       &TestRoomQuerier{knownRoom: true},
 				MembershipQuerier: &TestMembershipQuerier{membership: ""},
-				StateQuerier:      &TestStateQuerier{shouldFail: true},
+				StateQuerier:      &TestStateQuerier{shouldFailState: true},
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,

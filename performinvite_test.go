@@ -47,6 +47,7 @@ func TestPerformInvite(t *testing.T) {
 
 	tests := map[string]struct {
 		input       PerformInviteInput
+		fedClient   FederatedInviteClient
 		expectedErr bool
 		errType     ErrorType
 		errCode     spec.MatrixErrorCode
@@ -61,6 +62,51 @@ func TestPerformInvite(t *testing.T) {
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{},
 			},
+			fedClient:   &TestFederatedInviteClient{},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorForbidden,
+		},
+		"auth_provider_error": {
+			input: PerformInviteInput{
+				RoomID:            *validRoom,
+				InvitedUser:       *userID,
+				IsTargetLocal:     true,
+				InviteEvent:       inviteEvent,
+				StrippedState:     []InviteStrippedState{},
+				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{shouldFailAuth: true},
+			},
+			fedClient:   &TestFederatedInviteClient{},
+			expectedErr: true,
+			errType:     MatrixErr,
+			errCode:     spec.ErrorForbidden,
+		},
+		"state_provider_error": {
+			input: PerformInviteInput{
+				RoomID:            *validRoom,
+				InvitedUser:       *userID,
+				IsTargetLocal:     true,
+				InviteEvent:       inviteEvent,
+				StrippedState:     []InviteStrippedState{},
+				MembershipQuerier: &TestMembershipQuerier{},
+				StateQuerier:      &TestStateQuerier{shouldFailState: true},
+			},
+			fedClient:   &TestFederatedInviteClient{},
+			expectedErr: true,
+			errType:     InternalErr,
+		},
+		"already_joined_failure": {
+			input: PerformInviteInput{
+				RoomID:            *validRoom,
+				InvitedUser:       *userID,
+				IsTargetLocal:     true,
+				InviteEvent:       inviteEvent,
+				StrippedState:     []InviteStrippedState{},
+				MembershipQuerier: &TestMembershipQuerier{membership: spec.Join},
+				StateQuerier:      &TestStateQuerier{},
+			},
+			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
 			errType:     MatrixErr,
 			errCode:     spec.ErrorForbidden,
@@ -69,7 +115,7 @@ func TestPerformInvite(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, joinErr := PerformInvite(context.Background(), tc.input, &TestFederatedInviteClient{})
+			_, joinErr := PerformInvite(context.Background(), tc.input, tc.fedClient)
 			if tc.expectedErr {
 				switch e := joinErr.(type) {
 				case nil:
