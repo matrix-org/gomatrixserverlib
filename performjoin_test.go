@@ -203,6 +203,17 @@ func TestPerformJoin(t *testing.T) {
 			ExpectedHTTPErr:     false,
 			ExpectedRoomVersion: joinEvent.Version(),
 		},
+		"invalid_key_ring": {
+			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10},
+			Input: PerformJoinInput{
+				UserID:  userID,
+				RoomID:  roomID,
+				KeyRing: nil,
+			},
+			ExpectedErr:         true,
+			ExpectedHTTPErr:     false,
+			ExpectedRoomVersion: joinEvent.Version(),
+		},
 		"make_join_http_err": {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: true, shouldSendFail: false, roomVersion: RoomVersionV10},
 			Input: PerformJoinInput{
