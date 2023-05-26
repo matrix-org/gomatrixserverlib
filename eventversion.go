@@ -18,7 +18,7 @@ type IRoomVersion interface {
 	EventFormat() EventFormat
 	EventIDFormat() EventIDFormat
 	StrictValidityChecking() bool
-	PowerLevelsIncludeNotifications() bool
+	checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
 	AllowKnockingInEventAuth(joinRule string) bool
 	AllowRestrictedJoinsInEventAuth(joinRule string) bool
 	MayAllowRestrictedJoinsInEventAuth() bool
@@ -108,7 +108,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
-		powerLevelsIncludeNotifications: false,
+		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -122,7 +122,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
-		powerLevelsIncludeNotifications: false,
+		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -136,7 +136,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
-		powerLevelsIncludeNotifications: false,
+		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -150,7 +150,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
 		enforceCanonicalJSON:            false,
-		powerLevelsIncludeNotifications: false,
+		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -164,7 +164,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            false,
-		powerLevelsIncludeNotifications: false,
+		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -178,7 +178,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -192,7 +192,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
@@ -206,7 +206,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV3,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
@@ -220,7 +220,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
@@ -234,7 +234,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       true,
@@ -248,7 +248,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       true,
@@ -262,7 +262,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
 		enforceCanonicalJSON:            true,
-		powerLevelsIncludeNotifications: true,
+		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       false,
@@ -331,7 +331,7 @@ type RoomVersionImpl struct {
 	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
 	enforceSignatureChecks          bool
 	enforceCanonicalJSON            bool
-	powerLevelsIncludeNotifications bool
+	notificationLevelCheck          func(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
 	requireIntegerPowerLevels       bool
 	stable                          bool
 }
@@ -365,10 +365,9 @@ func (v RoomVersionImpl) StrictValidityChecking() bool {
 	return v.enforceSignatureChecks
 }
 
-// PowerLevelsIncludeNotifications returns true if the given room version calls
-// for the power level checks to cover the `notifications` key or false otherwise.
-func (v RoomVersionImpl) PowerLevelsIncludeNotifications() bool {
-	return v.powerLevelsIncludeNotifications
+// checkNotificationLevels checks that the changes in notification levels are allowed.
+func (v RoomVersionImpl) checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+	return v.notificationLevelCheck(senderLevel, oldPowerLevels, newPowerLevels)
 }
 
 // AllowKnockingInEventAuth returns true if the given room version and given

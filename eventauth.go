@@ -532,14 +532,17 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	if err != nil {
 		return nil
 	}
-	if notifs := verImpl.PowerLevelsIncludeNotifications(); notifs {
-		if err = checkNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
-			return err
-		}
+	if err = verImpl.checkNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
+		return err
 	}
 
 	// Check that the changes in user levels are allowed.
 	return checkUserLevels(senderLevel, event.Sender(), oldPowerLevels, newPowerLevels)
+}
+
+// noCheckLevels doesn't perform any checks, used for room versions <= 5
+func noCheckLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+	return nil
 }
 
 // checkEventLevels checks that the changes in event levels are allowed.
