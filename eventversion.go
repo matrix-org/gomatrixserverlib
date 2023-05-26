@@ -22,7 +22,7 @@ type IRoomVersion interface {
 	AllowKnockingInEventAuth(joinRule string) bool
 	AllowRestrictedJoinsInEventAuth(joinRule string) bool
 	MayAllowRestrictedJoinsInEventAuth() bool
-	EnforceCanonicalJSON() bool
+	checkCanonicalJSON(input []byte) error
 	RequireIntegerPowerLevels() bool
 	RedactEventJSON(eventJSON []byte) ([]byte, error)
 	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error)
@@ -107,7 +107,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV1,
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
-		enforceCanonicalJSON:            false,
+		canonicalJSONCheck:              noVerifyCanonicalJSON,
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -121,7 +121,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV1,
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
-		enforceCanonicalJSON:            false,
+		canonicalJSONCheck:              noVerifyCanonicalJSON,
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -135,7 +135,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV2,
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
-		enforceCanonicalJSON:            false,
+		canonicalJSONCheck:              noVerifyCanonicalJSON,
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -149,7 +149,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          false,
-		enforceCanonicalJSON:            false,
+		canonicalJSONCheck:              noVerifyCanonicalJSON,
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -163,7 +163,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV1,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            false,
+		canonicalJSONCheck:              noVerifyCanonicalJSON,
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -177,7 +177,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -191,7 +191,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -205,7 +205,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV3,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
@@ -219,7 +219,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
@@ -233,7 +233,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
@@ -247,7 +247,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV2,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
@@ -261,7 +261,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventIDFormat:                   EventIDFormatV3,
 		redactionAlgorithm:              redactEventJSONV4,
 		enforceSignatureChecks:          true,
-		enforceCanonicalJSON:            true,
+		canonicalJSONCheck:              verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
@@ -330,7 +330,7 @@ type RoomVersionImpl struct {
 	allowKnockingInEventAuth        JoinRulesPermittingKnockInEventAuth
 	allowRestrictedJoinsInEventAuth JoinRulesPermittingRestrictedJoinInEventAuth
 	enforceSignatureChecks          bool
-	enforceCanonicalJSON            bool
+	canonicalJSONCheck              func(eventJSON []byte) error
 	notificationLevelCheck          func(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
 	requireIntegerPowerLevels       bool
 	stable                          bool
@@ -414,8 +414,8 @@ func (v RoomVersionImpl) MayAllowRestrictedJoinsInEventAuth() bool {
 
 // PowerLevelsIncludeNotifications returns true if the given room version calls
 // for the power level checks to cover the `notifications` key or false otherwise.
-func (v RoomVersionImpl) EnforceCanonicalJSON() bool {
-	return v.enforceCanonicalJSON
+func (v RoomVersionImpl) checkCanonicalJSON(eventJSON []byte) error {
+	return v.canonicalJSONCheck(eventJSON)
 }
 
 // RequireIntegerPowerLevels returns true if the given room version calls for

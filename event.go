@@ -97,11 +97,9 @@ func newEventFromUntrustedJSON(eventJSON []byte, roomVersion IRoomVersion) (resu
 		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))
 		return
 	}
-	if roomVersion.EnforceCanonicalJSON() {
-		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
-			err = BadJSONError{err}
-			return
-		}
+	if err = roomVersion.checkCanonicalJSON(eventJSON); err != nil {
+		err = BadJSONError{err}
+		return
 	}
 
 	result = &event{}
