@@ -123,7 +123,7 @@ func StateNeededForProtoEvent(protoEvent *ProtoEvent) (result StateNeeded, err e
 	var content *membershipContent
 	if protoEvent.Type == spec.MRoomMember {
 		if err = json.Unmarshal(protoEvent.Content, &content); err != nil {
-			err = errorf("unparsable member event content: %s", err.Error())
+			err = errorf("unparseable member event content: %s", err.Error())
 			return
 		}
 	}

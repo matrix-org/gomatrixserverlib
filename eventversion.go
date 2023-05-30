@@ -359,8 +359,7 @@ func (v RoomVersionImpl) EventIDFormat() EventIDFormat {
 	return v.eventIDFormat
 }
 
-// StrictValidityChecking returns true if the given room version calls for
-// strict signature checking (room version 5 and onward) or false otherwise.
+// SignatureValidityCheck returns true if the signature check are passing.
 func (v RoomVersionImpl) SignatureValidityCheck(atTS, validUntilTS spec.Timestamp) bool {
 	return v.signatureValidityCheckFunc(atTS, validUntilTS)
 }
@@ -412,19 +411,17 @@ func (v RoomVersionImpl) MayAllowRestrictedJoinsInEventAuth() bool {
 	return false
 }
 
-// PowerLevelsIncludeNotifications returns true if the given room version calls
-// for the power level checks to cover the `notifications` key or false otherwise.
+// checkCanonicalJSON returns an error if the eventJSON is not canonical JSON.
 func (v RoomVersionImpl) checkCanonicalJSON(eventJSON []byte) error {
 	return v.canonicalJSONCheck(eventJSON)
 }
 
-// ParsePowerLevels returns true if the given room version calls for
-// power levels as integers only, false otherwise.
+// parsePowerLevels parses the power_level directly into the passed PowerLevelContent.
 func (v RoomVersionImpl) parsePowerLevels(contentBytes []byte, c *PowerLevelContent) error {
 	return v.parsePowerLevelsFunc(contentBytes, c)
 }
 
-// RedactEvent strips the user controlled fields from an event, but leaves the
+// RedactEventJSON strips the user controlled fields from an event, but leaves the
 // fields necessary for authenticating the event.
 func (v RoomVersionImpl) RedactEventJSON(eventJSON []byte) ([]byte, error) {
 	return v.redactionAlgorithm(eventJSON)
