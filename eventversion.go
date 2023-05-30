@@ -23,7 +23,7 @@ type IRoomVersion interface {
 	AllowRestrictedJoinsInEventAuth(joinRule string) bool
 	MayAllowRestrictedJoinsInEventAuth() bool
 	checkCanonicalJSON(input []byte) error
-	RequireIntegerPowerLevels() bool
+	parsePowerLevels(contentBytes []byte, c *PowerLevelContent) error
 	RedactEventJSON(eventJSON []byte) ([]byte, error)
 	NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error)
 	NewEventFromTrustedJSONWithEventID(eventID string, eventJSON []byte, redacted bool) (result PDU, err error)
@@ -111,7 +111,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV2: RoomVersionImpl{
 		ver:                             RoomVersionV2,
@@ -125,7 +125,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV3: RoomVersionImpl{
 		ver:                             RoomVersionV3,
@@ -139,7 +139,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV4: RoomVersionImpl{
 		ver:                             RoomVersionV4,
@@ -153,7 +153,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV5: RoomVersionImpl{
 		ver:                             RoomVersionV5,
@@ -167,7 +167,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          noCheckLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV6: RoomVersionImpl{
 		ver:                             RoomVersionV6,
@@ -181,7 +181,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV7: RoomVersionImpl{
 		ver:                             RoomVersionV7,
@@ -195,7 +195,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV8: RoomVersionImpl{
 		ver:                             RoomVersionV8,
@@ -209,7 +209,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV9: RoomVersionImpl{
 		ver:                             RoomVersionV9,
@@ -223,7 +223,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 	RoomVersionV10: RoomVersionImpl{
 		ver:                             RoomVersionV10,
@@ -237,7 +237,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
-		requireIntegerPowerLevels:       true,
+		parsePowerLevelsFunc:            parseIntegerPowerLevels,
 	},
 	"org.matrix.msc3667": RoomVersionImpl{ // based on room version 7
 		ver:                             RoomVersion("org.matrix.msc3667"),
@@ -251,7 +251,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
-		requireIntegerPowerLevels:       true,
+		parsePowerLevelsFunc:            parseIntegerPowerLevels,
 	},
 	"org.matrix.msc3787": RoomVersionImpl{ // roughly, the union of v7 and v9
 		ver:                             RoomVersion("org.matrix.msc3787"),
@@ -265,7 +265,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		notificationLevelCheck:          checkNotificationLevels,
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
-		requireIntegerPowerLevels:       false,
+		parsePowerLevelsFunc:            parsePowerLevels,
 	},
 }
 
@@ -332,7 +332,7 @@ type RoomVersionImpl struct {
 	signatureValidityCheckFunc      SignatureValidityCheckFunc
 	canonicalJSONCheck              func(eventJSON []byte) error
 	notificationLevelCheck          func(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
-	requireIntegerPowerLevels       bool
+	parsePowerLevelsFunc            func(contentBytes []byte, c *PowerLevelContent) error
 	stable                          bool
 }
 
@@ -418,10 +418,10 @@ func (v RoomVersionImpl) checkCanonicalJSON(eventJSON []byte) error {
 	return v.canonicalJSONCheck(eventJSON)
 }
 
-// RequireIntegerPowerLevels returns true if the given room version calls for
+// ParsePowerLevels returns true if the given room version calls for
 // power levels as integers only, false otherwise.
-func (v RoomVersionImpl) RequireIntegerPowerLevels() bool {
-	return v.requireIntegerPowerLevels
+func (v RoomVersionImpl) parsePowerLevels(contentBytes []byte, c *PowerLevelContent) error {
+	return v.parsePowerLevelsFunc(contentBytes, c)
 }
 
 // RedactEvent strips the user controlled fields from an event, but leaves the

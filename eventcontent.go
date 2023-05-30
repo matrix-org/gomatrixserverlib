@@ -417,65 +417,68 @@ func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 		return c, err
 	}
 
-	if verImpl.RequireIntegerPowerLevels() {
-		// Unmarshal directly to PowerLevelContent, since that will kick up an
-		// error if one of the power levels isn't an int64.
-		if err = json.Unmarshal(event.Content(), &c); err != nil {
-			err = errorf("unparsable power_levels event content: %s", err.Error())
-			return
-		}
-	} else {
-		// We can't extract the JSON directly to the powerLevelContent because we
-		// need to convert string values to int values.
-		var content struct {
-			InviteLevel        levelJSONValue            `json:"invite"`
-			BanLevel           levelJSONValue            `json:"ban"`
-			KickLevel          levelJSONValue            `json:"kick"`
-			RedactLevel        levelJSONValue            `json:"redact"`
-			UserLevels         map[string]levelJSONValue `json:"users"`
-			UsersDefaultLevel  levelJSONValue            `json:"users_default"`
-			EventLevels        map[string]levelJSONValue `json:"events"`
-			StateDefaultLevel  levelJSONValue            `json:"state_default"`
-			EventDefaultLevel  levelJSONValue            `json:"events_default"`
-			NotificationLevels map[string]levelJSONValue `json:"notifications"`
-		}
-		if err = json.Unmarshal(event.Content(), &content); err != nil {
-			err = errorf("unparsable power_levels event content: %s", err.Error())
-			return
-		}
+	if err = verImpl.parsePowerLevels(event.Content(), &c); err != nil {
+		err = errorf("unparseable power_levels event content: %s", err.Error())
+		return
+	}
+	return
+}
 
-		// Update the levels with the values that are present in the event content.
-		content.InviteLevel.assignIfExists(&c.Invite)
-		content.BanLevel.assignIfExists(&c.Ban)
-		content.KickLevel.assignIfExists(&c.Kick)
-		content.RedactLevel.assignIfExists(&c.Redact)
-		content.UsersDefaultLevel.assignIfExists(&c.UsersDefault)
-		content.StateDefaultLevel.assignIfExists(&c.StateDefault)
-		content.EventDefaultLevel.assignIfExists(&c.EventsDefault)
+// parseIntegerPowerLevels unmarshals directly to PowerLevelContent, since that will kick up an
+// error if one of the power levels isn't an int64.
+func parseIntegerPowerLevels(contentBytes []byte, c *PowerLevelContent) error {
+	return json.Unmarshal(contentBytes, c)
+}
 
-		for k, v := range content.UserLevels {
-			if c.Users == nil {
-				c.Users = make(map[string]int64)
-			}
-			c.Users[k] = v.value
-		}
-
-		for k, v := range content.EventLevels {
-			if c.Events == nil {
-				c.Events = make(map[string]int64)
-			}
-			c.Events[k] = v.value
-		}
-
-		for k, v := range content.NotificationLevels {
-			if c.Notifications == nil {
-				c.Notifications = make(map[string]int64)
-			}
-			c.Notifications[k] = v.value
-		}
+func parsePowerLevels(contentBytes []byte, c *PowerLevelContent) error {
+	// We can't extract the JSON directly to the powerLevelContent because we
+	// need to convert string values to int values.
+	var content struct {
+		InviteLevel        levelJSONValue            `json:"invite"`
+		BanLevel           levelJSONValue            `json:"ban"`
+		KickLevel          levelJSONValue            `json:"kick"`
+		RedactLevel        levelJSONValue            `json:"redact"`
+		UserLevels         map[string]levelJSONValue `json:"users"`
+		UsersDefaultLevel  levelJSONValue            `json:"users_default"`
+		EventLevels        map[string]levelJSONValue `json:"events"`
+		StateDefaultLevel  levelJSONValue            `json:"state_default"`
+		EventDefaultLevel  levelJSONValue            `json:"events_default"`
+		NotificationLevels map[string]levelJSONValue `json:"notifications"`
+	}
+	if err := json.Unmarshal(contentBytes, &content); err != nil {
+		return errorf("unparsable power_levels event content: %s", err.Error())
 	}
 
-	return
+	// Update the levels with the values that are present in the event content.
+	content.InviteLevel.assignIfExists(&c.Invite)
+	content.BanLevel.assignIfExists(&c.Ban)
+	content.KickLevel.assignIfExists(&c.Kick)
+	content.RedactLevel.assignIfExists(&c.Redact)
+	content.UsersDefaultLevel.assignIfExists(&c.UsersDefault)
+	content.StateDefaultLevel.assignIfExists(&c.StateDefault)
+	content.EventDefaultLevel.assignIfExists(&c.EventsDefault)
+
+	for k, v := range content.UserLevels {
+		if c.Users == nil {
+			c.Users = make(map[string]int64)
+		}
+		c.Users[k] = v.value
+	}
+
+	for k, v := range content.EventLevels {
+		if c.Events == nil {
+			c.Events = make(map[string]int64)
+		}
+		c.Events[k] = v.value
+	}
+
+	for k, v := range content.NotificationLevels {
+		if c.Notifications == nil {
+			c.Notifications = make(map[string]int64)
+		}
+		c.Notifications[k] = v.value
+	}
+	return nil
 }
 
 // A levelJSONValue is used for unmarshalling power levels from JSON.
