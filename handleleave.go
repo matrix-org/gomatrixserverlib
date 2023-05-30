@@ -102,8 +102,8 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 	return &makeLeaveResponse, nil
 }
 
-type LatestStateQuerier interface {
-	LatestState(ctx context.Context, roomID spec.RoomID, userID spec.UserID) ([]PDU, error)
+type CurrentStateQuerier interface {
+	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
 }
 
 // HandleSendLeave handles requests to `/send_leave
@@ -113,7 +113,7 @@ func HandleSendLeave(ctx context.Context,
 	origin spec.ServerName,
 	roomVersion RoomVersion,
 	eventID, roomID string,
-	querier LatestStateQuerier,
+	querier CurrentStateQuerier,
 	verifier JSONVerifier,
 ) (PDU, error) {
 
@@ -172,22 +172,20 @@ func HandleSendLeave(ctx context.Context,
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
 	}
 
-	stateEvents, err := querier.LatestState(ctx, *rID, *leavingUser)
+	stateEvent, err := querier.CurrentStateEvent(ctx, *rID, spec.MRoomMember, leavingUser.String())
 	if err != nil {
 		return nil, err
 	}
-	// handle cases we can no-op
-	switch {
-	case len(stateEvents) == 0:
-		// we weren't joined at all
+	// we weren't joined at all
+	if stateEvent == nil {
 		return nil, nil
-	case len(stateEvents) == 1:
-		// We are/were joined/invited/banned or something
-		if mem, merr := stateEvents[0].Membership(); merr == nil && mem == spec.Leave {
-			return nil, nil
-		}
-	case event.EventID() == stateEvents[0].EventID():
-		// we already processed this event
+	}
+	// We are/were joined/invited/banned or something
+	if mem, merr := stateEvent.Membership(); merr == nil && mem == spec.Leave {
+		return nil, nil
+	}
+	// we already processed this event
+	if event.EventID() == stateEvent.EventID() {
 		return nil, nil
 	}
 

@@ -224,11 +224,11 @@ func TestHandleMakeLeave(t *testing.T) {
 }
 
 type dummyQuerier struct {
-	pdus []PDU
+	pdu PDU
 }
 
-func (d dummyQuerier) LatestState(ctx context.Context, roomID spec.RoomID, userID spec.UserID) ([]PDU, error) {
-	return d.pdus, nil
+func (d dummyQuerier) CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error) {
+	return d.pdu, nil
 }
 
 type noopJSONVerifier struct {
@@ -248,7 +248,7 @@ func TestHandleSendLeave(t *testing.T) {
 		roomVersion    RoomVersion
 		eventID        string
 		roomID         string
-		querier        LatestStateQuerier
+		querier        CurrentStateQuerier
 		verifier       JSONVerifier
 	}
 
@@ -363,32 +363,32 @@ func TestHandleSendLeave(t *testing.T) {
 		},
 		{
 			name:    "already left the the room no-ops",
-			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdus: []PDU{leaveEvent}}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
+			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdu: leaveEvent}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
 		{
 			name:    "already left the the room no-ops 2",
-			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdus: []PDU{leaveEvent, leaveEvent}}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
+			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdu: leaveEvent}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
 		{
 			name:    "JSON validation fails",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdus: []PDU{createEvent}}, verifier: &noopJSONVerifier{err: fmt.Errorf("err")}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{err: fmt.Errorf("err")}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "JSON validation fails 2",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdus: []PDU{createEvent}}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{Error: fmt.Errorf("err")}}}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{Error: fmt.Errorf("err")}}}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "membership not set to leave",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdus: []PDU{createEvent}}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: "10", eventID: joinEvent.EventID(), requestContent: joinEvent.JSON()},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: "10", eventID: joinEvent.EventID(), requestContent: joinEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "membership set to leave",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdus: []PDU{createEvent}}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
 	}
