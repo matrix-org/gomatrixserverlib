@@ -362,12 +362,7 @@ func TestHandleSendLeave(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name:    "already left the the room no-ops",
-			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdu: leaveEvent}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
-			wantErr: assert.NoError,
-		},
-		{
-			name:    "already left the the room no-ops 2",
+			name:    "already left the room no-ops",
 			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdu: leaveEvent}, origin: validUser.Domain(), roomVersion: "10", eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
