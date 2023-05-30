@@ -93,8 +93,6 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 		}
 	}
 
-	strictValidityChecking := verImpl.StrictValidityChecking()
-
 	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
 		return fmt.Errorf("failed to redact event: %w", err)
@@ -103,10 +101,10 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 	var toVerify []VerifyJSONRequest
 	for serverName := range needed {
 		v := VerifyJSONRequest{
-			Message:                redactedJSON,
-			AtTS:                   e.OriginServerTS(),
-			ServerName:             serverName,
-			StrictValidityChecking: strictValidityChecking,
+			Message:              redactedJSON,
+			AtTS:                 e.OriginServerTS(),
+			ServerName:           serverName,
+			ValidityCheckingFunc: verImpl.SignatureValidityCheck,
 		}
 		toVerify = append(toVerify, v)
 	}

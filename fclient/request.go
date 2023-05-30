@@ -248,10 +248,10 @@ func VerifyHTTPRequest(
 	}
 
 	results, err := keys.VerifyJSONs(req.Context(), []gomatrixserverlib.VerifyJSONRequest{{
-		ServerName:             request.Origin(),
-		AtTS:                   spec.AsTimestamp(now),
-		Message:                toVerify,
-		StrictValidityChecking: true,
+		ServerName:           request.Origin(),
+		AtTS:                 spec.AsTimestamp(now),
+		Message:              toVerify,
+		ValidityCheckingFunc: gomatrixserverlib.StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		message := "Error authenticating request"

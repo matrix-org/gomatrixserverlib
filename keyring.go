@@ -58,29 +58,38 @@ type PublicKeyLookupResult struct {
 	ValidUntilTS spec.Timestamp `json:"valid_until_ts"`
 }
 
+// SignatureValidityCheckFunc is a function used to validate signing keys
+type SignatureValidityCheckFunc func(atTS, validUntil spec.Timestamp) bool
+
+// StrictValiditySignatureCheck performs validation of potentially expired signing keys
+func StrictValiditySignatureCheck(atTs, validUntil spec.Timestamp) bool {
+	if validUntil == PublicKeyNotValid {
+		return false
+	}
+	// Servers MUST use the lesser of valid_until_ts and 7 days into the
+	// future when determining if a key is valid.
+	// https://matrix.org/docs/spec/rooms/v5#signing-key-validity-period
+	sevenDaysFuture := time.Now().Add(time.Hour * 24 * 7)
+	validUntilTS := validUntil.Time()
+	if validUntilTS.After(sevenDaysFuture) {
+		validUntilTS = sevenDaysFuture
+	}
+	if atTs.Time().After(validUntilTS) {
+		return false
+	}
+	return true
+}
+
+// NoStrictValidityCheck doesn't perform any validation of potentially expired signing keys.
+func NoStrictValidityCheck(_, _ spec.Timestamp) bool { return true }
+
 // WasValidAt checks if this signing key is valid for an event signed at the
 // given timestamp.
-func (r PublicKeyLookupResult) WasValidAt(atTs spec.Timestamp, strictValidityChecking bool) bool {
+func (r PublicKeyLookupResult) WasValidAt(atTs spec.Timestamp, signatureValidityCheck SignatureValidityCheckFunc) bool {
 	if r.ExpiredTS != PublicKeyNotExpired {
 		return atTs < r.ExpiredTS
 	}
-	if strictValidityChecking {
-		if r.ValidUntilTS == PublicKeyNotValid {
-			return false
-		}
-		// Servers MUST use the lesser of valid_until_ts and 7 days into the
-		// future when determining if a key is valid.
-		// https://matrix.org/docs/spec/rooms/v5#signing-key-validity-period
-		sevenDaysFuture := time.Now().Add(time.Hour * 24 * 7)
-		validUntilTS := r.ValidUntilTS.Time()
-		if validUntilTS.After(sevenDaysFuture) {
-			validUntilTS = sevenDaysFuture
-		}
-		if atTs.Time().After(validUntilTS) {
-			return false
-		}
-	}
-	return true
+	return signatureValidityCheck(atTs, r.ValidUntilTS)
 }
 
 type PublicKeyNotaryLookupRequest struct {
@@ -137,8 +146,9 @@ type VerifyJSONRequest struct {
 	AtTS spec.Timestamp
 	// The JSON bytes.
 	Message []byte
-	// Should validity signature checking be enabled? (Room version >= 5)
-	StrictValidityChecking bool
+	// ValidityCheckingFunc is used to validate signatures. This can be used
+	// to enforce strict validation of signatures.
+	ValidityCheckingFunc SignatureValidityCheckFunc
 }
 
 // A VerifyJSONResult is the result of checking the signature of a JSON message.
@@ -338,7 +348,7 @@ func (k *KeyRing) checkUsingKeys(
 				// No key for this key ID so we continue onto the next key ID.
 				continue
 			}
-			if !serverKey.WasValidAt(requests[i].AtTS, requests[i].StrictValidityChecking) {
+			if !serverKey.WasValidAt(requests[i].AtTS, requests[i].ValidityCheckingFunc) {
 				// The key wasn't valid at the timestamp we needed it to be valid at.
 				// So skip onto the next key.
 				results[i].Error = fmt.Errorf(
