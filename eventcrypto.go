@@ -81,7 +81,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 		}
 
 		// For restricted join rules, the authorising server should have signed.
-		restricted := verImpl.MayAllowRestrictedJoinsInEventAuth()
+		restricted := verImpl.mayAllowRestrictedJoinsInEventAuth()
 		if restricted && membership == spec.Join {
 			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
 				_, serverName, err = SplitID('@', v.String())

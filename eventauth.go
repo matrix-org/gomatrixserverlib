@@ -1005,7 +1005,7 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
-	allowsRestricted := m.roomVersionImpl.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
+	allowsRestricted := m.roomVersionImpl.allowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
 	if !allowsRestricted {
 		return errorf("restricted joins are not supported in this room version")
 	}
@@ -1112,7 +1112,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// MSC3787 extends this: the behaviour above is also permitted if the
 		// join rules are "knock_restricted"
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
-		supported := m.roomVersionImpl.AllowKnockingInEventAuth(m.joinRule.JoinRule)
+		supported := m.roomVersionImpl.allowKnockingInEventAuth(m.joinRule.JoinRule)
 
 		if !supported {
 			return m.membershipFailed(
