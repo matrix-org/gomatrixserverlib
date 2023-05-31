@@ -22,6 +22,12 @@ const (
 	Public = "public"
 	// WorldReadable is the string constant "world_readable"
 	WorldReadable = "world_readable"
+	// Room creation preset enum used to create private rooms
+	PresetPrivateChat = "private_chat"
+	// Room creation preset enum used to create trusted private rooms
+	PresetTrustedPrivateChat = "trusted_private_chat"
+	// Room creation preset enum used to create public rooms
+	PresetPublicChat = "public_chat"
 	// MRoomCreate https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create
 	MRoomCreate = "m.room.create"
 	// MRoomJoinRules https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-join-rules
