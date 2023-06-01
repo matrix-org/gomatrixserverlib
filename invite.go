@@ -54,7 +54,7 @@ func NewInviteStrippedState(event PDU) (ss InviteStrippedState) {
 	ss.fields.Content = event.Content()
 	ss.fields.StateKey = event.StateKey()
 	ss.fields.Type = event.Type()
-	ss.fields.Sender = event.Sender()
+	ss.fields.Sender = event.SenderID()
 	return
 }
 
@@ -167,7 +167,7 @@ func abortIfAlreadyJoined(ctx context.Context, roomID spec.RoomID, invitedUser s
 
 func createInviteLogger(ctx context.Context, event PDU, roomID spec.RoomID) *logrus.Entry {
 	return util.GetLogger(ctx).WithFields(map[string]interface{}{
-		"inviter":  event.Sender(),
+		"inviter":  event.SenderID(),
 		"invitee":  *event.StateKey(),
 		"room_id":  roomID.String(),
 		"event_id": event.EventID(),

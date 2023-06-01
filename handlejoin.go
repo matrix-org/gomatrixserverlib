@@ -345,17 +345,18 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the join event.")
 	}
-	if !event.StateKeyEquals(event.Sender()) {
+	if !event.StateKeyEquals(event.SenderID()) {
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
 	// Check that the sender belongs to the server that is sending us
 	// the request. By this point we've already asserted that the sender
 	// and the state key are equal so we don't need to check both.
-	sender, err := spec.NewUserID(event.Sender(), true)
+	sender, err := event.UserID()
 	if err != nil {
-		return nil, spec.Forbidden("The sender of the join is invalid")
-	} else if sender.Domain() != input.RequestOrigin {
+		return nil, spec.BadJSON("The event JSON contains an invalid sender")
+	}
+	if sender.Domain() != input.RequestOrigin {
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
 	}
 
@@ -412,7 +413,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, *sender)
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, sender)
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}

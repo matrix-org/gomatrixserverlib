@@ -35,7 +35,8 @@ type PDU interface {
 	OriginServerTS() spec.Timestamp
 	// Redact redacts the event.
 	Redact()
-	Sender() string
+	SenderID() string
+	UserID() (spec.UserID, error)
 	Unsigned() []byte
 	// SetUnsigned sets the unsigned key of the event.
 	// Returns a copy of the event with the "unsigned" key set.

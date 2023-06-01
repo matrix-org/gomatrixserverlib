@@ -229,7 +229,7 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 	if eventStruct.Type() != "m.room.member" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if eventStruct.Sender() != sender {
+	if eventStruct.SenderID() != sender {
 		t.Fatal("Event Sender doesn't match")
 	}
 	if *eventStruct.StateKey() != sender {
@@ -275,7 +275,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	if eventStruct.Type() != "m.room.create" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if eventStruct.Sender() != sender {
+	if eventStruct.SenderID() != sender {
 		t.Fatal("Event Sender doesn't match")
 	}
 	if *eventStruct.StateKey() != sender {

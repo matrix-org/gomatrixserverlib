@@ -41,10 +41,11 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 	needed := map[spec.ServerName]struct{}{}
 
 	// The sender should have signed the event in all cases.
-	_, serverName, err := SplitID('@', e.Sender())
+	sender, err := e.UserID()
 	if err != nil {
-		return fmt.Errorf("failed to split sender: %w", err)
+		return fmt.Errorf("invalid sender userID: %w", err)
 	}
+	serverName := sender.Domain()
 	needed[serverName] = struct{}{}
 
 	verImpl, err := GetRoomVersion(e.Version())
