@@ -5,14 +5,13 @@ import (
 	"errors"
 
 	"github.com/matrix-org/gomatrixserverlib"
-	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 )
 
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
-func NewInviteV2Request(event gomatrixserverlib.PDU, state []InviteV2StrippedState) (
+func NewInviteV2Request(event gomatrixserverlib.PDU, state []gomatrixserverlib.InviteStrippedState) (
 	request InviteV2Request, err error,
 ) {
 	if !gomatrixserverlib.KnownRoomVersion(event.Version()) {
@@ -30,8 +29,8 @@ func NewInviteV2Request(event gomatrixserverlib.PDU, state []InviteV2StrippedSta
 }
 
 type inviteV2RequestHeaders struct {
-	RoomVersion     gomatrixserverlib.RoomVersion `json:"room_version"`
-	InviteRoomState []InviteV2StrippedState       `json:"invite_room_state"`
+	RoomVersion     gomatrixserverlib.RoomVersion           `json:"room_version"`
+	InviteRoomState []gomatrixserverlib.InviteStrippedState `json:"invite_room_state"`
 }
 
 // InviteV2Request is used in the body of a /_matrix/federation/v2/invite request.
@@ -77,57 +76,6 @@ func (i *InviteV2Request) RoomVersion() gomatrixserverlib.RoomVersion {
 
 // InviteRoomState returns stripped state events for the room, containing
 // enough information for the client to identify the room.
-func (i *InviteV2Request) InviteRoomState() []InviteV2StrippedState {
+func (i *InviteV2Request) InviteRoomState() []gomatrixserverlib.InviteStrippedState {
 	return i.fields.InviteRoomState
-}
-
-// InviteV2StrippedState is a cut-down set of fields from room state
-// events that allow the invited server to identify the room.
-type InviteV2StrippedState struct {
-	fields struct {
-		Content  spec.RawJSON `json:"content"`
-		StateKey *string      `json:"state_key"`
-		Type     string       `json:"type"`
-		Sender   string       `json:"sender"`
-	}
-}
-
-// NewInviteV2StrippedState creates a stripped state event from a
-// regular state event.
-func NewInviteV2StrippedState(event gomatrixserverlib.PDU) (ss InviteV2StrippedState) {
-	ss.fields.Content = event.Content()
-	ss.fields.StateKey = event.StateKey()
-	ss.fields.Type = event.Type()
-	ss.fields.Sender = event.Sender()
-	return
-}
-
-// MarshalJSON implements json.Marshaller
-func (i InviteV2StrippedState) MarshalJSON() ([]byte, error) {
-	return json.Marshal(i.fields)
-}
-
-// UnmarshalJSON implements json.Unmarshaller
-func (i *InviteV2StrippedState) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &i.fields)
-}
-
-// Content returns the content of the stripped state.
-func (i *InviteV2StrippedState) Content() spec.RawJSON {
-	return i.fields.Content
-}
-
-// StateKey returns the state key of the stripped state.
-func (i *InviteV2StrippedState) StateKey() *string {
-	return i.fields.StateKey
-}
-
-// Type returns the type of the stripped state.
-func (i *InviteV2StrippedState) Type() string {
-	return i.fields.Type
-}
-
-// Sender returns the sender of the stripped state.
-func (i *InviteV2StrippedState) Sender() string {
-	return i.fields.Sender
 }
