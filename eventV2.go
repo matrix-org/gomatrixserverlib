@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"golang.org/x/crypto/ed25519"
 )
 
 type eventV2 struct {
@@ -24,40 +26,118 @@ func (e *eventV2) AuthEventIDs() []string {
 	return e.AuthEvents
 }
 
-func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (result PDU, err error) {
-	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
-		err = fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))
+// MarshalJSON implements json.Marshaller
+func (e *eventV2) MarshalJSON() ([]byte, error) {
+	if e.eventJSON == nil {
+		return nil, fmt.Errorf("gomatrixserverlib: cannot serialise uninitialised Event")
+	}
+	return e.eventJSON, nil
+}
+
+func (e *eventV2) SetUnsigned(unsigned interface{}) (PDU, error) {
+	var eventAsMap map[string]spec.RawJSON
+	var err error
+	if err = json.Unmarshal(e.eventJSON, &eventAsMap); err != nil {
+		return nil, err
+	}
+	unsignedJSON, err := json.Marshal(unsigned)
+	if err != nil {
+		return nil, err
+	}
+	eventAsMap["unsigned"] = unsignedJSON
+	eventJSON, err := json.Marshal(eventAsMap)
+	if err != nil {
+		return nil, err
+	}
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
+		return nil, err
+	}
+	result := *e
+	result.eventJSON = eventJSON
+	result.eventFields.Unsigned = unsignedJSON
+	return &result, nil
+}
+
+func (e *eventV2) EventID() string {
+	// if we already generated the eventID, don't do it again
+	if e.EventIDRaw != "" {
+		return e.EventIDRaw
+	}
+	ref, err := referenceOfEvent(e.eventJSON, e.roomVersion)
+	if err != nil {
+		panic(fmt.Errorf("failed to generate reference of event: %w", err))
+	}
+	e.EventIDRaw = ref.EventID
+	return ref.EventID
+}
+
+func (e *eventV2) Redact() {
+	if e.redacted {
 		return
 	}
+	verImpl, err := GetRoomVersion(e.roomVersion)
+	if err != nil {
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+	}
+	eventJSON, err := verImpl.RedactEventJSON(e.eventJSON)
+	if err != nil {
+		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+	}
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
+		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v", err))
+	}
+	var res eventV2
+	err = json.Unmarshal(eventJSON, &res)
+	if err != nil {
+		panic(fmt.Errorf("gomatrixserverlib: Redact failed %v", err))
+	}
+	res.redacted = true
+	res.eventJSON = eventJSON
+	res.roomVersion = e.roomVersion
+	*e = res
+}
+
+func (e *eventV2) Sign(signingName string, keyID KeyID, privateKey ed25519.PrivateKey) PDU {
+	eventJSON, err := signEvent(signingName, keyID, privateKey, e.eventJSON, e.roomVersion)
+	if err != nil {
+		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
+	}
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, e.roomVersion); err != nil {
+		// This is unreachable for events created with EventBuilder.Build or NewEventFromUntrustedJSON
+		panic(fmt.Errorf("gomatrixserverlib: invalid event %v (%q)", err, string(e.eventJSON)))
+	}
+	res := &e
+	(*res).eventJSON = eventJSON
+	return *res
+}
+
+func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PDU, error) {
+	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
+		return nil, fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))
+	}
 	if roomVersion.EnforceCanonicalJSON() {
-		if err = verifyEnforcedCanonicalJSON(eventJSON); err != nil {
-			err = BadJSONError{err}
-			return
+		if err := verifyEnforcedCanonicalJSON(eventJSON); err != nil {
+			return nil, BadJSONError{err}
 		}
 	}
 
 	res := &eventV2{}
-	res.roomVersion = roomVersion.Version()
-
-	if eventJSON, err = sjson.DeleteBytes(eventJSON, "unsigned"); err != nil {
-		return
-	}
-
-	if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
-		return
+	var err error
+	// Synapse removes these keys from events in case a server accidentally added them.
+	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/crypto/event_signing.py#L57-L62
+	for _, key := range []string{"outlier", "destinations", "age_ts", "unsigned", "event_id"} {
+		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
+			return nil, err
+		}
 	}
 
 	if err = json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
-
-	// Synapse removes these keys from events in case a server accidentally added them.
-	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/crypto/event_signing.py#L57-L62
-	for _, key := range []string{"outlier", "destinations", "age_ts"} {
-		if eventJSON, err = sjson.DeleteBytes(eventJSON, key); err != nil {
-			return
-		}
-	}
+	res.roomVersion = roomVersion.Version()
 
 	// We know the JSON must be valid here.
 	eventJSON = CanonicalJSONAssumeValid(eventJSON)
@@ -71,7 +151,7 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (re
 		// because they've been tampered with.
 		var redactedJSON []byte
 		if redactedJSON, err = roomVersion.RedactEventJSON(eventJSON); err != nil {
-			return
+			return nil, err
 		}
 
 		redactedJSON = CanonicalJSONAssumeValid(redactedJSON)
@@ -83,38 +163,40 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (re
 		// Yes, this means that for some events we parse twice (which is slow),
 		// but means that parsing unredacted events is fast.
 		if !bytes.Equal(redactedJSON, eventJSON) {
-			if result, err = newEventFromTrustedJSONV2(redactedJSON, true, roomVersion); err != nil {
-				return
+			result, err := roomVersion.NewEventFromTrustedJSON(redactedJSON, true)
+			if err != nil {
+				return nil, err
 			}
+			err = CheckFields(result)
+			return result, err
 		}
 	}
 
-	err = CheckFieldsV2(*res)
+	err = CheckFields(res)
 
 	return res, err
 }
 
-func CheckFieldsV2(input eventV2) error { // nolint: gocyclo
-	if input.AuthEvents == nil || input.PrevEvents == nil {
+func CheckFields(input PDU) error { // nolint: gocyclo
+	if input.AuthEventIDs() == nil || input.PrevEventIDs() == nil {
 		return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
 	}
-
-	if l := len(input.eventJSON); l > maxEventLength {
+	if l := len(input.JSON()); l > maxEventLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,
 			Message: fmt.Sprintf("gomatrixserverlib: event is too long, length %d bytes > maximum %d bytes", l, maxEventLength),
 		}
 	}
 
-	if l := len(input.eventFields.Type); l > maxIDLength {
+	if l := len(input.Type()); l > maxIDLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,
 			Message: fmt.Sprintf("gomatrixserverlib: event type is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
 		}
 	}
 
-	if input.eventFields.StateKey != nil {
-		if l := len(*input.eventFields.StateKey); l > maxIDLength {
+	if input.StateKey() != nil {
+		if l := len(*input.StateKey()); l > maxIDLength {
 			return EventValidationError{
 				Code:    EventValidationTooLarge,
 				Message: fmt.Sprintf("gomatrixserverlib: state key is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
@@ -122,34 +204,36 @@ func CheckFieldsV2(input eventV2) error { // nolint: gocyclo
 		}
 	}
 
-	if err := checkID(input.eventFields.RoomID, "room", '!'); err != nil {
+	if err := checkID(input.RoomID(), "room", '!'); err != nil {
 		return err
 	}
 
-	if err := checkID(input.eventFields.Sender, "user", '@'); err != nil {
+	if err := checkID(input.Sender(), "user", '@'); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func newEventFromTrustedJSONV2(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error) {
-	res := &eventV2{}
-	res.roomVersion = roomVersion.Version()
-	res.redacted = redacted
-	if err := json.Unmarshal(eventJSON, &result); err != nil {
+func newEventFromTrustedJSONV2(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (PDU, error) {
+	res := eventV2{}
+	if err := json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
-	return res, nil
+	res.roomVersion = roomVersion.Version()
+	res.redacted = redacted
+	res.eventJSON = eventJSON
+	return &res, nil
 }
 
-func newEventFromTrustedJSONWithEventIDV2(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error) {
+func newEventFromTrustedJSONWithEventIDV2(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (PDU, error) {
 	res := &eventV2{}
-	res.roomVersion = roomVersion.Version()
-	res.redacted = redacted
-	if err := json.Unmarshal(eventJSON, &result); err != nil {
+	if err := json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
+	res.roomVersion = roomVersion.Version()
+	res.eventJSON = eventJSON
 	res.EventIDRaw = eventID
+	res.redacted = redacted
 	return res, nil
 }

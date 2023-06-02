@@ -373,7 +373,7 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 		"origin_server_ts": 123456
 	}`)
 
-	event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Error(err)
 	}
@@ -431,7 +431,7 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 		"origin_server_ts": 123456
 	}`)
 
-	event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Error(err)
 	}
