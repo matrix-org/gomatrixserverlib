@@ -1,6 +1,7 @@
 package gomatrixserverlib
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -30,6 +31,8 @@ type IRoomVersion interface {
 	NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error)
 	NewEventBuilder() *EventBuilder
 	NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBuilder
+
+	HandleSendLeave(ctx context.Context, event PDU, origin spec.ServerName, eventID, roomID string, querier CurrentStateQuerier, verifier JSONVerifier) (PDU, error)
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
@@ -112,6 +115,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV2: RoomVersionImpl{
 		ver:                             RoomVersionV2,
@@ -126,6 +130,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV3: RoomVersionImpl{
 		ver:                             RoomVersionV3,
@@ -140,6 +145,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV4: RoomVersionImpl{
 		ver:                             RoomVersionV4,
@@ -154,6 +160,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV5: RoomVersionImpl{
 		ver:                             RoomVersionV5,
@@ -168,6 +175,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV6: RoomVersionImpl{
 		ver:                             RoomVersionV6,
@@ -182,6 +190,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnocksForbidden,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV7: RoomVersionImpl{
 		ver:                             RoomVersionV7,
@@ -196,6 +205,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV8: RoomVersionImpl{
 		ver:                             RoomVersionV8,
@@ -210,6 +220,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV9: RoomVersionImpl{
 		ver:                             RoomVersionV9,
@@ -224,6 +235,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: RestrictedOnly,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	RoomVersionV10: RoomVersionImpl{
 		ver:                             RoomVersionV10,
@@ -238,6 +250,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       true,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	"org.matrix.msc3667": RoomVersionImpl{ // based on room version 7
 		ver:                             RoomVersion("org.matrix.msc3667"),
@@ -252,6 +265,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnockOnly,
 		allowRestrictedJoinsInEventAuth: NoRestrictedJoins,
 		requireIntegerPowerLevels:       true,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 	"org.matrix.msc3787": RoomVersionImpl{ // roughly, the union of v7 and v9
 		ver:                             RoomVersion("org.matrix.msc3787"),
@@ -266,6 +280,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		allowKnockingInEventAuth:        KnockOrKnockRestricted,
 		allowRestrictedJoinsInEventAuth: RestrictedOrKnockRestricted,
 		requireIntegerPowerLevels:       false,
+		handleSendLeaveFunc:             handleSendLeave,
 	},
 }
 
@@ -334,6 +349,7 @@ type RoomVersionImpl struct {
 	powerLevelsIncludeNotifications bool
 	requireIntegerPowerLevels       bool
 	stable                          bool
+	handleSendLeaveFunc             func(ctx context.Context, event PDU, origin spec.ServerName, eventID, roomID string, querier CurrentStateQuerier, verifier JSONVerifier) (PDU, error)
 }
 
 func (v RoomVersionImpl) Version() RoomVersion {
@@ -429,6 +445,17 @@ func (v RoomVersionImpl) RequireIntegerPowerLevels() bool {
 // fields necessary for authenticating the event.
 func (v RoomVersionImpl) RedactEventJSON(eventJSON []byte) ([]byte, error) {
 	return v.redactionAlgorithm(eventJSON)
+}
+
+// HandleSendLeave handles requests to `/send_leave`
+func (v RoomVersionImpl) HandleSendLeave(ctx context.Context,
+	event PDU,
+	origin spec.ServerName,
+	eventID, roomID string,
+	querier CurrentStateQuerier,
+	verifier JSONVerifier,
+) (PDU, error) {
+	return v.handleSendLeaveFunc(ctx, event, origin, eventID, roomID, querier, verifier)
 }
 
 func (v RoomVersionImpl) NewEventFromTrustedJSON(eventJSON []byte, redacted bool) (result PDU, err error) {
