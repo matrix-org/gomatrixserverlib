@@ -354,9 +354,8 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// and the state key are equal so we don't need to check both.
 	sender, err := event.UserID()
 	if err != nil {
-		return nil, spec.BadJSON("The event JSON contains an invalid sender")
-	}
-	if sender.Domain() != input.RequestOrigin {
+		return nil, spec.Forbidden("The sender of the join is invalid")
+	} else if sender.Domain() != input.RequestOrigin {
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
 	}
 
