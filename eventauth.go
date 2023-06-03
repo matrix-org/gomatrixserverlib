@@ -232,7 +232,7 @@ type AuthEventProvider interface {
 	JoinRules() (PDU, error)
 	// PowerLevels returns the m.room.power_levels event for the room or nil if there isn't a m.room.power_levels event.
 	PowerLevels() (PDU, error)
-	// Member returns the m.room.member event for the given user room key state_key or nil if there isn't a m.room.member event.
+	// Member returns the m.room.member event for the given senderID state_key or nil if there isn't a m.room.member event.
 	Member(stateKey string) (PDU, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
 	// given state_key or nil if there isn't a m.room.third_party_invite event

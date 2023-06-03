@@ -18,7 +18,7 @@ type TestMembershipQuerier struct {
 	membership     string
 }
 
-func (s *TestMembershipQuerier) CurrentMembership(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (string, error) {
+func (s *TestMembershipQuerier) CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID string) (string, error) {
 	if s.memberEventErr {
 		return "", fmt.Errorf("err")
 	}

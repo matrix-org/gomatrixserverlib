@@ -144,11 +144,11 @@ type MemberThirdPartyInviteSigned struct {
 	Token      string                       `json:"token"`
 }
 
-// NewMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
+// NewMemberContentFromAuthEvents loads the member content from the member event for the senderID in the auth events.
 // Returns an error if there was an error loading the member event or parsing the event content.
-func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userRoomKey string) (c MemberContent, err error) {
+func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, senderID string) (c MemberContent, err error) {
 	var memberEvent PDU
-	if memberEvent, err = authEvents.Member(userRoomKey); err != nil {
+	if memberEvent, err = authEvents.Member(senderID); err != nil {
 		return
 	}
 	if memberEvent == nil {
