@@ -412,7 +412,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, event.SenderID())
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, spec.SenderID(event.SenderID()))
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}

@@ -124,7 +124,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 			util.GetLogger(ctx).WithError(err).Error("failed generating stripped state for known room")
 			return nil, spec.InternalServerError{}
 		}
-		err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedUser, input.MembershipQuerier)
+		err := abortIfAlreadyJoined(ctx, input.RoomID, spec.SenderID(input.InvitedUser.String()), input.MembershipQuerier)
 		if err != nil {
 			return nil, err
 		}

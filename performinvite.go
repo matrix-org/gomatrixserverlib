@@ -62,7 +62,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		}
 	}
 
-	err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedUser, input.MembershipQuerier)
+	err := abortIfAlreadyJoined(ctx, input.RoomID, spec.SenderID(input.InvitedUser.String()), input.MembershipQuerier)
 	if err != nil {
 		return nil, err
 	}

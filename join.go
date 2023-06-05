@@ -19,7 +19,7 @@ type RestrictedRoomJoinInfo struct {
 }
 
 type MembershipQuerier interface {
-	CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID string) (string, error)
+	CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (string, error)
 }
 
 // RestrictedRoomJoinQuerier provides the information needed when processing a restricted room join request.

@@ -122,8 +122,8 @@ func GenerateStrippedState(
 	return []InviteStrippedState{}, nil
 }
 
-func abortIfAlreadyJoined(ctx context.Context, roomID spec.RoomID, invitedUser spec.UserID, membershipQuerier MembershipQuerier) error {
-	membership, err := membershipQuerier.CurrentMembership(ctx, roomID, invitedUser.String())
+func abortIfAlreadyJoined(ctx context.Context, roomID spec.RoomID, invitedUser spec.SenderID, membershipQuerier MembershipQuerier) error {
+	membership, err := membershipQuerier.CurrentMembership(ctx, roomID, invitedUser)
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("failed getting user membership")
 		return spec.InternalServerError{}
