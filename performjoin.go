@@ -22,7 +22,8 @@ type PerformJoinInput struct {
 	KeyID      KeyID              // Used to sign the join event
 	KeyRing    *KeyRing           // Used to verify the response from send_join
 
-	EventProvider EventProvider // Provides full events given a list of event IDs
+	EventProvider EventProvider        // Provides full events given a list of event IDs
+	UserIDQuerier spec.UserIDForSender // Provides userID for a given senderID
 }
 
 type PerformJoinResponse struct {
@@ -206,6 +207,7 @@ func PerformJoin(
 		input.KeyRing,
 		event,
 		input.EventProvider,
+		input.UserIDQuerier,
 	)
 	if err != nil {
 		return nil, &FederationError{

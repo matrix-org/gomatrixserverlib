@@ -26,7 +26,7 @@ import (
 
 // ResolveStateConflicts takes a list of state events with conflicting state keys
 // and works out which event should be used for each state event.
-func ResolveStateConflicts(conflicted []PDU, authEvents []PDU) []PDU {
+func ResolveStateConflicts(conflicted []PDU, authEvents []PDU, userIDForSender spec.UserIDForSender) []PDU {
 	r := stateResolver{valid: true}
 	r.resolvedThirdPartyInvites = map[string]PDU{}
 	r.resolvedMembers = map[string]PDU{}
@@ -37,14 +37,14 @@ func ResolveStateConflicts(conflicted []PDU, authEvents []PDU) []PDU {
 		r.addAuthEvent(authEvents[i])
 	}
 	// Resolve the conflicted auth events.
-	r.resolveAndAddAuthBlocks([][]PDU{r.creates})
-	r.resolveAndAddAuthBlocks([][]PDU{r.powerLevels})
-	r.resolveAndAddAuthBlocks([][]PDU{r.joinRules})
-	r.resolveAndAddAuthBlocks(r.thirdPartyInvites)
-	r.resolveAndAddAuthBlocks(r.members)
+	r.resolveAndAddAuthBlocks([][]PDU{r.creates}, userIDForSender)
+	r.resolveAndAddAuthBlocks([][]PDU{r.powerLevels}, userIDForSender)
+	r.resolveAndAddAuthBlocks([][]PDU{r.joinRules}, userIDForSender)
+	r.resolveAndAddAuthBlocks(r.thirdPartyInvites, userIDForSender)
+	r.resolveAndAddAuthBlocks(r.members, userIDForSender)
 	// Resolve any other conflicted state events.
 	for _, block := range r.others {
-		if event := r.resolveNormalBlock(block); event != nil {
+		if event := r.resolveNormalBlock(block, userIDForSender); event != nil {
 			r.result = append(r.result, event)
 		}
 	}
@@ -211,13 +211,13 @@ func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 // where all the blocks have the same event type.
 // Once every block has been resolved the resulting events are added to the events used for auth checks.
 // This is called once per auth event type and state key pair.
-func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]PDU) {
+func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]PDU, userIDForSender spec.UserIDForSender) {
 	start := len(r.result)
 	for _, block := range blocks {
 		if len(block) == 0 {
 			continue
 		}
-		if event := r.resolveAuthBlock(block); event != nil {
+		if event := r.resolveAuthBlock(block, userIDForSender); event != nil {
 			r.result = append(r.result, event)
 		}
 	}
@@ -229,7 +229,7 @@ func (r *stateResolver) resolveAndAddAuthBlocks(blocks [][]PDU) {
 }
 
 // resolveAuthBlock resolves a block of auth events with the same state key to a single event.
-func (r *stateResolver) resolveAuthBlock(events []PDU) PDU {
+func (r *stateResolver) resolveAuthBlock(events []PDU, userIDForSender spec.UserIDForSender) PDU {
 	// Sort the events by depth and sha1 of event ID
 	block := sortConflictedEventsByDepthAndSHA1(events)
 
@@ -244,7 +244,7 @@ func (r *stateResolver) resolveAuthBlock(events []PDU) PDU {
 		event := block[i].event
 		// Check if the next event passes authentication checks against the current candidate.
 		// (SPEC: This ensures that "ban" events cannot be replaced by "join" events through a conflict)
-		if Allowed(event, r) == nil {
+		if Allowed(event, r, userIDForSender) == nil {
 			// If the event passes authentication checks pick it as the current candidate.
 			// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 			result = event
@@ -262,7 +262,7 @@ func (r *stateResolver) resolveAuthBlock(events []PDU) PDU {
 }
 
 // resolveNormalBlock resolves a block of normal state events with the same state key to a single event.
-func (r *stateResolver) resolveNormalBlock(events []PDU) PDU {
+func (r *stateResolver) resolveNormalBlock(events []PDU, userIDForSender spec.UserIDForSender) PDU {
 	// Sort the events by depth and sha1 of event ID
 	block := sortConflictedEventsByDepthAndSHA1(events)
 	// Start at the "newest" event, that is the one with the highest depth, and go
@@ -270,7 +270,7 @@ func (r *stateResolver) resolveNormalBlock(events []PDU) PDU {
 	// (SPEC: This prefers newer events so that we don't flip a valid state back to a previous version)
 	for i := len(block) - 1; i > 0; i-- {
 		event := block[i].event
-		if Allowed(event, r) == nil {
+		if Allowed(event, r, userIDForSender) == nil {
 			return event
 		}
 	}
@@ -330,6 +330,7 @@ func ResolveConflicts(
 	version RoomVersion,
 	events []PDU,
 	authEvents []PDU,
+	userIDForSender spec.UserIDForSender,
 ) ([]PDU, error) {
 	type stateKeyTuple struct {
 		Type     string
@@ -385,10 +386,10 @@ func ResolveConflicts(
 		// for us, like state res v2 does, so we will need to add the
 		// unconflicted events into the state ourselves.
 		// TODO: Fix state res v1 so this is handled for the caller.
-		resolved = ResolveStateConflicts(conflicted, authEvents)
+		resolved = ResolveStateConflicts(conflicted, authEvents, userIDForSender)
 		resolved = append(resolved, notConflicted...)
 	case StateResV2:
-		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents)
+		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents, userIDForSender)
 	default:
 		return nil, fmt.Errorf("unsupported state resolution algorithm %v", stateResAlgo)
 	}

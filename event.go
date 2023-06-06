@@ -542,8 +542,8 @@ func (e *event) EventID() string {
 	}
 }
 
-// Sender returns the user ID of the sender of the event.
-func (e *event) Sender() string {
+// SenderID returns the sender ID of the sender of the event.
+func (e *event) SenderID() string {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
 		return fields.Sender

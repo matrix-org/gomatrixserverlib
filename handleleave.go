@@ -26,12 +26,13 @@ type HandleMakeLeaveResponse struct {
 }
 
 type HandleMakeLeaveInput struct {
-	UserID            spec.UserID     // The user wanting to leave the room
-	RoomID            spec.RoomID     // The room the user wants to leave
-	RoomVersion       RoomVersion     // The room version for the room being left
-	RequestOrigin     spec.ServerName // The server that sent the /make_leave federation request
-	LocalServerName   spec.ServerName // The name of this local server
-	LocalServerInRoom bool            // Whether this local server has a user currently joined to the room
+	UserID            spec.UserID          // The user wanting to leave the room
+	RoomID            spec.RoomID          // The room the user wants to leave
+	RoomVersion       RoomVersion          // The room version for the room being left
+	RequestOrigin     spec.ServerName      // The server that sent the /make_leave federation request
+	LocalServerName   spec.ServerName      // The name of this local server
+	LocalServerInRoom bool                 // Whether this local server has a user currently joined to the room
+	UserIDQuerier     spec.UserIDForSender // Provides userIDs given a senderID
 
 	// Returns a fully built version of the proto event and a list of state events required to auth this event
 	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, error)
@@ -80,7 +81,7 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 	}
 
 	provider := NewAuthEvents(stateEvents)
-	if err := Allowed(event, &provider); err != nil {
+	if err := Allowed(event, &provider, input.UserIDQuerier); err != nil {
 		return nil, spec.Forbidden(err.Error())
 	}
 

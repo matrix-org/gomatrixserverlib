@@ -115,7 +115,7 @@ func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer R
 // This check initially attempts to validate that the auth_events are in the target room state, and if they are it will short-circuit
 // and succeed early. THIS IS ONLY VALID IF STEP 4 HAS BEEN PREVIOUSLY APPLIED. Otherwise, a malicious server could lie and say that
 // no auth_events are required and this function will short-circuit and allow it.
-func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify PDU, allowValidation bool) error {
+func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify PDU, allowValidation bool, userIDForSender spec.UserIDForSender) error {
 	stateIDs, err := sp.StateIDsBeforeEvent(ctx, eventToVerify)
 	if err != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: cannot fetch state IDs before event %s: %w", eventToVerify.EventID(), err)
@@ -152,7 +152,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 	if ctx.Err() != nil {
 		return fmt.Errorf("gomatrixserverlib.VerifyAuthRulesAtState: context cancelled: %w", ctx.Err())
 	}
-	if err := checkAllowedByAuthEvents(eventToVerify, roomState, nil); err != nil {
+	if err := checkAllowedByAuthEvents(eventToVerify, roomState, nil, userIDForSender); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib.VerifyAuthRulesAtState: event %s is not allowed at state %s : %w",
 			eventToVerify.EventID(), eventToVerify.EventID(), err,
@@ -163,7 +163,7 @@ func VerifyAuthRulesAtState(ctx context.Context, sp StateProvider, eventToVerify
 
 func checkAllowedByAuthEvents(
 	event PDU, eventsByID map[string]PDU,
-	missingAuth EventProvider,
+	missingAuth EventProvider, userIDForSender spec.UserIDForSender,
 ) error {
 	authEvents := NewAuthEvents(nil)
 
@@ -214,7 +214,7 @@ func checkAllowedByAuthEvents(
 
 	// If we made it this far then we've successfully got as many of the auth events as
 	// as described by AuthEventIDs(). Check if they allow the event.
-	if err := Allowed(event, &authEvents); err != nil {
+	if err := Allowed(event, &authEvents, userIDForSender); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
 			event.EventID(), err.Error(),
@@ -229,7 +229,7 @@ func checkAllowedByAuthEvents(
 // return parameter). Does not alter any input args.
 func CheckStateResponse(
 	ctx context.Context, r StateResponse, roomVersion RoomVersion,
-	keyRing JSONVerifier, missingAuth EventProvider,
+	keyRing JSONVerifier, missingAuth EventProvider, userIDForSender spec.UserIDForSender,
 ) ([]PDU, []PDU, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
@@ -260,7 +260,7 @@ func CheckStateResponse(
 
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing)
+	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing, userIDForSender)
 	if len(errors) != len(allEvents) {
 		return nil, nil, fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
 	}
@@ -284,7 +284,7 @@ func CheckStateResponse(
 
 	// Check whether the events are allowed by the auth rules.
 	for _, event := range allEvents {
-		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth); err != nil {
+		if err := checkAllowedByAuthEvents(event, eventsByID, missingAuth, userIDForSender); err != nil {
 			logrus.WithError(err).Warnf("Event %q is not allowed by its auth events", event.EventID())
 			failures[event.EventID()] = err
 		}
@@ -322,14 +322,14 @@ func CheckStateResponse(
 func CheckSendJoinResponse(
 	ctx context.Context, roomVersion RoomVersion, r StateResponse,
 	keyRing JSONVerifier, joinEvent PDU,
-	missingAuth EventProvider,
+	missingAuth EventProvider, userIDForSender spec.UserIDForSender,
 ) (StateResponse, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	authEvents, stateEvents, err := CheckStateResponse(ctx, r, roomVersion, keyRing, missingAuth)
+	authEvents, stateEvents, err := CheckStateResponse(ctx, r, roomVersion, keyRing, missingAuth, userIDForSender)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func CheckSendJoinResponse(
 	}
 
 	// Now check that the join event is valid against its auth events.
-	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth); err != nil {
+	if err := checkAllowedByAuthEvents(joinEvent, eventsByID, missingAuth, userIDForSender); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth events: %w",
 			joinEvent.EventID(), err,
@@ -369,7 +369,7 @@ func CheckSendJoinResponse(
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &authEventProvider); err != nil {
+	if err := Allowed(joinEvent, &authEventProvider, userIDForSender); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
 			joinEvent.EventID(), err,

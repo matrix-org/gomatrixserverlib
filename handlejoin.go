@@ -34,6 +34,7 @@ type HandleMakeJoinInput struct {
 	LocalServerName   spec.ServerName           // The name of this local server
 	LocalServerInRoom bool                      // Whether this local server has a user currently joined to the room
 	RoomQuerier       RestrictedRoomJoinQuerier // Provides access to potentially required information when processing restricted joins
+	UserIDQuerier     spec.UserIDForSender      // Provides userIDs given a senderID
 
 	// Returns a fully built version of the proto event and a list of state events required to auth this event
 	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, error)
@@ -45,8 +46,8 @@ type HandleMakeJoinResponse struct {
 }
 
 func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) {
-	if input.RoomQuerier == nil {
-		panic("Missing valid RoomQuerier")
+	if input.RoomQuerier == nil || input.UserIDQuerier == nil {
+		panic("Missing valid Querier")
 	}
 
 	if input.Context == nil {
@@ -115,7 +116,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 	}
 
 	provider := NewAuthEvents(state)
-	if err = Allowed(event, &provider); err != nil {
+	if err = Allowed(event, &provider, input.UserIDQuerier); err != nil {
 		return nil, spec.Forbidden(err.Error())
 	}
 
@@ -300,6 +301,7 @@ type HandleSendJoinInput struct {
 	PrivateKey        ed25519.PrivateKey
 	Verifier          JSONVerifier
 	MembershipQuerier MembershipQuerier
+	UserIDQuerier     spec.UserIDForSender // Provides userIDs given a senderID
 }
 
 type HandleSendJoinResponse struct {
@@ -313,6 +315,9 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	}
 	if input.MembershipQuerier == nil {
 		panic("Missing valid StateQuerier")
+	}
+	if input.UserIDQuerier == nil {
+		panic("Missing valid UserIDQuerier")
 	}
 	if input.Context == nil {
 		panic("Missing valid Context")
@@ -332,14 +337,14 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the join event.")
 	}
-	if !event.StateKeyEquals(event.Sender()) {
+	if !event.StateKeyEquals(event.SenderID()) {
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
 	// Check that the sender belongs to the server that is sending us
 	// the request. By this point we've already asserted that the sender
 	// and the state key are equal so we don't need to check both.
-	sender, err := spec.NewUserID(event.Sender(), true)
+	sender, err := input.UserIDQuerier(input.RoomID.String(), event.SenderID())
 	if err != nil {
 		return nil, spec.Forbidden("The sender of the join is invalid")
 	} else if sender.Domain() != input.RequestOrigin {
@@ -399,7 +404,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, *sender)
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, spec.SenderID(event.SenderID()))
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}

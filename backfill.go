@@ -48,7 +48,7 @@ type BackfillRequester interface {
 //
 // TODO: When does it make sense to return errors?
 func RequestBackfill(ctx context.Context, origin spec.ServerName, b BackfillRequester, keyRing JSONVerifier,
-	roomID string, ver RoomVersion, fromEventIDs []string, limit int) ([]PDU, error) {
+	roomID string, ver RoomVersion, fromEventIDs []string, limit int, userIDForSender spec.UserIDForSender) ([]PDU, error) {
 
 	if len(fromEventIDs) == 0 {
 		return nil, nil
@@ -76,7 +76,7 @@ func RequestBackfill(ctx context.Context, origin spec.ServerName, b BackfillRequ
 			continue // try the next server
 		}
 		// topologically sort the events so implementations of 'get state at event' can do optimisations
-		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs, TopologicalOrderByPrevEvents)
+		loadResults, err := loader.LoadAndVerify(ctx, txn.PDUs, TopologicalOrderByPrevEvents, userIDForSender)
 		if err != nil {
 			lastErr = err
 			continue // try the next server

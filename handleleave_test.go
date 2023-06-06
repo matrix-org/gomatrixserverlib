@@ -130,6 +130,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: false,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			wantErr: assert.Error,
 		},
@@ -140,6 +141,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return nil, nil, fmt.Errorf("error")
 				},
@@ -153,6 +155,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return nil, nil, nil
 				},
@@ -166,6 +169,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, nil, nil
 				},
@@ -179,6 +183,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return createEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -192,6 +197,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return leaveEvent, []PDU{joinRulesEvent}, nil
 				},
@@ -205,6 +211,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return leaveEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},

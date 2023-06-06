@@ -29,8 +29,9 @@ type PerformInviteInput struct {
 	InviteEvent   PDU                   // The original invite event
 	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
 
-	MembershipQuerier MembershipQuerier // Provides information about the room's membership
-	StateQuerier      StateQuerier      // Provides access to state events
+	MembershipQuerier MembershipQuerier    // Provides information about the room's membership
+	StateQuerier      StateQuerier         // Provides access to state events
+	UserIDQuerier     spec.UserIDForSender // Provides userID for a given senderID
 }
 
 // PerformInvite - Performs all the checks required to validate the invite is allowed
@@ -38,7 +39,7 @@ type PerformInviteInput struct {
 // On success will return either nothing (in the case of inviting a local user) or
 // a fully formed & signed Invite Event (in the case of inviting a remote user)
 func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient FederatedInviteClient) (PDU, error) {
-	if input.MembershipQuerier == nil || input.StateQuerier == nil {
+	if input.MembershipQuerier == nil || input.StateQuerier == nil || input.UserIDQuerier == nil {
 		panic("Missing valid Querier")
 	}
 	if ctx == nil {
@@ -62,7 +63,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		}
 	}
 
-	err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedUser, input.MembershipQuerier)
+	err := abortIfAlreadyJoined(ctx, input.RoomID, spec.SenderID(input.InvitedUser.String()), input.MembershipQuerier)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	}
 
 	// Check if the event is allowed.
-	if err = Allowed(input.InviteEvent, authEventProvider); err != nil {
+	if err = Allowed(input.InviteEvent, authEventProvider, input.UserIDQuerier); err != nil {
 		logger.WithError(err).WithField("event_id", input.InviteEvent.EventID()).WithField("auth_event_ids", input.InviteEvent.AuthEventIDs()).Error(
 			"ProcessInvite: event not allowed",
 		)

@@ -53,7 +53,7 @@ type PreviousRoom struct {
 
 // NewCreateContentFromAuthEvents loads the create event content from the create event in the
 // auth events.
-func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateContent, err error) {
+func NewCreateContentFromAuthEvents(authEvents AuthEventProvider, userIDForSender spec.UserIDForSender) (c CreateContent, err error) {
 	var createEvent PDU
 	if createEvent, err = authEvents.Create(); err != nil {
 		return
@@ -68,9 +68,12 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateConte
 	}
 	c.roomID = createEvent.RoomID()
 	c.eventID = createEvent.EventID()
-	if c.senderDomain, err = domainFromID(createEvent.Sender()); err != nil {
+	sender, err := userIDForSender(createEvent.RoomID(), createEvent.SenderID())
+	if err != nil {
+		err = errorf("invalid sender userID: %s", err.Error())
 		return
 	}
+	c.senderDomain = string(sender.Domain())
 	return
 }
 
@@ -93,12 +96,8 @@ func (c *CreateContent) DomainAllowed(domain string) error {
 
 // UserIDAllowed checks whether the domain part of the user ID is allowed in
 // the room by the "m.federate" flag.
-func (c *CreateContent) UserIDAllowed(id string) error {
-	domain, err := domainFromID(id)
-	if err != nil {
-		return err
-	}
-	return c.DomainAllowed(domain)
+func (c *CreateContent) UserIDAllowed(id spec.UserID) error {
+	return c.DomainAllowed(string(id.Domain()))
 }
 
 // domainFromID returns everything after the first ":" character to extract
@@ -145,11 +144,11 @@ type MemberThirdPartyInviteSigned struct {
 	Token      string                       `json:"token"`
 }
 
-// NewMemberContentFromAuthEvents loads the member content from the member event for the user ID in the auth events.
+// NewMemberContentFromAuthEvents loads the member content from the member event for the senderID in the auth events.
 // Returns an error if there was an error loading the member event or parsing the event content.
-func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, userID string) (c MemberContent, err error) {
+func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, senderID string) (c MemberContent, err error) {
 	var memberEvent PDU
-	if memberEvent, err = authEvents.Member(userID); err != nil {
+	if memberEvent, err = authEvents.Member(senderID); err != nil {
 		return
 	}
 	if memberEvent == nil {
@@ -328,8 +327,8 @@ type PowerLevelContent struct {
 }
 
 // UserLevel returns the power level a user has in the room.
-func (c *PowerLevelContent) UserLevel(userID string) int64 {
-	level, ok := c.Users[userID]
+func (c *PowerLevelContent) UserLevel(senderID string) int64 {
+	level, ok := c.Users[senderID]
 	if ok {
 		return level
 	}
