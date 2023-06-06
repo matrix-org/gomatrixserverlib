@@ -117,6 +117,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     MatrixErr,
@@ -134,6 +135,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     MatrixErr,
@@ -151,6 +153,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     InternalErr,
@@ -167,6 +170,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     InternalErr,
@@ -183,6 +187,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     MatrixErr,
@@ -200,6 +205,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     InternalErr,
@@ -216,6 +222,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: true,
 			errType:     InternalErr,
@@ -232,6 +239,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: false,
 		},
@@ -247,6 +255,7 @@ func TestHandleInvite(t *testing.T) {
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			expectedErr: false,
 		},
@@ -296,6 +305,7 @@ func TestHandleInviteNilVerifier(t *testing.T) {
 			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 		})
 	})
 }
@@ -321,6 +331,7 @@ func TestHandleInviteNilRoomQuerier(t *testing.T) {
 			RoomQuerier:       nil,
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 		})
 	})
 }
@@ -346,6 +357,7 @@ func TestHandleInviteNilMembershipQuerier(t *testing.T) {
 			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: nil,
 			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 		})
 	})
 }
@@ -371,6 +383,33 @@ func TestHandleInviteNilStateQuerier(t *testing.T) {
 			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      nil,
+			UserIDQuerier:     UserIDForSenderTest,
+		})
+	})
+}
+
+func TestHandleInviteNilUserIDQuerier(t *testing.T) {
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleInvite(context.Background(), HandleInviteInput{
+			RoomID:            *validRoom,
+			RoomVersion:       "",
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+			RoomQuerier:       &TestRoomQuerier{},
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     nil,
 		})
 	})
 }
@@ -396,6 +435,7 @@ func TestHandleInviteNilContext(t *testing.T) {
 			RoomQuerier:       &TestRoomQuerier{},
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 		})
 	})
 }

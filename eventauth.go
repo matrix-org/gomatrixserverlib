@@ -328,6 +328,9 @@ type allowerContext struct {
 	// The auth event provider. This must be set.
 	provider AuthEventProvider
 
+	// Provides the current UserID for a given SenderID.
+	userIDQuerier spec.UserIDForSender
+
 	// Event references used to see when we need to update.
 	createEvent      PDU // The m.room.create event for the room.
 	powerLevelsEvent PDU // The m.room.power_levels event for the room.
@@ -339,8 +342,10 @@ type allowerContext struct {
 	joinRule    JoinRuleContent   // The m.room.join_rules content for the room.
 }
 
-func newAllowerContext(provider AuthEventProvider) *allowerContext {
-	a := &allowerContext{}
+func newAllowerContext(provider AuthEventProvider, userIDQuerier spec.UserIDForSender) *allowerContext {
+	a := &allowerContext{
+		userIDQuerier: userIDQuerier,
+	}
 	a.update(provider)
 	return a
 }
@@ -355,7 +360,7 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 		a.createEvent, a.powerLevelsEvent, a.joinRuleEvent = nil, nil, nil
 	}
 	if e, _ := provider.Create(); a.createEvent == nil || a.createEvent != e {
-		if c, err := NewCreateContentFromAuthEvents(provider); err == nil {
+		if c, err := NewCreateContentFromAuthEvents(provider, a.userIDQuerier); err == nil {
 			a.createEvent = e
 			a.create = c
 		}
@@ -399,11 +404,11 @@ func (a *allowerContext) allowed(event PDU) error {
 // Allowed checks whether an event is allowed by the auth events.
 // It returns a NotAllowed error if the event is not allowed.
 // If there was an error loading the auth events then it returns that error.
-func Allowed(event PDU, authEvents AuthEventProvider) error {
+func Allowed(event PDU, authEvents AuthEventProvider, userIDQuerier spec.UserIDForSender) error {
 	if !authEvents.Valid() {
 		return errorf("authEvents contains events from different rooms")
 	}
-	return newAllowerContext(authEvents).allowed(event)
+	return newAllowerContext(authEvents, userIDQuerier).allowed(event)
 }
 
 // createEventAllowed checks whether the m.room.create event is allowed.
@@ -419,7 +424,7 @@ func (a *allowerContext) createEventAllowed(event PDU) error {
 	if err != nil {
 		return err
 	}
-	sender, err := event.UserID()
+	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -462,7 +467,7 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
 
-	sender, err := event.UserID()
+	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -795,7 +800,7 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 	// sender and the redacted event.
 	// We leave it up to the sending server to implement the additional checks
 	// to ensure that only events that should be redacted are redacted.
-	sender, err := event.UserID()
+	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -858,11 +863,11 @@ func (e *eventAllower) commonChecks(event PDU) error {
 	}
 
 	stateKey := event.StateKey()
-	userID, err := event.UserID()
+	userID, err := e.userIDQuerier(event.RoomID(), event.SenderID())
 	if err != nil {
 		return err
 	}
-	if err := e.create.UserIDAllowed(userID); err != nil {
+	if err := e.create.UserIDAllowed(*userID); err != nil {
 		return err
 	}
 

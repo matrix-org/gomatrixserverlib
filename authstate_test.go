@@ -3,7 +3,13 @@ package gomatrixserverlib
 import (
 	"context"
 	"testing"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
+
+func UserIDForSenderTest(roomAliasOrID string, senderID string) (*spec.UserID, error) {
+	return spec.NewUserID(senderID, true)
+}
 
 type TestStateProvider struct {
 	StateIDs []string
@@ -41,7 +47,7 @@ func TestVerifyAuthRulesAtStateValidate(t *testing.T) {
 		t.Fatalf("Failed to load test event: %s", err)
 	}
 
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, true)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, true, UserIDForSenderTest)
 	if err != nil {
 		t.Fatalf("VerifyAuthRulesAtState expect no error, got %s", err)
 	}
@@ -69,7 +75,7 @@ func TestVerifyAuthRulesAtStateVerify(t *testing.T) {
 		t.Fatalf("Failed to load test event: %s", err)
 	}
 
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, false)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, false, UserIDForSenderTest)
 	if err != nil {
 		t.Fatalf("VerifyAuthRulesAtState expect no error, got %s", err)
 	}
@@ -98,12 +104,12 @@ func TestVerifyAuthRulesAtStateVerifyFailure(t *testing.T) {
 		t.Fatalf("Failed to load test event: %s", err)
 	}
 
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, false)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, false, UserIDForSenderTest)
 	if err == nil {
 		t.Fatalf("VerifyAuthRulesAtState expected error, got none")
 	}
 	// conversely the check should PASS if validation is enabled, as validation assumes Allowed checks were already run
-	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, true)
+	err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, true, UserIDForSenderTest)
 	if err != nil {
 		t.Fatalf("VerifyAuthRulesAtState expect no error, got %s", err)
 	}
@@ -133,7 +139,7 @@ func TestVerifyAuthRulesAtStateBadAuthRuleButValidState(t *testing.T) {
 	}
 	// this should still pass with or without validation checks
 	for _, b := range []bool{true, false} {
-		err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, b)
+		err = VerifyAuthRulesAtState(ctx, tsp, eventToVerify, b, UserIDForSenderTest)
 		if err == nil {
 			t.Fatalf("VerifyAuthRulesAtState expected error, got none")
 		}

@@ -54,6 +54,7 @@ type stateResolverV2 struct {
 func ResolveStateConflictsV2(
 	conflicted, unconflicted []PDU,
 	authEvents []PDU,
+	userIDForSender spec.UserIDForSender,
 ) []PDU {
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]PDU, 0, len(conflicted))
@@ -69,7 +70,7 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
 	}
-	r.allower = newAllowerContext(&r.authProvider)
+	r.allower = newAllowerContext(&r.authProvider, userIDForSender)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the

@@ -556,26 +556,6 @@ func (e *event) SenderID() string {
 	}
 }
 
-// UserID returns the user ID of the sender of the event.
-func (e *event) UserID() (spec.UserID, error) {
-	switch fields := e.fields.(type) {
-	case eventFormatV1Fields:
-		userID, err := spec.NewUserID(fields.Sender, true)
-		if err != nil {
-			return spec.UserID{}, err
-		}
-		return *userID, nil
-	case eventFormatV2Fields:
-		userID, err := spec.NewUserID(fields.Sender, true)
-		if err != nil {
-			return spec.UserID{}, err
-		}
-		return *userID, nil
-	default:
-		panic(e.invalidFieldType())
-	}
-}
-
 // Type returns the type of the event.
 func (e *event) Type() string {
 	switch fields := e.fields.(type) {

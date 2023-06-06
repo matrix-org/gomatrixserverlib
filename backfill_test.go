@@ -123,7 +123,7 @@ func TestRequestBackfillMultipleServers(t *testing.T) {
 			return nil, fmt.Errorf("bad server name: %s", server)
 		},
 	}
-	result, err := RequestBackfill(ctx, serverA, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
+	result, err := RequestBackfill(ctx, serverA, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit, UserIDForSenderTest)
 	if err != nil {
 		t.Fatalf("RequestBackfill got error: %s", err)
 	}
@@ -176,7 +176,7 @@ func TestRequestBackfillTopologicalSort(t *testing.T) {
 			return nil, fmt.Errorf("bad server name: %s", server)
 		},
 	}
-	result, err := RequestBackfill(ctx, serverA, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
+	result, err := RequestBackfill(ctx, serverA, tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit, UserIDForSenderTest)
 	if err != nil {
 		t.Fatalf("RequestBackfill got error: %s", err)
 	}
@@ -228,7 +228,7 @@ func TestRequestBackfillError(t *testing.T) {
 			}, nil
 		},
 	}
-	_, err := RequestBackfill(ctx, "", tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit)
+	_, err := RequestBackfill(ctx, "", tbr, keyRing, testRoomID, RoomVersionV1, testFromEventIDs, testLimit, UserIDForSenderTest)
 	if err == nil {
 		t.Fatalf("RequestBackfill expected error, but got none")
 	}

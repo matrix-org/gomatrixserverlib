@@ -53,7 +53,7 @@ type PreviousRoom struct {
 
 // NewCreateContentFromAuthEvents loads the create event content from the create event in the
 // auth events.
-func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateContent, err error) {
+func NewCreateContentFromAuthEvents(authEvents AuthEventProvider, userIDForSender spec.UserIDForSender) (c CreateContent, err error) {
 	var createEvent PDU
 	if createEvent, err = authEvents.Create(); err != nil {
 		return
@@ -68,7 +68,7 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider) (c CreateConte
 	}
 	c.roomID = createEvent.RoomID()
 	c.eventID = createEvent.EventID()
-	sender, err := createEvent.UserID()
+	sender, err := userIDForSender(createEvent.RoomID(), createEvent.SenderID())
 	if err != nil {
 		err = errorf("invalid sender userID: %s", err.Error())
 		return

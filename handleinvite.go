@@ -35,16 +35,17 @@ type HandleInviteInput struct {
 	PrivateKey ed25519.PrivateKey // Used to sign the original invite event
 	Verifier   JSONVerifier       // Used to verify the original invite event
 
-	RoomQuerier       RoomQuerier       // Provides information about the room
-	MembershipQuerier MembershipQuerier // Provides information about the room's membership
-	StateQuerier      StateQuerier      // Provides access to state events
+	RoomQuerier       RoomQuerier          // Provides information about the room
+	MembershipQuerier MembershipQuerier    // Provides information about the room's membership
+	StateQuerier      StateQuerier         // Provides access to state events
+	UserIDQuerier     spec.UserIDForSender // Provides userIDs given a senderID
 }
 
 // HandleInvite - Ensures the incoming invite request is valid and signs the event
 // to return back to the remote server.
 // On success returns a fully formed & signed Invite Event
 func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
-	if input.RoomQuerier == nil || input.MembershipQuerier == nil || input.StateQuerier == nil {
+	if input.RoomQuerier == nil || input.MembershipQuerier == nil || input.StateQuerier == nil || input.UserIDQuerier == nil {
 		panic("Missing valid Querier")
 	}
 	if input.Verifier == nil {
@@ -74,7 +75,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 
-	sender, err := input.InviteEvent.UserID()
+	sender, err := input.UserIDQuerier(input.RoomID.String(), input.InviteEvent.SenderID())
 	if err != nil {
 		return nil, spec.BadJSON("The event JSON contains an invalid sender")
 	}

@@ -247,7 +247,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	})
 
 	provider := &authProvider{valid: true}
-	content, err := NewCreateContentFromAuthEvents(provider)
+	content, err := NewCreateContentFromAuthEvents(provider, UserIDForSenderTest)
 	if err != nil {
 		t.Fatal(err)
 	}

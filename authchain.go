@@ -3,6 +3,8 @@ package gomatrixserverlib
 import (
 	"context"
 	"fmt"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // EventProvider returns the requested list of events.
@@ -19,7 +21,7 @@ type EventProvider func(roomVer RoomVersion, eventIDs []string) ([]PDU, error)
 // The `provideEvents` function will only be called for *new* events rather than for everything as it is
 // assumed that this function is costly. Failing to provide all the requested events will fail this function.
 // Returning an error from `provideEvents` will also fail this function.
-func VerifyEventAuthChain(ctx context.Context, eventToVerify PDU, provideEvents EventProvider) error {
+func VerifyEventAuthChain(ctx context.Context, eventToVerify PDU, provideEvents EventProvider, userIDForSender spec.UserIDForSender) error {
 	eventsByID := make(map[string]PDU) // A lookup table for verifying this auth chain
 	evv := eventToVerify
 	eventsByID[evv.EventID()] = evv
@@ -54,7 +56,7 @@ func VerifyEventAuthChain(ctx context.Context, eventToVerify PDU, provideEvents 
 			eventsToVerify = append(eventsToVerify, newEvents...) // verify these events too
 		}
 		// verify the event
-		if err := checkAllowedByAuthEvents(curr, eventsByID, provideEvents); err != nil {
+		if err := checkAllowedByAuthEvents(curr, eventsByID, provideEvents, userIDForSender); err != nil {
 			return fmt.Errorf("gomatrixserverlib: VerifyEventAuthChain %v failed auth check: %w", curr.EventID(), err)
 		}
 		// add to the verified list

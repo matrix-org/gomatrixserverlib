@@ -29,19 +29,23 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier) []error {
+func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) []error {
 	errors := make([]error, 0, len(events))
 	for _, e := range events {
-		errors = append(errors, VerifyEventSignatures(ctx, e, verifier))
+		errors = append(errors, VerifyEventSignatures(ctx, e, verifier, userIDForSender))
 	}
 	return errors
 }
 
-func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) error {
+func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) error {
+	if userIDForSender == nil {
+		panic("UserIDForSender func is nil")
+	}
+
 	needed := map[spec.ServerName]struct{}{}
 
 	// The sender should have signed the event in all cases.
-	sender, err := e.UserID()
+	sender, err := userIDForSender(e.RoomID(), e.SenderID())
 	if err != nil {
 		return fmt.Errorf("invalid sender userID: %w", err)
 	}
