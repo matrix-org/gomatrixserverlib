@@ -86,19 +86,17 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		}
 
 		// For restricted join rules, the authorising server should have signed.
-		restricted := verImpl.MayAllowRestrictedJoinsInEventAuth()
-		if restricted && membership == spec.Join {
-			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
-				_, serverName, err = SplitID('@', v.String())
-				if err != nil {
-					return fmt.Errorf("failed to split authorised server: %w", err)
-				}
-				needed[serverName] = struct{}{}
+		if membership == spec.Join {
+			auth, err := verImpl.RestrictedJoinServername(e.Content())
+			if err != nil {
+				return err
+			}
+			if auth != "" {
+				needed[auth] = struct{}{}
 			}
 		}
-	}
 
-	strictValidityChecking := verImpl.StrictValidityChecking()
+	}
 
 	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
@@ -108,10 +106,10 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 	var toVerify []VerifyJSONRequest
 	for serverName := range needed {
 		v := VerifyJSONRequest{
-			Message:                redactedJSON,
-			AtTS:                   e.OriginServerTS(),
-			ServerName:             serverName,
-			StrictValidityChecking: strictValidityChecking,
+			Message:              redactedJSON,
+			AtTS:                 e.OriginServerTS(),
+			ServerName:           serverName,
+			ValidityCheckingFunc: verImpl.SignatureValidityCheck,
 		}
 		toVerify = append(toVerify, v)
 	}
@@ -129,6 +127,19 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 
 	return nil
 }
+
+func extractAuthorisedViaServerName(content []byte) (spec.ServerName, error) {
+	if v := gjson.GetBytes(content, "join_authorised_via_users_server"); v.Exists() {
+		_, serverName, err := SplitID('@', v.String())
+		if err != nil {
+			return "", fmt.Errorf("failed to split authorised server: %w", err)
+		}
+		return serverName, nil
+	}
+	return "", nil
+}
+
+func emptyAuthorisedViaServerName([]byte) (spec.ServerName, error) { return "", nil }
 
 // addContentHashesToEvent sets the "hashes" key of the event with a SHA-256 hash of the unredacted event content.
 // This hash is used to detect whether the unredacted content of the event is valid.
@@ -256,9 +267,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (eventReference
 		default:
 			return eventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 		}
-		if encoder != nil {
-			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
-		}
+		eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
 	default:
 		return eventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 	}

@@ -123,7 +123,7 @@ func StateNeededForProtoEvent(protoEvent *ProtoEvent) (result StateNeeded, err e
 	var content *membershipContent
 	if protoEvent.Type == spec.MRoomMember {
 		if err = json.Unmarshal(protoEvent.Content, &content); err != nil {
-			err = errorf("unparsable member event content: %s", err.Error())
+			err = errorf("unparseable member event content: %s", err.Error())
 			return
 		}
 	}
@@ -537,14 +537,17 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	if err != nil {
 		return nil
 	}
-	if notifs := verImpl.PowerLevelsIncludeNotifications(); notifs {
-		if err = checkNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
-			return err
-		}
+	if err = verImpl.CheckNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
+		return err
 	}
 
 	// Check that the changes in user levels are allowed.
 	return checkUserLevels(senderLevel, event.SenderID(), oldPowerLevels, newPowerLevels)
+}
+
+// noCheckLevels doesn't perform any checks, used for room versions <= 5
+func noCheckLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+	return nil
 }
 
 // checkEventLevels checks that the changes in event levels are allowed.
@@ -1015,8 +1018,8 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// Special case for restricted room joins, where we will check if the membership
 	// event is signed by one of the allowed servers in the join rule content.
-	allowsRestricted := m.roomVersionImpl.AllowRestrictedJoinsInEventAuth(m.joinRule.JoinRule)
-	if !allowsRestricted {
+
+	if err := m.roomVersionImpl.CheckRestrictedJoinsAllowed(); err != nil {
 		return errorf("restricted joins are not supported in this room version")
 	}
 
@@ -1122,27 +1125,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// MSC3787 extends this: the behaviour above is also permitted if the
 		// join rules are "knock_restricted"
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
-		supported := m.roomVersionImpl.AllowKnockingInEventAuth(m.joinRule.JoinRule)
-
-		if !supported {
-			return m.membershipFailed(
-				"room version %q does not support knocking on rooms with join rule %q",
-				m.roomVersionImpl.Version(),
-				m.joinRule.JoinRule,
-			)
-		}
-		switch m.oldMember.Membership {
-		case spec.Join, spec.Invite, spec.Ban:
-			// The user is already joined, invited or banned, therefore they
-			// can't knock.
-			return m.membershipFailed(
-				"sender is already joined/invited/banned",
-			)
-		default:
-			// A non-joined, non-invited, non-banned user is allowed to knock.
-			return nil
-		}
-
+		return m.roomVersionImpl.CheckKnockingAllowed(m)
 	case spec.Join:
 		if m.oldMember.Membership == spec.Leave && (m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted) {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
@@ -1194,6 +1177,44 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 			"membership %q is unknown", m.newMember.Membership,
 		)
 	}
+}
+
+func allowRestrictedJoins() error {
+	return nil
+}
+
+func disallowRestrictedJoins() error {
+	return errorf("restricted joins are not supported in this room version")
+}
+
+func disallowKnocking(m *membershipAllower) error {
+	return m.membershipFailed(
+		"room version %q does not support knocking on rooms with join rule %q",
+		m.roomVersionImpl.Version(),
+		m.joinRule.JoinRule,
+	)
+}
+
+func checkKnocking(m *membershipAllower) error {
+	supported := m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted
+	if !supported {
+		return m.membershipFailed(
+			"room version %q does not support knocking on rooms with join rule %q",
+			m.roomVersionImpl.Version(),
+			m.joinRule.JoinRule,
+		)
+	}
+	switch m.oldMember.Membership {
+
+	case spec.Join, spec.Invite, spec.Ban:
+		// The user is already joined, invited or banned, therefore they
+		// can't knock.
+		return m.membershipFailed(
+			"sender is already joined/invited/banned",
+		)
+	}
+	// A non-joined, non-invited, non-banned user is allowed to knock.
+	return nil
 }
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.

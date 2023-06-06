@@ -97,16 +97,16 @@ func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	if enforce := roomVersionImpl.EnforceCanonicalJSON(); enforce {
-		if err = verifyEnforcedCanonicalJSON(input); err != nil {
-			return nil, BadJSONError{err}
-		}
+	if err := roomVersionImpl.CheckCanonicalJSON(input); err != nil {
+		return nil, BadJSONError{err}
 	}
 
 	return CanonicalJSON(input)
 }
 
 var ErrCanonicalJSON = errors.New("value is outside of safe range")
+
+func noVerifyCanonicalJSON(input []byte) error { return nil }
 
 func verifyEnforcedCanonicalJSON(input []byte) error {
 	valid := true

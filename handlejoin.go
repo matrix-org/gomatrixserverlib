@@ -75,7 +75,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 
 	// Check if the restricted join is allowed. If the room doesn't
 	// support restricted joins then this is effectively a no-op.
-	authorisedVia, err := checkRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomVersion, input.RoomID, input.UserID)
+	authorisedVia, err := MustGetRoomVersion(input.RoomVersion).CheckRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomID, input.UserID)
 	switch e := err.(type) {
 	case nil:
 	case spec.MatrixError:
@@ -147,6 +147,10 @@ func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersi
 	return remoteSupportsVersion
 }
 
+func noCheckRestrictedJoin(context.Context, spec.ServerName, RestrictedRoomJoinQuerier, spec.RoomID, spec.UserID) (string, error) {
+	return "", nil
+}
+
 // checkRestrictedJoin finds out whether or not we can assist in processing
 // a restricted room join. If the room version does not support restricted
 // joins then this function returns with no side effects. This returns:
@@ -159,25 +163,8 @@ func checkRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
 	roomQuerier RestrictedRoomJoinQuerier,
-	roomVersion RoomVersion,
 	roomID spec.RoomID, userID spec.UserID,
 ) (string, error) {
-	verImpl, err := GetRoomVersion(roomVersion)
-	if err != nil {
-		return "", err
-	}
-	if !verImpl.MayAllowRestrictedJoinsInEventAuth() {
-		return "", nil
-	}
-
-	// If the room version doesn't allow restricted joins then don't
-	// try to process any further.
-	allowRestrictedJoins := verImpl.MayAllowRestrictedJoinsInEventAuth()
-	if !allowRestrictedJoins {
-		// The join rules for the room don't restrict membership.
-		return "", nil
-	}
-
 	// Get the join rules to work out if the join rule is "restricted".
 	joinRulesEvent, err := roomQuerier.CurrentStateEvent(ctx, roomID, spec.MRoomJoinRules, "")
 	if err != nil {
@@ -400,10 +387,10 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:             sender.Domain(),
-		Message:                redacted,
-		AtTS:                   event.OriginServerTS(),
-		StrictValidityChecking: true,
+		ServerName:           sender.Domain(),
+		Message:              redacted,
+		AtTS:                 event.OriginServerTS(),
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}}
 	verifyResults, err := input.Verifier.VerifyJSONs(input.Context, verifyRequests)
 	if err != nil {
