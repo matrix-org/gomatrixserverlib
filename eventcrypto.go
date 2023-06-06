@@ -82,7 +82,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 
 		// For restricted join rules, the authorising server should have signed.
 		if membership == spec.Join {
-			auth, err := verImpl.restrictedJoinServername(e.Content())
+			auth, err := verImpl.RestrictedJoinServername(e.Content())
 			if err != nil {
 				return err
 			}

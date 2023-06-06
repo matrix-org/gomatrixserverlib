@@ -97,7 +97,7 @@ func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	if err := roomVersionImpl.checkCanonicalJSON(input); err != nil {
+	if err := roomVersionImpl.CheckCanonicalJSON(input); err != nil {
 		return nil, BadJSONError{err}
 	}
 

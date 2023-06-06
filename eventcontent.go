@@ -417,7 +417,7 @@ func NewPowerLevelContentFromEvent(event PDU) (c PowerLevelContent, err error) {
 		return c, err
 	}
 
-	if err = verImpl.parsePowerLevels(event.Content(), &c); err != nil {
+	if err = verImpl.ParsePowerLevels(event.Content(), &c); err != nil {
 		err = errorf("unparseable power_levels event content: %s", err.Error())
 		return
 	}

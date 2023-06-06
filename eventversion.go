@@ -27,12 +27,12 @@ type IRoomVersion interface {
 	NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBuilder
 	CheckRestrictedJoin(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, userID spec.UserID) (string, error)
 
-	restrictedJoinServername(content []byte) (spec.ServerName, error)
-	checkRestrictedJoins() error
-	checkKnockingAllowed(m *membershipAllower) error
-	checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
-	checkCanonicalJSON(input []byte) error
-	parsePowerLevels(contentBytes []byte, c *PowerLevelContent) error
+	RestrictedJoinServername(content []byte) (spec.ServerName, error)
+	CheckRestrictedJoinsAllowed() error
+	CheckKnockingAllowed(m *membershipAllower) error
+	CheckNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
+	CheckCanonicalJSON(input []byte) error
+	ParsePowerLevels(contentBytes []byte, c *PowerLevelContent) error
 }
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
@@ -372,32 +372,34 @@ func (v RoomVersionImpl) SignatureValidityCheck(atTS, validUntilTS spec.Timestam
 	return v.signatureValidityCheckFunc(atTS, validUntilTS)
 }
 
-// checkNotificationLevels checks that the changes in notification levels are allowed.
-func (v RoomVersionImpl) checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+// CheckNotificationLevels checks that the changes in notification levels are allowed.
+func (v RoomVersionImpl) CheckNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	return v.notificationLevelCheck(senderLevel, oldPowerLevels, newPowerLevels)
 }
 
-func (v RoomVersionImpl) checkKnockingAllowed(m *membershipAllower) error {
+// CheckKnockingAllowed checks if this room version supports knocking on rooms.
+func (v RoomVersionImpl) CheckKnockingAllowed(m *membershipAllower) error {
 	return v.checkKnockingAllowedFunc(m)
 }
 
-func (v RoomVersionImpl) checkRestrictedJoins() error {
+// CheckRestrictedJoinsAllowed checks if this room version allows restricted joins.
+func (v RoomVersionImpl) CheckRestrictedJoinsAllowed() error {
 	return v.checkRestrictedJoinAllowedFunc()
 }
 
-// restrictedJoinServername returns the severName from a potentially existing
+// RestrictedJoinServername returns the severName from a potentially existing
 // join_authorised_via_users_server content field. Used to verify event signatures.
-func (v RoomVersionImpl) restrictedJoinServername(content []byte) (spec.ServerName, error) {
+func (v RoomVersionImpl) RestrictedJoinServername(content []byte) (spec.ServerName, error) {
 	return v.restrictedJoinServernameFunc(content)
 }
 
-// checkCanonicalJSON returns an error if the eventJSON is not canonical JSON.
-func (v RoomVersionImpl) checkCanonicalJSON(eventJSON []byte) error {
+// CheckCanonicalJSON returns an error if the eventJSON is not canonical JSON.
+func (v RoomVersionImpl) CheckCanonicalJSON(eventJSON []byte) error {
 	return v.canonicalJSONCheck(eventJSON)
 }
 
-// parsePowerLevels parses the power_level directly into the passed PowerLevelContent.
-func (v RoomVersionImpl) parsePowerLevels(contentBytes []byte, c *PowerLevelContent) error {
+// ParsePowerLevels parses the power_level directly into the passed PowerLevelContent.
+func (v RoomVersionImpl) ParsePowerLevels(contentBytes []byte, c *PowerLevelContent) error {
 	return v.parsePowerLevelsFunc(contentBytes, c)
 }
 
