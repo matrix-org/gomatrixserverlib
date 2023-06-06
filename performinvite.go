@@ -23,11 +23,12 @@ import (
 )
 
 type PerformInviteInput struct {
-	RoomID        spec.RoomID           // The room the user is being invited to join
-	InvitedUser   spec.UserID           // The user being invited join the room
-	IsTargetLocal bool                  // Whether the user being invited is local to this server
-	InviteEvent   PDU                   // The original invite event
-	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
+	RoomID          spec.RoomID           // The room the user is being invited to join
+	InvitedUser     spec.UserID           // The user being invited join the room
+	InvitedSenderID spec.SenderID         // The senderID of the user being invited to join the room
+	IsTargetLocal   bool                  // Whether the user being invited is local to this server
+	InviteEvent     PDU                   // The original invite event
+	StrippedState   []InviteStrippedState // A small set of state events that can be used to identify the room
 
 	MembershipQuerier MembershipQuerier    // Provides information about the room's membership
 	StateQuerier      StateQuerier         // Provides access to state events
@@ -63,7 +64,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		}
 	}
 
-	err := abortIfAlreadyJoined(ctx, input.RoomID, spec.SenderID(input.InvitedUser.String()), input.MembershipQuerier)
+	err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedSenderID, input.MembershipQuerier)
 	if err != nil {
 		return nil, err
 	}
