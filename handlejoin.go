@@ -27,6 +27,7 @@ import (
 type HandleMakeJoinInput struct {
 	Context           context.Context
 	UserID            spec.UserID               // The user wanting to join the room
+	SenderID          spec.SenderID             // The senderID of the user wanting to join the room
 	RoomID            spec.RoomID               // The room the user wants to join
 	RoomVersion       RoomVersion               // The room version for the room being joined
 	RemoteVersions    []RoomVersion             // Room versions supported by the remote server
@@ -86,13 +87,12 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 	}
 
 	// Try building an event for the server
-	rawUserID := input.UserID.String()
+	rawSenderID := string(input.SenderID)
 	proto := ProtoEvent{
-		// TODO: use senderID here!
-		SenderID: input.UserID.String(),
+		SenderID: string(input.SenderID),
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
-		StateKey: &rawUserID,
+		StateKey: &rawSenderID,
 	}
 	content := MemberContent{
 		Membership:    spec.Join,

@@ -13,6 +13,7 @@ import (
 
 type PerformJoinInput struct {
 	UserID     *spec.UserID           // The user joining the room
+	SenderID   spec.SenderID          // The senderID of the user joining the room
 	RoomID     *spec.RoomID           // The room the user is joining
 	ServerName spec.ServerName        // The server to attempt to join via
 	Content    map[string]interface{} // The membership event content
@@ -87,11 +88,10 @@ func PerformJoin(
 
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
-	stateKey := input.UserID.String()
+	stateKey := string(input.SenderID)
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	// TODO: use senderID here!
-	joinEvent.SenderID = input.UserID.String()
+	joinEvent.SenderID = string(input.SenderID)
 	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
