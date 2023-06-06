@@ -106,10 +106,10 @@ func TestVerifyJSONsSuccess(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -123,10 +123,10 @@ func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   22493142433964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 22493142433964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -150,13 +150,13 @@ func TestStrictCheckingKeyValidity(t *testing.T) {
 
 	// This test should pass because we are only looking
 	// 5 days in the future, which is less than 7 days.
-	if !publicKeyLookup.WasValidAt(shouldPass, true) {
+	if !publicKeyLookup.WasValidAt(shouldPass, StrictValiditySignatureCheck) {
 		t.Fatalf("valid test should have passed")
 	}
 
 	// This test should fail because we are looking 9 days
 	// in the future, which is more than 7 days.
-	if publicKeyLookup.WasValidAt(shouldFail, true) {
+	if publicKeyLookup.WasValidAt(shouldFail, StrictValiditySignatureCheck) {
 		t.Fatalf("invalid test should have failed")
 	}
 }
@@ -170,13 +170,13 @@ func TestExpiredTS(t *testing.T) {
 	shouldFail := spec.Timestamp(1000)
 
 	// This test should pass because it is less than ExpiredTS.
-	if !publicKeyLookup.WasValidAt(shouldPass, true) {
+	if !publicKeyLookup.WasValidAt(shouldPass, StrictValiditySignatureCheck) {
 		t.Fatalf("valid test should have passed")
 	}
 
 	// This test should fail because it is equal to or
 	// greater than ExpiredTS.
-	if publicKeyLookup.WasValidAt(shouldFail, true) {
+	if publicKeyLookup.WasValidAt(shouldFail, StrictValiditySignatureCheck) {
 		t.Fatalf("invalid test should have failed")
 	}
 }
@@ -185,10 +185,10 @@ func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142433964,
-		StrictValidityChecking: false,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142433964,
+		ValidityCheckingFunc: NoStrictValidityCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -202,10 +202,10 @@ func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 	// Check that trying to verify JSON for an unknown server fails.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "unknown:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "unknown:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -220,10 +220,10 @@ func TestVerifyJSONsDistantFutureFails(t *testing.T) {
 	distantFuture := spec.Timestamp(2000000000000)
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "unknown:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   distantFuture,
-		StrictValidityChecking: true,
+		ServerName:           "unknown:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 distantFuture,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -237,10 +237,10 @@ func TestVerifyJSONsFetcherError(t *testing.T) {
 	// Check that if the database errors then the attempt to verify JSON fails.
 	k := KeyRing{nil, &erroringKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != error(&testErrorFetch) || results != nil {
 		t.Fatalf("VerifyJSONs(): Wanted (nil, <some error>) got (%#v, %q)", results, err)
@@ -285,10 +285,10 @@ func TestRequestKeyAfterValidity(t *testing.T) {
 	}`
 	// Try verifying.
 	_, _ = k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(message),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(message),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	// At this point, the TestRequestKeyDummy should have been triggered.
 	// If not, then the test failed.

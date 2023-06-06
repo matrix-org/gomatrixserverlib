@@ -79,10 +79,10 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.BadJSON("The event JSON contains an invalid sender")
 	}
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:             sender.Domain(),
-		Message:                redacted,
-		AtTS:                   input.InviteEvent.OriginServerTS(),
-		StrictValidityChecking: true,
+		ServerName:           sender.Domain(),
+		Message:              redacted,
+		AtTS:                 input.InviteEvent.OriginServerTS(),
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}}
 	verifyResults, err := input.Verifier.VerifyJSONs(ctx, verifyRequests)
 	if err != nil {
