@@ -17,7 +17,7 @@ func TestMarshalInviteV2Request(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	inviteReq, err := NewInviteV2Request(output, []InviteV2StrippedState{})
+	inviteReq, err := NewInviteV2Request(output, []gomatrixserverlib.InviteStrippedState{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestStrippedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stripped := NewInviteV2StrippedState(output)
+	stripped := gomatrixserverlib.NewInviteStrippedState(output)
 
 	j, err := json.Marshal(stripped)
 	if err != nil {

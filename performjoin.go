@@ -12,17 +12,17 @@ import (
 )
 
 type PerformJoinInput struct {
-	UserID     *spec.UserID
-	RoomID     *spec.RoomID
-	ServerName spec.ServerName
-	Content    map[string]interface{}
-	Unsigned   map[string]interface{}
+	UserID     *spec.UserID           // The user joining the room
+	RoomID     *spec.RoomID           // The room the user is joining
+	ServerName spec.ServerName        // The server to attempt to join via
+	Content    map[string]interface{} // The membership event content
+	Unsigned   map[string]interface{} // The event unsigned content, if any
 
-	PrivateKey ed25519.PrivateKey
-	KeyID      KeyID
-	KeyRing    *KeyRing
+	PrivateKey ed25519.PrivateKey // Used to sign the join event
+	KeyID      KeyID              // Used to sign the join event
+	KeyRing    *KeyRing           // Used to verify the response from send_join
 
-	EventProvider EventProvider
+	EventProvider EventProvider // Provides full events given a list of event IDs
 }
 
 type PerformJoinResponse struct {
