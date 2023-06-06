@@ -60,7 +60,7 @@ type event struct {
 
 type eventFields struct {
 	RoomID         string         `json:"room_id"`
-	Sender         string         `json:"sender"`
+	SenderID       string         `json:"sender"`
 	Type           string         `json:"type"`
 	StateKey       *string        `json:"state_key"`
 	Content        spec.RawJSON   `json:"content"`
@@ -480,7 +480,7 @@ func (e *event) CheckFields() error { // nolint: gocyclo
 		return err
 	}
 
-	if err := checkID(fields.Sender, "user", '@'); err != nil {
+	if err := checkID(fields.SenderID, "user", '@'); err != nil {
 		return err
 	}
 
@@ -546,9 +546,9 @@ func (e *event) EventID() string {
 func (e *event) SenderID() spec.SenderID {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
-		return spec.SenderID(fields.Sender)
+		return spec.SenderID(fields.SenderID)
 	case eventFormatV2Fields:
-		return spec.SenderID(fields.Sender)
+		return spec.SenderID(fields.SenderID)
 	default:
 		panic(e.invalidFieldType())
 	}
