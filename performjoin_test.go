@@ -132,7 +132,7 @@ func TestPerformJoin(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     userID.String(),
+		SenderID:   userID.String(),
 		RoomID:     roomID.String(),
 		Type:       "m.room.create",
 		StateKey:   &stateKey,
@@ -149,7 +149,7 @@ func TestPerformJoin(t *testing.T) {
 
 	stateKey = userID.String()
 	joinProto := ProtoEvent{
-		Sender:     userID.String(),
+		SenderID:   userID.String(),
 		RoomID:     roomID.String(),
 		Type:       "m.room.member",
 		StateKey:   &stateKey,

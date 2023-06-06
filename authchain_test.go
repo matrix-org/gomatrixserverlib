@@ -8,8 +8,8 @@ import (
 	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
-func UserIDForSenderTest(roomID string, senderID string) (*spec.UserID, error) {
-	return spec.NewUserID(senderID, true)
+func UserIDForSenderTest(roomID string, senderID spec.SenderID) (*spec.UserID, error) {
+	return spec.NewUserID(string(senderID), true)
 }
 
 // A basic sanity check of a linear sequence of common events

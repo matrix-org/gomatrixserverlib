@@ -88,7 +88,8 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 	// Try building an event for the server
 	rawUserID := input.UserID.String()
 	proto := ProtoEvent{
-		Sender:   input.UserID.String(),
+		// TODO: use senderID here!
+		SenderID: input.UserID.String(),
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
 		StateKey: &rawUserID,
@@ -261,7 +262,7 @@ func checkRestrictedJoin(
 				continue // shouldn't happen
 			}
 			// Only users that have the power to invite should be chosen.
-			if powerLevels.UserLevel(*user.StateKey()) < powerLevels.Invite {
+			if powerLevels.UserLevel(spec.SenderID(*user.StateKey())) < powerLevels.Invite {
 				continue
 			}
 
@@ -337,7 +338,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the join event.")
 	}
-	if !event.StateKeyEquals(event.SenderID()) {
+	if !event.StateKeyEquals(string(event.SenderID())) {
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
@@ -404,7 +405,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, spec.SenderID(event.SenderID()))
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, event.SenderID())
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}

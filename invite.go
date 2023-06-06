@@ -44,7 +44,7 @@ type InviteStrippedState struct {
 		Content  spec.RawJSON `json:"content"`
 		StateKey *string      `json:"state_key"`
 		Type     string       `json:"type"`
-		Sender   string       `json:"sender"`
+		SenderID string       `json:"sender"`
 	}
 }
 
@@ -54,7 +54,7 @@ func NewInviteStrippedState(event PDU) (ss InviteStrippedState) {
 	ss.fields.Content = event.Content()
 	ss.fields.StateKey = event.StateKey()
 	ss.fields.Type = event.Type()
-	ss.fields.Sender = event.SenderID()
+	ss.fields.SenderID = string(event.SenderID())
 	return
 }
 
@@ -85,7 +85,7 @@ func (i *InviteStrippedState) Type() string {
 
 // Sender returns the sender of the stripped state.
 func (i *InviteStrippedState) Sender() string {
-	return i.fields.Sender
+	return i.fields.SenderID
 }
 
 func GenerateStrippedState(

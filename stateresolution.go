@@ -29,7 +29,7 @@ import (
 func ResolveStateConflicts(conflicted []PDU, authEvents []PDU, userIDForSender spec.UserIDForSender) []PDU {
 	r := stateResolver{valid: true}
 	r.resolvedThirdPartyInvites = map[string]PDU{}
-	r.resolvedMembers = map[string]PDU{}
+	r.resolvedMembers = map[spec.SenderID]PDU{}
 	// Group the conflicted events by type and state key.
 	r.addConflicted(conflicted)
 	// Add the unconflicted auth events needed for auth checks.
@@ -74,7 +74,7 @@ type stateResolver struct {
 	resolvedPowerLevels       PDU
 	resolvedJoinRules         PDU
 	resolvedThirdPartyInvites map[string]PDU
-	resolvedMembers           map[string]PDU
+	resolvedMembers           map[spec.SenderID]PDU
 	// The list of resolved events.
 	// This will contain one entry for each conflicted event type and state key.
 	result []PDU
@@ -102,7 +102,7 @@ func (r *stateResolver) ThirdPartyInvite(key string) (PDU, error) {
 	return r.resolvedThirdPartyInvites[key], nil
 }
 
-func (r *stateResolver) Member(key string) (PDU, error) {
+func (r *stateResolver) Member(key spec.SenderID) (PDU, error) {
 	return r.resolvedMembers[key], nil
 }
 
@@ -179,7 +179,7 @@ func (r *stateResolver) addAuthEvent(event PDU) {
 			r.resolvedJoinRules = event
 		}
 	case spec.MRoomMember:
-		r.resolvedMembers[*event.StateKey()] = event
+		r.resolvedMembers[spec.SenderID(*event.StateKey())] = event
 	case spec.MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[*event.StateKey()] = event
 	}
@@ -201,7 +201,7 @@ func (r *stateResolver) removeAuthEvent(eventType, stateKey string) {
 			r.resolvedJoinRules = nil
 		}
 	case spec.MRoomMember:
-		r.resolvedMembers[stateKey] = nil
+		r.resolvedMembers[spec.SenderID(stateKey)] = nil
 	case spec.MRoomThirdPartyInvite:
 		r.resolvedThirdPartyInvites[stateKey] = nil
 	}

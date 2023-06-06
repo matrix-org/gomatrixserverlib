@@ -53,7 +53,8 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 	// Try building an event for the server
 	rawUserID := input.UserID.String()
 	proto := ProtoEvent{
-		Sender:   input.UserID.String(),
+		// TODO: use senderID here!
+		SenderID: input.UserID.String(),
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
 		StateKey: &rawUserID,

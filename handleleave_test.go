@@ -27,7 +27,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomCreate,
 		StateKey:   &stateKey,
@@ -44,7 +44,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = ""
 	joinRulesEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -61,7 +61,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = ""
 	powerLevelsEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -78,7 +78,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = validUser.String()
 	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -95,7 +95,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = validUser.String()
 	leaveEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,

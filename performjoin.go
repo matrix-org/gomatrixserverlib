@@ -90,7 +90,8 @@ func PerformJoin(
 	stateKey := input.UserID.String()
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	joinEvent.Sender = input.UserID.String()
+	// TODO: use senderID here!
+	joinEvent.SenderID = input.UserID.String()
 	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""

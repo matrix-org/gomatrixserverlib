@@ -444,7 +444,7 @@ func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBui
 	eb.PrevEvents = pe.PrevEvents
 	eb.Redacts = pe.Redacts
 	eb.RoomID = pe.RoomID
-	eb.Sender = pe.Sender
+	eb.SenderID = pe.SenderID
 	eb.Signature = pe.Signature
 	eb.StateKey = pe.StateKey
 	eb.Type = pe.Type

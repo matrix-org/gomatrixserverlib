@@ -105,8 +105,8 @@ func TestStateNeededForMessage(t *testing.T) {
 		"type": "m.room.message",
 		"sender": "@u1:a"
 	}]`, &ProtoEvent{
-		Type:   "m.room.message",
-		Sender: "@u1:a",
+		Type:     "m.room.message",
+		SenderID: "@u1:a",
 	}, StateNeeded{
 		Create:      true,
 		PowerLevels: true,
@@ -128,7 +128,7 @@ func TestStateNeededForJoin(t *testing.T) {
 	b := ProtoEvent{
 		Type:     "m.room.member",
 		StateKey: &skey,
-		Sender:   "@u1:a",
+		SenderID: "@u1:a",
 	}
 	if err := b.SetContent(newMemberContent("join", nil)); err != nil {
 		t.Fatal(err)
@@ -151,7 +151,7 @@ func TestStateNeededForInvite(t *testing.T) {
 	b := ProtoEvent{
 		Type:     "m.room.member",
 		StateKey: &skey,
-		Sender:   "@u1:a",
+		SenderID: "@u1:a",
 	}
 	if err := b.SetContent(newMemberContent("invite", nil)); err != nil {
 		t.Fatal(err)
@@ -174,7 +174,7 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 	b := ProtoEvent{
 		Type:     "m.room.member",
 		StateKey: &skey,
-		Sender:   "@u1:a",
+		SenderID: "@u1:a",
 	}
 
 	if err := b.SetContent(newMemberContent("invite", &MemberThirdPartyInvite{
@@ -246,11 +246,11 @@ func (tae *testAuthEvents) PowerLevels() (PDU, error) {
 	return event, nil
 }
 
-func (tae *testAuthEvents) Member(stateKey string) (PDU, error) {
-	if len(tae.MemberJSON[stateKey]) == 0 {
+func (tae *testAuthEvents) Member(stateKey spec.SenderID) (PDU, error) {
+	if len(tae.MemberJSON[string(stateKey)]) == 0 {
 		return nil, nil
 	}
-	event, err := newEventFromTrustedJSON(tae.MemberJSON[stateKey], false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSON(tae.MemberJSON[string(stateKey)], false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		return nil, err
 	}
@@ -1426,7 +1426,7 @@ func Test_checkUserLevels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkUserLevels(tt.args.senderLevel, senderID, tt.args.oldPowerLevels, tt.args.newPowerLevels)
+			err := checkUserLevels(tt.args.senderLevel, spec.SenderID(senderID), tt.args.oldPowerLevels, tt.args.newPowerLevels)
 			if err != nil && !tt.wantErr {
 				t.Errorf("checkUserLevels() error = %v, wantErr %v", err, tt.wantErr)
 			} else {

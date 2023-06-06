@@ -15,8 +15,8 @@ import (
 // These can be exchanged between matrix servers in the federation APIs when
 // joining or leaving a room.
 type EventBuilder struct {
-	// The user ID of the user sending the event.
-	Sender string `json:"sender"`
+	// The sender ID of the user sending the event.
+	SenderID string `json:"sender"`
 	// The room ID of the room this event is in.
 	RoomID string `json:"room_id"`
 	// The type of the event.
@@ -62,7 +62,7 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 		Type:     eb.Type,
 		StateKey: eb.StateKey,
 		Content:  eb.Content,
-		Sender:   eb.Sender,
+		SenderID: eb.SenderID,
 	})
 	if err != nil {
 		return err

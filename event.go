@@ -543,12 +543,12 @@ func (e *event) EventID() string {
 }
 
 // SenderID returns the sender ID of the sender of the event.
-func (e *event) SenderID() string {
+func (e *event) SenderID() spec.SenderID {
 	switch fields := e.fields.(type) {
 	case eventFormatV1Fields:
-		return fields.Sender
+		return spec.SenderID(fields.Sender)
 	case eventFormatV2Fields:
-		return fields.Sender
+		return spec.SenderID(fields.Sender)
 	default:
 		panic(e.invalidFieldType())
 	}
