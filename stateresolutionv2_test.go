@@ -81,125 +81,113 @@ func separate(events []PDU) (conflicted, unconflicted []PDU) {
 
 func getBaseStateResV2Graph() []PDU {
 	return []PDU{
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$CREATE:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomCreate,
-					OriginServerTS: 1,
-					Sender:         ALICE,
-					StateKey:       &emptyStateKey,
-					Content:        []byte(`{"creator": "` + ALICE + `"}`),
-				},
+			EventIDRaw:  "$CREATE:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomCreate,
+				OriginServerTS: 1,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content:        []byte(`{"creator": "` + ALICE + `"}`),
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IMA:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomMember,
-					OriginServerTS: 2,
-					Sender:         ALICE,
-					StateKey:       &ALICE,
-					Content:        []byte(`{"membership": "join"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-				},
+			EventIDRaw:  "$IMA:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomMember,
+				OriginServerTS: 2,
+				Sender:         ALICE,
+				StateKey:       &ALICE,
+				Content:        []byte(`{"membership": "join"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IPOWER:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomPowerLevels,
-					OriginServerTS: 3,
-					Sender:         ALICE,
-					StateKey:       &emptyStateKey,
-					Content:        []byte(`{"users": {"` + ALICE + `": 100}}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IMA:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IMA:example.com"},
-				},
+			EventIDRaw:  "$IPOWER:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomPowerLevels,
+				OriginServerTS: 3,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content:        []byte(`{"users": {"` + ALICE + `": 100}}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IMA:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IMA:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IJR:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomJoinRules,
-					OriginServerTS: 4,
-					Sender:         ALICE,
-					StateKey:       &emptyStateKey,
-					Content:        []byte(`{"join_rule": "public"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IPOWER:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IMA:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			EventIDRaw:  "$IJR:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomJoinRules,
+				OriginServerTS: 4,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content:        []byte(`{"join_rule": "public"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IPOWER:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IMA:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IMB:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomMember,
-					OriginServerTS: 5,
-					Sender:         BOB,
-					StateKey:       &BOB,
-					Content:        []byte(`{"membership": "join"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IJR:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IJR:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			EventIDRaw:  "$IMB:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomMember,
+				OriginServerTS: 5,
+				Sender:         BOB,
+				StateKey:       &BOB,
+				Content:        []byte(`{"membership": "join"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IJR:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IJR:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IMC:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomMember,
-					OriginServerTS: 6,
-					Sender:         CHARLIE,
-					StateKey:       &CHARLIE,
-					Content:        []byte(`{"membership": "join"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IMB:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IJR:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			EventIDRaw:  "$IMC:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomMember,
+				OriginServerTS: 6,
+				Sender:         CHARLIE,
+				StateKey:       &CHARLIE,
+				Content:        []byte(`{"membership": "join"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IMB:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IJR:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
 	}
@@ -229,98 +217,90 @@ func TestStateResolutionBanVsPowerLevel(t *testing.T) {
 	}
 
 	runStateResolutionV2(t, []PDU{
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$PA:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomPowerLevels,
-					OriginServerTS: 7,
-					Sender:         ALICE,
-					StateKey:       &emptyStateKey,
-					Content: []byte(`{"users": {
+			EventIDRaw:  "$PA:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomPowerLevels,
+				OriginServerTS: 7,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content: []byte(`{"users": {
 					"` + ALICE + `": 100,
 					"` + BOB + `": 50
 				}}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IMZJOIN:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IMA:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IMZJOIN:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IMA:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$PB:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomPowerLevels,
-					OriginServerTS: 8,
-					Sender:         ALICE,
-					StateKey:       &emptyStateKey,
-					Content: []byte(`{"users": {
+			EventIDRaw:  "$PB:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomPowerLevels,
+				OriginServerTS: 8,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content: []byte(`{"users": {
 					"` + ALICE + `": 100,
 					"` + BOB + `": 50
 				}}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IMC:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IMA:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IMC:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IMA:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$MB:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomMember,
-					OriginServerTS: 9,
-					Sender:         ALICE,
-					StateKey:       &EVELYN,
-					Content:        []byte(`{"membership": "ban"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$PA:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IMA:example.com"},
-					{EventID: "$PB:example.com"},
-				},
+			EventIDRaw:  "$MB:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomMember,
+				OriginServerTS: 9,
+				Sender:         ALICE,
+				StateKey:       &EVELYN,
+				Content:        []byte(`{"membership": "ban"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$PA:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IMA:example.com"},
+				{EventID: "$PB:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IME:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomMember,
-					OriginServerTS: 10,
-					Sender:         EVELYN,
-					StateKey:       &EVELYN,
-					Content:        []byte(`{"membership": "join"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$MB:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IJR:example.com"},
-					{EventID: "$PA:example.com"},
-				},
+			EventIDRaw:  "$IME:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomMember,
+				OriginServerTS: 10,
+				Sender:         EVELYN,
+				StateKey:       &EVELYN,
+				Content:        []byte(`{"membership": "join"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$MB:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IJR:example.com"},
+				{EventID: "$PA:example.com"},
 			},
 		},
 	}, expected)
@@ -334,48 +314,44 @@ func TestStateResolutionJoinRuleEvasion(t *testing.T) {
 	}
 
 	runStateResolutionV2(t, []PDU{
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$JR:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomJoinRules,
-					OriginServerTS: 8,
-					Sender:         ALICE,
-					StateKey:       &emptyStateKey,
-					Content:        []byte(`{"join_rule": "invite"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$IMZ:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$IMA:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			EventIDRaw:  "$JR:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomJoinRules,
+				OriginServerTS: 8,
+				Sender:         ALICE,
+				StateKey:       &emptyStateKey,
+				Content:        []byte(`{"join_rule": "invite"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$IMZ:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$IMA:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
-		&event{
+		&eventV1{
 			roomVersion: RoomVersionV2,
-			fields: eventFormatV1Fields{
-				EventID: "$IMZ:example.com",
-				eventFields: eventFields{
-					RoomID:         "!ROOM:example.com",
-					Type:           spec.MRoomMember,
-					OriginServerTS: 9,
-					Sender:         ZARA,
-					StateKey:       &ZARA,
-					Content:        []byte(`{"membership": "join"}`),
-				},
-				PrevEvents: []eventReference{
-					{EventID: "$JR:example.com"},
-				},
-				AuthEvents: []eventReference{
-					{EventID: "$CREATE:example.com"},
-					{EventID: "$JR:example.com"},
-					{EventID: "$IPOWER:example.com"},
-				},
+			EventIDRaw:  "$IMZ:example.com",
+			eventFields: eventFields{
+				RoomID:         "!ROOM:example.com",
+				Type:           spec.MRoomMember,
+				OriginServerTS: 9,
+				Sender:         ZARA,
+				StateKey:       &ZARA,
+				Content:        []byte(`{"membership": "join"}`),
+			},
+			PrevEvents: []eventReference{
+				{EventID: "$JR:example.com"},
+			},
+			AuthEvents: []eventReference{
+				{EventID: "$CREATE:example.com"},
+				{EventID: "$JR:example.com"},
+				{EventID: "$IPOWER:example.com"},
 			},
 		},
 	}, expected)
@@ -463,7 +439,7 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 	}
 	events := make([]PDU, 0, len(eventJSONs))
 	for _, eventJSON := range eventJSONs {
-		event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV6))
+		event, err := MustGetRoomVersion(RoomVersionV6).NewEventFromTrustedJSON([]byte(eventJSON), false)
 		if err != nil {
 			t.Fatal(err)
 		}
