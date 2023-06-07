@@ -118,10 +118,8 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PD
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		return nil, fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))
 	}
-	if roomVersion.EnforceCanonicalJSON() {
-		if err := verifyEnforcedCanonicalJSON(eventJSON); err != nil {
-			return nil, BadJSONError{err}
-		}
+	if err := roomVersion.CheckCanonicalJSON(eventJSON); err != nil {
+		return nil, BadJSONError{err}
 	}
 
 	res := &eventV2{}
@@ -208,7 +206,7 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 		return err
 	}
 
-	if err := checkID(input.Sender(), "user", '@'); err != nil {
+	if err := checkID(input.SenderID(), "user", '@'); err != nil {
 		return err
 	}
 

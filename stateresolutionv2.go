@@ -54,6 +54,7 @@ type stateResolverV2 struct {
 func ResolveStateConflictsV2(
 	conflicted, unconflicted []PDU,
 	authEvents []PDU,
+	userIDForSender spec.UserIDForSender,
 ) []PDU {
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]PDU, 0, len(conflicted))
@@ -69,7 +70,7 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
 	}
-	r.allower = newAllowerContext(&r.authProvider)
+	r.allower = newAllowerContext(&r.authProvider, userIDForSender)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
@@ -230,7 +231,7 @@ func isControlEvent(e PDU) bool {
 		}
 		// Membership events are only control events if the sender does not match
 		// the state key, i.e. because the event is caused by an admin or moderator.
-		if e.StateKeyEquals(e.Sender()) {
+		if e.StateKeyEquals(e.SenderID()) {
 			break
 		}
 		// Membership events are only control events if the "membership" key in the
@@ -574,7 +575,7 @@ func (r *stateResolverV2) mainlineOrdering(events []PDU) []PDU {
 // the sender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
 func (r *stateResolverV2) getPowerLevelFromAuthEvents(event PDU) int64 {
-	user := event.Sender()
+	user := event.SenderID()
 	for _, authID := range event.AuthEventIDs() {
 		// Then check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.

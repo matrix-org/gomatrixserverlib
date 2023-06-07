@@ -29,22 +29,27 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier) []error {
+func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) []error {
 	errors := make([]error, 0, len(events))
 	for _, e := range events {
-		errors = append(errors, VerifyEventSignatures(ctx, e, verifier))
+		errors = append(errors, VerifyEventSignatures(ctx, e, verifier, userIDForSender))
 	}
 	return errors
 }
 
-func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) error {
+func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) error {
+	if userIDForSender == nil {
+		panic("UserIDForSender func is nil")
+	}
+
 	needed := map[spec.ServerName]struct{}{}
 
 	// The sender should have signed the event in all cases.
-	_, serverName, err := SplitID('@', e.Sender())
+	sender, err := userIDForSender(e.RoomID(), e.SenderID())
 	if err != nil {
-		return fmt.Errorf("failed to split sender: %w", err)
+		return fmt.Errorf("invalid sender userID: %w", err)
 	}
+	serverName := sender.Domain()
 	needed[serverName] = struct{}{}
 
 	verImpl, err := GetRoomVersion(e.Version())
@@ -81,19 +86,17 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 		}
 
 		// For restricted join rules, the authorising server should have signed.
-		restricted := verImpl.MayAllowRestrictedJoinsInEventAuth()
-		if restricted && membership == spec.Join {
-			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
-				_, serverName, err = SplitID('@', v.String())
-				if err != nil {
-					return fmt.Errorf("failed to split authorised server: %w", err)
-				}
-				needed[serverName] = struct{}{}
+		if membership == spec.Join {
+			auth, err := verImpl.RestrictedJoinServername(e.Content())
+			if err != nil {
+				return err
+			}
+			if auth != "" {
+				needed[auth] = struct{}{}
 			}
 		}
-	}
 
-	strictValidityChecking := verImpl.StrictValidityChecking()
+	}
 
 	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
@@ -103,10 +106,10 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 	var toVerify []VerifyJSONRequest
 	for serverName := range needed {
 		v := VerifyJSONRequest{
-			Message:                redactedJSON,
-			AtTS:                   e.OriginServerTS(),
-			ServerName:             serverName,
-			StrictValidityChecking: strictValidityChecking,
+			Message:              redactedJSON,
+			AtTS:                 e.OriginServerTS(),
+			ServerName:           serverName,
+			ValidityCheckingFunc: verImpl.SignatureValidityCheck,
 		}
 		toVerify = append(toVerify, v)
 	}
@@ -124,6 +127,19 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 
 	return nil
 }
+
+func extractAuthorisedViaServerName(content []byte) (spec.ServerName, error) {
+	if v := gjson.GetBytes(content, "join_authorised_via_users_server"); v.Exists() {
+		_, serverName, err := SplitID('@', v.String())
+		if err != nil {
+			return "", fmt.Errorf("failed to split authorised server: %w", err)
+		}
+		return serverName, nil
+	}
+	return "", nil
+}
+
+func emptyAuthorisedViaServerName([]byte) (spec.ServerName, error) { return "", nil }
 
 // addContentHashesToEvent sets the "hashes" key of the event with a SHA-256 hash of the unredacted event content.
 // This hash is used to detect whether the unredacted content of the event is valid.
@@ -251,9 +267,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (eventReference
 		default:
 			return eventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 		}
-		if encoder != nil {
-			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
-		}
+		eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
 	default:
 		return eventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 	}

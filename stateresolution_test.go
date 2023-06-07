@@ -48,7 +48,7 @@ func TestStateResV1(t *testing.T) {
 
 	authEvents := []PDU{a1, a2, a3}
 
-	resolved, err := ResolveConflicts(RoomVersionV1, conflicted, authEvents)
+	resolved, err := ResolveConflicts(RoomVersionV1, conflicted, authEvents, UserIDForSenderTest)
 	if err != nil {
 		t.Fatalf("failed to resolve conflicts: %s", err)
 	}

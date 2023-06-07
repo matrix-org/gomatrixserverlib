@@ -92,6 +92,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -107,6 +108,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{shouldFailAuth: true},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -122,6 +124,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{shouldFailState: true},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -136,6 +139,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{membership: spec.Join},
 				StateQuerier:      &TestStateQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -151,6 +155,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{shouldFail: true},
 			expectedErr: true,
@@ -166,6 +171,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: false,
@@ -179,6 +185,7 @@ func TestPerformInvite(t *testing.T) {
 				StrippedState:     []InviteStrippedState{},
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: false,
@@ -233,6 +240,7 @@ func TestPerformInviteNilMembershipQuerier(t *testing.T) {
 			StrippedState:     []InviteStrippedState{},
 			MembershipQuerier: nil,
 			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 		}, &TestFederatedInviteClient{})
 	})
 }
@@ -261,6 +269,36 @@ func TestPerformInviteNilStateQuerier(t *testing.T) {
 			StrippedState:     []InviteStrippedState{},
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      nil,
+			UserIDQuerier:     UserIDForSenderTest,
+		}, &TestFederatedInviteClient{})
+	})
+}
+
+func TestPerformInviteNilUserIDQuerier(t *testing.T) {
+	userID, err := spec.NewUserID("@user:server", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	_, sk, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	keyID := KeyID("ed25519:1234")
+
+	stateKey := userID.String()
+	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
+	assert.Nil(t, err)
+
+	assert.Panics(t, func() {
+		_, _ = PerformInvite(context.Background(), PerformInviteInput{
+			RoomID:            *validRoom,
+			InvitedUser:       *userID,
+			IsTargetLocal:     true,
+			InviteEvent:       inviteEvent,
+			StrippedState:     []InviteStrippedState{},
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     nil,
 		}, &TestFederatedInviteClient{})
 	})
 }
@@ -289,6 +327,7 @@ func TestPerformInviteNilContext(t *testing.T) {
 			StrippedState:     []InviteStrippedState{},
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 		}, &TestFederatedInviteClient{})
 	})
 }
