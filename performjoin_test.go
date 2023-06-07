@@ -132,7 +132,7 @@ func TestPerformJoin(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     userID.String(),
+		SenderID:   userID.String(),
 		RoomID:     roomID.String(),
 		Type:       "m.room.create",
 		StateKey:   &stateKey,
@@ -149,7 +149,7 @@ func TestPerformJoin(t *testing.T) {
 
 	stateKey = userID.String()
 	joinProto := ProtoEvent{
-		Sender:     userID.String(),
+		SenderID:   userID.String(),
 		RoomID:     roomID.String(),
 		Type:       "m.room.member",
 		StateKey:   &stateKey,
@@ -197,6 +197,7 @@ func TestPerformJoin(t *testing.T) {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10},
 			Input: PerformJoinInput{
 				UserID:        userID,
+				SenderID:      spec.SenderID(userID.String()),
 				RoomID:        nil,
 				KeyRing:       &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}},
 				UserIDQuerier: UserIDForSenderTest,
@@ -209,6 +210,7 @@ func TestPerformJoin(t *testing.T) {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10},
 			Input: PerformJoinInput{
 				UserID:        userID,
+				SenderID:      spec.SenderID(userID.String()),
 				RoomID:        roomID,
 				KeyRing:       nil,
 				UserIDQuerier: UserIDForSenderTest,
@@ -221,6 +223,7 @@ func TestPerformJoin(t *testing.T) {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: true, shouldSendFail: false, roomVersion: RoomVersionV10},
 			Input: PerformJoinInput{
 				UserID:        userID,
+				SenderID:      spec.SenderID(userID.String()),
 				RoomID:        roomID,
 				KeyRing:       &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}},
 				UserIDQuerier: UserIDForSenderTest,
@@ -233,6 +236,7 @@ func TestPerformJoin(t *testing.T) {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: true, roomVersion: RoomVersionV10},
 			Input: PerformJoinInput{
 				UserID:        userID,
+				SenderID:      spec.SenderID(userID.String()),
 				RoomID:        roomID,
 				PrivateKey:    sk,
 				KeyID:         keyID,
@@ -247,6 +251,7 @@ func TestPerformJoin(t *testing.T) {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: "", createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinProto},
 			Input: PerformJoinInput{
 				UserID:        userID,
+				SenderID:      spec.SenderID(userID.String()),
 				RoomID:        roomID,
 				PrivateKey:    sk,
 				KeyID:         keyID,
@@ -262,6 +267,7 @@ func TestPerformJoin(t *testing.T) {
 			FedClient: &TestFederatedJoinClient{shouldMakeFail: false, shouldSendFail: false, roomVersion: RoomVersionV10, createEvent: createEvent, joinEvent: joinEvent, joinEventBuilder: joinProto},
 			Input: PerformJoinInput{
 				UserID:        userID,
+				SenderID:      spec.SenderID(userID.String()),
 				RoomID:        roomID,
 				PrivateKey:    sk,
 				KeyID:         keyID,

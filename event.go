@@ -39,7 +39,7 @@ func (e EventValidationError) Error() string {
 
 type eventFields struct {
 	RoomID         string         `json:"room_id"`
-	Sender         string         `json:"sender"`
+	SenderID       string         `json:"sender"`
 	Type           string         `json:"type"`
 	StateKey       *string        `json:"state_key"`
 	Content        spec.RawJSON   `json:"content"`

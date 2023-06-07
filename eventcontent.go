@@ -146,7 +146,7 @@ type MemberThirdPartyInviteSigned struct {
 
 // NewMemberContentFromAuthEvents loads the member content from the member event for the senderID in the auth events.
 // Returns an error if there was an error loading the member event or parsing the event content.
-func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, senderID string) (c MemberContent, err error) {
+func NewMemberContentFromAuthEvents(authEvents AuthEventProvider, senderID spec.SenderID) (c MemberContent, err error) {
 	var memberEvent PDU
 	if memberEvent, err = authEvents.Member(senderID); err != nil {
 		return
@@ -327,8 +327,8 @@ type PowerLevelContent struct {
 }
 
 // UserLevel returns the power level a user has in the room.
-func (c *PowerLevelContent) UserLevel(senderID string) int64 {
-	level, ok := c.Users[senderID]
+func (c *PowerLevelContent) UserLevel(senderID spec.SenderID) int64 {
+	level, ok := c.Users[string(senderID)]
 	if ok {
 		return level
 	}

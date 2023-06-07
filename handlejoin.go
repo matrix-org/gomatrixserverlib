@@ -27,6 +27,7 @@ import (
 type HandleMakeJoinInput struct {
 	Context           context.Context
 	UserID            spec.UserID               // The user wanting to join the room
+	SenderID          spec.SenderID             // The senderID of the user wanting to join the room
 	RoomID            spec.RoomID               // The room the user wants to join
 	RoomVersion       RoomVersion               // The room version for the room being joined
 	RemoteVersions    []RoomVersion             // Room versions supported by the remote server
@@ -86,12 +87,12 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 	}
 
 	// Try building an event for the server
-	rawUserID := input.UserID.String()
+	rawSenderID := string(input.SenderID)
 	proto := ProtoEvent{
-		Sender:   input.UserID.String(),
+		SenderID: string(input.SenderID),
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
-		StateKey: &rawUserID,
+		StateKey: &rawSenderID,
 	}
 	content := MemberContent{
 		Membership:    spec.Join,
@@ -261,7 +262,7 @@ func checkRestrictedJoin(
 				continue // shouldn't happen
 			}
 			// Only users that have the power to invite should be chosen.
-			if powerLevels.UserLevel(*user.StateKey()) < powerLevels.Invite {
+			if powerLevels.UserLevel(spec.SenderID(*user.StateKey())) < powerLevels.Invite {
 				continue
 			}
 
@@ -337,7 +338,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the join event.")
 	}
-	if !event.StateKeyEquals(event.SenderID()) {
+	if !event.StateKeyEquals(string(event.SenderID())) {
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
@@ -404,7 +405,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, spec.SenderID(event.SenderID()))
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, event.SenderID())
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}

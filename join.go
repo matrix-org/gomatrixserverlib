@@ -30,8 +30,8 @@ type RestrictedRoomJoinQuerier interface {
 }
 
 type ProtoEvent struct {
-	// The user ID of the user sending the event.
-	Sender string `json:"sender"`
+	// The sender ID of the user sending the event.
+	SenderID string `json:"sender"`
 	// The room ID of the room this event is in.
 	RoomID string `json:"room_id"`
 	// The type of the event.

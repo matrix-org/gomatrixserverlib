@@ -78,7 +78,7 @@ func TestHandleInvite(t *testing.T) {
 
 	stateKey = ""
 	createEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     userID.String(),
+		SenderID:   userID.String(),
 		RoomID:     validRoom.String(),
 		Type:       "m.room.create",
 		StateKey:   &stateKey,

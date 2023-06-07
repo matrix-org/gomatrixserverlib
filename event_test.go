@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -203,7 +204,7 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 func TestEventBuilderBuildsEvent(t *testing.T) {
 	sender := "@sender:id"
 	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
+		SenderID: sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.member",
 		StateKey: &sender,
@@ -229,7 +230,7 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 	if eventStruct.Type() != "m.room.member" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if eventStruct.SenderID() != sender {
+	if eventStruct.SenderID() != spec.SenderID(sender) {
 		t.Fatal("Event Sender doesn't match")
 	}
 	if *eventStruct.StateKey() != sender {
@@ -240,7 +241,7 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	sender := "@sender:id"
 	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
+		SenderID: sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.create",
 		StateKey: &sender,
@@ -275,7 +276,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	if eventStruct.Type() != "m.room.create" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if eventStruct.SenderID() != sender {
+	if eventStruct.SenderID() != spec.SenderID(sender) {
 		t.Fatal("Event Sender doesn't match")
 	}
 	if *eventStruct.StateKey() != sender {
@@ -286,7 +287,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
 	sender := "@sender3:id"
 	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
+		SenderID: sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.member",
 		StateKey: &sender,
@@ -357,7 +358,7 @@ func (a *authProvider) JoinRules() (PDU, error) {
 	return &eventV2{}, nil
 }
 
-func (a *authProvider) Member(stateKey string) (PDU, error) {
+func (a *authProvider) Member(stateKey spec.SenderID) (PDU, error) {
 	return &eventV2{}, nil
 }
 

@@ -25,11 +25,12 @@ import (
 )
 
 type HandleInviteInput struct {
-	RoomID        spec.RoomID           // The room that the user is being invited to join
-	RoomVersion   RoomVersion           // The version of the invited to room
-	InvitedUser   spec.UserID           // The user being invited to join the room
-	InviteEvent   PDU                   // The original invite event
-	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
+	RoomID          spec.RoomID           // The room that the user is being invited to join
+	RoomVersion     RoomVersion           // The version of the invited to room
+	InvitedUser     spec.UserID           // The user being invited to join the room
+	InvitedSenderID spec.SenderID         // The senderID of the user being invited to join the room
+	InviteEvent     PDU                   // The original invite event
+	StrippedState   []InviteStrippedState // A small set of state events that can be used to identify the room
 
 	KeyID      KeyID              // Used to sign the original invite event
 	PrivateKey ed25519.PrivateKey // Used to sign the original invite event
@@ -125,7 +126,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 			util.GetLogger(ctx).WithError(err).Error("failed generating stripped state for known room")
 			return nil, spec.InternalServerError{}
 		}
-		err := abortIfAlreadyJoined(ctx, input.RoomID, spec.SenderID(input.InvitedUser.String()), input.MembershipQuerier)
+		err := abortIfAlreadyJoined(ctx, input.RoomID, input.InvitedSenderID, input.MembershipQuerier)
 		if err != nil {
 			return nil, err
 		}

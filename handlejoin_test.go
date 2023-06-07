@@ -115,7 +115,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomCreate,
 		StateKey:   &stateKey,
@@ -132,7 +132,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	joinRulesEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -149,7 +149,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	joinRulesPrivateEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -166,7 +166,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	joinRulesRestrictedEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -183,7 +183,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	powerLevelsEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -200,7 +200,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = validUser.String()
 	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -217,7 +217,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = joinedUser.String()
 	joinedUserEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     joinedUser.String(),
+		SenderID:   joinedUser.String(),
 		RoomID:     allowedRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -634,7 +634,7 @@ func TestHandleMakeJoinNilContext(t *testing.T) {
 
 func createMemberEventBuilder(sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
 	return MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     sender,
+		SenderID:   sender,
 		RoomID:     roomID,
 		Type:       "m.room.member",
 		StateKey:   stateKey,

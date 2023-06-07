@@ -88,7 +88,7 @@ func (s StateNeeded) AuthEventReferences(provider AuthEventProvider) (refs []str
 		}
 	}
 	for _, userID := range s.Member {
-		if e, err = provider.Member(userID); err != nil {
+		if e, err = provider.Member(spec.SenderID(userID)); err != nil {
 			return
 		} else if e != nil {
 			refs = append(refs, e.EventID())
@@ -127,7 +127,7 @@ func StateNeededForProtoEvent(protoEvent *ProtoEvent) (result StateNeeded, err e
 			return
 		}
 	}
-	err = accumulateStateNeeded(&result, protoEvent.Type, protoEvent.Sender, protoEvent.StateKey, content)
+	err = accumulateStateNeeded(&result, protoEvent.Type, spec.SenderID(protoEvent.SenderID), protoEvent.StateKey, content)
 	result.Member = util.UniqueStrings(result.Member)
 	result.ThirdPartyInvite = util.UniqueStrings(result.ThirdPartyInvite)
 	return
@@ -153,7 +153,7 @@ func StateNeededForAuth(events []PDU) (result StateNeeded) {
 	return
 }
 
-func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateKey *string, content *membershipContent) (err error) {
+func accumulateStateNeeded(result *StateNeeded, eventType string, sender spec.SenderID, stateKey *string, content *membershipContent) (err error) {
 	switch eventType {
 	case spec.MRoomCreate:
 		// The create event doesn't require any state to authenticate.
@@ -187,7 +187,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		result.Create = true
 		result.PowerLevels = true
 		if stateKey != nil {
-			result.Member = append(result.Member, sender, *stateKey)
+			result.Member = append(result.Member, string(sender), *stateKey)
 		}
 		if content.Membership == spec.Join || content.Membership == spec.Knock || content.Membership == spec.Invite {
 			result.JoinRules = true
@@ -211,7 +211,7 @@ func accumulateStateNeeded(result *StateNeeded, eventType, sender string, stateK
 		//    https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L196
 		result.Create = true
 		result.PowerLevels = true
-		result.Member = append(result.Member, sender)
+		result.Member = append(result.Member, string(sender))
 	}
 	return
 }
@@ -233,7 +233,7 @@ type AuthEventProvider interface {
 	// PowerLevels returns the m.room.power_levels event for the room or nil if there isn't a m.room.power_levels event.
 	PowerLevels() (PDU, error)
 	// Member returns the m.room.member event for the given senderID state_key or nil if there isn't a m.room.member event.
-	Member(stateKey string) (PDU, error)
+	Member(stateKey spec.SenderID) (PDU, error)
 	// ThirdPartyInvite returns the m.room.third_party_invite event for the
 	// given state_key or nil if there isn't a m.room.third_party_invite event
 	ThirdPartyInvite(stateKey string) (PDU, error)
@@ -279,8 +279,8 @@ func (a *AuthEvents) PowerLevels() (PDU, error) {
 }
 
 // Member implements AuthEventProvider
-func (a *AuthEvents) Member(stateKey string) (PDU, error) {
-	return a.events[StateKeyTuple{spec.MRoomMember, stateKey}], nil
+func (a *AuthEvents) Member(stateKey spec.SenderID) (PDU, error) {
+	return a.events[StateKeyTuple{spec.MRoomMember, string(stateKey)}], nil
 }
 
 // ThirdPartyInvite implements AuthEventProvider
@@ -634,26 +634,26 @@ func checkEventLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLev
 }
 
 // checkUserLevels checks that the changes in user levels are allowed.
-func checkUserLevels(senderLevel int64, senderID string, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+func checkUserLevels(senderLevel int64, senderID spec.SenderID, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	type levelPair struct {
 		old int64
 		new int64
 	}
 
 	// Build a list of user levels to check.
-	userLevelChecks := map[string]levelPair{}
+	userLevelChecks := map[spec.SenderID]levelPair{}
 	for userID := range newPowerLevels.Users {
-		userLevelChecks[userID] = levelPair{
-			old: oldPowerLevels.UserLevel(userID),
-			new: newPowerLevels.UserLevel(userID),
+		userLevelChecks[spec.SenderID(userID)] = levelPair{
+			old: oldPowerLevels.UserLevel(spec.SenderID(userID)),
+			new: newPowerLevels.UserLevel(spec.SenderID(userID)),
 		}
 	}
 
 	// also add old levels to check for e.g. deletions
 	for userID := range oldPowerLevels.Users {
-		userLevelChecks[userID] = levelPair{
-			old: oldPowerLevels.UserLevel(userID),
-			new: newPowerLevels.UserLevel(userID),
+		userLevelChecks[spec.SenderID(userID)] = levelPair{
+			old: oldPowerLevels.UserLevel(spec.SenderID(userID)),
+			new: newPowerLevels.UserLevel(spec.SenderID(userID)),
 		}
 	}
 
@@ -847,7 +847,7 @@ type eventAllower struct {
 
 // newEventAllower loads the information needed to authorise an event sent
 // by a given user ID from the auth events.
-func (a *allowerContext) newEventAllower(senderID string) (e eventAllower, err error) {
+func (a *allowerContext) newEventAllower(senderID spec.SenderID) (e eventAllower, err error) {
 	e.allowerContext = a
 	if e.member, err = NewMemberContentFromAuthEvents(a.provider, senderID); err != nil {
 		return
@@ -892,7 +892,7 @@ func (e *eventAllower) commonChecks(event PDU) error {
 	// Check that all state_keys that begin with '@' are only updated by users
 	// with that ID.
 	if stateKey != nil && len(*stateKey) > 0 && (*stateKey)[0] == '@' {
-		if *stateKey != event.SenderID() {
+		if spec.SenderID(*stateKey) != event.SenderID() {
 			return errorf(
 				"sender %q is not allowed to modify the state belonging to %q",
 				event.SenderID(), *stateKey,
@@ -940,14 +940,14 @@ func (a *allowerContext) newMembershipAllower(authEvents AuthEventProvider, even
 	}
 	// TODO: Check that the IDs are valid user IDs. (for room versions < pseudoIDs)
 	m.targetID = *stateKey
-	m.senderID = event.SenderID()
+	m.senderID = string(event.SenderID())
 	if m.newMember, err = NewMemberContentFromEvent(event); err != nil {
 		return
 	}
-	if m.oldMember, err = NewMemberContentFromAuthEvents(authEvents, m.targetID); err != nil {
+	if m.oldMember, err = NewMemberContentFromAuthEvents(authEvents, spec.SenderID(m.targetID)); err != nil {
 		return
 	}
-	if m.senderMember, err = NewMemberContentFromAuthEvents(authEvents, m.senderID); err != nil {
+	if m.senderMember, err = NewMemberContentFromAuthEvents(authEvents, spec.SenderID(m.senderID)); err != nil {
 		return
 	}
 	// If this event comes from a third_party_invite, we need to check it against the original event.
@@ -1041,7 +1041,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 
 	// If the nominated user ID is valid then there are two things that we
 	// need to check. First of all, is the user joined to the room?
-	otherMember, err := m.provider.Member(m.newMember.AuthorisedVia)
+	otherMember, err := m.provider.Member(spec.SenderID(m.newMember.AuthorisedVia))
 	if err != nil {
 		return errorf("failed to find the membership event for 'join_authorised_via_users_server' user %q", m.newMember.AuthorisedVia)
 	}
@@ -1057,7 +1057,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	}
 
 	// And secondly, does the user have the power to issue invites in the room?
-	if pl := m.powerLevels.UserLevel(m.newMember.AuthorisedVia); pl < m.powerLevels.Invite {
+	if pl := m.powerLevels.UserLevel(spec.SenderID(m.newMember.AuthorisedVia)); pl < m.powerLevels.Invite {
 		return errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
 	}
 
@@ -1219,8 +1219,8 @@ func checkKnocking(m *membershipAllower) error {
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.
 func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
-	senderLevel := m.powerLevels.UserLevel(m.senderID)
-	targetLevel := m.powerLevels.UserLevel(m.targetID)
+	senderLevel := m.powerLevels.UserLevel(spec.SenderID(m.senderID))
+	targetLevel := m.powerLevels.UserLevel(spec.SenderID(m.targetID))
 
 	// You may only modify the membership of another user if you are in the room.
 	if m.senderMember.Membership != spec.Join {

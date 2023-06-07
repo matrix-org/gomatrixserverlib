@@ -165,8 +165,8 @@ func (e *eventV1) Redact() {
 	*e = res
 }
 
-func (e *eventV1) SenderID() string {
-	return e.eventFields.Sender
+func (e *eventV1) SenderID() spec.SenderID {
+	return spec.SenderID(e.eventFields.SenderID)
 }
 
 func (e *eventV1) Unsigned() []byte {

@@ -27,6 +27,7 @@ type HandleMakeLeaveResponse struct {
 
 type HandleMakeLeaveInput struct {
 	UserID            spec.UserID          // The user wanting to leave the room
+	SenderID          spec.SenderID        // The senderID of the user wanting to leave the room
 	RoomID            spec.RoomID          // The room the user wants to leave
 	RoomVersion       RoomVersion          // The room version for the room being left
 	RequestOrigin     spec.ServerName      // The server that sent the /make_leave federation request
@@ -51,12 +52,12 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 	}
 
 	// Try building an event for the server
-	rawUserID := input.UserID.String()
+	rawSenderID := string(input.SenderID)
 	proto := ProtoEvent{
-		Sender:   input.UserID.String(),
+		SenderID: string(input.SenderID),
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
-		StateKey: &rawUserID,
+		StateKey: &rawSenderID,
 	}
 	content := MemberContent{
 		Membership: spec.Leave,

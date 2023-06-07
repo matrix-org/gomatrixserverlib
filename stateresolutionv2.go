@@ -43,7 +43,7 @@ type stateResolverV2 struct {
 	resolvedPowerLevels       PDU                           // Resolved power level event
 	resolvedJoinRules         PDU                           // Resolved join rules event
 	resolvedThirdPartyInvites map[string]PDU                // Resolved third party invite events
-	resolvedMembers           map[string]PDU                // Resolved member events
+	resolvedMembers           map[spec.SenderID]PDU         // Resolved member events
 	resolvedOthers            map[StateKeyTuple]PDU         // Resolved other events
 	result                    []PDU                         // Final list of resolved events
 }
@@ -66,7 +66,7 @@ func ResolveStateConflictsV2(
 		powerLevelContents:        make(map[string]*PowerLevelContent),
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]PDU, len(conflicted)),
-		resolvedMembers:           make(map[string]PDU, len(conflicted)),
+		resolvedMembers:           make(map[spec.SenderID]PDU, len(conflicted)),
 		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
 	}
@@ -231,7 +231,7 @@ func isControlEvent(e PDU) bool {
 		}
 		// Membership events are only control events if the sender does not match
 		// the state key, i.e. because the event is caused by an admin or moderator.
-		if e.StateKeyEquals(e.SenderID()) {
+		if e.StateKeyEquals(string(e.SenderID())) {
 			break
 		}
 		// Membership events are only control events if the "membership" key in the
@@ -431,7 +431,7 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 			_ = r.authProvider.AddEvent(event)
 		}
 		for _, needed := range needed.Member {
-			if event := r.resolvedMembers[needed]; event != nil {
+			if event := r.resolvedMembers[spec.SenderID(needed)]; event != nil {
 				_ = r.authProvider.AddEvent(event)
 			}
 		}
@@ -482,7 +482,7 @@ func (r *stateResolverV2) applyEvents(events []PDU) {
 			case spec.MRoomThirdPartyInvite:
 				r.resolvedThirdPartyInvites[*sk] = event
 			case spec.MRoomMember:
-				r.resolvedMembers[*sk] = event
+				r.resolvedMembers[spec.SenderID(*sk)] = event
 			default:
 				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
 			}

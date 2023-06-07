@@ -58,6 +58,10 @@ func (e *eventV2) SetUnsigned(unsigned interface{}) (PDU, error) {
 	return &result, nil
 }
 
+func (e *eventV2) SenderID() spec.SenderID {
+	return spec.SenderID(e.eventFields.SenderID)
+}
+
 func (e *eventV2) EventID() string {
 	// if we already generated the eventID, don't do it again
 	if e.EventIDRaw != "" {
@@ -206,7 +210,8 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 		return err
 	}
 
-	if err := checkID(input.SenderID(), "user", '@'); err != nil {
+	// TODO: Use input.Version to check if this should be a senderKey or userID
+	if err := checkID(string(input.SenderID()), "user", '@'); err != nil {
 		return err
 	}
 
