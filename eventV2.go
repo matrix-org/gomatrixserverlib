@@ -210,9 +210,12 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 		return err
 	}
 
-	// TODO: Use input.Version to check if this should be a senderKey or userID
-	if err := checkID(string(input.SenderID()), "user", '@'); err != nil {
-		return err
+	switch input.Version() {
+	case RoomVersionV1, RoomVersionV2, RoomVersionV3, RoomVersionV4, RoomVersionV5,
+		RoomVersionV6, RoomVersionV7, RoomVersionV8, RoomVersionV9, RoomVersionV10:
+		if err := checkID(string(input.SenderID()), "user", '@'); err != nil {
+			return err
+		}
 	}
 
 	return nil

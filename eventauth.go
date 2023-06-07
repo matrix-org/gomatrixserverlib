@@ -51,8 +51,8 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 	if s.PowerLevels {
 		res = append(res, StateKeyTuple{spec.MRoomPowerLevels, ""})
 	}
-	for _, userID := range s.Member {
-		res = append(res, StateKeyTuple{spec.MRoomMember, userID})
+	for _, senderID := range s.Member {
+		res = append(res, StateKeyTuple{spec.MRoomMember, senderID})
 	}
 	for _, token := range s.ThirdPartyInvite {
 		res = append(res, StateKeyTuple{spec.MRoomThirdPartyInvite, token})
