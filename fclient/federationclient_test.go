@@ -144,6 +144,7 @@ func TestSendJoinJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read event json: %s", err)
 	}
+	t.Logf("%s - %#v", string(ev.JSON()), ev)
 	res, err := fc.SendJoin(context.Background(), serverName, targetServerName, ev)
 	if err != nil {
 		t.Fatalf("SendJoin returned an error: %s", err)

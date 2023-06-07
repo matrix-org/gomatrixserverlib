@@ -206,18 +206,14 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	res := &event{}
-	res.roomVersion = eb.version.Version()
-
-	if err = res.populateFieldsFromJSON("", eventJSON); err != nil {
-		return
+	res, err := eb.version.NewEventFromTrustedJSON(eventJSON, false)
+	if err != nil {
+		return nil, err
 	}
 
-	if err = res.CheckFields(); err != nil {
-		return
-	}
+	err = CheckFields(res)
 
-	return res, nil
+	return res, err
 }
 
 // Base64FromEventID returns, if possible, the base64bytes representation
