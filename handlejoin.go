@@ -76,7 +76,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 
 	// Check if the restricted join is allowed. If the room doesn't
 	// support restricted joins then this is effectively a no-op.
-	authorisedVia, err := MustGetRoomVersion(input.RoomVersion).CheckRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomID, input.UserID)
+	authorisedVia, err := MustGetRoomVersion(input.RoomVersion).CheckRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomID, input.SenderID)
 	switch e := err.(type) {
 	case nil:
 	case spec.MatrixError:
@@ -148,7 +148,7 @@ func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersi
 	return remoteSupportsVersion
 }
 
-func noCheckRestrictedJoin(context.Context, spec.ServerName, RestrictedRoomJoinQuerier, spec.RoomID, spec.UserID) (string, error) {
+func noCheckRestrictedJoin(context.Context, spec.ServerName, RestrictedRoomJoinQuerier, spec.RoomID, spec.SenderID) (string, error) {
 	return "", nil
 }
 
@@ -164,7 +164,7 @@ func checkRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
 	roomQuerier RestrictedRoomJoinQuerier,
-	roomID spec.RoomID, userID spec.UserID,
+	roomID spec.RoomID, senderID spec.SenderID,
 ) (string, error) {
 	// Get the join rules to work out if the join rule is "restricted".
 	joinRulesEvent, err := roomQuerier.CurrentStateEvent(ctx, roomID, spec.MRoomJoinRules, "")
@@ -190,7 +190,7 @@ func checkRestrictedJoin(
 	// If the user is already invited to the room then the join is allowed
 	// but we don't specify an authorised via user, since the event auth
 	// will allow the join anyway.
-	if pending, err := roomQuerier.InvitePending(ctx, roomID, userID); err != nil {
+	if pending, err := roomQuerier.InvitePending(ctx, roomID, senderID); err != nil {
 		return "", fmt.Errorf("helpers.IsInvitePending: %w", err)
 	} else if pending {
 		// The join rules for the room don't restrict membership.
@@ -230,7 +230,7 @@ func checkRestrictedJoin(
 
 		// First of all work out if *we* are still in the room, otherwise
 		// it's possible that the memberships will be out of date.
-		targetRoomInfo, err := roomQuerier.RestrictedRoomJoinInfo(ctx, *roomID, userID, localServerName)
+		targetRoomInfo, err := roomQuerier.RestrictedRoomJoinInfo(ctx, *roomID, senderID, localServerName)
 		if err != nil || targetRoomInfo == nil || !targetRoomInfo.LocalServerInRoom {
 			// If we aren't in the room, we can no longer tell if the room
 			// memberships are up-to-date.

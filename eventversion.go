@@ -25,7 +25,7 @@ type IRoomVersion interface {
 	NewEventFromUntrustedJSON(eventJSON []byte) (result PDU, err error)
 	NewEventBuilder() *EventBuilder
 	NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBuilder
-	CheckRestrictedJoin(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, userID spec.UserID) (string, error)
+	CheckRestrictedJoin(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, senderID spec.SenderID) (string, error)
 
 	RestrictedJoinServername(content []byte) (spec.ServerName, error)
 	CheckRestrictedJoinsAllowed() error
@@ -381,7 +381,7 @@ type RoomVersionImpl struct {
 	newEventFromTrustedJSONWithEventIDFunc func(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error)
 }
 
-type restrictedJoinCheckFunc func(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, userID spec.UserID) (string, error)
+type restrictedJoinCheckFunc func(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, senderID spec.SenderID) (string, error)
 
 func (v RoomVersionImpl) Version() RoomVersion {
 	return v.ver
@@ -446,9 +446,9 @@ func (v RoomVersionImpl) CheckRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
 	roomQuerier RestrictedRoomJoinQuerier,
-	roomID spec.RoomID, userID spec.UserID,
+	roomID spec.RoomID, senderID spec.SenderID,
 ) (string, error) {
-	return v.checkRestrictedJoin(ctx, localServerName, roomQuerier, roomID, userID)
+	return v.checkRestrictedJoin(ctx, localServerName, roomQuerier, roomID, senderID)
 }
 
 // RedactEventJSON strips the user controlled fields from an event, but leaves the
