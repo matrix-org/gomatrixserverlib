@@ -211,8 +211,8 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 	}
 
 	switch input.Version() {
-	case RoomVersionV1, RoomVersionV2, RoomVersionV3, RoomVersionV4, RoomVersionV5,
-		RoomVersionV6, RoomVersionV7, RoomVersionV8, RoomVersionV9, RoomVersionV10:
+	case RoomVersionPseudoIDs:
+	default:
 		if err := checkID(string(input.SenderID()), "user", '@'); err != nil {
 			return err
 		}
