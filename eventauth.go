@@ -486,8 +486,15 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// Check that event is a state event.
 	// Check that the state key matches the server sending this event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
-	if !event.StateKeyEquals(string(event.SenderID())) {
-		return errorf("alias state_key does not match sender domain, %q != %q", sender.Domain(), *event.StateKey())
+	switch event.Version() {
+	case RoomVersionPseudoIDs:
+		if !event.StateKeyEquals(string(event.SenderID())) {
+			return errorf("alias state_key does not match sender domain, %q != %q", event.SenderID(), *event.StateKey())
+		}
+	default:
+		if !event.StateKeyEquals(string(sender.Domain())) {
+			return errorf("alias state_key does not match sender domain, %q != %q", sender.Domain(), *event.StateKey())
+		}
 	}
 
 	return nil
