@@ -1034,7 +1034,15 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// 'join_authorised_via_users_server' key, containing the user ID of a user
 	// in the room that should have a suitable power level to issue invites.
 	// If no such key is specified then we should reject the join.
-	// TODO: pseudoIDs: what is a valid senderID? reject if m.newMember.AuthorisedVia != valid
+	switch m.roomVersionImpl.Version() {
+	case RoomVersionV1, RoomVersionV2, RoomVersionV3, RoomVersionV4, RoomVersionV5,
+		RoomVersionV6, RoomVersionV7, RoomVersionV8, RoomVersionV9, RoomVersionV10:
+		if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
+			return errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+		}
+	default:
+		// TODO: pseudoIDs: what is a valid senderID? reject if m.newMember.AuthorisedVia != valid
+	}
 
 	// If the nominated user ID is valid then there are two things that we
 	// need to check. First of all, is the user joined to the room?
