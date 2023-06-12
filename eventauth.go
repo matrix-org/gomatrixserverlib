@@ -51,8 +51,8 @@ func (s StateNeeded) Tuples() (res []StateKeyTuple) {
 	if s.PowerLevels {
 		res = append(res, StateKeyTuple{spec.MRoomPowerLevels, ""})
 	}
-	for _, userID := range s.Member {
-		res = append(res, StateKeyTuple{spec.MRoomMember, userID})
+	for _, senderID := range s.Member {
+		res = append(res, StateKeyTuple{spec.MRoomMember, senderID})
 	}
 	for _, token := range s.ThirdPartyInvite {
 		res = append(res, StateKeyTuple{spec.MRoomThirdPartyInvite, token})
@@ -466,7 +466,6 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
-
 	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
 	if err != nil {
 		return err
@@ -487,8 +486,15 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// Check that event is a state event.
 	// Check that the state key matches the server sending this event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
-	if !event.StateKeyEquals(string(sender.Domain())) {
-		return errorf("alias state_key does not match sender domain, %q != %q", sender.Domain(), *event.StateKey())
+	switch event.Version() {
+	case RoomVersionPseudoIDs:
+		if !event.StateKeyEquals(string(event.SenderID())) {
+			return errorf("alias state_key does not match sender domain, %q != %q", event.SenderID(), *event.StateKey())
+		}
+	default:
+		if !event.StateKeyEquals(string(sender.Domain())) {
+			return errorf("alias state_key does not match sender domain, %q != %q", sender.Domain(), *event.StateKey())
+		}
 	}
 
 	return nil
@@ -517,9 +523,9 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 
 	// Check that the user levels are all valid user IDs
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1063
-	for userID := range newPowerLevels.Users {
-		if !isValidUserID(userID) {
-			return errorf("Not a valid user ID: %q", userID)
+	for senderID := range newPowerLevels.Users {
+		if !isValidUserID(senderID) {
+			return errorf("Not a valid user ID: %q", senderID)
 		}
 	}
 
@@ -642,23 +648,23 @@ func checkUserLevels(senderLevel int64, senderID spec.SenderID, oldPowerLevels, 
 
 	// Build a list of user levels to check.
 	userLevelChecks := map[spec.SenderID]levelPair{}
-	for userID := range newPowerLevels.Users {
-		userLevelChecks[spec.SenderID(userID)] = levelPair{
-			old: oldPowerLevels.UserLevel(spec.SenderID(userID)),
-			new: newPowerLevels.UserLevel(spec.SenderID(userID)),
+	for userSenderID := range newPowerLevels.Users {
+		userLevelChecks[spec.SenderID(userSenderID)] = levelPair{
+			old: oldPowerLevels.UserLevel(spec.SenderID(userSenderID)),
+			new: newPowerLevels.UserLevel(spec.SenderID(userSenderID)),
 		}
 	}
 
 	// also add old levels to check for e.g. deletions
-	for userID := range oldPowerLevels.Users {
-		userLevelChecks[spec.SenderID(userID)] = levelPair{
-			old: oldPowerLevels.UserLevel(spec.SenderID(userID)),
-			new: newPowerLevels.UserLevel(spec.SenderID(userID)),
+	for userSenderID := range oldPowerLevels.Users {
+		userLevelChecks[spec.SenderID(userSenderID)] = levelPair{
+			old: oldPowerLevels.UserLevel(spec.SenderID(userSenderID)),
+			new: newPowerLevels.UserLevel(spec.SenderID(userSenderID)),
 		}
 	}
 
 	// Check each of the levels in the list.
-	for userID, level := range userLevelChecks {
+	for userSenderID, level := range userLevelChecks {
 		// Check if the level is being changed.
 		if level.old == level.new {
 			// Levels are always allowed to stay the same.
@@ -678,12 +684,12 @@ func checkUserLevels(senderLevel int64, senderID spec.SenderID, oldPowerLevels, 
 			return errorf(
 				"sender %q with level %d is not allowed change user %q level from %d to %d"+
 					" because the new level is above the level of the sender",
-				senderID, senderLevel, userID, level.old, level.new,
+				senderID, senderLevel, userSenderID, level.old, level.new,
 			)
 		}
 
 		// Check if the user is changing their own user level.
-		if userID == senderID {
+		if userSenderID == senderID {
 			// Users are always allowed to reduce their own user level.
 			// We know that the user is reducing their level because of the previous checks.
 			continue
@@ -694,7 +700,7 @@ func checkUserLevels(senderLevel int64, senderID spec.SenderID, oldPowerLevels, 
 			return errorf(
 				"sender %q with level %d is not allowed to change user %q level from %d to %d"+
 					" because the old level is equal to or above the level of the sender",
-				senderID, senderLevel, userID, level.old, level.new,
+				senderID, senderLevel, userSenderID, level.old, level.new,
 			)
 		}
 	}
@@ -1035,8 +1041,13 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// 'join_authorised_via_users_server' key, containing the user ID of a user
 	// in the room that should have a suitable power level to issue invites.
 	// If no such key is specified then we should reject the join.
-	if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
-		return errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+	switch m.roomVersionImpl.Version() {
+	case RoomVersionPseudoIDs:
+		// TODO: pseudoIDs: what is a valid senderID? reject if m.newMember.AuthorisedVia != valid
+	default:
+		if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {
+			return errorf("the 'join_authorised_via_users_server' contains an invalid value %q", m.newMember.AuthorisedVia)
+		}
 	}
 
 	// If the nominated user ID is valid then there are two things that we

@@ -78,11 +78,17 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 
 		// For invites, the invited server should have signed the event.
 		if membership == spec.Invite {
-			_, serverName, err = SplitID('@', *e.StateKey())
-			if err != nil {
-				return fmt.Errorf("failed to split state key: %w", err)
+			switch e.Version() {
+			case RoomVersionPseudoIDs:
+				// TODO: (pseudoIDs) revisit this logic for event signing
+				needed[spec.ServerName(e.SenderID())] = struct{}{}
+			default:
+				_, serverName, err = SplitID('@', *e.StateKey())
+				if err != nil {
+					return fmt.Errorf("failed to split state key: %w", err)
+				}
+				needed[serverName] = struct{}{}
 			}
-			needed[serverName] = struct{}{}
 		}
 
 		// For restricted join rules, the authorising server should have signed.

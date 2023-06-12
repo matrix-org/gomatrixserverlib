@@ -59,14 +59,14 @@ func (r *TestRestrictedRoomJoinQuerier) CurrentStateEvent(ctx context.Context, r
 	return event, nil
 }
 
-func (r *TestRestrictedRoomJoinQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error) {
+func (r *TestRestrictedRoomJoinQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (bool, error) {
 	if r.invitePendingErr {
 		return false, fmt.Errorf("err")
 	}
 	return r.pendingInvite, nil
 }
 
-func (r *TestRestrictedRoomJoinQuerier) RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error) {
+func (r *TestRestrictedRoomJoinQuerier) RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error) {
 	if r.roomInfoErr {
 		return nil, fmt.Errorf("err")
 	}

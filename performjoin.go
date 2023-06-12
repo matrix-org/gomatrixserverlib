@@ -178,7 +178,7 @@ func PerformJoin(
 		var remoteEvent PDU
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
-			remoteEvent, input.RoomID, input.UserID,
+			remoteEvent, input.RoomID, input.SenderID,
 		) {
 			event = remoteEvent
 		}
@@ -262,7 +262,7 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, userID *spec.UserID) bool { // nolint: interfacer
+func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, senderID spec.SenderID) bool { // nolint: interfacer
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
@@ -271,7 +271,7 @@ func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, userID *spec.Us
 	if event.RoomID() != roomID.String() {
 		return false
 	}
-	if !event.StateKeyEquals(userID.String()) {
+	if !event.StateKeyEquals(string(senderID)) {
 		return false
 	}
 	return true
