@@ -16,9 +16,15 @@
 package gomatrixserverlib
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ed25519"
 )
 
 func BenchmarkLevelJSONValueInt(b *testing.B) {
@@ -173,4 +179,28 @@ func TestHistoryVisibility_Scan(t *testing.T) {
 
 		})
 	}
+}
+
+func TestMXIDMapping_Sign(t *testing.T) {
+	keyID := KeyID("abcd")
+	serverName := spec.ServerName("localhost")
+
+	userPub, _, err := ed25519.GenerateKey(nil)
+
+	userRoomKey := strings.ToLower(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(userPub))
+
+	_, priv, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
+
+	mapping := MXIDMapping{
+		UserRoomKey: userRoomKey,
+		UserID:      "@test:localhost",
+	}
+
+	err = mapping.Sign(serverName, keyID, priv)
+	assert.NoError(t, err)
+
+	js, err := json.Marshal(mapping)
+	assert.NoError(t, err)
+	t.Logf("%s", js)
 }

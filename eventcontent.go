@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"golang.org/x/crypto/ed25519"
 )
 
 // CreateContent is the JSON content of a m.room.create event along with
@@ -129,6 +130,35 @@ type MemberContent struct {
 	// Restricted join rules require a user with invite permission to be nominated,
 	// so that their membership can be included in the auth events.
 	AuthorisedVia string `json:"join_authorised_via_users_server,omitempty"`
+
+	// The MXIDMapping used in pseudo ID rooms
+	MXIDMapping *MXIDMapping `json:"mxid_mapping,omitempty"`
+}
+
+type MXIDMapping struct {
+	UserRoomKey string                                         `json:"user_room_key"`
+	UserID      string                                         `json:"user_id"`
+	Signatures  map[spec.ServerName]map[KeyID]spec.Base64Bytes `json:"signatures,omitempty"`
+}
+
+// Sign signs the MXIDMapping with the signing key of the server.
+// Sets the Signatures field on success.
+func (m *MXIDMapping) Sign(serverName spec.ServerName, keyID KeyID, privateKey ed25519.PrivateKey) error {
+	m.Signatures = nil // ensure we don't marshal/sign existing signatures
+	mappingJSON, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+
+	signature := spec.Base64Bytes(ed25519.Sign(privateKey, mappingJSON))
+	if m.Signatures == nil {
+		m.Signatures = make(map[spec.ServerName]map[KeyID]spec.Base64Bytes)
+	}
+	if m.Signatures[serverName] == nil {
+		m.Signatures[serverName] = make(map[KeyID]spec.Base64Bytes)
+	}
+	m.Signatures[serverName][keyID] = signature
+	return nil
 }
 
 // MemberThirdPartyInvite is the "Invite" structure defined at http://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-member
