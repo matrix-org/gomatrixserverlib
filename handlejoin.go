@@ -345,7 +345,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check that the sender belongs to the server that is sending us
 	// the request. By this point we've already asserted that the sender
 	// and the state key are equal so we don't need to check both.
-	sender, err := input.UserIDQuerier(input.RoomID.String(), event.SenderID())
+	sender, err := input.UserIDQuerier(input.RoomID, event.SenderID())
 	if err != nil {
 		return nil, spec.Forbidden("The sender of the join is invalid")
 	} else if sender.Domain() != input.RequestOrigin {

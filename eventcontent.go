@@ -68,7 +68,12 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider, userIDForSende
 	}
 	c.roomID = createEvent.RoomID()
 	c.eventID = createEvent.EventID()
-	sender, err := userIDForSender(createEvent.RoomID(), createEvent.SenderID())
+	validRoomID, err := spec.NewRoomID(createEvent.RoomID())
+	if err != nil {
+		err = errorf("roomID is invalid: %s", err.Error())
+		return
+	}
+	sender, err := userIDForSender(*validRoomID, createEvent.SenderID())
 	if err != nil {
 		err = errorf("invalid sender userID: %s", err.Error())
 		return

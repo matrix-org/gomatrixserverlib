@@ -424,7 +424,11 @@ func (a *allowerContext) createEventAllowed(event PDU) error {
 	if err != nil {
 		return err
 	}
-	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
+	validRoomID, err := spec.NewRoomID(event.RoomID())
+	if err != nil {
+		return err
+	}
+	sender, err := a.userIDQuerier(*validRoomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -466,7 +470,11 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
-	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
+	validRoomID, err := spec.NewRoomID(event.RoomID())
+	if err != nil {
+		return err
+	}
+	sender, err := a.userIDQuerier(*validRoomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -809,7 +817,11 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 	// sender and the redacted event.
 	// We leave it up to the sending server to implement the additional checks
 	// to ensure that only events that should be redacted are redacted.
-	sender, err := a.userIDQuerier(event.RoomID(), event.SenderID())
+	validRoomID, err := spec.NewRoomID(event.RoomID())
+	if err != nil {
+		return err
+	}
+	sender, err := a.userIDQuerier(*validRoomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -872,7 +884,11 @@ func (e *eventAllower) commonChecks(event PDU) error {
 	}
 
 	stateKey := event.StateKey()
-	userID, err := e.userIDQuerier(event.RoomID(), event.SenderID())
+	validRoomID, err := spec.NewRoomID(event.RoomID())
+	if err != nil {
+		return err
+	}
+	userID, err := e.userIDQuerier(*validRoomID, event.SenderID())
 	if err != nil {
 		return err
 	}

@@ -16,4 +16,4 @@ package spec
 
 type SenderID string
 
-type UserIDForSender func(roomID string, senderID SenderID) (*UserID, error)
+type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
