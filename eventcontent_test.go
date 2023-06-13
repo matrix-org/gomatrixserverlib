@@ -186,6 +186,7 @@ func TestMXIDMapping_Sign(t *testing.T) {
 	serverName := spec.ServerName("localhost")
 
 	userPub, _, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
 
 	userRoomKey := strings.ToLower(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(userPub))
 
