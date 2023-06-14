@@ -76,7 +76,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 
-	sender, err := input.UserIDQuerier(input.RoomID.String(), input.InviteEvent.SenderID())
+	sender, err := input.UserIDQuerier(input.RoomID, input.InviteEvent.SenderID())
 	if err != nil {
 		return nil, spec.BadJSON("The event JSON contains an invalid sender")
 	}
