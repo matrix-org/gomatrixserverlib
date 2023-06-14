@@ -22,8 +22,9 @@ type PerformJoinInput struct {
 	KeyID      KeyID              // Used to sign the join event
 	KeyRing    *KeyRing           // Used to verify the response from send_join
 
-	EventProvider EventProvider        // Provides full events given a list of event IDs
-	UserIDQuerier spec.UserIDForSender // Provides userID for a given senderID
+	EventProvider   EventProvider        // Provides full events given a list of event IDs
+	UserIDQuerier   spec.UserIDForSender // Provides userID for a given senderID
+	SenderIDCreator spec.CreateSenderID  // Creates new senderID for this room
 }
 
 type PerformJoinResponse struct {
@@ -88,18 +89,16 @@ func PerformJoin(
 	var senderID spec.SenderID
 	switch respMakeJoin.GetRoomVersion() {
 	case RoomVersionPseudoIDs:
-		// TODO : pseudoIDs - need to create a new key here!
 		// create user room key if needed
-		//key, keyErr := r.RSAPI.GetOrCreateUserRoomPrivateKey(ctx, input.UserID, input.RoomID)
-		//if keyErr != nil {
-		//	return nil, &FederationError{
-		//		ServerName: input.ServerName,
-		//		Transient:  false,
-		//		Reachable:  true,
-		//		Err:        fmt.Errorf("Cannot create user room key"),
-		//	}
-		//}
-		//senderID = spec.SenderID(spec.Base64Bytes(key).Encode())
+		senderID, err = input.SenderIDCreator(ctx, *input.UserID, *input.RoomID)
+		if err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("Cannot create user room key"),
+			}
+		}
 	default:
 		senderID = spec.SenderID(input.UserID.String())
 	}

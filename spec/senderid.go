@@ -14,6 +14,10 @@
 
 package spec
 
+import "context"
+
 type SenderID string
 
 type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
+
+type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID) (SenderID, error)
