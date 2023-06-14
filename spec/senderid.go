@@ -15,6 +15,7 @@
 package spec
 
 import (
+	"context"
 	"encoding/base64"
 	"strings"
 
@@ -23,7 +24,9 @@ import (
 
 type SenderID string
 
-type UserIDForSender func(roomID string, senderID SenderID) (*UserID, error)
+type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
+
+type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID) (SenderID, error)
 
 func UserRoomKey(key ed25519.PrivateKey) string {
 	return strings.ToLower(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(key.Public().(ed25519.PublicKey)))

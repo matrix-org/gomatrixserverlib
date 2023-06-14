@@ -13,7 +13,6 @@ import (
 
 type PerformJoinInput struct {
 	UserID     *spec.UserID           // The user joining the room
-	SenderID   spec.SenderID          // The senderID of the user joining the room
 	RoomID     *spec.RoomID           // The room the user is joining
 	ServerName spec.ServerName        // The server to attempt to join via
 	Content    map[string]interface{} // The membership event content
@@ -23,8 +22,9 @@ type PerformJoinInput struct {
 	KeyID      KeyID              // Used to sign the join event
 	KeyRing    *KeyRing           // Used to verify the response from send_join
 
-	EventProvider EventProvider        // Provides full events given a list of event IDs
-	UserIDQuerier spec.UserIDForSender // Provides userID for a given senderID
+	EventProvider   EventProvider        // Provides full events given a list of event IDs
+	UserIDQuerier   spec.UserIDForSender // Provides userID for a given senderID
+	SenderIDCreator spec.CreateSenderID  // Creates new senderID for this room
 }
 
 type PerformJoinResponse struct {
@@ -86,12 +86,29 @@ func PerformJoin(
 		}
 	}
 
+	var senderID spec.SenderID
+	switch respMakeJoin.GetRoomVersion() {
+	case RoomVersionPseudoIDs:
+		// create user room key if needed
+		senderID, err = input.SenderIDCreator(ctx, *input.UserID, *input.RoomID)
+		if err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("Cannot create user room key"),
+			}
+		}
+	default:
+		senderID = spec.SenderID(input.UserID.String())
+	}
+
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
-	stateKey := string(input.SenderID)
+	stateKey := string(senderID)
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	joinEvent.SenderID = string(input.SenderID)
+	joinEvent.SenderID = string(senderID)
 	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
@@ -178,7 +195,7 @@ func PerformJoin(
 		var remoteEvent PDU
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
-			remoteEvent, input.RoomID, input.SenderID,
+			remoteEvent, input.RoomID, senderID,
 		) {
 			event = remoteEvent
 		}

@@ -8,7 +8,7 @@ import (
 	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
-func UserIDForSenderTest(roomID string, senderID spec.SenderID) (*spec.UserID, error) {
+func UserIDForSenderTest(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
 	return spec.NewUserID(string(senderID), true)
 }
 
