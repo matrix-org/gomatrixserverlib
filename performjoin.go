@@ -13,7 +13,6 @@ import (
 
 type PerformJoinInput struct {
 	UserID     *spec.UserID           // The user joining the room
-	SenderID   spec.SenderID          // The senderID of the user joining the room
 	RoomID     *spec.RoomID           // The room the user is joining
 	ServerName spec.ServerName        // The server to attempt to join via
 	Content    map[string]interface{} // The membership event content
@@ -86,6 +85,7 @@ func PerformJoin(
 		}
 	}
 
+	var senderID spec.SenderID
 	switch respMakeJoin.GetRoomVersion() {
 	case RoomVersionPseudoIDs:
 		// TODO : pseudoIDs - need to create a new key here!
@@ -99,17 +99,17 @@ func PerformJoin(
 		//		Err:        fmt.Errorf("Cannot create user room key"),
 		//	}
 		//}
-		//input.SenderID = spec.SenderID(spec.Base64Bytes(key).Encode())
+		//senderID = spec.SenderID(spec.Base64Bytes(key).Encode())
 	default:
-		input.SenderID = spec.SenderID(input.UserID.String())
+		senderID = spec.SenderID(input.UserID.String())
 	}
 
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
-	stateKey := string(input.SenderID)
+	stateKey := string(senderID)
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	joinEvent.SenderID = string(input.SenderID)
+	joinEvent.SenderID = string(senderID)
 	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
@@ -196,7 +196,7 @@ func PerformJoin(
 		var remoteEvent PDU
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
-			remoteEvent, input.RoomID, input.SenderID,
+			remoteEvent, input.RoomID, senderID,
 		) {
 			event = remoteEvent
 		}
