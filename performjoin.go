@@ -86,6 +86,24 @@ func PerformJoin(
 		}
 	}
 
+	switch respMakeJoin.GetRoomVersion() {
+	case RoomVersionPseudoIDs:
+		// TODO : pseudoIDs - need to create a new key here!
+		// create user room key if needed
+		//key, keyErr := r.RSAPI.GetOrCreateUserRoomPrivateKey(ctx, input.UserID, input.RoomID)
+		//if keyErr != nil {
+		//	return nil, &FederationError{
+		//		ServerName: input.ServerName,
+		//		Transient:  false,
+		//		Reachable:  true,
+		//		Err:        fmt.Errorf("Cannot create user room key"),
+		//	}
+		//}
+		//input.SenderID = spec.SenderID(spec.Base64Bytes(key).Encode())
+	default:
+		input.SenderID = spec.SenderID(input.UserID.String())
+	}
+
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
 	stateKey := string(input.SenderID)
