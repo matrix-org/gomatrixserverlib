@@ -145,12 +145,17 @@ type MXIDMapping struct {
 // Sets the Signatures field on success.
 func (m *MXIDMapping) Sign(serverName spec.ServerName, keyID KeyID, privateKey ed25519.PrivateKey) error {
 	m.Signatures = nil // ensure we don't marshal/sign existing signatures
-	mappingJSON, err := json.Marshal(m)
+	unsorted, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
 
-	signature := spec.Base64Bytes(ed25519.Sign(privateKey, mappingJSON))
+	canonical, err := CanonicalJSON(unsorted)
+	if err != nil {
+		return err
+	}
+
+	signature := spec.Base64Bytes(ed25519.Sign(privateKey, canonical))
 	if m.Signatures == nil {
 		m.Signatures = make(map[spec.ServerName]map[KeyID]spec.Base64Bytes)
 	}

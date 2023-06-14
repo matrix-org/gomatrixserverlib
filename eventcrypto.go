@@ -76,6 +76,14 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 			return fmt.Errorf("failed to get membership of membership event: %w", err)
 		}
 
+		// Validate the MXIDMapping is signed correctly
+		if verImpl.Version() == RoomVersionPseudoIDs {
+			err = validateMXIDMappingSignature(ctx, e, verifier, verImpl)
+			if err != nil {
+				return err
+			}
+		}
+
 		// For invites, the invited server should have signed the event.
 		if membership == spec.Invite {
 			switch e.Version() {
@@ -132,6 +140,48 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 	}
 
 	return nil
+}
+
+// validateMXIDMappingSignature validates that the MXIDMapping is correctly signed
+func validateMXIDMappingSignature(ctx context.Context, e PDU, verifier JSONVerifier, verImpl IRoomVersion) error {
+	var content MemberContent
+	err := json.Unmarshal(e.Content(), &content)
+	if err != nil {
+		return err
+	}
+
+	if content.MXIDMapping == nil {
+		return fmt.Errorf("missing mxid_mapping, unable to validate event")
+	}
+
+	var toVerify []VerifyJSONRequest
+
+	mapping, err := json.Marshal(content.MXIDMapping)
+	if err != nil {
+		return err
+	}
+	for s := range content.MXIDMapping.Signatures {
+		v := VerifyJSONRequest{
+			Message:              mapping,
+			AtTS:                 e.OriginServerTS(),
+			ServerName:           s,
+			ValidityCheckingFunc: verImpl.SignatureValidityCheck,
+		}
+		toVerify = append(toVerify, v)
+	}
+
+	results, err := verifier.VerifyJSONs(ctx, toVerify)
+	if err != nil {
+		return fmt.Errorf("failed to verify MXIDMapping: %w", err)
+	}
+
+	for _, result := range results {
+		if result.Error != nil {
+			return fmt.Errorf("failed to verify MXIDMapping: %w", result.Error)
+		}
+	}
+
+	return err
 }
 
 func extractAuthorisedViaServerName(content []byte) (spec.ServerName, error) {

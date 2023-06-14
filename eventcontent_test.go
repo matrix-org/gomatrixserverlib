@@ -16,9 +16,12 @@
 package gomatrixserverlib
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/stretchr/testify/assert"
@@ -179,8 +182,8 @@ func TestHistoryVisibility_Scan(t *testing.T) {
 	}
 }
 
-func TestMXIDMapping_Sign(t *testing.T) {
-	keyID := KeyID("abcd")
+func TestMXIDMapping_SignValidate(t *testing.T) {
+	keyID := KeyID("ed25519:1")
 	serverName := spec.ServerName("localhost")
 
 	_, userPriv, err := ed25519.GenerateKey(nil)
@@ -199,7 +202,36 @@ func TestMXIDMapping_Sign(t *testing.T) {
 	err = mapping.Sign(serverName, keyID, priv)
 	assert.NoError(t, err)
 
-	js, err := json.Marshal(mapping)
+	_, err = json.Marshal(mapping)
 	assert.NoError(t, err)
-	t.Logf("%s", js)
+
+	// now validate the signed mapping
+	verImpl := MustGetRoomVersion(RoomVersionPseudoIDs)
+	eb := verImpl.NewEventBuilder()
+	err = eb.SetContent(MemberContent{MXIDMapping: &mapping})
+	assert.NoError(t, err)
+
+	eb.SenderID = mapping.UserID
+	eb.RoomID = "!1:localhost"
+	ev, err := eb.Build(time.Now(), serverName, keyID, priv)
+	assert.NoError(t, err)
+
+	// this should pass
+	err = validateMXIDMappingSignature(context.Background(), ev, &StubVerifier{}, verImpl)
+	assert.NoError(t, err)
+
+	// this fails, for some random reason
+	err = validateMXIDMappingSignature(context.Background(), ev, &StubVerifier{
+		results: []VerifyJSONResult{{Error: fmt.Errorf("err")}},
+	}, verImpl)
+	assert.Error(t, err)
+
+	// fails for missing mapping
+	eb.Content = []byte("{}")
+	ev, err = eb.Build(time.Now(), serverName, keyID, priv)
+	assert.NoError(t, err)
+
+	err = validateMXIDMappingSignature(context.Background(), ev, &StubVerifier{}, verImpl)
+	assert.Error(t, err)
+
 }
