@@ -16,10 +16,8 @@
 package gomatrixserverlib
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -185,10 +183,10 @@ func TestMXIDMapping_Sign(t *testing.T) {
 	keyID := KeyID("abcd")
 	serverName := spec.ServerName("localhost")
 
-	userPub, _, err := ed25519.GenerateKey(nil)
+	_, userPriv, err := ed25519.GenerateKey(nil)
 	assert.NoError(t, err)
 
-	userRoomKey := strings.ToLower(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(userPub))
+	userRoomKey := spec.UserRoomKey(userPriv)
 
 	_, priv, err := ed25519.GenerateKey(nil)
 	assert.NoError(t, err)
