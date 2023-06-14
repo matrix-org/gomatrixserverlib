@@ -14,6 +14,17 @@
 
 package spec
 
+import (
+	"encoding/base64"
+	"strings"
+
+	"golang.org/x/crypto/ed25519"
+)
+
 type SenderID string
 
 type UserIDForSender func(roomID string, senderID SenderID) (*UserID, error)
+
+func UserRoomKey(key ed25519.PrivateKey) string {
+	return strings.ToLower(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(key.Public().(ed25519.PublicKey)))
+}
