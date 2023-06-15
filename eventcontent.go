@@ -141,7 +141,7 @@ type MemberContent struct {
 }
 
 type MXIDMapping struct {
-	UserRoomKey string                                         `json:"user_room_key"`
+	UserRoomKey spec.SenderID                                  `json:"user_room_key"`
 	UserID      string                                         `json:"user_id"`
 	Signatures  map[spec.ServerName]map[KeyID]spec.Base64Bytes `json:"signatures,omitempty"`
 }

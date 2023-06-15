@@ -189,7 +189,7 @@ func TestMXIDMapping_SignValidate(t *testing.T) {
 	_, userPriv, err := ed25519.GenerateKey(nil)
 	assert.NoError(t, err)
 
-	userRoomKey := spec.UserRoomKey(userPriv)
+	userRoomKey := spec.SenderIDFromPseudoIDKey(userPriv)
 
 	_, priv, err := ed25519.GenerateKey(nil)
 	assert.NoError(t, err)
