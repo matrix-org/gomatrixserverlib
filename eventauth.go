@@ -531,11 +531,13 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 
 	// Check that the user levels are all valid user IDs
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1063
-	//for senderID := range newPowerLevels.Users {
-	//	if !isValidUserID(senderID) {
-	//		return errorf("Not a valid user ID: %q", senderID)
-	//	}
-	//}
+	if event.Version() != RoomVersionPseudoIDs { // TODO: remove
+		for senderID := range newPowerLevels.Users {
+			if !isValidUserID(senderID) {
+				return errorf("Not a valid user ID: %q", senderID)
+			}
+		}
+	}
 
 	// Grab the old levels so that we can compare new the levels against them.
 	oldPowerLevels := a.powerLevels
@@ -990,21 +992,22 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 			event.RoomID(), event.EventID(), m.create.roomID, m.create.eventID,
 		)
 	}
-	/*sender, err := spec.NewUserID(m.senderID, true)
-	if err != nil {
-		return err
+	if event.Version() != RoomVersionPseudoIDs { // TODO: remove
+		sender, err := spec.NewUserID(m.senderID, true)
+		if err != nil {
+			return err
+		}
+		if err := m.create.UserIDAllowed(*sender); err != nil {
+			return err
+		}
+		target, err := spec.NewUserID(m.targetID, true)
+		if err != nil {
+			return err
+		}
+		if err := m.create.UserIDAllowed(*target); err != nil {
+			return err
+		}
 	}
-	if err := m.create.UserIDAllowed(*sender); err != nil {
-		return err
-	}
-	target, err := spec.NewUserID(m.targetID, true)
-	if err != nil {
-		return err
-	}
-	if err := m.create.UserIDAllowed(*target); err != nil {
-		return err
-	}
-	*/
 	// Special case the first join event in the room to allow the creator to join.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
 	if m.targetID == m.create.Creator &&
