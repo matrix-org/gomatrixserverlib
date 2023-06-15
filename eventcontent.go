@@ -565,7 +565,8 @@ func (v *levelJSONValue) assignIfExists(to *int64) {
 }
 
 // Check if the user ID is a valid user ID.
-func isValidUserID(userID string) bool {
+// nolint: deadcode
+func isValidUserID(userID string) bool { // nolint: unused
 	// TODO: Do we want to add anymore checks beyond checking the sigil and that it has a domain part?
 	return userID[0] == '@' && strings.IndexByte(userID, ':') != -1
 }
