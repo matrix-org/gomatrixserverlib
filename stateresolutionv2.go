@@ -70,7 +70,22 @@ func ResolveStateConflictsV2(
 		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
 	}
-	r.allower = newAllowerContext(&r.authProvider, userIDForSender)
+	var roomID *spec.RoomID
+	var err error
+	if len(conflicted) > 0 {
+		roomID, err = spec.NewRoomID(conflicted[0].RoomID())
+		if err != nil {
+			panic(err)
+		}
+	}
+	if len(unconflicted) > 0 {
+		roomID, err = spec.NewRoomID(unconflicted[0].RoomID())
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	r.allower = newAllowerContext(&r.authProvider, userIDForSender, *roomID)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
