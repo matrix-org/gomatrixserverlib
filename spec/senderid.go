@@ -14,10 +14,18 @@
 
 package spec
 
-import "context"
+import (
+	"context"
+
+	"golang.org/x/crypto/ed25519"
+)
 
 type SenderID string
 
 type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
 
 type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID) (SenderID, error)
+
+func SenderIDFromPseudoIDKey(key ed25519.PrivateKey) SenderID {
+	return SenderID(Base64Bytes(key.Public().(ed25519.PublicKey)).Encode())
+}

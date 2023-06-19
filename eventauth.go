@@ -340,11 +340,14 @@ type allowerContext struct {
 	create      CreateContent     // The m.room.create content for the room.
 	powerLevels PowerLevelContent // The m.room.power_levels content for the room.
 	joinRule    JoinRuleContent   // The m.room.join_rules content for the room.
+
+	roomID spec.RoomID
 }
 
-func newAllowerContext(provider AuthEventProvider, userIDQuerier spec.UserIDForSender) *allowerContext {
+func newAllowerContext(provider AuthEventProvider, userIDQuerier spec.UserIDForSender, roomID spec.RoomID) *allowerContext {
 	a := &allowerContext{
 		userIDQuerier: userIDQuerier,
+		roomID:        roomID,
 	}
 	a.update(provider)
 	return a
@@ -408,7 +411,11 @@ func Allowed(event PDU, authEvents AuthEventProvider, userIDQuerier spec.UserIDF
 	if !authEvents.Valid() {
 		return errorf("authEvents contains events from different rooms")
 	}
-	return newAllowerContext(authEvents, userIDQuerier).allowed(event)
+	validRoomID, err := spec.NewRoomID(event.RoomID())
+	if err != nil {
+		return err
+	}
+	return newAllowerContext(authEvents, userIDQuerier, *validRoomID).allowed(event)
 }
 
 // createEventAllowed checks whether the m.room.create event is allowed.
@@ -424,11 +431,7 @@ func (a *allowerContext) createEventAllowed(event PDU) error {
 	if err != nil {
 		return err
 	}
-	validRoomID, err := spec.NewRoomID(event.RoomID())
-	if err != nil {
-		return err
-	}
-	sender, err := a.userIDQuerier(*validRoomID, event.SenderID())
+	sender, err := a.userIDQuerier(a.roomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -470,11 +473,7 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// In particular we allow any server to send a m.room.aliases event without checking if the sender is in the room.
 	// This allows server admins to update the m.room.aliases event for their server when they change the aliases on their server.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L143-L160
-	validRoomID, err := spec.NewRoomID(event.RoomID())
-	if err != nil {
-		return err
-	}
-	sender, err := a.userIDQuerier(*validRoomID, event.SenderID())
+	sender, err := a.userIDQuerier(a.roomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -532,7 +531,11 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	// Check that the user levels are all valid user IDs
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L1063
 	for senderID := range newPowerLevels.Users {
-		if !isValidUserID(senderID) {
+		sender, err := a.userIDQuerier(a.roomID, spec.SenderID(senderID))
+		if err != nil {
+			return err
+		}
+		if !isValidUserID(sender.String()) {
 			return errorf("Not a valid user ID: %q", senderID)
 		}
 	}
@@ -817,11 +820,7 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 	// sender and the redacted event.
 	// We leave it up to the sending server to implement the additional checks
 	// to ensure that only events that should be redacted are redacted.
-	validRoomID, err := spec.NewRoomID(event.RoomID())
-	if err != nil {
-		return err
-	}
-	sender, err := a.userIDQuerier(*validRoomID, event.SenderID())
+	sender, err := a.userIDQuerier(a.roomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -884,11 +883,7 @@ func (e *eventAllower) commonChecks(event PDU) error {
 	}
 
 	stateKey := event.StateKey()
-	validRoomID, err := spec.NewRoomID(event.RoomID())
-	if err != nil {
-		return err
-	}
-	userID, err := e.userIDQuerier(*validRoomID, event.SenderID())
+	userID, err := e.userIDQuerier(e.roomID, event.SenderID())
 	if err != nil {
 		return err
 	}
@@ -990,20 +985,23 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 			event.RoomID(), event.EventID(), m.create.roomID, m.create.eventID,
 		)
 	}
-	sender, err := spec.NewUserID(m.senderID, true)
+
+	sender, err := m.userIDQuerier(m.roomID, spec.SenderID(m.senderID))
 	if err != nil {
 		return err
 	}
 	if err := m.create.UserIDAllowed(*sender); err != nil {
 		return err
 	}
-	target, err := spec.NewUserID(m.targetID, true)
+
+	target, err := m.userIDQuerier(m.roomID, spec.SenderID(m.senderID))
 	if err != nil {
 		return err
 	}
 	if err := m.create.UserIDAllowed(*target); err != nil {
 		return err
 	}
+
 	// Special case the first join event in the room to allow the creator to join.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
 	if m.targetID == m.create.Creator &&
