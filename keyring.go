@@ -11,7 +11,6 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -393,7 +392,7 @@ func (v JSONVerifierSelf) VerifyJSONs(ctx context.Context, requests []VerifyJSON
 			results[i].Error = fmt.Errorf("unable to get senderID from event: %w", err)
 			continue
 		}
-		logrus.Infof("%s", requests[i].Message)
+
 		if len(obj.SenderID) == 0 {
 			results[i].Error = fmt.Errorf("unable to get senderID from event: empty sender")
 			continue
