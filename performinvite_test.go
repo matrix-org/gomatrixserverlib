@@ -39,17 +39,17 @@ func TestPerformInvite(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := inviteeID.String()
-	eb := createMemberEventBuilder(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), inviteeID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
 	stateKey = inviteeIDRemote.String()
-	inviteRemoteEB := createMemberEventBuilder(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	inviteRemoteEB := createMemberEventBuilder(RoomVersionV10, inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEventRemote, err := inviteRemoteEB.Build(time.Now(), inviteeIDRemote.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
 	stateKey = inviterID.String()
-	inviterMemberEventEB := createMemberEventBuilder(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	inviterMemberEventEB := createMemberEventBuilder(RoomVersionV10, inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	inviterMemberEvent, err := inviterMemberEventEB.Build(time.Now(), inviteeID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
@@ -227,7 +227,7 @@ func TestPerformInviteNilMembershipQuerier(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
@@ -256,7 +256,7 @@ func TestPerformInviteNilStateQuerier(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
@@ -285,7 +285,7 @@ func TestPerformInviteNilUserIDQuerier(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
@@ -314,7 +314,7 @@ func TestPerformInviteNilContext(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 

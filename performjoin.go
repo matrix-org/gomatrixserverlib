@@ -22,9 +22,10 @@ type PerformJoinInput struct {
 	KeyID      KeyID              // Used to sign the join event
 	KeyRing    *KeyRing           // Used to verify the response from send_join
 
-	EventProvider   EventProvider        // Provides full events given a list of event IDs
-	UserIDQuerier   spec.UserIDForSender // Provides userID for a given senderID
-	SenderIDCreator spec.CreateSenderID  // Creates new senderID for this room
+	EventProvider             EventProvider                  // Provides full events given a list of event IDs
+	UserIDQuerier             spec.UserIDForSender           // Provides userID for a given senderID
+	SenderIDCreator           spec.CreateSenderID            // Creates new senderID for this room
+	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
 }
 
 type PerformJoinResponse struct {
@@ -86,30 +87,10 @@ func PerformJoin(
 		}
 	}
 
-	var senderID spec.SenderID
-	switch respMakeJoin.GetRoomVersion() {
-	case RoomVersionPseudoIDs:
-		// create user room key if needed
-		senderID, err = input.SenderIDCreator(ctx, *input.UserID, *input.RoomID)
-		if err != nil {
-			return nil, &FederationError{
-				ServerName: input.ServerName,
-				Transient:  false,
-				Reachable:  true,
-				Err:        fmt.Errorf("Cannot create user room key"),
-			}
-		}
-	default:
-		senderID = spec.SenderID(input.UserID.String())
-	}
-
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
-	stateKey := string(senderID)
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	joinEvent.SenderID = string(senderID)
-	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
 
@@ -131,10 +112,53 @@ func PerformJoin(
 		}
 	}
 
-	joinEB := verImpl.NewEventBuilderFromProtoEvent(&joinEvent)
 	if input.Content == nil {
 		input.Content = map[string]interface{}{}
 	}
+
+	var senderID spec.SenderID
+	signingKey := input.PrivateKey
+	keyID := input.KeyID
+	origOrigin := origin
+	switch respMakeJoin.GetRoomVersion() {
+	case RoomVersionPseudoIDs:
+		// we successfully did a make_join, create a senderID for this user now
+		senderID, signingKey, err = input.SenderIDCreator(ctx, *input.UserID, *input.RoomID, string(respMakeJoin.GetRoomVersion()))
+		if err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("Cannot create user room key"),
+			}
+		}
+		keyID = "ed25519:1"
+		origin = "self"
+
+		mapping := MXIDMapping{
+			UserRoomKey: spec.SenderIDFromPseudoIDKey(signingKey),
+			UserID:      input.UserID.String(),
+		}
+		if err = mapping.Sign(origOrigin, input.KeyID, input.PrivateKey); err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("cannot sign mxid_mapping: %w", err),
+			}
+		}
+
+		input.Content["mxid_mapping"] = mapping
+	default:
+		senderID = spec.SenderID(input.UserID.String())
+	}
+
+	stateKey := string(senderID)
+	joinEvent.SenderID = string(senderID)
+	joinEvent.StateKey = &stateKey
+
+	joinEB := verImpl.NewEventBuilderFromProtoEvent(&joinEvent)
+
 	_ = json.Unmarshal(joinEvent.Content, &input.Content)
 	input.Content["membership"] = spec.Join
 	if err = joinEB.SetContent(input.Content); err != nil {
@@ -159,8 +183,8 @@ func PerformJoin(
 	event, err = joinEB.Build(
 		time.Now(),
 		origin,
-		input.KeyID,
-		input.PrivateKey,
+		keyID,
+		signingKey,
 	)
 	if err != nil {
 		return nil, &FederationError{
@@ -175,7 +199,7 @@ func PerformJoin(
 	// Try to perform a send_join using the newly built event.
 	respSendJoin, err := fedClient.SendJoin(
 		context.Background(),
-		origin,
+		origOrigin,
 		input.ServerName,
 		event,
 	)
@@ -210,6 +234,40 @@ func PerformJoin(
 			Transient:  false,
 			Reachable:  true,
 			Err:        fmt.Errorf("sanityCheckAuthChain: %w", err),
+		}
+	}
+
+	// get the membership event of the room creator, so we can store the mxid_mapping
+	// TODO: better way?
+	if roomVersion == RoomVersionPseudoIDs {
+		for _, ev := range authEvents {
+			if ev.Type() != spec.MRoomMember {
+				continue
+			}
+			mapping := MemberContent{}
+			if err = json.Unmarshal(ev.Content(), &mapping); err != nil {
+				return nil, &FederationError{
+					ServerName: input.ServerName,
+					Transient:  false,
+					Reachable:  true,
+					Err:        fmt.Errorf("unable to unmarshal mxid_mapping: %w", err),
+				}
+			}
+			if mapping.MXIDMapping == nil {
+				continue
+			}
+			if err = validateMXIDMappingSignature(ctx, ev, input.KeyRing, verImpl); err != nil {
+				logrus.WithError(err).Error("invalid signature for mxid_mapping")
+				continue
+			}
+			if err = input.StoreSenderIDFromPublicID(ctx, ev.SenderID(), mapping.MXIDMapping.UserID, *input.RoomID); err != nil {
+				return nil, &FederationError{
+					ServerName: input.ServerName,
+					Transient:  false,
+					Reachable:  true,
+					Err:        fmt.Errorf("unable to to store user mxid_mapping: %w", err),
+				}
+			}
 		}
 	}
 

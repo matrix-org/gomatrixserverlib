@@ -22,6 +22,7 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
+	"github.com/tidwall/gjson"
 )
 
 type HandleMakeJoinInput struct {
@@ -291,18 +292,19 @@ func checkRestrictedJoin(
 }
 
 type HandleSendJoinInput struct {
-	Context           context.Context
-	RoomID            spec.RoomID
-	EventID           string
-	JoinEvent         spec.RawJSON
-	RoomVersion       RoomVersion     // The room version for the room being joined
-	RequestOrigin     spec.ServerName // The server that sent the /make_join federation request
-	LocalServerName   spec.ServerName // The name of this local server
-	KeyID             KeyID
-	PrivateKey        ed25519.PrivateKey
-	Verifier          JSONVerifier
-	MembershipQuerier MembershipQuerier
-	UserIDQuerier     spec.UserIDForSender // Provides userIDs given a senderID
+	Context                   context.Context
+	RoomID                    spec.RoomID
+	EventID                   string
+	JoinEvent                 spec.RawJSON
+	RoomVersion               RoomVersion     // The room version for the room being joined
+	RequestOrigin             spec.ServerName // The server that sent the /make_join federation request
+	LocalServerName           spec.ServerName // The name of this local server
+	KeyID                     KeyID
+	PrivateKey                ed25519.PrivateKey
+	Verifier                  JSONVerifier
+	MembershipQuerier         MembershipQuerier
+	UserIDQuerier             spec.UserIDForSender // Provides userIDs given a senderID
+	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID
 }
 
 type HandleSendJoinResponse struct {
@@ -310,6 +312,7 @@ type HandleSendJoinResponse struct {
 	JoinEvent     PDU
 }
 
+// nolint: gocyclo
 func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) {
 	if input.Verifier == nil {
 		panic("Missing valid JSONVerifier")
@@ -322,6 +325,9 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	}
 	if input.Context == nil {
 		panic("Missing valid Context")
+	}
+	if input.StoreSenderIDFromPublicID == nil {
+		panic("Missing valid StoreSenderID")
 	}
 
 	verImpl, err := GetRoomVersion(input.RoomVersion)
@@ -342,6 +348,24 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
+	// validate the mxid_mapping of the event
+	if input.RoomVersion == RoomVersionPseudoIDs {
+		// validate the signature first
+		if err = validateMXIDMappingSignature(input.Context, event, input.Verifier, verImpl); err != nil {
+			return nil, spec.Forbidden(err.Error())
+		}
+
+		mapping := MXIDMapping{}
+		err = json.Unmarshal([]byte(gjson.GetBytes(input.JoinEvent, "content.mxid_mapping").Raw), &mapping)
+		if err != nil {
+			return nil, err
+		}
+		// store the user room public key -> userID mapping
+		if err = input.StoreSenderIDFromPublicID(input.Context, mapping.UserRoomKey, mapping.UserID, input.RoomID); err != nil {
+			return nil, err
+		}
+	}
+
 	// Check that the sender belongs to the server that is sending us
 	// the request. By this point we've already asserted that the sender
 	// and the state key are equal so we don't need to check both.
@@ -350,6 +374,12 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.Forbidden("The sender of the join is invalid")
 	} else if sender.Domain() != input.RequestOrigin {
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
+	}
+
+	signatureCheckDomain := sender.Domain()
+	if input.RoomVersion == RoomVersionPseudoIDs {
+		signatureCheckDomain = "self"
+		input.Verifier = JSONVerifierSelf{}
 	}
 
 	// Check that the room ID is correct.
@@ -388,7 +418,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:           sender.Domain(),
+		ServerName:           signatureCheckDomain,
 		Message:              redacted,
 		AtTS:                 event.OriginServerTS(),
 		ValidityCheckingFunc: StrictValiditySignatureCheck,
