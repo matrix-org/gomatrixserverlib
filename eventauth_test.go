@@ -17,9 +17,14 @@ package gomatrixserverlib
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/sjson"
+	"golang.org/x/crypto/ed25519"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -1436,4 +1441,196 @@ func Test_checkUserLevels(t *testing.T) {
 			}
 		})
 	}
+}
+
+type dummyAuthEventProvider struct {
+	PowerLevelEv PDU
+	CreateEv     PDU
+	MemberEvs    map[spec.SenderID]PDU
+}
+
+func (d dummyAuthEventProvider) Create() (PDU, error) {
+	return d.CreateEv, nil
+}
+
+func (d dummyAuthEventProvider) JoinRules() (PDU, error) {
+	return nil, nil
+}
+
+func (d dummyAuthEventProvider) PowerLevels() (PDU, error) {
+	return d.PowerLevelEv, nil
+}
+
+func (d dummyAuthEventProvider) Member(stateKey spec.SenderID) (PDU, error) {
+	return d.MemberEvs[stateKey], nil
+}
+
+func (d dummyAuthEventProvider) ThirdPartyInvite(stateKey string) (PDU, error) {
+	return nil, nil
+}
+
+func (d dummyAuthEventProvider) Valid() bool {
+	return true
+}
+
+// Test for https://github.com/matrix-org/dendrite/issues/2983
+func TestPowerLevels(t *testing.T) {
+	_, sk, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err)
+
+	senderID := "@alice:localhost"
+	bobID := "@bob:localhost"
+	roomID := "!room:localhost"
+
+	querier := func(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+		return spec.NewUserID(string(senderID), true)
+	}
+	// create event
+	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilder()
+	eb.SenderID = senderID
+	eb.StateKey = &emptyStateKey
+	eb.RoomID = roomID
+	eb.Type = spec.MRoomCreate
+
+	cr := CreateContent{Creator: senderID}
+	err = eb.SetContent(cr)
+	assert.NoError(t, err)
+	eb.Unsigned = spec.RawJSON("{}")
+
+	crEv, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+
+	// member event alice
+	eb = MustGetRoomVersion(RoomVersionV10).NewEventBuilder()
+	eb.SenderID = senderID
+	eb.StateKey = &senderID
+	eb.RoomID = roomID
+	eb.Type = spec.MRoomMember
+
+	mc := MemberContent{Membership: spec.Join}
+	err = eb.SetContent(mc)
+	assert.NoError(t, err)
+	eb.Unsigned = spec.RawJSON("{}")
+
+	memberEv, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+
+	// in a standard public room,
+	eb = MustGetRoomVersion(RoomVersionV10).NewEventBuilder()
+	eb.SenderID = senderID
+	eb.StateKey = &emptyStateKey
+	eb.RoomID = roomID
+	eb.Type = spec.MRoomPowerLevels
+
+	pl := PowerLevelContent{Users: map[string]int64{
+		senderID: 100,
+		bobID:    50, // just to avoid having to create yet another event
+	}}
+	pl.Defaults()
+	err = eb.SetContent(pl)
+	assert.NoError(t, err)
+	eb.Unsigned = spec.RawJSON("{}")
+
+	initialPLs, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+	t.Logf("Initial powerlevel event: %s", initialPLs.JSON())
+
+	memberEvs := map[spec.SenderID]PDU{
+		spec.SenderID(senderID): memberEv,
+	}
+	eventProvider := &dummyAuthEventProvider{CreateEv: crEv, MemberEvs: memberEvs}
+	err = Allowed(initialPLs, eventProvider, querier)
+	assert.NoError(t, err)
+	eventProvider.PowerLevelEv = initialPLs
+
+	// ..give moderators access to "Change permissions" aka "events": { "m.room.power_levels": 50 }
+	prevContent := map[string]PowerLevelContent{
+		"prev_content": pl,
+	}
+	err = eb.SetUnsigned(prevContent)
+	assert.NoError(t, err)
+
+	pl.Events = map[string]int64{
+		spec.MRoomPowerLevels: 50,
+	}
+	err = eb.SetContent(pl)
+	assert.NoError(t, err)
+
+	newPLs, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+
+	t.Logf("Allow mods to change permissions: %s", newPLs.JSON())
+	err = Allowed(newPLs, eventProvider, querier)
+	assert.NoError(t, err)
+	// update the eventProvider with our new PLs
+	eventProvider.PowerLevelEv = newPLs
+
+	// Set "Change settings" above 50, eg "state_default": 90
+	prevContent = map[string]PowerLevelContent{
+		"prev_content": pl,
+	}
+	err = eb.SetUnsigned(prevContent)
+	assert.NoError(t, err)
+	pl.StateDefault = 90
+	err = eb.SetContent(pl)
+	assert.NoError(t, err)
+	changeSettingsEv, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+
+	t.Logf("After setting state_default to 90: %s", changeSettingsEv.JSON())
+	err = Allowed(changeSettingsEv, eventProvider, querier)
+	assert.NoError(t, err)
+	eventProvider.PowerLevelEv = changeSettingsEv
+
+	// by editing the room's m.room.power_levels event, remove the keys "users_default": 0 and "events_default": 0 (a bot with a json library issue did this in our rooms)
+	deleted, err := sjson.DeleteBytes(changeSettingsEv.Content(), "users_default")
+	assert.NoError(t, err)
+	deleted, err = sjson.DeleteBytes(deleted, "events_default")
+	assert.NoError(t, err)
+	eb.Content = deleted
+	prevContent = map[string]PowerLevelContent{
+		"prev_content": pl,
+	}
+	err = eb.SetUnsigned(prevContent)
+	assert.NoError(t, err)
+	removedDefaults, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+
+	t.Logf("After removing users_default and events_default: %s", removedDefaults.JSON())
+	err = Allowed(removedDefaults, eventProvider, querier)
+	assert.NoError(t, err)
+	// update the eventProvider with our new PLs
+	eventProvider.PowerLevelEv = removedDefaults
+
+	// with an account that only has power 50 in the room, try to set (eg) "users_default": 0 or "events_default": 1
+	eb.SenderID = bobID
+	eb.StateKey = &bobID
+	eb.RoomID = roomID
+	eb.Type = spec.MRoomMember
+	err = eb.SetContent(mc)
+	assert.NoError(t, err)
+	eb.Unsigned = spec.RawJSON("{}")
+
+	memberEv, err = eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+	eventProvider.MemberEvs[spec.SenderID(bobID)] = memberEv
+
+	// we're going to manually update the PLs
+	newPLBytes, err := sjson.SetBytes(removedDefaults.Content(), "users_default", 1)
+	assert.NoError(t, err)
+
+	eb.SenderID = bobID
+	eb.StateKey = &emptyStateKey
+	eb.RoomID = roomID
+	eb.Type = spec.MRoomPowerLevels
+	eb.Content = newPLBytes
+
+	eb.Unsigned = spec.RawJSON(fmt.Sprintf(`{"prev_content":%s}`, removedDefaults.Content()))
+
+	newPLEv, err := eb.Build(time.Now(), "localhost", "ed25519:1", sk)
+	assert.NoError(t, err)
+
+	t.Logf("Trying to add users_default again: %s", newPLEv.JSON())
+	err = Allowed(newPLEv, eventProvider, querier)
+	assert.NoError(t, err)
 }
