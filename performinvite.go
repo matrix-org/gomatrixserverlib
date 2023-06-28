@@ -36,6 +36,7 @@ type PerformInviteInput struct {
 	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
 	KeyID         KeyID
 	SigningKey    ed25519.PrivateKey
+	EventTime     time.Time
 
 	MembershipQuerier MembershipQuerier    // Provides information about the room's membership
 	StateQuerier      StateQuerier         // Provides access to state events
@@ -179,7 +180,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 
 			// Sign the event so that other servers will know that we have received the invite.
 			fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.EventTemplate)
-			fullEvent, err := fullEventBuilder.Build(time.Now(), input.Inviter.Domain(), input.KeyID, input.SigningKey)
+			fullEvent, err := fullEventBuilder.Build(input.EventTime, input.Inviter.Domain(), input.KeyID, input.SigningKey)
 			if err != nil {
 				logger.WithError(err).Error("failed building invite event")
 				return nil, spec.InternalServerError{}
@@ -219,7 +220,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 
 		// Sign the event so that other servers will know that we have received the invite.
 		fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.EventTemplate)
-		fullEvent, err := fullEventBuilder.Build(time.Now(), input.Inviter.Domain(), input.KeyID, input.SigningKey)
+		fullEvent, err := fullEventBuilder.Build(input.EventTime, input.Inviter.Domain(), input.KeyID, input.SigningKey)
 		if err != nil {
 			logger.WithError(err).Error("failed building invite event")
 			return nil, spec.InternalServerError{}
