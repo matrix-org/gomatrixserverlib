@@ -48,9 +48,9 @@ type HandleInviteV3Input struct {
 	HandleInviteInput
 
 	Origin           spec.ServerName
-	InviteProtoEvent ProtoEvent                // The original invite event
-	SenderIDQuerier  spec.SenderIDForUser      // Provides senderIDs given a userID
-	SenderIDCreator  spec.CreateSenderIDAndKey // Creates a new senderID & private key
+	InviteProtoEvent ProtoEvent           // The original invite event
+	SenderIDQuerier  spec.SenderIDForUser // Provides senderIDs given a userID
+	SenderIDCreator  spec.CreateSenderID  // Creates a new senderID & private key
 }
 
 // HandleInvite - Ensures the incoming invite request is valid and signs the event

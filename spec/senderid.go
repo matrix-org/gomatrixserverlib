@@ -25,9 +25,20 @@ type SenderID string
 type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
 type SenderIDForUser func(roomID RoomID, userID UserID) (SenderID, error)
 
-type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID) (SenderID, error)
-type CreateSenderIDAndKey func(ctx context.Context, userID UserID, roomID RoomID, roomVersion string) (SenderID, ed25519.PrivateKey, error)
+// CreateSenderID is a function used to create the pseudoID private key.
+type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID, roomVersion string) (SenderID, ed25519.PrivateKey, error)
+
+// StoreSenderIDFromPublicID is a function to store the mxid_mapping after receiving a join event over federation.
+type StoreSenderIDFromPublicID func(ctx context.Context, senderID SenderID, userID string, id RoomID) error
 
 func SenderIDFromPseudoIDKey(key ed25519.PrivateKey) SenderID {
 	return SenderID(Base64Bytes(key.Public().(ed25519.PublicKey)).Encode())
+}
+
+func (s SenderID) RawBytes() (res Base64Bytes, err error) {
+	err = res.Decode(string(s))
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }

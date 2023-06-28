@@ -3,10 +3,12 @@ package gomatrixserverlib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/stretchr/testify/assert"
 )
 
 var privateKeySeed1 = `QJvXAPj0D9MUb1exkD8pIWmCvT1xajlsB8jRYz/G5HE`
@@ -352,4 +354,73 @@ func (e *erroringKeyDatabase) StoreKeys(
 	ctx context.Context, keys map[PublicKeyLookupRequest]PublicKeyLookupResult,
 ) error {
 	return &testErrorStore
+}
+
+func TestJSONVerifierSelf_VerifyJSONs(t *testing.T) {
+	tests := []struct {
+		name     string
+		requests []VerifyJSONRequest
+		want     []VerifyJSONResult
+	}{
+		{
+			name: "successfully verified",
+			requests: []VerifyJSONRequest{
+				{Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"self":{"ed25519:1":"cmXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{}},
+		},
+		{
+			name: "tempered event", // auth events are removed
+			requests: []VerifyJSONRequest{
+				{Message: []byte(`{"auth_events":[],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"self":{"ed25519:1":"cmXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("Bad signature from %q with ID %q", "self", "ed25519:1")}},
+		},
+		{
+			name: "invalid signature", // changed one character for the signature
+			requests: []VerifyJSONRequest{
+				{Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"self":{"ed25519:1":"caXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("Bad signature from %q with ID %q", "self", "ed25519:1")}},
+		},
+		{
+			name: "missing signature", // search ed25519:1, only ed25519:2 exists
+			requests: []VerifyJSONRequest{
+				{Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"self":{"ed25519:2":"cmXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("No signature from %q with ID %q", "self", "ed25519:1")}},
+		},
+		{
+			name: "no signatures at all", // signatures field removed
+			requests: []VerifyJSONRequest{
+				{Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("No signatures")}},
+		},
+		{
+			name: "empty sender",
+			requests: []VerifyJSONRequest{
+				{Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"","state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("unable to get senderID from event: empty sender")}},
+		},
+	}
+
+	ctx := context.Background()
+	for _, tt := range tests {
+		var err error
+		t.Run(tt.name, func(t *testing.T) {
+			v := JSONVerifierSelf{}
+			tt.requests[0].Message, err = MustGetRoomVersion(RoomVersionPseudoIDs).RedactEventJSON(tt.requests[0].Message)
+			if err != nil {
+				t.Fatal(err)
+				return
+			}
+
+			got, _ := v.VerifyJSONs(ctx, tt.requests)
+			for i := range tt.want {
+				assert.Equalf(t, tt.want[i], got[i], "VerifyJSONs(%v, %v)", ctx, tt.requests)
+			}
+		})
+	}
 }

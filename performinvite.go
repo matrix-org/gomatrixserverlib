@@ -169,7 +169,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	case RoomVersionPseudoIDs:
 		if input.IsTargetLocal {
 			// if we invited a local user, we can also create a user room key, if it doesn't exist yet.
-			inviteeSenderID, err := input.SenderIDCreator(ctx, input.Invitee, input.RoomID)
+			inviteeSenderID, _, err := input.SenderIDCreator(ctx, input.Invitee, input.RoomID, string(input.RoomVersion))
 			if err != nil {
 				return nil, err
 			}

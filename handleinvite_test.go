@@ -72,7 +72,7 @@ func TestHandleInvite(t *testing.T) {
 	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 

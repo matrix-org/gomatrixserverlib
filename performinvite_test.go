@@ -17,8 +17,12 @@ func SenderIDForUserTest(roomID spec.RoomID, userID spec.UserID) (spec.SenderID,
 	return spec.SenderID(userID.String()), nil
 }
 
-func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID) (spec.SenderID, error) {
-	return spec.SenderID(userID.String()), nil
+func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
+	_, key, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic("failed generating ed25519 key")
+	}
+	return spec.SenderID(userID.String()), key, nil
 }
 
 type TestFederatedInviteClient struct {
@@ -93,10 +97,9 @@ func TestPerformInvite(t *testing.T) {
 
 	stateKey = inviteeIDRemote.String()
 	inviteEventRemote := createMemberProtoEvent(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	assert.Nil(t, err)
 
 	stateKey = inviterID.String()
-	inviterMemberEventEB := createMemberEventBuilder(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	inviterMemberEventEB := createMemberEventBuilder(RoomVersionV10, inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	inviterMemberEvent, err := inviterMemberEventEB.Build(time.Now(), inviteeID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 

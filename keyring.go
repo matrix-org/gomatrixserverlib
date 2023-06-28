@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -369,6 +370,48 @@ func (k *KeyRing) checkUsingKeys(
 			break
 		}
 	}
+}
+
+// JSONVerifierSelf provides methods to validate signatures signed by pseudo identities.
+type JSONVerifierSelf struct{}
+
+type senderIDObj struct {
+	SenderID spec.SenderID `json:"sender"`
+}
+
+// VerifyJSONs implements JSONVerifier.
+func (v JSONVerifierSelf) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) ([]VerifyJSONResult, error) {
+	results := make([]VerifyJSONResult, len(requests))
+
+	for i := range requests {
+		// first of all, extract the sender key
+		var obj senderIDObj
+
+		err := json.Unmarshal(requests[i].Message, &obj)
+		if err != nil {
+			results[i].Error = fmt.Errorf("unable to get senderID from event: %w", err)
+			continue
+		}
+
+		if len(obj.SenderID) == 0 {
+			results[i].Error = fmt.Errorf("unable to get senderID from event: empty sender")
+			continue
+		}
+		// convert to public key
+		key, err := obj.SenderID.RawBytes()
+		if err != nil {
+			results[i].Error = fmt.Errorf("unable to get key from senderID: %w", err)
+			continue
+		}
+
+		// verify the JSON is valid
+		if err = VerifyJSON("self", "ed25519:1", ed25519.PublicKey(key), requests[i].Message); err != nil {
+			// The signature wasn't valid, record the error and try the next key ID.
+			results[i].Error = err
+			continue
+		}
+	}
+	return results, nil
 }
 
 type KeyClient interface {

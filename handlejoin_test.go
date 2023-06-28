@@ -632,8 +632,8 @@ func TestHandleMakeJoinNilContext(t *testing.T) {
 	})
 }
 
-func createMemberEventBuilder(sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
-	return MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
+func createMemberEventBuilder(roomVersion RoomVersion, sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
+	return MustGetRoomVersion(roomVersion).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		SenderID:   sender,
 		RoomID:     roomID,
 		Type:       "m.room.member",
@@ -666,33 +666,48 @@ func TestHandleSendJoin(t *testing.T) {
 	badVerifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: badPK}}
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	joinEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	ebNotJoin := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"ban"}`))
+	// create a pseudoID join event
+	_, userPriv, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	pseudoID := spec.SenderIDFromPseudoIDKey(userPriv)
+	stateKey = string(pseudoID)
+	mapping := MXIDMapping{UserID: userID.String(), UserRoomKey: pseudoID}
+	err = mapping.Sign(remoteServer, keyID, sk)
+	assert.Nil(t, err)
+	content := MemberContent{Membership: spec.Join, MXIDMapping: &mapping}
+	contentBytes, err := json.Marshal(content)
+	assert.Nil(t, err)
+	eb = createMemberEventBuilder(RoomVersionPseudoIDs, stateKey, validRoom.String(), &stateKey, contentBytes)
+	joinEventPseudoID, err := eb.Build(time.Now(), "self", "ed25519:1", userPriv)
+	assert.Nil(t, err)
+
+	ebNotJoin := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"ban"}`))
 	notJoinEvent, err := ebNotJoin.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	eb2 := createMemberEventBuilder("@asdf:asdf", validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	eb2 := createMemberEventBuilder(RoomVersionV10, "@asdf:asdf", validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	joinEventInvalidSender, err := eb2.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
 	stateKey = ""
-	eb3 := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	eb3 := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	joinEventNoState, err := eb3.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
 	stateKey = userID.String()
-	badAuthViaEB := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"baduser"}`))
+	badAuthViaEB := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"baduser"}`))
 	badAuthViaEvent, err := badAuthViaEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	authViaNotLocalEB := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:notlocalserver"}`))
+	authViaNotLocalEB := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:notlocalserver"}`))
 	authViaNotLocalEvent, err := authViaNotLocalEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	authViaEB := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:local"}`))
+	authViaEB := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:local"}`))
 	authViaEvent, err := authViaEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
@@ -1005,10 +1020,34 @@ func TestHandleSendJoin(t *testing.T) {
 			},
 			expectedErr: false,
 		},
+		"pseudo_id_success": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEventPseudoID.EventID(),
+				JoinEvent:         joinEventPseudoID.JSON(),
+				RoomVersion:       RoomVersionPseudoIDs,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestMembershipQuerier{membership: "join"},
+				UserIDQuerier: func(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+					return userID, nil
+				},
+				KeyID:      keyID,
+				PrivateKey: sk,
+				Verifier:   verifier,
+			},
+			expectedErr: false,
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			if tc.input.StoreSenderIDFromPublicID == nil {
+				tc.input.StoreSenderIDFromPublicID = func(ctx context.Context, senderID spec.SenderID, userID string, id spec.RoomID) error {
+					return nil
+				}
+			}
 			_, joinErr := HandleSendJoin(tc.input)
 			if tc.expectedErr {
 				switch e := joinErr.(type) {
@@ -1136,6 +1175,36 @@ func TestHandleSendJoinNilContext(t *testing.T) {
 	assert.Panics(t, func() {
 		_, _ = HandleSendJoin(HandleSendJoinInput{
 			Context:           nil,
+			RoomID:            *validRoom,
+			EventID:           "#event",
+			RoomVersion:       RoomVersionV10,
+			RequestOrigin:     remoteServer,
+			LocalServerName:   localServer,
+			MembershipQuerier: &TestMembershipQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+		})
+	})
+}
+
+func TestHandleSendJoinNilStoreSenderIDFromPublicID(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:           context.Background(),
 			RoomID:            *validRoom,
 			EventID:           "#event",
 			RoomVersion:       RoomVersionV10,
