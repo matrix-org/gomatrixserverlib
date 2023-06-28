@@ -16,7 +16,9 @@ package gomatrixserverlib
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
@@ -40,6 +42,15 @@ type HandleInviteInput struct {
 	MembershipQuerier MembershipQuerier    // Provides information about the room's membership
 	StateQuerier      StateQuerier         // Provides access to state events
 	UserIDQuerier     spec.UserIDForSender // Provides userIDs given a senderID
+}
+
+type HandleInviteV3Input struct {
+	HandleInviteInput
+
+	Origin           spec.ServerName
+	InviteProtoEvent ProtoEvent                // The original invite event
+	SenderIDQuerier  spec.SenderIDForUser      // Provides senderIDs given a userID
+	SenderIDCreator  spec.CreateSenderIDAndKey // Creates a new senderID & private key
 }
 
 // HandleInvite - Ensures the incoming invite request is valid and signs the event
@@ -95,8 +106,87 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.Forbidden("The invite must be signed by the server it originated on")
 	}
 
+	return handleInviteCommonChecks(ctx, input, input.InviteEvent, sender)
+}
+
+func HandleInviteV3(ctx context.Context, input HandleInviteV3Input) (PDU, error) {
+	if input.RoomQuerier == nil || input.MembershipQuerier == nil || input.StateQuerier == nil || input.UserIDQuerier == nil {
+		panic("Missing valid Querier")
+	}
+	if input.Verifier == nil {
+		panic("Missing valid JSONVerifier")
+	}
+
+	if ctx == nil {
+		panic("Missing valid Context")
+	}
+
+	// Check that we can accept invites for this room version.
+	verImpl, err := GetRoomVersion(input.RoomVersion)
+	if err != nil {
+		return nil, spec.UnsupportedRoomVersion(
+			fmt.Sprintf("Room version %q is not supported by this server.", input.RoomVersion),
+		)
+	}
+
+	// Check that the room ID is correct.
+	if input.InviteProtoEvent.RoomID != input.RoomID.String() {
+		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the invite event JSON")
+	}
+
+	signingKey := input.PrivateKey
+	keyID := KeyID("ed25519:1")
+	origin := spec.ServerName("self")
+	invitedSenderID, err := input.SenderIDQuerier(input.RoomID, input.InvitedUser)
+	if err != nil {
+		// NOTE: If we already have a senderID for this user in this room,
+		// this could be because they are already invited/joined or were previously.
+		// In that case, use the existing senderID to complete this invite event.
+		// Otherwise we need to create a new senderID
+
+		invitedSenderID, signingKey, err = input.SenderIDCreator(ctx, input.InvitedUser, input.RoomID, string(input.RoomVersion))
+		if err != nil {
+			util.GetLogger(ctx).WithError(err).Error("failed generating new senderID")
+			return nil, spec.InternalServerError{}
+		}
+	}
+	input.InviteProtoEvent.StateKey = (*string)(&invitedSenderID)
+
+	mapping := MXIDMapping{
+		UserRoomKey: invitedSenderID,
+		UserID:      input.InvitedUser.String(),
+	}
+	if err = mapping.Sign(input.InvitedUser.Domain(), input.KeyID, input.PrivateKey); err != nil {
+		if err != nil {
+			util.GetLogger(ctx).WithError(err).Error("failed signing mxid_mapping")
+			return nil, spec.InternalServerError{}
+		}
+	}
+
+	var memberContent MemberContent
+	if err = json.Unmarshal(input.InviteProtoEvent.Content, &memberContent); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+	}
+	memberContent.MXIDMapping = &mapping
+	err = input.InviteProtoEvent.SetContent(memberContent)
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("failed setting mxid_mapping to content field")
+		return nil, spec.InternalServerError{}
+	}
+
 	// Sign the event so that other servers will know that we have received the invite.
-	signedEvent := input.InviteEvent.Sign(
+	fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.InviteProtoEvent)
+	fullEvent, err := fullEventBuilder.Build(time.Now(), origin, keyID, signingKey)
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("failed building invite event")
+		return nil, spec.InternalServerError{}
+	}
+
+	return handleInviteCommonChecks(ctx, input.HandleInviteInput, fullEvent, nil)
+}
+
+func handleInviteCommonChecks(ctx context.Context, input HandleInviteInput, event PDU, sender *spec.UserID) (PDU, error) {
+	signedEvent := event.Sign(
 		string(input.InvitedUser.Domain()), input.KeyID, input.PrivateKey,
 	)
 
@@ -106,7 +196,14 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.InternalServerError{}
 	}
 
-	logger := createInviteLogger(ctx, signedEvent, input.RoomID)
+	if sender == nil {
+		sender, err = input.UserIDQuerier(input.RoomID, input.InviteEvent.SenderID())
+		if err != nil {
+			return nil, spec.BadJSON("The event JSON contains an invalid sender")
+		}
+	}
+
+	logger := createInviteLogger(ctx, input.RoomID, *sender, input.InvitedUser, signedEvent.EventID())
 	logger.WithFields(logrus.Fields{
 		"room_version":     signedEvent.Version(),
 		"room_info_exists": isKnownRoom,
@@ -114,7 +211,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 
 	inviteState := input.StrippedState
 	if len(inviteState) == 0 {
-		inviteState, err = GenerateStrippedState(ctx, input.RoomID, signedEvent, input.StateQuerier)
+		inviteState, err = GenerateStrippedState(ctx, input.RoomID, input.StateQuerier)
 		if err != nil {
 			util.GetLogger(ctx).WithError(err).Error("failed generating stripped state")
 			return nil, spec.InternalServerError{}

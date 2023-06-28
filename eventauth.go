@@ -186,8 +186,9 @@ func accumulateStateNeeded(result *StateNeeded, eventType string, sender spec.Se
 		}
 		result.Create = true
 		result.PowerLevels = true
+		result.Member = append(result.Member, string(sender))
 		if stateKey != nil {
-			result.Member = append(result.Member, string(sender), *stateKey)
+			result.Member = append(result.Member, *stateKey)
 		}
 		if content.Membership == spec.Join || content.Membership == spec.Knock || content.Membership == spec.Invite {
 			result.JoinRules = true

@@ -13,6 +13,14 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+func SenderIDForUserTest(roomID spec.RoomID, userID spec.UserID) (spec.SenderID, error) {
+	return spec.SenderID(userID.String()), nil
+}
+
+func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID) (spec.SenderID, error) {
+	return spec.SenderID(userID.String()), nil
+}
+
 type TestFederatedInviteClient struct {
 	shouldFail bool
 }
@@ -22,6 +30,48 @@ func (f *TestFederatedInviteClient) SendInvite(ctx context.Context, event PDU, s
 		return nil, fmt.Errorf("failed sending invite")
 	}
 	return nil, nil
+}
+
+func (f *TestFederatedInviteClient) SendInviteV3(ctx context.Context, event ProtoEvent, userID spec.UserID, roomVersion RoomVersion, strippedState []InviteStrippedState) (PDU, error) {
+	if f.shouldFail {
+		return nil, fmt.Errorf("failed sending invite")
+	}
+	return nil, nil
+}
+
+type TestEventQuerier struct {
+	createEvent PDU
+}
+
+func (q *TestEventQuerier) GetLatestEventsTest(ctx context.Context, roomID spec.RoomID, eventsNeeded []StateKeyTuple) (LatestEvents, error) {
+	stateEvents := []PDU{}
+	prevEvents := []string{}
+	for _, event := range eventsNeeded {
+		switch event.EventType {
+		case spec.MRoomCreate:
+			stateEvents = append(stateEvents, q.createEvent)
+		}
+		prevEvents = append(prevEvents, "random_event_id")
+	}
+	return LatestEvents{
+		RoomExists:   true,
+		StateEvents:  stateEvents,
+		PrevEventIDs: prevEvents,
+	}, nil
+}
+
+func createMemberProtoEvent(sender string, roomID string, stateKey *string, content spec.RawJSON) ProtoEvent {
+	return ProtoEvent{
+		SenderID:   sender,
+		RoomID:     roomID,
+		Type:       "m.room.member",
+		StateKey:   stateKey,
+		PrevEvents: []interface{}{},
+		AuthEvents: []interface{}{},
+		Depth:      0,
+		Content:    content,
+		Unsigned:   spec.RawJSON(""),
+	}
 }
 
 func TestPerformInvite(t *testing.T) {
@@ -39,13 +89,10 @@ func TestPerformInvite(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := inviteeID.String()
-	eb := createMemberEventBuilder(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEvent, err := eb.Build(time.Now(), inviteeID.Domain(), keyID, sk)
-	assert.Nil(t, err)
+	inviteEvent := createMemberProtoEvent(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 
 	stateKey = inviteeIDRemote.String()
-	inviteRemoteEB := createMemberEventBuilder(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEventRemote, err := inviteRemoteEB.Build(time.Now(), inviteeIDRemote.Domain(), keyID, sk)
+	inviteEventRemote := createMemberProtoEvent(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 	assert.Nil(t, err)
 
 	stateKey = inviterID.String()
@@ -70,6 +117,8 @@ func TestPerformInvite(t *testing.T) {
 		t.Fatalf("Failed building create event: %v", err)
 	}
 
+	eventQuerier := TestEventQuerier{createEvent: createEvent}
+
 	type ErrorType int
 	const (
 		InternalErr ErrorType = iota
@@ -86,13 +135,19 @@ func TestPerformInvite(t *testing.T) {
 		"not_allowed_by_auth_events": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeID,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeID,
 				IsTargetLocal:     true,
-				InviteEvent:       inviteEvent,
+				EventTemplate:     inviteEvent,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -102,13 +157,19 @@ func TestPerformInvite(t *testing.T) {
 		"auth_provider_error": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeID,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeID,
 				IsTargetLocal:     true,
-				InviteEvent:       inviteEvent,
+				EventTemplate:     inviteEvent,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{shouldFailAuth: true},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -118,13 +179,19 @@ func TestPerformInvite(t *testing.T) {
 		"state_provider_error": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeID,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeID,
 				IsTargetLocal:     true,
-				InviteEvent:       inviteEvent,
+				EventTemplate:     inviteEvent,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{shouldFailState: true},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -133,13 +200,19 @@ func TestPerformInvite(t *testing.T) {
 		"already_joined_failure": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeID,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeID,
 				IsTargetLocal:     true,
-				InviteEvent:       inviteEvent,
+				EventTemplate:     inviteEvent,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{membership: spec.Join},
 				StateQuerier:      &TestStateQuerier{},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: true,
@@ -149,13 +222,19 @@ func TestPerformInvite(t *testing.T) {
 		"remote_invite_federation_error": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeIDRemote,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeIDRemote,
 				IsTargetLocal:     false,
-				InviteEvent:       inviteEventRemote,
+				EventTemplate:     inviteEventRemote,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{shouldFail: true},
 			expectedErr: true,
@@ -165,13 +244,19 @@ func TestPerformInvite(t *testing.T) {
 		"success_local": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeID,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeID,
 				IsTargetLocal:     true,
-				InviteEvent:       inviteEvent,
+				EventTemplate:     inviteEvent,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: false,
@@ -179,13 +264,19 @@ func TestPerformInvite(t *testing.T) {
 		"success_remote": {
 			input: PerformInviteInput{
 				RoomID:            *validRoom,
-				InvitedUser:       *inviteeIDRemote,
+				RoomVersion:       RoomVersionV10,
+				Invitee:           *inviteeIDRemote,
 				IsTargetLocal:     false,
-				InviteEvent:       inviteEventRemote,
+				EventTemplate:     inviteEventRemote,
 				StrippedState:     []InviteStrippedState{},
+				KeyID:             keyID,
+				SigningKey:        sk,
 				MembershipQuerier: &TestMembershipQuerier{},
 				StateQuerier:      &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
 				UserIDQuerier:     UserIDForSenderTest,
+				SenderIDQuerier:   SenderIDForUserTest,
+				SenderIDCreator:   CreateSenderID,
+				EventQuerier:      eventQuerier.GetLatestEventsTest,
 			},
 			fedClient:   &TestFederatedInviteClient{},
 			expectedErr: false,
@@ -227,20 +318,25 @@ func TestPerformInviteNilMembershipQuerier(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
-	assert.Nil(t, err)
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eventQuerier := TestEventQuerier{}
 
 	assert.Panics(t, func() {
 		_, _ = PerformInvite(context.Background(), PerformInviteInput{
 			RoomID:            *validRoom,
-			InvitedUser:       *userID,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
 			IsTargetLocal:     true,
-			InviteEvent:       inviteEvent,
+			EventTemplate:     inviteEvent,
 			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
 			MembershipQuerier: nil,
 			StateQuerier:      &TestStateQuerier{},
 			UserIDQuerier:     UserIDForSenderTest,
+			SenderIDQuerier:   SenderIDForUserTest,
+			SenderIDCreator:   CreateSenderID,
+			EventQuerier:      eventQuerier.GetLatestEventsTest,
 		}, &TestFederatedInviteClient{})
 	})
 }
@@ -256,20 +352,25 @@ func TestPerformInviteNilStateQuerier(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
-	assert.Nil(t, err)
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eventQuerier := TestEventQuerier{}
 
 	assert.Panics(t, func() {
 		_, _ = PerformInvite(context.Background(), PerformInviteInput{
 			RoomID:            *validRoom,
-			InvitedUser:       *userID,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
 			IsTargetLocal:     true,
-			InviteEvent:       inviteEvent,
+			EventTemplate:     inviteEvent,
 			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      nil,
 			UserIDQuerier:     UserIDForSenderTest,
+			SenderIDQuerier:   SenderIDForUserTest,
+			SenderIDCreator:   CreateSenderID,
+			EventQuerier:      eventQuerier.GetLatestEventsTest,
 		}, &TestFederatedInviteClient{})
 	})
 }
@@ -285,20 +386,126 @@ func TestPerformInviteNilUserIDQuerier(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
-	assert.Nil(t, err)
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eventQuerier := TestEventQuerier{}
 
 	assert.Panics(t, func() {
 		_, _ = PerformInvite(context.Background(), PerformInviteInput{
 			RoomID:            *validRoom,
-			InvitedUser:       *userID,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
 			IsTargetLocal:     true,
-			InviteEvent:       inviteEvent,
+			EventTemplate:     inviteEvent,
 			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      &TestStateQuerier{},
 			UserIDQuerier:     nil,
+			SenderIDQuerier:   SenderIDForUserTest,
+			SenderIDCreator:   CreateSenderID,
+			EventQuerier:      eventQuerier.GetLatestEventsTest,
+		}, &TestFederatedInviteClient{})
+	})
+}
+
+func TestPerformInviteNilSenderIDQuerier(t *testing.T) {
+	userID, err := spec.NewUserID("@user:server", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	_, sk, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	keyID := KeyID("ed25519:1234")
+
+	stateKey := userID.String()
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eventQuerier := TestEventQuerier{}
+
+	assert.Panics(t, func() {
+		_, _ = PerformInvite(context.Background(), PerformInviteInput{
+			RoomID:            *validRoom,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
+			IsTargetLocal:     true,
+			EventTemplate:     inviteEvent,
+			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
+			SenderIDQuerier:   nil,
+			SenderIDCreator:   CreateSenderID,
+			EventQuerier:      eventQuerier.GetLatestEventsTest,
+		}, &TestFederatedInviteClient{})
+	})
+}
+
+func TestPerformInviteNilSenderIDCreator(t *testing.T) {
+	userID, err := spec.NewUserID("@user:server", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	_, sk, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	keyID := KeyID("ed25519:1234")
+
+	stateKey := userID.String()
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eventQuerier := TestEventQuerier{}
+
+	assert.Panics(t, func() {
+		_, _ = PerformInvite(context.Background(), PerformInviteInput{
+			RoomID:            *validRoom,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
+			IsTargetLocal:     true,
+			EventTemplate:     inviteEvent,
+			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
+			SenderIDQuerier:   SenderIDForUserTest,
+			SenderIDCreator:   nil,
+			EventQuerier:      eventQuerier.GetLatestEventsTest,
+		}, &TestFederatedInviteClient{})
+	})
+}
+
+func TestPerformInviteNilEventQuerier(t *testing.T) {
+	userID, err := spec.NewUserID("@user:server", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	_, sk, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	keyID := KeyID("ed25519:1234")
+
+	stateKey := userID.String()
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+
+	assert.Panics(t, func() {
+		_, _ = PerformInvite(context.Background(), PerformInviteInput{
+			RoomID:            *validRoom,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
+			IsTargetLocal:     true,
+			EventTemplate:     inviteEvent,
+			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
+			MembershipQuerier: &TestMembershipQuerier{},
+			StateQuerier:      &TestStateQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
+			SenderIDQuerier:   SenderIDForUserTest,
+			SenderIDCreator:   CreateSenderID,
+			EventQuerier:      nil,
 		}, &TestFederatedInviteClient{})
 	})
 }
@@ -314,20 +521,25 @@ func TestPerformInviteNilContext(t *testing.T) {
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
-	assert.Nil(t, err)
+	inviteEvent := createMemberProtoEvent(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	eventQuerier := TestEventQuerier{}
 
 	assert.Panics(t, func() {
 		_, _ = PerformInvite(nil, PerformInviteInput{ // nolint
 			RoomID:            *validRoom,
-			InvitedUser:       *userID,
+			RoomVersion:       RoomVersionV10,
+			Invitee:           *userID,
 			IsTargetLocal:     true,
-			InviteEvent:       inviteEvent,
+			EventTemplate:     inviteEvent,
 			StrippedState:     []InviteStrippedState{},
+			KeyID:             keyID,
+			SigningKey:        sk,
 			MembershipQuerier: &TestMembershipQuerier{},
 			StateQuerier:      &TestStateQuerier{},
 			UserIDQuerier:     UserIDForSenderTest,
+			SenderIDQuerier:   SenderIDForUserTest,
+			SenderIDCreator:   CreateSenderID,
+			EventQuerier:      eventQuerier.GetLatestEventsTest,
 		}, &TestFederatedInviteClient{})
 	})
 }
