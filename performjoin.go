@@ -237,36 +237,18 @@ func PerformJoin(
 		}
 	}
 
-	// get the membership event of the room creator, so we can store the mxid_mapping
+	// get the membership events of all users, so we can store the mxid_mappings
 	// TODO: better way?
 	if roomVersion == RoomVersionPseudoIDs {
-		for _, ev := range authEvents {
-			if ev.Type() != spec.MRoomMember {
-				continue
-			}
-			mapping := MemberContent{}
-			if err = json.Unmarshal(ev.Content(), &mapping); err != nil {
-				return nil, &FederationError{
-					ServerName: input.ServerName,
-					Transient:  false,
-					Reachable:  true,
-					Err:        fmt.Errorf("unable to unmarshal mxid_mapping: %w", err),
-				}
-			}
-			if mapping.MXIDMapping == nil {
-				continue
-			}
-			if err = validateMXIDMappingSignature(ctx, ev, input.KeyRing, verImpl); err != nil {
-				logrus.WithError(err).Error("invalid signature for mxid_mapping")
-				continue
-			}
-			if err = input.StoreSenderIDFromPublicID(ctx, ev.SenderID(), mapping.MXIDMapping.UserID, *input.RoomID); err != nil {
-				return nil, &FederationError{
-					ServerName: input.ServerName,
-					Transient:  false,
-					Reachable:  true,
-					Err:        fmt.Errorf("unable to to store user mxid_mapping: %w", err),
-				}
+		stateEvents := respSendJoin.GetStateEvents().UntrustedEvents(roomVersion)
+		events := append(authEvents, stateEvents...)
+		err = storeMXIDMappings(ctx, events, *input.RoomID, input.KeyRing, input.StoreSenderIDFromPublicID)
+		if err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("unable to store mxid_mapping: %w", err),
 			}
 		}
 	}
@@ -309,6 +291,37 @@ func PerformJoin(
 		JoinEvent:     event,
 		StateSnapshot: respState,
 	}, nil
+}
+
+func storeMXIDMappings(
+	ctx context.Context,
+	events []PDU,
+	roomID spec.RoomID,
+	keyRing JSONVerifier,
+	storeSenderID spec.StoreSenderIDFromPublicID,
+) error {
+	for _, ev := range events {
+		if ev.Type() != spec.MRoomMember {
+			continue
+		}
+		mapping := MemberContent{}
+		if err := json.Unmarshal(ev.Content(), &mapping); err != nil {
+			return err
+		}
+		if mapping.MXIDMapping == nil {
+			continue
+		}
+		// we already validated it is a valid roomversion, so this should be safe to use.
+		verImpl := MustGetRoomVersion(ev.Version())
+		if err := validateMXIDMappingSignature(ctx, ev, keyRing, verImpl); err != nil {
+			logrus.WithError(err).Error("invalid signature for mxid_mapping")
+			continue
+		}
+		if err := storeSenderID(ctx, ev.SenderID(), mapping.MXIDMapping.UserID, roomID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func setDefaultRoomVersionFromJoinEvent(

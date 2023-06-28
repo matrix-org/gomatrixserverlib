@@ -376,9 +376,9 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
 	}
 
-	signatureCheckDomain := sender.Domain()
+	// In pseudoID rooms we don't need to hit federation endpoints to get e.g. signing keys,
+	// so we can replace the verifier with a more simple one which uses the senderID to verify the event.
 	if input.RoomVersion == RoomVersionPseudoIDs {
-		signatureCheckDomain = "self"
 		input.Verifier = JSONVerifierSelf{}
 	}
 
@@ -418,7 +418,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:           signatureCheckDomain,
+		ServerName:           sender.Domain(),
 		Message:              redacted,
 		AtTS:                 event.OriginServerTS(),
 		ValidityCheckingFunc: StrictValiditySignatureCheck,
