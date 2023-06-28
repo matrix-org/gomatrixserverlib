@@ -77,7 +77,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		}
 	}
 
-	err := setUnsignedFieldForProtoInvite(input.EventTemplate, inviteState)
+	err := setUnsignedFieldForProtoInvite(&input.EventTemplate, inviteState)
 	if err != nil {
 		return nil, err
 	}

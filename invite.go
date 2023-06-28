@@ -193,7 +193,7 @@ func setUnsignedFieldForInvite(event PDU, inviteState []InviteStrippedState) err
 	return nil
 }
 
-func setUnsignedFieldForProtoInvite(event ProtoEvent, inviteState []InviteStrippedState) error {
+func setUnsignedFieldForProtoInvite(event *ProtoEvent, inviteState []InviteStrippedState) error {
 	if len(inviteState) == 0 {
 		if err := event.SetUnsigned(map[string]interface{}{"invite_room_state": struct{}{}}); err != nil {
 			return fmt.Errorf("event.SetUnsignedField: %w", err)
