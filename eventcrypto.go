@@ -81,7 +81,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		}
 
 		// Validate the MXIDMapping is signed correctly
-		if verImpl.Version() == RoomVersionPseudoIDs {
+		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join {
 			err = validateMXIDMappingSignature(ctx, e, verifier, verImpl)
 			if err != nil {
 				return err
@@ -132,6 +132,12 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		toVerify = append(toVerify, v)
 	}
 
+	if verImpl.Version() == RoomVersionPseudoIDs {
+		// we already verified the mxid_mapping at this stage, so replace the KeyRing verifier
+		// with the self verifier to validate pseudoID events
+		verifier = JSONVerifierSelf{}
+	}
+
 	results, err := verifier.VerifyJSONs(ctx, toVerify)
 	if err != nil {
 		return fmt.Errorf("failed to verify JSONs: %w", err)
@@ -154,6 +160,7 @@ func validateMXIDMappingSignature(ctx context.Context, e PDU, verifier JSONVerif
 		return err
 	}
 
+	// if there is no mapping, we can't check the signature
 	if content.MXIDMapping == nil {
 		return fmt.Errorf("missing mxid_mapping, unable to validate event")
 	}
@@ -174,6 +181,7 @@ func validateMXIDMappingSignature(ctx context.Context, e PDU, verifier JSONVerif
 		toVerify = append(toVerify, v)
 	}
 
+	// check that the mapping is correctly signed by the server
 	results, err := verifier.VerifyJSONs(ctx, toVerify)
 	if err != nil {
 		return fmt.Errorf("failed to verify MXIDMapping: %w", err)
