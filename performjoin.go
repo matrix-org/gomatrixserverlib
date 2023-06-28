@@ -24,7 +24,7 @@ type PerformJoinInput struct {
 
 	EventProvider             EventProvider                  // Provides full events given a list of event IDs
 	UserIDQuerier             spec.UserIDForSender           // Provides userID for a given senderID
-	SenderIDCreator           spec.CreateSenderID            // Creates new senderID for this room
+	GetOrCreateSenderID       spec.CreateSenderID            // Creates, if needed, new senderID for this room.
 	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
 }
 
@@ -123,7 +123,7 @@ func PerformJoin(
 	switch respMakeJoin.GetRoomVersion() {
 	case RoomVersionPseudoIDs:
 		// we successfully did a make_join, create a senderID for this user now
-		senderID, signingKey, err = input.SenderIDCreator(ctx, *input.UserID, *input.RoomID, string(respMakeJoin.GetRoomVersion()))
+		senderID, signingKey, err = input.GetOrCreateSenderID(ctx, *input.UserID, *input.RoomID, string(respMakeJoin.GetRoomVersion()))
 		if err != nil {
 			return nil, &FederationError{
 				ServerName: input.ServerName,
@@ -136,7 +136,7 @@ func PerformJoin(
 		origin = "self"
 
 		mapping := MXIDMapping{
-			UserRoomKey: spec.SenderIDFromPseudoIDKey(signingKey),
+			UserRoomKey: senderID,
 			UserID:      input.UserID.String(),
 		}
 		if err = mapping.Sign(origOrigin, input.KeyID, input.PrivateKey); err != nil {
