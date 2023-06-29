@@ -16,7 +16,6 @@ package gomatrixserverlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -151,28 +150,6 @@ func HandleInviteV3(ctx context.Context, input HandleInviteV3Input) (PDU, error)
 		}
 	}
 	input.InviteProtoEvent.StateKey = (*string)(&invitedSenderID)
-
-	mapping := MXIDMapping{
-		UserRoomKey: invitedSenderID,
-		UserID:      input.InvitedUser.String(),
-	}
-	if err = mapping.Sign(input.InvitedUser.Domain(), input.KeyID, input.PrivateKey); err != nil {
-		if err != nil {
-			util.GetLogger(ctx).WithError(err).Error("failed signing mxid_mapping")
-			return nil, spec.InternalServerError{}
-		}
-	}
-
-	var memberContent MemberContent
-	if err = json.Unmarshal(input.InviteProtoEvent.Content, &memberContent); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %w", err)
-	}
-	memberContent.MXIDMapping = &mapping
-	err = input.InviteProtoEvent.SetContent(memberContent)
-	if err != nil {
-		util.GetLogger(ctx).WithError(err).Error("failed setting mxid_mapping to content field")
-		return nil, spec.InternalServerError{}
-	}
 
 	// Sign the event so that other servers will know that we have received the invite.
 	fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.InviteProtoEvent)
