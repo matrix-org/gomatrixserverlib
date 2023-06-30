@@ -46,10 +46,10 @@ type HandleInviteInput struct {
 type HandleInviteV3Input struct {
 	HandleInviteInput
 
-	Origin           spec.ServerName
-	InviteProtoEvent ProtoEvent           // The original invite event
-	SenderIDQuerier  spec.SenderIDForUser // Provides senderIDs given a userID
-	SenderIDCreator  spec.CreateSenderID  // Creates a new senderID & private key
+	Origin              spec.ServerName
+	InviteProtoEvent    ProtoEvent           // The original invite event
+	SenderIDQuerier     spec.SenderIDForUser // Provides senderIDs given a userID
+	GetOrCreateSenderID spec.CreateSenderID  // Creates, if needed, a new senderID & private key
 }
 
 // HandleInvite - Ensures the incoming invite request is valid and signs the event
@@ -105,7 +105,11 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 		return nil, spec.Forbidden("The invite must be signed by the server it originated on")
 	}
 
-	return handleInviteCommonChecks(ctx, input, input.InviteEvent, sender)
+	signedEvent := input.InviteEvent.Sign(
+		string(input.InvitedUser.Domain()), input.KeyID, input.PrivateKey,
+	)
+
+	return handleInviteCommonChecks(ctx, input, signedEvent, *sender)
 }
 
 func HandleInviteV3(ctx context.Context, input HandleInviteV3Input) (PDU, error) {
@@ -133,25 +137,21 @@ func HandleInviteV3(ctx context.Context, input HandleInviteV3Input) (PDU, error)
 		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the invite event JSON")
 	}
 
-	signingKey := input.PrivateKey
-	keyID := KeyID("ed25519:1")
-	origin := spec.ServerName("self")
-	invitedSenderID, err := input.SenderIDQuerier(input.RoomID, input.InvitedUser)
+	// NOTE: If we already have a senderID for this user in this room,
+	// this could be because they are already invited/joined or were previously.
+	// In that case, use the existing senderID to complete this invite event.
+	// Otherwise we need to create a new senderID
+	invitedSenderID, signingKey, err := input.GetOrCreateSenderID(ctx, input.InvitedUser, input.RoomID, string(input.RoomVersion))
 	if err != nil {
-		// NOTE: If we already have a senderID for this user in this room,
-		// this could be because they are already invited/joined or were previously.
-		// In that case, use the existing senderID to complete this invite event.
-		// Otherwise we need to create a new senderID
-
-		invitedSenderID, signingKey, err = input.SenderIDCreator(ctx, input.InvitedUser, input.RoomID, string(input.RoomVersion))
-		if err != nil {
-			util.GetLogger(ctx).WithError(err).Error("failed generating new senderID")
-			return nil, spec.InternalServerError{}
-		}
+		util.GetLogger(ctx).WithError(err).Error("GetOrCreateSenderID failed")
+		return nil, spec.InternalServerError{}
 	}
+
 	input.InviteProtoEvent.StateKey = (*string)(&invitedSenderID)
 
 	// Sign the event so that other servers will know that we have received the invite.
+	keyID := KeyID("ed25519:1")
+	origin := spec.ServerName("self")
 	fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.InviteProtoEvent)
 	fullEvent, err := fullEventBuilder.Build(time.Now(), origin, keyID, signingKey)
 	if err != nil {
@@ -159,30 +159,19 @@ func HandleInviteV3(ctx context.Context, input HandleInviteV3Input) (PDU, error)
 		return nil, spec.InternalServerError{}
 	}
 
-	return handleInviteCommonChecks(ctx, input.HandleInviteInput, fullEvent, nil)
+	return handleInviteCommonChecks(ctx, input.HandleInviteInput, fullEvent, spec.UserID{})
 }
 
-func handleInviteCommonChecks(ctx context.Context, input HandleInviteInput, event PDU, sender *spec.UserID) (PDU, error) {
-	signedEvent := event.Sign(
-		string(input.InvitedUser.Domain()), input.KeyID, input.PrivateKey,
-	)
-
+func handleInviteCommonChecks(ctx context.Context, input HandleInviteInput, event PDU, sender spec.UserID) (PDU, error) {
 	isKnownRoom, err := input.RoomQuerier.IsKnownRoom(ctx, input.RoomID)
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("failed querying known room")
 		return nil, spec.InternalServerError{}
 	}
 
-	if sender == nil {
-		sender, err = input.UserIDQuerier(input.RoomID, input.InviteEvent.SenderID())
-		if err != nil {
-			return nil, spec.BadJSON("The event JSON contains an invalid sender")
-		}
-	}
-
-	logger := createInviteLogger(ctx, input.RoomID, *sender, input.InvitedUser, signedEvent.EventID())
+	logger := createInviteLogger(ctx, input.RoomID, sender, input.InvitedUser, event.EventID())
 	logger.WithFields(logrus.Fields{
-		"room_version":     signedEvent.Version(),
+		"room_version":     event.Version(),
 		"room_info_exists": isKnownRoom,
 	}).Debug("processing incoming federation invite event")
 
@@ -206,10 +195,10 @@ func handleInviteCommonChecks(ctx context.Context, input HandleInviteInput, even
 		}
 	}
 
-	err = setUnsignedFieldForInvite(signedEvent, inviteState)
+	err = setUnsignedFieldForInvite(event, inviteState)
 	if err != nil {
 		return nil, err
 	}
 
-	return signedEvent, nil
+	return event, nil
 }

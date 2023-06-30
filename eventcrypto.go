@@ -53,8 +53,12 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 	if err != nil {
 		return fmt.Errorf("invalid sender userID: %w", err)
 	}
-	serverName := sender.Domain()
-	needed[serverName] = struct{}{}
+	var serverName spec.ServerName
+	if sender != nil {
+		serverName = sender.Domain()
+		needed[serverName] = struct{}{}
+	}
+	// TODO: what do in this case?
 
 	verImpl, err := GetRoomVersion(e.Version())
 	if err != nil {

@@ -38,12 +38,13 @@ type PerformInviteInput struct {
 	SigningKey    ed25519.PrivateKey
 	EventTime     time.Time
 
-	MembershipQuerier MembershipQuerier    // Provides information about the room's membership
-	StateQuerier      StateQuerier         // Provides access to state events
-	UserIDQuerier     spec.UserIDForSender // Provides userID for a given senderID
-	SenderIDQuerier   spec.SenderIDForUser // Provides senderID for a given userID
-	SenderIDCreator   spec.CreateSenderID
-	EventQuerier      GetLatestEvents
+	MembershipQuerier         MembershipQuerier    // Provides information about the room's membership
+	StateQuerier              StateQuerier         // Provides access to state events
+	UserIDQuerier             spec.UserIDForSender // Provides userID for a given senderID
+	SenderIDQuerier           spec.SenderIDForUser // Provides senderID for a given userID
+	SenderIDCreator           spec.CreateSenderID
+	EventQuerier              GetLatestEvents
+	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
 }
 
 // PerformInvite - Performs all the checks required to validate the invite is allowed
@@ -168,9 +169,12 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	var inviteEvent PDU
 	switch input.RoomVersion {
 	case RoomVersionPseudoIDs:
+		keyID := KeyID("ed25519:1")
+		origin := spec.ServerName("self")
+
 		if input.IsTargetLocal {
 			// if we invited a local user, we can also create a user room key, if it doesn't exist yet.
-			inviteeSenderID, _, err := input.SenderIDCreator(ctx, input.Invitee, input.RoomID, string(input.RoomVersion))
+			inviteeSenderID, inviteeSigningKey, err := input.SenderIDCreator(ctx, input.Invitee, input.RoomID, string(input.RoomVersion))
 			if err != nil {
 				return nil, err
 			}
@@ -180,16 +184,14 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 
 			// Sign the event so that other servers will know that we have received the invite.
 			fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.EventTemplate)
-			fullEvent, err := fullEventBuilder.Build(input.EventTime, input.Inviter.Domain(), input.KeyID, input.SigningKey)
+			inviteEvent, err = fullEventBuilder.Build(input.EventTime, origin, keyID, input.SigningKey)
 			if err != nil {
 				logger.WithError(err).Error("failed building invite event")
 				return nil, spec.InternalServerError{}
 			}
 
-			// TODO: Refer to Till's event signing to make this work properly
-			inviteEvent = fullEvent.Sign(
-				string(input.Invitee.Domain()), input.KeyID, input.SigningKey,
-			)
+			// Have the invitee also sign the event
+			inviteEvent = inviteEvent.Sign(string(origin), keyID, inviteeSigningKey)
 
 			err = checkEventAllowed(inviteEvent)
 			if err != nil {
@@ -203,8 +205,14 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 			}
 			logger.Debugf("Federated SendInviteV3 success to user %s", input.Invitee.String())
 
+			err = input.StoreSenderIDFromPublicID(ctx, spec.SenderID(*inviteEvent.StateKey()), input.Invitee.String(), input.RoomID)
+			if err != nil {
+				logger.WithError(err).Errorf("failed storing senderID for %s", input.Invitee.String())
+				return nil, spec.InternalServerError{}
+			}
+
 			inviteEvent = inviteEvent.Sign(
-				string(input.Invitee.Domain()), input.KeyID, input.SigningKey,
+				string(origin), keyID, input.SigningKey,
 			)
 
 			// TODO: This should happen before the federation call ideally,

@@ -491,7 +491,9 @@ func (p *PerspectiveKeyFetcher) FetchKeys(
 // This may be suitable for local deployments that are firewalled from the public internet where DNS can be trusted.
 type DirectKeyFetcher struct {
 	// The federation client to use to fetch keys with.
-	Client KeyClient
+	Client            KeyClient
+	IsLocalServerName func(server spec.ServerName) bool
+	LocalPublicKey    spec.Base64Bytes
 }
 
 // FetcherName implements KeyFetcher
@@ -505,8 +507,13 @@ func (d *DirectKeyFetcher) FetchKeys(
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
 	fetcherLogger := util.GetLogger(ctx).WithField("fetcher", d.FetcherName())
 
+	localServerRequests := []PublicKeyLookupRequest{}
 	byServer := map[spec.ServerName]map[PublicKeyLookupRequest]spec.Timestamp{}
 	for req, ts := range requests {
+		if d.IsLocalServerName(req.ServerName) {
+			localServerRequests = append(localServerRequests, req)
+			continue
+		}
 		server := byServer[req.ServerName]
 		if server == nil {
 			server = map[PublicKeyLookupRequest]spec.Timestamp{}
@@ -526,6 +533,17 @@ func (d *DirectKeyFetcher) FetchKeys(
 	// Prepare somewhere to put the results. This map is protected
 	// by the below mutex.
 	results := map[PublicKeyLookupRequest]PublicKeyLookupResult{}
+
+	// Populate the results map with any requests directed at the local server
+	localKey := &PublicKeyLookupResult{
+		VerifyKey: VerifyKey{Key: d.LocalPublicKey},
+		ExpiredTS: PublicKeyNotExpired,
+		// This must evaluate to a year which is 4 digits (ie. 2020), or the code breaks currently
+		ValidUntilTS: spec.AsTimestamp(time.Unix(1<<37, 0)), // NOTE: 6325-04-08 15:04:32 +0000 UTC (a date very far in the future)
+	}
+	for _, req := range localServerRequests {
+		results[req] = *localKey
+	}
 	var resultsMutex sync.Mutex
 
 	// Populate the wait group with the number of workers.
