@@ -81,7 +81,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		}
 
 		// Validate the MXIDMapping is signed correctly
-		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join {
+		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join && len(e.Unsigned()) == 0 {
 			err = validateMXIDMappingSignature(ctx, e, verifier, verImpl)
 			if err != nil {
 				return err
