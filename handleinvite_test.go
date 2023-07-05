@@ -849,7 +849,7 @@ func TestHandleInviteV3NilContext(t *testing.T) {
 	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
 
 	assert.Panics(t, func() {
-		_, _ = HandleInviteV3(nil, HandleInviteV3Input{
+		_, _ = HandleInviteV3(nil, HandleInviteV3Input{ //nolint
 			HandleInviteInput: HandleInviteInput{
 				RoomID:            *validRoom,
 				RoomVersion:       "",
