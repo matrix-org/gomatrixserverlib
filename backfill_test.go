@@ -25,6 +25,10 @@ type testBackfillRequester struct {
 	callOrderForStateIDsBeforeEvent []string // event IDs called
 }
 
+func (t *testBackfillRequester) CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (string, error) {
+	return "", nil
+}
+
 func (t *testBackfillRequester) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
 	t.callOrderForStateIDsBeforeEvent = append(t.callOrderForStateIDsBeforeEvent, atEvent.EventID())
 	return t.stateIDsAtEvent[atEvent.EventID()], nil

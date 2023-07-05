@@ -17,6 +17,7 @@ type StateProvider interface {
 	// StateBeforeEvent returns the state of the room before the given event. `eventIDs` will be populated with the output
 	// of StateIDsAtEvent to aid in event retrieval.
 	StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error)
+	MembershipQuerier
 }
 
 type FederatedStateClient interface {
@@ -230,6 +231,7 @@ func checkAllowedByAuthEvents(
 func CheckStateResponse(
 	ctx context.Context, r StateResponse, roomVersion RoomVersion,
 	keyRing JSONVerifier, missingAuth EventProvider, userIDForSender spec.UserIDForSender,
+	querier MembershipQuerier,
 ) ([]PDU, []PDU, error) {
 	logger := util.GetLogger(ctx)
 	authEvents := r.GetAuthEvents().UntrustedEvents(roomVersion)
@@ -260,7 +262,7 @@ func CheckStateResponse(
 
 	// Check if the events pass signature checks.
 	logger.Infof("Checking event signatures for %d events of room state", len(allEvents))
-	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing, userIDForSender)
+	errors := VerifyAllEventSignatures(ctx, allEvents, keyRing, userIDForSender, querier)
 	if len(errors) != len(allEvents) {
 		return nil, nil, fmt.Errorf("expected %d errors but got %d", len(allEvents), len(errors))
 	}
@@ -323,13 +325,14 @@ func CheckSendJoinResponse(
 	ctx context.Context, roomVersion RoomVersion, r StateResponse,
 	keyRing JSONVerifier, joinEvent PDU,
 	missingAuth EventProvider, userIDForSender spec.UserIDForSender,
+	querier MembershipQuerier,
 ) (StateResponse, error) {
 	// First check that the state is valid and that the events in the response
 	// are correctly signed.
 	//
 	// The response to /send_join has the same data as a response to /state
 	// and the checks for a response to /state also apply.
-	authEvents, stateEvents, err := CheckStateResponse(ctx, r, roomVersion, keyRing, missingAuth, userIDForSender)
+	authEvents, stateEvents, err := CheckStateResponse(ctx, r, roomVersion, keyRing, missingAuth, userIDForSender, querier)
 	if err != nil {
 		return nil, err
 	}

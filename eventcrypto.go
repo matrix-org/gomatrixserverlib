@@ -29,15 +29,15 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) []error {
+func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender, querier MembershipQuerier) []error {
 	errors := make([]error, 0, len(events))
 	for _, e := range events {
-		errors = append(errors, VerifyEventSignatures(ctx, e, verifier, userIDForSender))
+		errors = append(errors, VerifyEventSignatures(ctx, e, verifier, userIDForSender, querier))
 	}
 	return errors
 }
 
-func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) error {
+func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender, querier MembershipQuerier) error {
 	if userIDForSender == nil {
 		panic("UserIDForSender func is nil")
 	}
@@ -81,11 +81,18 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		}
 
 		// Validate the MXIDMapping is signed correctly
-		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join && len(e.Unsigned()) == 0 {
-			err = validateMXIDMappingSignature(ctx, e, verifier, verImpl)
+		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join {
+			currentMembership, err := querier.CurrentMembership(ctx, *validRoomID, e.SenderID())
 			if err != nil {
 				return err
 			}
+			if currentMembership == "" {
+				err = validateMXIDMappingSignature(ctx, e, verifier, verImpl)
+				if err != nil {
+					return err
+				}
+			}
+
 		}
 
 		// For invites, the invited server should have signed the event.

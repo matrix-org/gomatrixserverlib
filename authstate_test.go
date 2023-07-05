@@ -16,6 +16,10 @@ type TestStateProvider struct {
 	Events   []PDU
 }
 
+func (p *TestStateProvider) CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (string, error) {
+	return "", nil
+}
+
 func (p *TestStateProvider) StateIDsBeforeEvent(ctx context.Context, atEvent PDU) ([]string, error) {
 	return p.StateIDs, nil
 }

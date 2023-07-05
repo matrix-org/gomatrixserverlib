@@ -482,6 +482,7 @@ func TestPerformJoinPseudoID(t *testing.T) {
 					return nil
 				},
 				GetOrCreateSenderID: idCreator,
+				MembershipQuerier:   &TestMembershipQuerier{},
 			},
 			ExpectedErr:         false,
 			ExpectedHTTPErr:     false,

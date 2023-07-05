@@ -26,6 +26,7 @@ type PerformJoinInput struct {
 	UserIDQuerier             spec.UserIDForSender           // Provides userID for a given senderID
 	GetOrCreateSenderID       spec.CreateSenderID            // Creates, if needed, new senderID for this room.
 	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
+	MembershipQuerier         MembershipQuerier
 }
 
 type PerformJoinResponse struct {
@@ -266,6 +267,7 @@ func PerformJoin(
 		event,
 		input.EventProvider,
 		input.UserIDQuerier,
+		input.MembershipQuerier,
 	)
 	if err != nil {
 		return nil, &FederationError{

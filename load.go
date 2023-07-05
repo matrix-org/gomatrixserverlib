@@ -80,7 +80,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	// so we can directly index from events into results from now on.
 
 	// 2. Passes signature checks, otherwise it is dropped.
-	failures := VerifyAllEventSignatures(ctx, events, l.keyRing, userIDForSender)
+	failures := VerifyAllEventSignatures(ctx, events, l.keyRing, userIDForSender, l.stateProvider)
 	if len(failures) != len(events) {
 		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
 	}
