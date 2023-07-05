@@ -170,7 +170,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	switch input.RoomVersion {
 	case RoomVersionPseudoIDs:
 		keyID := KeyID("ed25519:1")
-		origin := spec.ServerName("self")
+		origin := spec.ServerName(spec.SenderIDFromPseudoIDKey(input.SigningKey))
 
 		if input.IsTargetLocal {
 			// if we invited a local user, we can also create a user room key, if it doesn't exist yet.
@@ -205,15 +205,22 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 			}
 			logger.Debugf("Federated SendInviteV3 success to user %s", input.Invitee.String())
 
+			inviteEvent = inviteEvent.Sign(
+				string(origin), keyID, input.SigningKey,
+			)
+
+			verifier := JSONVerifierSelf{}
+			err := VerifyEventSignatures(ctx, inviteEvent, verifier, input.UserIDQuerier)
+			if err != nil {
+				logger.WithError(err).Error("fedClient.SendInviteV3 returned event with invalid signatures")
+				return nil, spec.Forbidden(err.Error())
+			}
+
 			err = input.StoreSenderIDFromPublicID(ctx, spec.SenderID(*inviteEvent.StateKey()), input.Invitee.String(), input.RoomID)
 			if err != nil {
 				logger.WithError(err).Errorf("failed storing senderID for %s", input.Invitee.String())
 				return nil, spec.InternalServerError{}
 			}
-
-			inviteEvent = inviteEvent.Sign(
-				string(origin), keyID, input.SigningKey,
-			)
 
 			// TODO: This should happen before the federation call ideally,
 			// but we don't have a full PDU yet in this case by that point.

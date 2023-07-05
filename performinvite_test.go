@@ -46,11 +46,17 @@ func (f *TestFederatedInviteClient) SendInviteV3(ctx context.Context, event Prot
 	}
 
 	_, sk, _ := ed25519.GenerateKey(rand.Reader)
-	keyID := KeyID("ed25519:1234")
+	keyID := KeyID("ed25519:1")
 
-	stateKey := userID.String()
-	eb := createMemberEventBuilder(RoomVersionPseudoIDs, event.SenderID, event.RoomID, &stateKey, spec.RawJSON(`{"membership":"invite"}`))
-	inviteEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	stateKey := string(spec.SenderIDFromPseudoIDKey(sk))
+	event.StateKey = &stateKey
+	eb := verImpl.NewEventBuilderFromProtoEvent(&event)
+	inviteEvent, err := eb.Build(time.Now(), spec.ServerName(stateKey), keyID, sk)
 
 	return inviteEvent, err
 }
@@ -578,39 +584,68 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 	assert.Nil(t, err)
 	inviteeIDRemote, err := spec.NewUserID("@invitee:remote", true)
 	assert.Nil(t, err)
+
 	inviterID, err := spec.NewUserID("@inviter:server", true)
 	assert.Nil(t, err)
+	_, inviterKey, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+
+	inviterPseudoID := string(spec.SenderIDFromPseudoIDKey(inviterKey))
+
 	validRoom, err := spec.NewRoomID("!room:remote")
 	assert.Nil(t, err)
 
-	_, sk, err := ed25519.GenerateKey(rand.Reader)
-	assert.Nil(t, err)
 	keyID := KeyID("ed25519:1234")
 
 	stateKey := inviteeID.String()
-	inviteEvent := createMemberProtoEvent(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	inviteEvent := createMemberProtoEvent(inviterPseudoID, validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 
 	stateKey = inviteeIDRemote.String()
-	inviteEventRemote := createMemberProtoEvent(inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
+	inviteEventRemote := createMemberProtoEvent(inviterPseudoID, validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"invite"}`))
 
-	stateKey = inviterID.String()
-	inviterMemberEventEB := createMemberEventBuilder(RoomVersionV10, inviterID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
-	inviterMemberEvent, err := inviterMemberEventEB.Build(time.Now(), inviteeID.Domain(), keyID, sk)
+	rv := RoomVersionPseudoIDs
+	federate := true
+	cr := CreateContent{Creator: inviterPseudoID, RoomVersion: &rv, Federate: &federate}
+	crBytes, err := json.Marshal(cr)
 	assert.Nil(t, err)
 
 	stateKey = ""
-	createEventEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		SenderID:   inviterID.String(),
+	createEventEB := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		SenderID:   inviterPseudoID,
 		RoomID:     validRoom.String(),
 		Type:       "m.room.create",
 		StateKey:   &stateKey,
 		PrevEvents: []interface{}{},
 		AuthEvents: []interface{}{},
-		Depth:      0,
-		Content:    spec.RawJSON(`{"creator":"@inviter:server","m.federate":true,"room_version":"org.matrix.msc4014"}`),
+		Depth:      1,
+		Content:    crBytes,
 		Unsigned:   spec.RawJSON(""),
 	})
-	createEvent, err := createEventEB.Build(time.Now(), inviterID.Domain(), keyID, sk)
+	createEvent, err := createEventEB.Build(time.Now(), spec.ServerName(inviterPseudoID), "ed25519:1", inviterKey)
+	if err != nil {
+		t.Fatalf("Failed building create event: %v", err)
+	}
+
+	mapping := MXIDMapping{UserID: inviterID.String(), UserRoomKey: spec.SenderID(inviterPseudoID)}
+	err = mapping.Sign("server", keyID, inviterKey)
+	assert.Nil(t, err)
+	content := MemberContent{Membership: spec.Join, MXIDMapping: &mapping}
+	contentBytes, err := json.Marshal(content)
+	assert.Nil(t, err)
+
+	stateKey = inviterPseudoID
+	inviterJoinEB := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		SenderID:   inviterPseudoID,
+		RoomID:     validRoom.String(),
+		Type:       "m.room.member",
+		StateKey:   &stateKey,
+		PrevEvents: []interface{}{createEvent.EventID()},
+		AuthEvents: []interface{}{createEvent.EventID()},
+		Depth:      2,
+		Content:    contentBytes,
+		Unsigned:   spec.RawJSON(""),
+	})
+	inviterJoinEvent, err := inviterJoinEB.Build(time.Now(), spec.ServerName(inviterPseudoID), "ed25519:1", inviterKey)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}
@@ -622,6 +657,10 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 		InternalErr ErrorType = iota
 		MatrixErr
 	)
+
+	userIDForSender := func(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+		return spec.NewUserID(inviterID.String(), true)
+	}
 
 	tests := map[string]struct {
 		input       PerformInviteInput
@@ -639,7 +678,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEvent,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{},
 				StateQuerier:              &TestStateQuerier{},
@@ -663,7 +702,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEvent,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{},
 				StateQuerier:              &TestStateQuerier{shouldFailAuth: true},
@@ -687,7 +726,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEvent,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{},
 				StateQuerier:              &TestStateQuerier{shouldFailState: true},
@@ -710,7 +749,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEvent,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{membership: spec.Join},
 				StateQuerier:              &TestStateQuerier{},
@@ -734,10 +773,10 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEventRemote,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{},
-				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
+				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterJoinEvent},
 				UserIDQuerier:             UserIDForSenderTest,
 				SenderIDQuerier:           SenderIDForUserTest,
 				SenderIDCreator:           CreateSenderID,
@@ -758,11 +797,11 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEvent,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{},
-				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
-				UserIDQuerier:             UserIDForSenderTest,
+				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterJoinEvent},
+				UserIDQuerier:             userIDForSender,
 				SenderIDQuerier:           SenderIDForUserTest,
 				SenderIDCreator:           CreateSenderID,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
@@ -780,11 +819,11 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				EventTemplate:             inviteEventRemote,
 				StrippedState:             []InviteStrippedState{},
 				KeyID:                     keyID,
-				SigningKey:                sk,
+				SigningKey:                inviterKey,
 				EventTime:                 time.Now(),
 				MembershipQuerier:         &TestMembershipQuerier{},
-				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterMemberEvent},
-				UserIDQuerier:             UserIDForSenderTest,
+				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterJoinEvent},
+				UserIDQuerier:             userIDForSender,
 				SenderIDQuerier:           SenderIDForUserTest,
 				SenderIDCreator:           CreateSenderID,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,

@@ -682,7 +682,7 @@ func TestHandleSendJoin(t *testing.T) {
 	contentBytes, err := json.Marshal(content)
 	assert.Nil(t, err)
 	eb = createMemberEventBuilder(RoomVersionPseudoIDs, stateKey, validRoom.String(), &stateKey, contentBytes)
-	joinEventPseudoID, err := eb.Build(time.Now(), "self", "ed25519:1", userPriv)
+	joinEventPseudoID, err := eb.Build(time.Now(), spec.ServerName(pseudoID), "ed25519:1", userPriv)
 	assert.Nil(t, err)
 
 	ebNotJoin := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"ban"}`))

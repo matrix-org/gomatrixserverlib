@@ -149,7 +149,7 @@ func HandleInviteV3(ctx context.Context, input HandleInviteV3Input) (PDU, error)
 
 	// Sign the event so that other servers will know that we have received the invite.
 	keyID := KeyID("ed25519:1")
-	origin := spec.ServerName("self")
+	origin := spec.ServerName(invitedSenderID)
 	fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.InviteProtoEvent)
 	fullEvent, err := fullEventBuilder.Build(time.Now(), origin, keyID, signingKey)
 	if err != nil {

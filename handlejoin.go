@@ -378,8 +378,10 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 
 	// In pseudoID rooms we don't need to hit federation endpoints to get e.g. signing keys,
 	// so we can replace the verifier with a more simple one which uses the senderID to verify the event.
+	toVerify := sender.Domain()
 	if input.RoomVersion == RoomVersionPseudoIDs {
 		input.Verifier = JSONVerifierSelf{}
+		toVerify = spec.ServerName(event.SenderID())
 	}
 
 	// Check that the room ID is correct.
@@ -417,8 +419,9 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		util.GetLogger(input.Context).WithError(err).Error("RedactEventJSON failed")
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
+
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:           sender.Domain(),
+		ServerName:           toVerify,
 		Message:              redacted,
 		AtTS:                 event.OriginServerTS(),
 		ValidityCheckingFunc: StrictValiditySignatureCheck,
