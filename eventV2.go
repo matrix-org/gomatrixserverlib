@@ -180,6 +180,22 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PD
 	return res, err
 }
 
+var lenientByteLimitRoomVersions = map[RoomVersion]struct{}{
+	RoomVersionV1:        {},
+	RoomVersionV2:        {},
+	RoomVersionV3:        {},
+	RoomVersionV4:        {},
+	RoomVersionV5:        {},
+	RoomVersionV6:        {},
+	RoomVersionV7:        {},
+	RoomVersionV8:        {},
+	RoomVersionV9:        {},
+	RoomVersionV10:       {},
+	RoomVersionPseudoIDs: {},
+	"org.matrix.msc3787": {},
+	"org.matrix.msc3667": {},
+}
+
 func CheckFields(input PDU) error { // nolint: gocyclo
 	if input.AuthEventIDs() == nil || input.PrevEventIDs() == nil {
 		return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
@@ -208,11 +224,13 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 		}
 	}
 
+	_, persistable := lenientByteLimitRoomVersions[input.Version()]
+
 	if l := len(input.Type()); l > maxIDLength {
 		return EventValidationError{
 			Code:        EventValidationTooLarge,
 			Message:     fmt.Sprintf("gomatrixserverlib: event type is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
-			Persistable: true,
+			Persistable: persistable,
 		}
 	}
 
@@ -221,7 +239,7 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 			return EventValidationError{
 				Code:        EventValidationTooLarge,
 				Message:     fmt.Sprintf("gomatrixserverlib: state key is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
-				Persistable: true,
+				Persistable: persistable,
 			}
 		}
 	}
