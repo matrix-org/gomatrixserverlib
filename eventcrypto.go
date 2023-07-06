@@ -49,15 +49,16 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		return err
 	}
 
+	validRoomID, err := spec.NewRoomID(e.RoomID())
+	if err != nil {
+		return err
+	}
+
 	// The sender should have signed the event in all cases.
 	switch e.Version() {
 	case RoomVersionPseudoIDs:
 		needed[spec.ServerName(e.SenderID())] = struct{}{}
 	default:
-		validRoomID, err := spec.NewRoomID(e.RoomID())
-		if err != nil {
-			return err
-		}
 		sender, err := userIDForSender(*validRoomID, e.SenderID())
 		if err != nil {
 			return fmt.Errorf("invalid sender userID: %w", err)

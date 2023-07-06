@@ -210,7 +210,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 			)
 
 			verifier := JSONVerifierSelf{}
-			err := VerifyEventSignatures(ctx, inviteEvent, verifier, input.UserIDQuerier)
+			err := VerifyEventSignatures(ctx, inviteEvent, verifier, input.UserIDQuerier, input.MembershipQuerier)
 			if err != nil {
 				logger.WithError(err).Error("fedClient.SendInviteV3 returned event with invalid signatures")
 				return nil, spec.Forbidden(err.Error())
