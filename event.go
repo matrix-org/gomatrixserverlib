@@ -18,6 +18,7 @@ package gomatrixserverlib
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 )
@@ -29,8 +30,9 @@ const (
 
 // EventValidationError is returned if there is a problem validating an event
 type EventValidationError struct {
-	Message string
-	Code    int
+	Message     string
+	Code        int
+	Persistable bool
 }
 
 func (e EventValidationError) Error() string {
@@ -73,10 +75,18 @@ func checkID(id, kind string, sigil byte) (err error) {
 		)
 		return
 	}
-	if l := len(id); l > maxIDLength {
+	if l := utf8.RuneCountInString(id); l > maxIDLength {
 		err = EventValidationError{
 			Code:    EventValidationTooLarge,
-			Message: fmt.Sprintf("gomatrixserverlib: %s ID is too long, length %d bytes > maximum %d bytes", kind, l, maxIDLength),
+			Message: fmt.Sprintf("gomatrixserverlib: %s ID is too long, length %d > maximum %d", kind, l, maxIDLength),
+		}
+		return
+	}
+	if l := len(id); l > maxIDLength {
+		err = EventValidationError{
+			Code:        EventValidationTooLarge,
+			Message:     fmt.Sprintf("gomatrixserverlib: %s ID is too long, length %d bytes > maximum %d bytes", kind, l, maxIDLength),
+			Persistable: true,
 		}
 		return
 	}
