@@ -42,35 +42,42 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		panic("UserIDForSender func is nil")
 	}
 
+	var serverName spec.ServerName
 	needed := map[spec.ServerName]struct{}{}
-
-	// The sender should have signed the event in all cases.
-	validRoomID, err := spec.NewRoomID(e.RoomID())
-	if err != nil {
-		return err
-	}
-	sender, err := userIDForSender(*validRoomID, e.SenderID())
-	if err != nil {
-		return fmt.Errorf("invalid sender userID: %w", err)
-	}
-	serverName := sender.Domain()
-	needed[serverName] = struct{}{}
-
 	verImpl, err := GetRoomVersion(e.Version())
 	if err != nil {
 		return err
 	}
 
-	// In room versions 1 and 2, we should also check that the server
-	// that created the event is included too. This is probably the
-	// same as the sender.
-	format := verImpl.EventIDFormat()
-	if format == EventIDFormatV1 {
-		_, serverName, err = SplitID('$', e.EventID())
+	// The sender should have signed the event in all cases.
+	switch e.Version() {
+	case RoomVersionPseudoIDs:
+		needed[spec.ServerName(e.SenderID())] = struct{}{}
+	default:
+		validRoomID, err := spec.NewRoomID(e.RoomID())
 		if err != nil {
-			return fmt.Errorf("failed to split event ID: %w", err)
+			return err
 		}
-		needed[serverName] = struct{}{}
+		sender, err := userIDForSender(*validRoomID, e.SenderID())
+		if err != nil {
+			return fmt.Errorf("invalid sender userID: %w", err)
+		}
+		if sender != nil {
+			serverName = sender.Domain()
+			needed[serverName] = struct{}{}
+		}
+
+		// In room versions 1 and 2, we should also check that the server
+		// that created the event is included too. This is probably the
+		// same as the sender.
+		format := verImpl.EventIDFormat()
+		if format == EventIDFormatV1 {
+			_, serverName, err = SplitID('$', e.EventID())
+			if err != nil {
+				return fmt.Errorf("failed to split event ID: %w", err)
+			}
+			needed[serverName] = struct{}{}
+		}
 	}
 
 	// Special checks for membership events.
@@ -92,8 +99,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		if membership == spec.Invite {
 			switch e.Version() {
 			case RoomVersionPseudoIDs:
-				// TODO: (pseudoIDs) revisit this logic for event signing
-				needed[spec.ServerName(e.SenderID())] = struct{}{}
+				needed[spec.ServerName(*e.StateKey())] = struct{}{}
 			default:
 				_, serverName, err = SplitID('@', *e.StateKey())
 				if err != nil {

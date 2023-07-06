@@ -133,7 +133,7 @@ func PerformJoin(
 			}
 		}
 		keyID = "ed25519:1"
-		origin = "self"
+		origin = spec.ServerName(senderID)
 
 		mapping := MXIDMapping{
 			UserRoomKey: senderID,

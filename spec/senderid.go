@@ -23,6 +23,7 @@ import (
 type SenderID string
 
 type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
+type SenderIDForUser func(roomID RoomID, userID UserID) (SenderID, error)
 
 // CreateSenderID is a function used to create the pseudoID private key.
 type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID, roomVersion string) (SenderID, ed25519.PrivateKey, error)
