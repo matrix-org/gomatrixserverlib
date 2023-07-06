@@ -33,8 +33,16 @@ type StateQuerier interface {
 	GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error)
 }
 
+type LatestEvents struct {
+	RoomExists   bool
+	StateEvents  []PDU
+	PrevEventIDs []string
+	Depth        int64
+}
+
 type FederatedInviteClient interface {
 	SendInvite(ctx context.Context, event PDU, strippedState []InviteStrippedState) (PDU, error)
+	SendInviteV3(ctx context.Context, event ProtoEvent, userID spec.UserID, roomVersion RoomVersion, strippedState []InviteStrippedState) (PDU, error)
 }
 
 // InviteStrippedState is a cut-down set of fields from room state
@@ -89,7 +97,7 @@ func (i *InviteStrippedState) Sender() string {
 }
 
 func GenerateStrippedState(
-	ctx context.Context, roomID spec.RoomID, inviteEvent PDU, stateQuerier StateQuerier,
+	ctx context.Context, roomID spec.RoomID, stateQuerier StateQuerier,
 ) ([]InviteStrippedState, error) {
 	// "If they are set on the room, at least the state for m.room.avatar, m.room.canonical_alias, m.room.join_rules, and m.room.name SHOULD be included."
 	// https://matrix.org/docs/spec/client_server/r0.6.0#m-room-member
@@ -110,10 +118,7 @@ func GenerateStrippedState(
 		return []InviteStrippedState{}, err
 	}
 	if stateEvents != nil {
-		inviteState := []InviteStrippedState{
-			NewInviteStrippedState(inviteEvent),
-		}
-		stateEvents = append(stateEvents, inviteEvent)
+		inviteState := []InviteStrippedState{}
 		for _, event := range stateEvents {
 			inviteState = append(inviteState, NewInviteStrippedState(event))
 		}
@@ -165,12 +170,12 @@ func abortIfAlreadyJoined(ctx context.Context, roomID spec.RoomID, invitedUser s
 	return nil
 }
 
-func createInviteLogger(ctx context.Context, event PDU, roomID spec.RoomID) *logrus.Entry {
+func createInviteLogger(ctx context.Context, roomID spec.RoomID, inviter spec.UserID, invitee spec.UserID, eventID string) *logrus.Entry {
 	return util.GetLogger(ctx).WithFields(map[string]interface{}{
-		"inviter":  event.SenderID(),
-		"invitee":  *event.StateKey(),
+		"inviter":  inviter.String(),
+		"invitee":  invitee.String(),
 		"room_id":  roomID.String(),
-		"event_id": event.EventID(),
+		"event_id": eventID,
 	})
 }
 
@@ -181,6 +186,20 @@ func setUnsignedFieldForInvite(event PDU, inviteState []InviteStrippedState) err
 		}
 	} else {
 		if err := event.SetUnsignedField("invite_room_state", inviteState); err != nil {
+			return fmt.Errorf("event.SetUnsignedField: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func setUnsignedFieldForProtoInvite(event *ProtoEvent, inviteState []InviteStrippedState) error {
+	if len(inviteState) == 0 {
+		if err := event.SetUnsigned(map[string]interface{}{"invite_room_state": struct{}{}}); err != nil {
+			return fmt.Errorf("event.SetUnsignedField: %w", err)
+		}
+	} else {
+		if err := event.SetUnsigned(map[string]interface{}{"invite_room_state": inviteState}); err != nil {
 			return fmt.Errorf("event.SetUnsignedField: %w", err)
 		}
 	}
