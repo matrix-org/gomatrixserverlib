@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
@@ -179,6 +180,22 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PD
 	return res, err
 }
 
+var lenientByteLimitRoomVersions = map[RoomVersion]struct{}{
+	RoomVersionV1:        {},
+	RoomVersionV2:        {},
+	RoomVersionV3:        {},
+	RoomVersionV4:        {},
+	RoomVersionV5:        {},
+	RoomVersionV6:        {},
+	RoomVersionV7:        {},
+	RoomVersionV8:        {},
+	RoomVersionV9:        {},
+	RoomVersionV10:       {},
+	RoomVersionPseudoIDs: {},
+	"org.matrix.msc3787": {},
+	"org.matrix.msc3667": {},
+}
+
 func CheckFields(input PDU) error { // nolint: gocyclo
 	if input.AuthEventIDs() == nil || input.PrevEventIDs() == nil {
 		return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
@@ -190,7 +207,8 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 		}
 	}
 
-	if l := len(input.Type()); l > maxIDLength {
+	// Compatibility to Synapse and older rooms. This was always enforced by Synapse
+	if l := utf8.RuneCountInString(input.Type()); l > maxIDLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,
 			Message: fmt.Sprintf("gomatrixserverlib: event type is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
@@ -198,10 +216,31 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 	}
 
 	if input.StateKey() != nil {
-		if l := len(*input.StateKey()); l > maxIDLength {
+		if l := utf8.RuneCountInString(*input.StateKey()); l > maxIDLength {
 			return EventValidationError{
 				Code:    EventValidationTooLarge,
 				Message: fmt.Sprintf("gomatrixserverlib: state key is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
+			}
+		}
+	}
+
+	_, persistable := lenientByteLimitRoomVersions[input.Version()]
+
+	// Byte size check: if these fail, then be lenient to avoid breaking rooms.
+	if l := len(input.Type()); l > maxIDLength {
+		return EventValidationError{
+			Code:        EventValidationTooLarge,
+			Message:     fmt.Sprintf("gomatrixserverlib: event type is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
+			Persistable: persistable,
+		}
+	}
+
+	if input.StateKey() != nil {
+		if l := len(*input.StateKey()); l > maxIDLength {
+			return EventValidationError{
+				Code:        EventValidationTooLarge,
+				Message:     fmt.Sprintf("gomatrixserverlib: state key is too long, length %d bytes > maximum %d bytes", l, maxIDLength),
+				Persistable: persistable,
 			}
 		}
 	}
