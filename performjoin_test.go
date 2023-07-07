@@ -353,7 +353,7 @@ func TestPerformJoinPseudoID(t *testing.T) {
 		Content:    crBytes,
 		Unsigned:   spec.RawJSON(""),
 	})
-	createEvent, err := eb.Build(time.Now(), "self", "ed25519:1", userPriv)
+	createEvent, err := eb.Build(time.Now(), spec.ServerName(pseudoID), "ed25519:1", userPriv)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestPerformJoinPseudoID(t *testing.T) {
 		Unsigned:   spec.RawJSON(""),
 	}
 	joinEB := MustGetRoomVersion(rv).NewEventBuilderFromProtoEvent(&joinProto)
-	joinEvent, err := joinEB.Build(time.Now(), "self", "ed25519:1", sk)
+	joinEvent, err := joinEB.Build(time.Now(), spec.ServerName(spec.SenderIDFromPseudoIDKey(sk)), "ed25519:1", sk)
 	if err != nil {
 		t.Fatalf("Failed building create event: %v", err)
 	}

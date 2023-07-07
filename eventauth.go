@@ -186,8 +186,9 @@ func accumulateStateNeeded(result *StateNeeded, eventType string, sender spec.Se
 		}
 		result.Create = true
 		result.PowerLevels = true
+		result.Member = append(result.Member, string(sender))
 		if stateKey != nil {
-			result.Member = append(result.Member, string(sender), *stateKey)
+			result.Member = append(result.Member, *stateKey)
 		}
 		if content.Membership == spec.Join || content.Membership == spec.Knock || content.Membership == spec.Invite {
 			result.JoinRules = true
@@ -887,6 +888,9 @@ func (e *eventAllower) commonChecks(event PDU) error {
 	if err != nil {
 		return err
 	}
+	if userID == nil {
+		return errorf("userID not found for sender %q in room %q", event.SenderID(), event.RoomID())
+	}
 	if err := e.create.UserIDAllowed(*userID); err != nil {
 		return err
 	}
@@ -989,6 +993,9 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 	sender, err := m.userIDQuerier(m.roomID, spec.SenderID(m.senderID))
 	if err != nil {
 		return err
+	}
+	if sender == nil {
+		return errorf("userID not found for sender %q in room %q", m.senderID, event.RoomID())
 	}
 	if err := m.create.UserIDAllowed(*sender); err != nil {
 		return err
