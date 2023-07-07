@@ -53,7 +53,13 @@ func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []PDU {
 	events := make([]PDU, 0, len(e))
 	for _, js := range e {
 		event, err := verImpl.NewEventFromUntrustedJSON(js)
-		if err != nil {
+		switch e := err.(type) {
+		case EventValidationError:
+			if !e.Persistable {
+				continue
+			}
+		case nil:
+		default:
 			continue
 		}
 		events = append(events, event)
