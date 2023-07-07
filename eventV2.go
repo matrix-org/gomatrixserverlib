@@ -226,6 +226,7 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 
 	_, persistable := lenientByteLimitRoomVersions[input.Version()]
 
+	// Byte size check: if these fail, then be lenient to avoid breaking rooms.
 	if l := len(input.Type()); l > maxIDLength {
 		return EventValidationError{
 			Code:        EventValidationTooLarge,
