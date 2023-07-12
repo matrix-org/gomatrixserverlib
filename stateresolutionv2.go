@@ -84,6 +84,17 @@ func ResolveStateConflictsV2(
 			panic(err)
 		}
 	}
+	if len(authEvents) > 0 {
+		roomID, err = spec.NewRoomID(authEvents[0].RoomID())
+		if err != nil {
+			panic(err)
+		}
+	}
+	// If we still don't have a roomID, we don't have conflicted, unconflicted
+	// or any authEvents, which in theory shouldn't happen.
+	if roomID == nil {
+		return r.result
+	}
 
 	r.allower = newAllowerContext(&r.authProvider, userIDForSender, *roomID)
 
