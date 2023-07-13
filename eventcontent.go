@@ -28,7 +28,7 @@ import (
 
 // CreateContent is the JSON content of a m.room.create event along with
 // the top level keys needed for auth.
-// See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-room-create for descriptions of the fields.
+// See https://spec.matrix.org/v1.7/client-server-api/#mroomcreate for descriptions of the fields.
 type CreateContent struct {
 	// We need the domain of the create event when checking federatability.
 	senderDomain string
@@ -44,6 +44,8 @@ type CreateContent struct {
 	RoomVersion *RoomVersion `json:"room_version,omitempty"`
 	// The predecessor of the room.
 	Predecessor *PreviousRoom `json:"predecessor,omitempty"`
+	// The room type.
+	RoomType string `json:"type,omitempty"`
 }
 
 // PreviousRoom is the "Previous Room" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-create
