@@ -68,4 +68,8 @@ const (
 	MPresence = "m.presence"
 	// MRoomMembership https://github.com/matrix-org/matrix-doc/blob/clokep/restricted-rooms/proposals/3083-restricted-rooms.md
 	MRoomMembership = "m.room_membership"
+	// MSpaceChild https://spec.matrix.org/v1.7/client-server-api/#mspacechild-relationship
+	MSpaceChild = "m.space.child"
+	// MSpaceParent https://spec.matrix.org/v1.7/client-server-api/#mspaceparent-relationships
+	MSpaceParent = "m.space.parent"
 )
