@@ -15,8 +15,6 @@
 package spec
 
 const (
-	// Content key for room type in m.room.create event https://spec.matrix.org/v1.7/client-server-api/#mroomcreate
-	MRoomCreateTypeContentKey = "type"
 	// MSpace https://spec.matrix.org/v1.7/client-server-api/#types
 	MSpace = "m.space"
 )
