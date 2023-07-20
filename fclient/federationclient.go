@@ -41,7 +41,7 @@ type FederationClient interface {
 	QueryKeys(ctx context.Context, origin, s spec.ServerName, keys map[string][]string) (RespQueryKeys, error)
 	Backfill(ctx context.Context, origin, s spec.ServerName, roomID string, limit int, eventIDs []string) (res gomatrixserverlib.Transaction, err error)
 	MSC2836EventRelationships(ctx context.Context, origin, dst spec.ServerName, r MSC2836EventRelationshipsRequest, roomVersion gomatrixserverlib.RoomVersion) (res MSC2836EventRelationshipsResponse, err error)
-	MSC2946Spaces(ctx context.Context, origin, dst spec.ServerName, roomID string, suggestedOnly bool) (res MSC2946SpacesResponse, err error)
+	RoomHierarchy(ctx context.Context, origin, dst spec.ServerName, roomID string, suggestedOnly bool) (res RoomHierarchyResponse, err error)
 
 	ExchangeThirdPartyInvite(ctx context.Context, origin, s spec.ServerName, builder gomatrixserverlib.ProtoEvent) (err error)
 	LookupState(ctx context.Context, origin, s spec.ServerName, roomID string, eventID string, roomVersion gomatrixserverlib.RoomVersion) (res RespState, err error)
@@ -710,9 +710,9 @@ func (ac *federationClient) MSC2836EventRelationships(
 	return
 }
 
-func (ac *federationClient) MSC2946Spaces(
+func (ac *federationClient) RoomHierarchy(
 	ctx context.Context, origin, dst spec.ServerName, roomID string, suggestedOnly bool,
-) (res MSC2946SpacesResponse, err error) {
+) (res RoomHierarchyResponse, err error) {
 	path := "/_matrix/federation/v1/hierarchy/" + url.PathEscape(roomID)
 	if suggestedOnly {
 		path += "?suggested_only=true"
