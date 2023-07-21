@@ -20,7 +20,7 @@ func SenderIDForUserTest(roomID spec.RoomID, userID spec.UserID) (spec.SenderID,
 func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
 	_, key, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		panic("failed generating ed25519 key")
+		return "", nil, err
 	}
 	return spec.SenderID(userID.String()), key, nil
 }
@@ -28,7 +28,7 @@ func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID,
 func CreateSenderIDPseudoIDs(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
 	_, key, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		panic("failed generating ed25519 key")
+		return "", nil, err
 	}
 	return spec.SenderIDFromPseudoIDKey(key), key, nil
 }
