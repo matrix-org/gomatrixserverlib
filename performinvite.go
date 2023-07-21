@@ -184,14 +184,21 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 
 			// Sign the event so that other servers will know that we have received the invite.
 			fullEventBuilder := verImpl.NewEventBuilderFromProtoEvent(&input.EventTemplate)
-			inviteEvent, err = fullEventBuilder.Build(input.EventTime, origin, keyID, input.SigningKey)
+			inviteEvent, err = fullEventBuilder.Build(input.EventTime, spec.ServerName(inviteeSenderID), keyID, inviteeSigningKey)
 			if err != nil {
 				logger.WithError(err).Error("failed building invite event")
 				return nil, spec.InternalServerError{}
 			}
 
-			// Have the invitee also sign the event
-			inviteEvent = inviteEvent.Sign(string(origin), keyID, inviteeSigningKey)
+			// Have the inviter also sign the event
+			inviteEvent = inviteEvent.Sign(string(origin), keyID, input.SigningKey)
+
+			verifier := JSONVerifierSelf{}
+			err = VerifyEventSignatures(ctx, inviteEvent, verifier, input.UserIDQuerier)
+			if err != nil {
+				logger.WithError(err).Error("local invite event has invalid signatures")
+				return nil, spec.Forbidden(err.Error())
+			}
 
 			err = checkEventAllowed(inviteEvent)
 			if err != nil {
@@ -205,6 +212,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 			}
 			logger.Debugf("Federated SendInviteV3 success to user %s", input.Invitee.String())
 
+			// Have the inviter also sign the event
 			inviteEvent = inviteEvent.Sign(
 				string(origin), keyID, input.SigningKey,
 			)

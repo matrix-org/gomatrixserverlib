@@ -20,9 +20,17 @@ func SenderIDForUserTest(roomID spec.RoomID, userID spec.UserID) (spec.SenderID,
 func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
 	_, key, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		panic("failed generating ed25519 key")
+		return "", nil, err
 	}
 	return spec.SenderID(userID.String()), key, nil
+}
+
+func CreateSenderIDPseudoIDs(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
+	_, key, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		return "", nil, err
+	}
+	return spec.SenderIDFromPseudoIDKey(key), key, nil
 }
 
 func StoreSenderIDTest(ctx context.Context, senderID spec.SenderID, userID string, id spec.RoomID) error {
@@ -684,7 +692,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{},
 				UserIDQuerier:             UserIDForSenderTest,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},
@@ -708,7 +716,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{shouldFailAuth: true},
 				UserIDQuerier:             UserIDForSenderTest,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},
@@ -732,7 +740,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{shouldFailState: true},
 				UserIDQuerier:             UserIDForSenderTest,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},
@@ -755,7 +763,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{},
 				UserIDQuerier:             UserIDForSenderTest,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},
@@ -779,7 +787,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterJoinEvent},
 				UserIDQuerier:             UserIDForSenderTest,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},
@@ -803,7 +811,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterJoinEvent},
 				UserIDQuerier:             userIDForSender,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},
@@ -825,7 +833,7 @@ func TestPerformInvitePseudoIDs(t *testing.T) {
 				StateQuerier:              &TestStateQuerier{createEvent: createEvent, inviterMemberEvent: inviterJoinEvent},
 				UserIDQuerier:             userIDForSender,
 				SenderIDQuerier:           SenderIDForUserTest,
-				SenderIDCreator:           CreateSenderID,
+				SenderIDCreator:           CreateSenderIDPseudoIDs,
 				EventQuerier:              eventQuerier.GetLatestEventsTest,
 				StoreSenderIDFromPublicID: StoreSenderIDTest,
 			},

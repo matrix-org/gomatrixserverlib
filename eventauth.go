@@ -990,22 +990,32 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 		)
 	}
 
-	sender, err := m.userIDQuerier(m.roomID, spec.SenderID(m.senderID))
-	if err != nil {
-		return err
+	var sender *spec.UserID
+	var err error
+	if event.Type() == spec.MRoomMember {
+		mapping := MemberContent{}
+		if err := json.Unmarshal(event.Content(), &mapping); err != nil {
+			return err
+		}
+		if mapping.MXIDMapping != nil {
+			sender, err = spec.NewUserID(mapping.MXIDMapping.UserID, true)
+			if err != nil {
+				return err
+			}
+		}
 	}
+
+	if sender == nil {
+		sender, err = m.userIDQuerier(m.roomID, spec.SenderID(m.senderID))
+		if err != nil {
+			return err
+		}
+	}
+
 	if sender == nil {
 		return errorf("userID not found for sender %q in room %q", m.senderID, event.RoomID())
 	}
 	if err := m.create.UserIDAllowed(*sender); err != nil {
-		return err
-	}
-
-	target, err := m.userIDQuerier(m.roomID, spec.SenderID(m.senderID))
-	if err != nil {
-		return err
-	}
-	if err := m.create.UserIDAllowed(*target); err != nil {
 		return err
 	}
 
