@@ -194,7 +194,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 			inviteEvent = inviteEvent.Sign(string(origin), keyID, input.SigningKey)
 
 			verifier := JSONVerifierSelf{}
-			err = VerifyEventSignatures(ctx, inviteEvent, verifier, input.UserIDQuerier)
+			err = VerifyEventSignatures(ctx, inviteEvent, verifier, input.UserIDQuerier, input.MembershipQuerier)
 			if err != nil {
 				logger.WithError(err).Error("local invite event has invalid signatures")
 				return nil, spec.Forbidden(err.Error())
