@@ -382,7 +382,7 @@ func (v JSONVerifierSelf) VerifyJSONs(ctx context.Context, requests []VerifyJSON
 		// convert to public key
 		key, err := spec.SenderID(requests[i].ServerName).RawBytes()
 		if err != nil {
-			results[i].Error = fmt.Errorf("unable to get key from senderID: %w", err)
+			results[i].Error = fmt.Errorf("unable to get key from senderID for %s: %w", requests[i].ServerName, err)
 			continue
 		}
 
