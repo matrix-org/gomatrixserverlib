@@ -23,7 +23,7 @@ import (
 type SenderID string
 
 type UserIDForSender func(roomID RoomID, senderID SenderID) (*UserID, error)
-type SenderIDForUser func(roomID RoomID, userID UserID) (SenderID, error)
+type SenderIDForUser func(roomID RoomID, userID UserID) (*SenderID, error)
 
 // CreateSenderID is a function used to create the pseudoID private key.
 type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID, roomVersion string) (SenderID, ed25519.PrivateKey, error)
@@ -41,4 +41,15 @@ func (s SenderID) RawBytes() (res Base64Bytes, err error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+func (s SenderID) IsUserID() bool {
+	// Key is base64, @ is not a valid base64 char
+	// So if string starts with @, then this sender ID must
+	// be a user ID
+	return string(s)[0] == '@'
+}
+
+func (s SenderID) IsPseudoID() bool {
+	return !s.IsUserID()
 }

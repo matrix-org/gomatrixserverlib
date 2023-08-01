@@ -96,8 +96,8 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		return nil, err
 	}
 
-	if invitedSenderID != "" {
-		err = abortIfAlreadyJoined(ctx, input.RoomID, invitedSenderID, input.MembershipQuerier)
+	if invitedSenderID != nil {
+		err = abortIfAlreadyJoined(ctx, input.RoomID, *invitedSenderID, input.MembershipQuerier)
 		if err != nil {
 			return nil, err
 		}
