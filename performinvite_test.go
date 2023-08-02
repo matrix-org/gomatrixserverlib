@@ -13,8 +13,9 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func SenderIDForUserTest(roomID spec.RoomID, userID spec.UserID) (spec.SenderID, error) {
-	return spec.SenderID(userID.String()), nil
+func SenderIDForUserTest(roomID spec.RoomID, userID spec.UserID) (*spec.SenderID, error) {
+	senderID := spec.SenderID(userID.String())
+	return &senderID, nil
 }
 
 func CreateSenderID(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
