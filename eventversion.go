@@ -340,6 +340,14 @@ func KnownRoomVersion(verStr RoomVersion) bool {
 	return ok
 }
 
+// StableRoomVersion returns true if the provided room version
+// is both known (i.e. KnownRoomVersion returns true) and marked
+// as stable.
+func StableRoomVersion(verStr RoomVersion) bool {
+	verImpl, ok := roomVersionMeta[verStr]
+	return ok && verImpl.Stable()
+}
+
 // MustGetRoomVersion is GetRoomVersion but panics if the version doesn't exist. Useful for tests.
 func MustGetRoomVersion(verStr RoomVersion) IRoomVersion {
 	impl, err := GetRoomVersion(verStr)
