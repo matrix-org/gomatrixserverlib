@@ -108,7 +108,7 @@ func resolveServer(ctx context.Context, serverName spec.ServerName, checkWellKno
 // well as 3.3 and 3.4)
 func handleNoWellKnown(ctx context.Context, serverName spec.ServerName) (results []ResolutionResult) {
 	// 4. If the /.well-known request resulted in an error response
-	_, records, err := net.DefaultResolver.LookupSRV(ctx, "matrix", "tcp", string(serverName))
+	records, err := lookupSRV(ctx, serverName)
 	if err == nil && len(records) > 0 {
 		for _, rec := range records {
 			// If the domain is a FQDN, remove the trailing dot at the end. This
@@ -141,4 +141,25 @@ func handleNoWellKnown(ctx context.Context, serverName spec.ServerName) (results
 	}
 
 	return
+}
+
+func lookupSRV(ctx context.Context, serverName spec.ServerName) ([]*net.SRV, error) {
+	// Check matrix-fed service first, as of Matrix 1.8
+	_, records, err := net.DefaultResolver.LookupSRV(ctx, "matrix-fed", "tcp", string(serverName))
+	if err != nil {
+		if dnserr, ok := err.(*net.DNSError); ok {
+			if !dnserr.IsNotFound {
+				// not found errors are expected, but everything else is very much not
+				return records, err
+			}
+		} else {
+			return records, err
+		}
+	} else {
+		return records, nil // we got a hit on the matrix-fed service, so use that
+	}
+
+	// we didn't get a hit on matrix-fed, so try deprecated matrix service
+	_, records, err = net.DefaultResolver.LookupSRV(ctx, "matrix", "tcp", string(serverName))
+	return records, err // we don't need to process this here
 }
