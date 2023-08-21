@@ -35,6 +35,10 @@ func SenderIDFromPseudoIDKey(key ed25519.PrivateKey) SenderID {
 	return SenderID(Base64Bytes(key.Public().(ed25519.PublicKey)).Encode())
 }
 
+func SenderIDFromUserID(user UserID) SenderID {
+	return SenderID(user.String())
+}
+
 func (s SenderID) RawBytes() (res Base64Bytes, err error) {
 	err = res.Decode(string(s))
 	if err != nil {
@@ -52,4 +56,27 @@ func (s SenderID) IsUserID() bool {
 
 func (s SenderID) IsPseudoID() bool {
 	return !s.IsUserID()
+}
+
+func (s SenderID) ToUserID() *UserID {
+	if s.IsUserID() {
+		uID, _ := NewUserID(string(s), true)
+		return uID
+	} else {
+		return nil
+	}
+}
+
+func (s SenderID) ToPseudoID() *ed25519.PublicKey {
+	if s.IsPseudoID() {
+		var decoded Base64Bytes
+		err := decoded.Decode(string(s))
+		if err != nil {
+			return nil
+		}
+		key := ed25519.PublicKey([]byte(decoded))
+		return &key
+	} else {
+		return nil
+	}
 }
