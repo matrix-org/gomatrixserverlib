@@ -27,7 +27,7 @@ func NewUserID(id string, allowHistoricalIDs bool) (*UserID, error) {
 func NewUserIDOrPanic(id string, allowHistoricalIDs bool) UserID {
 	userID, err := parseAndValidateUserID(id, allowHistoricalIDs)
 	if err != nil {
-		panic(fmt.Sprintf("NewUserIDOrPanic failed: invalid user ID %s", id))
+		panic(fmt.Sprintf("NewUserIDOrPanic failed: invalid user ID %s: %s", id, err.Error()))
 	}
 	return *userID
 }
