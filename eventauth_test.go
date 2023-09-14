@@ -93,7 +93,7 @@ func testStateNeededForAuth(t *testing.T, eventdata string, protoEvent *ProtoEve
 func TestStateNeededForCreate(t *testing.T) {
 	// Create events don't need anything.
 	skey := ""
-	testStateNeededForAuth(t, `[{"type": "m.room.create"}]`, &ProtoEvent{
+	testStateNeededForAuth(t, `[{"type": "m.room.create", "room_id": "!r1:a"}]`, &ProtoEvent{
 		Type:     "m.room.create",
 		StateKey: &skey,
 	}, StateNeeded{})
@@ -103,7 +103,8 @@ func TestStateNeededForMessage(t *testing.T) {
 	// Message events need the create event, the sender and the power_levels.
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.message",
-		"sender": "@u1:a"
+		"sender": "@u1:a", 
+        "room_id": "!r1:a"
 	}]`, &ProtoEvent{
 		Type:     "m.room.message",
 		SenderID: "@u1:a",
@@ -116,7 +117,7 @@ func TestStateNeededForMessage(t *testing.T) {
 
 func TestStateNeededForAlias(t *testing.T) {
 	// Alias events need only the create event.
-	testStateNeededForAuth(t, `[{"type": "m.room.aliases"}]`, &ProtoEvent{
+	testStateNeededForAuth(t, `[{"type": "m.room.aliases", "room_id": "!r1:a"}]`, &ProtoEvent{
 		Type: "m.room.aliases",
 	}, StateNeeded{
 		Create: true,
@@ -137,7 +138,8 @@ func TestStateNeededForJoin(t *testing.T) {
 		"type": "m.room.member",
 		"state_key": "@u1:a",
 		"sender": "@u1:a",
-		"content": {"membership": "join"}
+		"content": {"membership": "join"}, 
+        "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:      true,
 		JoinRules:   true,
@@ -160,7 +162,8 @@ func TestStateNeededForInvite(t *testing.T) {
 		"type": "m.room.member",
 		"state_key": "@u2:b",
 		"sender": "@u1:a",
-		"content": {"membership": "invite"}
+		"content": {"membership": "invite"}, 
+        "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:      true,
 		PowerLevels: true,
@@ -195,7 +198,8 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 					"token": "my_token"
 				}
 			}
-		}
+		}, 
+        "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:           true,
 		PowerLevels:      true,
@@ -295,10 +299,12 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 	for _, data := range tc.NotAllowed {
 		event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(data, false)
 		if err != nil {
-			panic(err)
+			continue
 		}
-		if err := Allowed(event, &tc.AuthEvents, UserIDForSenderTest); err == nil {
-			t.Fatalf("Expected %q to not be allowed but it was", string(data))
+		if event != nil {
+			if err := Allowed(event, &tc.AuthEvents, UserIDForSenderTest); err == nil {
+				t.Fatalf("Expected %q to not be allowed but it was", string(data))
+			}
 		}
 	}
 }

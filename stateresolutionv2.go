@@ -71,24 +71,17 @@ func ResolveStateConflictsV2(
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
 	}
 	var roomID *spec.RoomID
-	var err error
 	if len(conflicted) > 0 {
-		roomID, err = spec.NewRoomID(conflicted[0].RoomID())
-		if err != nil {
-			panic(err)
-		}
+		validRoomID := conflicted[0].RoomID()
+		roomID = &validRoomID
 	}
 	if len(unconflicted) > 0 {
-		roomID, err = spec.NewRoomID(unconflicted[0].RoomID())
-		if err != nil {
-			panic(err)
-		}
+		validRoomID := unconflicted[0].RoomID()
+		roomID = &validRoomID
 	}
 	if len(authEvents) > 0 {
-		roomID, err = spec.NewRoomID(authEvents[0].RoomID())
-		if err != nil {
-			panic(err)
-		}
+		validRoomID := authEvents[0].RoomID()
+		roomID = &validRoomID
 	}
 	// If we still don't have a roomID, we don't have conflicted, unconflicted
 	// or any authEvents, which in theory shouldn't happen.

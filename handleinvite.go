@@ -74,7 +74,7 @@ func HandleInvite(ctx context.Context, input HandleInviteInput) (PDU, error) {
 	}
 
 	// Check that the room ID is correct.
-	if input.InviteEvent.RoomID() != input.RoomID.String() {
+	if input.InviteEvent.RoomID().String() != input.RoomID.String() {
 		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the invite event JSON")
 	}
 

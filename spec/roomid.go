@@ -20,17 +20,17 @@ func NewRoomID(id string) (*RoomID, error) {
 }
 
 // Returns the full roomID string including leading sigil
-func (room *RoomID) String() string {
+func (room RoomID) String() string {
 	return room.raw
 }
 
 // Returns just the localpart of the roomID
-func (room *RoomID) OpaqueID() string {
+func (room RoomID) OpaqueID() string {
 	return room.opaqueID
 }
 
 // Returns just the domain of the roomID
-func (room *RoomID) Domain() ServerName {
+func (room RoomID) Domain() ServerName {
 	return ServerName(room.domain)
 }
 

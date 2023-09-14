@@ -140,6 +140,11 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PD
 	if err = json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
+
+	if err := checkID(res.eventFields.RoomID, "room", '!'); err != nil {
+		return nil, err
+	}
+
 	res.roomVersion = roomVersion.Version()
 
 	// We know the JSON must be valid here.
@@ -245,10 +250,6 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 		}
 	}
 
-	if err := checkID(input.RoomID(), "room", '!'); err != nil {
-		return err
-	}
-
 	switch input.Version() {
 	case RoomVersionPseudoIDs:
 	default:
@@ -265,6 +266,11 @@ func newEventFromTrustedJSONV2(eventJSON []byte, redacted bool, roomVersion IRoo
 	if err := json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
+
+	if err := checkID(res.eventFields.RoomID, "room", '!'); err != nil {
+		return nil, err
+	}
+
 	res.roomVersion = roomVersion.Version()
 	res.redacted = redacted
 	res.eventJSON = eventJSON
@@ -276,6 +282,11 @@ func newEventFromTrustedJSONWithEventIDV2(eventID string, eventJSON []byte, reda
 	if err := json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
+
+	if err := checkID(res.eventFields.RoomID, "room", '!'); err != nil {
+		return nil, err
+	}
+
 	res.roomVersion = roomVersion.Version()
 	res.eventJSON = eventJSON
 	res.EventIDRaw = eventID
