@@ -159,10 +159,10 @@ func (r *stateResolver) addConflicted(events []PDU) { // nolint: gocyclo
 
 // Add an event to the resolved auth events.
 func (r *stateResolver) addAuthEvent(event PDU) {
-	if event.RoomID() != "" && r.roomID == "" {
-		r.roomID = event.RoomID()
+	if event.RoomID().String() != "" && r.roomID == "" {
+		r.roomID = event.RoomID().String()
 	}
-	if r.roomID != event.RoomID() {
+	if r.roomID != event.RoomID().String() {
 		r.valid = false
 	}
 	switch event.Type() {

@@ -356,7 +356,7 @@ func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, senderID spec.S
 	} else if membership != spec.Join {
 		return false
 	}
-	if event.RoomID() != roomID.String() {
+	if event.RoomID().String() != roomID.String() {
 		return false
 	}
 	if !event.StateKeyEquals(string(senderID)) {

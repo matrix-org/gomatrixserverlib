@@ -69,14 +69,9 @@ func NewCreateContentFromAuthEvents(authEvents AuthEventProvider, userIDForSende
 		err = errorf("unparseable create event content: %s", err.Error())
 		return
 	}
-	c.roomID = createEvent.RoomID()
+	c.roomID = createEvent.RoomID().String()
 	c.eventID = createEvent.EventID()
-	validRoomID, err := spec.NewRoomID(createEvent.RoomID())
-	if err != nil {
-		err = errorf("roomID is invalid: %s", err.Error())
-		return
-	}
-	sender, err := userIDForSender(*validRoomID, createEvent.SenderID())
+	sender, err := userIDForSender(createEvent.RoomID(), createEvent.SenderID())
 	if err != nil {
 		err = errorf("invalid sender userID: %s", err.Error())
 		return

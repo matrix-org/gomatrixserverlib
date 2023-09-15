@@ -385,11 +385,11 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	}
 
 	// Check that the room ID is correct.
-	if event.RoomID() != input.RoomID.String() {
+	if event.RoomID().String() != input.RoomID.String() {
 		return nil, spec.BadJSON(
 			fmt.Sprintf(
 				"The room ID in the request path (%q) must match the room ID in the join event JSON (%q)",
-				input.RoomID.String(), event.RoomID(),
+				input.RoomID.String(), event.RoomID().String(),
 			),
 		)
 	}

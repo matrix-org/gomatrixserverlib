@@ -27,7 +27,7 @@ type PDU interface {
 	Membership() (string, error)
 	PowerLevels() (*PowerLevelContent, error)
 	Version() RoomVersion
-	RoomID() string
+	RoomID() spec.RoomID
 	Redacts() string
 	// Redacted returns whether the event is redacted.
 	Redacted() bool

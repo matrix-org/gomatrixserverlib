@@ -65,7 +65,7 @@ type FederatedStateProvider struct {
 
 // StateIDsBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event PDU) ([]string, error) {
-	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID(), event.EventID())
+	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID().String(), event.EventID())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 
 // StateBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
-	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID(), event.EventID(), roomVer)
+	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID().String(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}

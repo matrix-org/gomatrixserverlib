@@ -104,8 +104,12 @@ func (e *eventV1) Version() RoomVersion {
 	return e.roomVersion
 }
 
-func (e *eventV1) RoomID() string {
-	return e.eventFields.RoomID
+func (e *eventV1) RoomID() spec.RoomID {
+	roomID, err := spec.NewRoomID(e.eventFields.RoomID)
+	if err != nil {
+		panic(fmt.Errorf("RoomID is invalid: %w", err))
+	}
+	return *roomID
 }
 
 func (e *eventV1) Redacts() string {
@@ -280,6 +284,10 @@ func newEventFromUntrustedJSONV1(eventJSON []byte, roomVersion IRoomVersion) (PD
 		return nil, err
 	}
 
+	if err := checkID(res.eventFields.RoomID, "room", '!'); err != nil {
+		return nil, err
+	}
+
 	// We know the JSON must be valid here.
 	eventJSON = CanonicalJSONAssumeValid(eventJSON)
 
@@ -323,6 +331,11 @@ func newEventFromTrustedJSONV1(eventJSON []byte, redacted bool, roomVersion IRoo
 	if err := json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
+
+	if err := checkID(res.eventFields.RoomID, "room", '!'); err != nil {
+		return nil, fmt.Errorf("RoomID is invalid: %w", err)
+	}
+
 	res.eventJSON = eventJSON
 	res.roomVersion = roomVersion.Version()
 	res.redacted = redacted
@@ -334,6 +347,11 @@ func newEventFromTrustedJSONWithEventIDV1(eventID string, eventJSON []byte, reda
 	if err := json.Unmarshal(eventJSON, &res); err != nil {
 		return nil, err
 	}
+
+	if err := checkID(res.eventFields.RoomID, "room", '!'); err != nil {
+		return nil, err
+	}
+
 	res.EventIDRaw = eventID
 	res.eventJSON = eventJSON
 	res.roomVersion = roomVersion.Version()
