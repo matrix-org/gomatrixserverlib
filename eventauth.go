@@ -1007,7 +1007,7 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 
 	// Special case the first join event in the room to allow the creator to join.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
-	if m.targetID == m.create.Creator &&
+	if m.targetID == string(m.createEvent.SenderID()) &&
 		m.newMember.Membership == spec.Join &&
 		m.senderID == m.targetID &&
 		len(event.PrevEventIDs()) == 1 {
