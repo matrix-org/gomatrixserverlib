@@ -58,6 +58,7 @@ const (
 	RoomVersionV8        RoomVersion = "8"
 	RoomVersionV9        RoomVersion = "9"
 	RoomVersionV10       RoomVersion = "10"
+	RoomVersionV11       RoomVersion = "11"
 	RoomVersionPseudoIDs RoomVersion = "org.matrix.msc4014"
 )
 
@@ -259,6 +260,25 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		eventFormat:                            EventFormatV2,
 		eventIDFormat:                          EventIDFormatV3,
 		redactionAlgorithm:                     redactEventJSONV4,
+		signatureValidityCheckFunc:             StrictValiditySignatureCheck,
+		canonicalJSONCheck:                     verifyEnforcedCanonicalJSON,
+		notificationLevelCheck:                 checkNotificationLevels,
+		restrictedJoinServernameFunc:           extractAuthorisedViaServerName,
+		checkRestrictedJoin:                    checkRestrictedJoin,
+		parsePowerLevelsFunc:                   parseIntegerPowerLevels,
+		checkKnockingAllowedFunc:               checkKnocking,
+		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
+		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
+		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
+	},
+	RoomVersionV11: RoomVersionImpl{
+		ver:                                    RoomVersionV11,
+		stable:                                 true,
+		stateResAlgorithm:                      StateResV2,
+		eventFormat:                            EventFormatV2,
+		eventIDFormat:                          EventIDFormatV3,
+		redactionAlgorithm:                     redactEventJSONV5,
 		signatureValidityCheckFunc:             StrictValiditySignatureCheck,
 		canonicalJSONCheck:                     verifyEnforcedCanonicalJSON,
 		notificationLevelCheck:                 checkNotificationLevels,
