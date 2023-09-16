@@ -370,7 +370,11 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 		}
 	}
 	if e, _ := provider.PowerLevels(); a.powerLevelsEvent == nil || a.powerLevelsEvent != e {
-		if p, err := NewPowerLevelContentFromAuthEvents(provider, string(a.createEvent.SenderID())); err == nil {
+		creator := ""
+		if a.createEvent != nil {
+			creator = string(a.createEvent.SenderID())
+		}
+		if p, err := NewPowerLevelContentFromAuthEvents(provider, creator); err == nil {
 			a.powerLevelsEvent = e
 			a.powerLevels = p
 		}
