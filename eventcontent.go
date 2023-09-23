@@ -429,9 +429,9 @@ func NewPowerLevelContentFromAuthEvents(authEvents AuthEventProvider, creatorUse
 }
 
 // Defaults sets the power levels to their default values.
-// See https://spec.matrix.org/v1.1/client-server-api/#mroompower_levels for defaults.
+// See https://spec.matrix.org/v1.8/client-server-api/#mroompower_levels for defaults.
 func (c *PowerLevelContent) Defaults() {
-	c.Invite = 50
+	c.Invite = 0
 	c.Ban = 50
 	c.Kick = 50
 	c.Redact = 50
