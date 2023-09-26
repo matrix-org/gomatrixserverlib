@@ -217,11 +217,13 @@ func TestMXIDMapping_SignValidate(t *testing.T) {
 	assert.NoError(t, err)
 
 	// this should pass
-	err = validateMXIDMappingSignature(context.Background(), ev, &StubVerifier{}, verImpl)
+	evMapping, err := getMXIDMapping(ev)
+	assert.NoError(t, err)
+	err = validateMXIDMappingSignatures(context.Background(), ev, *evMapping, &StubVerifier{}, verImpl)
 	assert.NoError(t, err)
 
 	// this fails, for some random reason
-	err = validateMXIDMappingSignature(context.Background(), ev, &StubVerifier{
+	err = validateMXIDMappingSignatures(context.Background(), ev, *evMapping, &StubVerifier{
 		results: []VerifyJSONResult{{Error: fmt.Errorf("err")}},
 	}, verImpl)
 	assert.Error(t, err)
@@ -231,7 +233,6 @@ func TestMXIDMapping_SignValidate(t *testing.T) {
 	ev, err = eb.Build(time.Now(), serverName, keyID, priv)
 	assert.NoError(t, err)
 
-	err = validateMXIDMappingSignature(context.Background(), ev, &StubVerifier{}, verImpl)
+	_, err = getMXIDMapping(ev)
 	assert.Error(t, err)
-
 }

@@ -22,7 +22,6 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
-	"github.com/tidwall/gjson"
 )
 
 type HandleMakeJoinInput struct {
@@ -351,15 +350,14 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// validate the mxid_mapping of the event
 	if input.RoomVersion == RoomVersionPseudoIDs {
 		// validate the signature first
-		if err = validateMXIDMappingSignature(input.Context, event, input.Verifier, verImpl); err != nil {
+		mapping, err := getMXIDMapping(event)
+		if err != nil {
+			return nil, spec.BadJSON(err.Error())
+		}
+		if err = validateMXIDMappingSignatures(input.Context, event, *mapping, input.Verifier, verImpl); err != nil {
 			return nil, spec.Forbidden(err.Error())
 		}
 
-		mapping := MXIDMapping{}
-		err = json.Unmarshal([]byte(gjson.GetBytes(input.JoinEvent, "content.mxid_mapping").Raw), &mapping)
-		if err != nil {
-			return nil, err
-		}
 		// store the user room public key -> userID mapping
 		if err = input.StoreSenderIDFromPublicID(input.Context, mapping.UserRoomKey, mapping.UserID, input.RoomID); err != nil {
 			return nil, err
