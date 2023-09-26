@@ -370,7 +370,11 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 		}
 	}
 	if e, _ := provider.PowerLevels(); a.powerLevelsEvent == nil || a.powerLevelsEvent != e {
-		if p, err := NewPowerLevelContentFromAuthEvents(provider, a.create.Creator); err == nil {
+		creator := ""
+		if a.createEvent != nil {
+			creator = string(a.createEvent.SenderID())
+		}
+		if p, err := NewPowerLevelContentFromAuthEvents(provider, creator); err == nil {
 			a.powerLevelsEvent = e
 			a.powerLevels = p
 		}
@@ -431,21 +435,15 @@ func (a *allowerContext) createEventAllowed(event PDU) error {
 	if sender.Domain() != event.RoomID().Domain() {
 		return errorf("create event room ID domain does not match sender: %q != %q", event.RoomID().Domain(), sender.String())
 	}
-	c := struct {
-		Creator     *string      `json:"creator"`
-		RoomVersion *RoomVersion `json:"room_version"`
-	}{}
-	if err := json.Unmarshal(event.Content(), &c); err != nil {
-		return errorf("create event has invalid content: %s", err.Error())
+
+	verImpl, err := GetRoomVersion(event.Version())
+	if err != nil {
+		return nil
 	}
-	if c.Creator == nil {
-		return errorf("create event has no creator field")
+	if err = verImpl.CheckCreateEvent(event, KnownRoomVersion); err != nil {
+		return err
 	}
-	if c.RoomVersion != nil {
-		if !KnownRoomVersion(*c.RoomVersion) {
-			return errorf("create event has unrecognised room version %q", *c.RoomVersion)
-		}
-	}
+
 	return nil
 }
 
@@ -1013,7 +1011,7 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 
 	// Special case the first join event in the room to allow the creator to join.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L328
-	if m.targetID == m.create.Creator &&
+	if m.targetID == string(m.createEvent.SenderID()) &&
 		m.newMember.Membership == spec.Join &&
 		m.senderID == m.targetID &&
 		len(event.PrevEventIDs()) == 1 {
