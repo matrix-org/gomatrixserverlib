@@ -33,7 +33,10 @@ type IRoomVersion interface {
 	CheckNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
 	CheckCanonicalJSON(input []byte) error
 	ParsePowerLevels(contentBytes []byte, c *PowerLevelContent) error
+	CheckCreateEvent(event PDU, knownRoomVersion knownRoomVersionFunc) error
 }
+
+type knownRoomVersionFunc func(RoomVersion) bool
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
 type StateResAlgorithm int
@@ -58,6 +61,7 @@ const (
 	RoomVersionV8        RoomVersion = "8"
 	RoomVersionV9        RoomVersion = "9"
 	RoomVersionV10       RoomVersion = "10"
+	RoomVersionV11       RoomVersion = "11"
 	RoomVersionPseudoIDs RoomVersion = "org.matrix.msc4014"
 )
 
@@ -96,6 +100,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV1,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV1,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV1,
@@ -115,6 +120,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV1,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV1,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV1,
@@ -134,6 +140,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -153,6 +160,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -172,6 +180,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -191,6 +200,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -210,6 +220,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -229,6 +240,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -248,6 +260,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -267,6 +280,27 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parseIntegerPowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
+		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
+		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
+		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
+	},
+	RoomVersionV11: RoomVersionImpl{
+		ver:                                    RoomVersionV11,
+		stable:                                 true,
+		stateResAlgorithm:                      StateResV2,
+		eventFormat:                            EventFormatV2,
+		eventIDFormat:                          EventIDFormatV3,
+		redactionAlgorithm:                     redactEventJSONV5,
+		signatureValidityCheckFunc:             StrictValiditySignatureCheck,
+		canonicalJSONCheck:                     verifyEnforcedCanonicalJSON,
+		notificationLevelCheck:                 checkNotificationLevels,
+		restrictedJoinServernameFunc:           extractAuthorisedViaServerName,
+		checkRestrictedJoin:                    checkRestrictedJoin,
+		parsePowerLevelsFunc:                   parseIntegerPowerLevels,
+		checkKnockingAllowedFunc:               checkKnocking,
+		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		checkCreateEvent:                       noCheckCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -286,6 +320,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parseIntegerPowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -305,6 +340,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parseIntegerPowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -323,6 +359,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkRestrictedJoin:                    checkRestrictedJoin,
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
+		checkCreateEvent:                       checkCreateEvent,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -404,6 +441,7 @@ type RoomVersionImpl struct {
 	restrictedJoinServernameFunc           func(content []byte) (spec.ServerName, error)
 	checkRestrictedJoinAllowedFunc         func() error
 	checkKnockingAllowedFunc               func(m *membershipAllower) error
+	checkCreateEvent                       func(e PDU, knownRoomVersion knownRoomVersionFunc) error
 	newEventFromUntrustedJSONFunc          func(eventJSON []byte, roomVersion IRoomVersion) (result PDU, err error)
 	newEventFromTrustedJSONFunc            func(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error)
 	newEventFromTrustedJSONWithEventIDFunc func(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error)
@@ -468,6 +506,10 @@ func (v RoomVersionImpl) CheckCanonicalJSON(eventJSON []byte) error {
 // ParsePowerLevels parses the power_level directly into the passed PowerLevelContent.
 func (v RoomVersionImpl) ParsePowerLevels(contentBytes []byte, c *PowerLevelContent) error {
 	return v.parsePowerLevelsFunc(contentBytes, c)
+}
+
+func (v RoomVersionImpl) CheckCreateEvent(event PDU, knownRoomVersion knownRoomVersionFunc) error {
+	return v.checkCreateEvent(event, knownRoomVersion)
 }
 
 func (v RoomVersionImpl) CheckRestrictedJoin(
