@@ -260,6 +260,11 @@ func (e *eventV1) ToHeaderedJSON() ([]byte, error) {
 	return eventJSON, nil
 }
 
+func (e *eventV1) Hashes() []byte {
+	hashes, _ := getContentHashes(e.eventJSON)
+	return hashes
+}
+
 func newEventFromUntrustedJSONV1(eventJSON []byte, roomVersion IRoomVersion) (PDU, error) {
 	if r := gjson.GetBytes(eventJSON, "_*"); r.Exists() {
 		return nil, fmt.Errorf("gomatrixserverlib NewEventFromUntrustedJSON: found top-level '_' key, is this a headered event: %v", string(eventJSON))

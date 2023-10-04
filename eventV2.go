@@ -153,6 +153,7 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PD
 	res.eventJSON = eventJSON
 
 	if err = checkEventContentHash(eventJSON); err != nil {
+		println("content hash doesn't match!", err.Error())
 		res.redacted = true
 
 		// If the content hash doesn't match then we have to discard all non-essential fields

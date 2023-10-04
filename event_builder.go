@@ -126,6 +126,46 @@ func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey,
 ) (result PDU, err error) {
+	eventJSON, err := eb.build(now, origin)
+
+	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, eb.version.Version()); err != nil {
+		return
+	}
+
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, eb.version.Version()); err != nil {
+		return
+	}
+
+	res, err := eb.version.NewEventFromTrustedJSON(eventJSON, false)
+	if err != nil {
+		return nil, err
+	}
+
+	err = CheckFields(res)
+
+	return res, err
+}
+
+// Builds a new event.
+// Does not add signatures to the event.
+func (eb *EventBuilder) BuildWithoutSigning(now time.Time, origin spec.ServerName) (result PDU, err error) {
+	eventJSON, err := eb.build(now, origin)
+
+	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, eb.version.Version()); err != nil {
+		return
+	}
+
+	res, err := eb.version.NewEventFromTrustedJSON(eventJSON, false)
+	if err != nil {
+		return nil, err
+	}
+
+	err = CheckFields(res)
+
+	return res, err
+}
+
+func (eb *EventBuilder) build(now time.Time, origin spec.ServerName) (result []byte, err error) {
 	if eb.version == nil {
 		return nil, fmt.Errorf("EventBuilder.Build: unknown version, did you create this via NewEventBuilder?")
 	}
@@ -198,22 +238,11 @@ func (eb *EventBuilder) Build(
 		return
 	}
 
-	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, eb.version.Version()); err != nil {
-		return
-	}
-
 	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, eb.version.Version()); err != nil {
 		return
 	}
 
-	res, err := eb.version.NewEventFromTrustedJSON(eventJSON, false)
-	if err != nil {
-		return nil, err
-	}
-
-	err = CheckFields(res)
-
-	return res, err
+	return eventJSON, err
 }
 
 // Base64FromEventID returns, if possible, the base64bytes representation

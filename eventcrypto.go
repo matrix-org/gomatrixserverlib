@@ -266,6 +266,39 @@ func addContentHashesToEvent(eventJSON []byte) ([]byte, error) {
 	return json.Marshal(event)
 }
 
+func getContentHashes(eventJSON []byte) ([]byte, error) {
+	var event map[string]spec.RawJSON
+
+	if err := json.Unmarshal(eventJSON, &event); err != nil {
+		return nil, err
+	}
+
+	delete(event, "signatures")
+	delete(event, "unsigned")
+	delete(event, "hashes")
+
+	hashableEventJSON, err := json.Marshal(event)
+	if err != nil {
+		return nil, err
+	}
+
+	hashableEventJSON, err = CanonicalJSON(hashableEventJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	sha256Hash := sha256.Sum256(hashableEventJSON)
+	hashes := struct {
+		Sha256 spec.Base64Bytes `json:"sha256"`
+	}{spec.Base64Bytes(sha256Hash[:])}
+	hashesJSON, err := json.Marshal(&hashes)
+	if err != nil {
+		return nil, err
+	}
+
+	return hashesJSON, nil
+}
+
 // checkEventContentHash checks if the unredacted content of the event matches the SHA-256 hash under the "hashes" key.
 // Assumes that eventJSON has been canonicalised already.
 func checkEventContentHash(eventJSON []byte) error {

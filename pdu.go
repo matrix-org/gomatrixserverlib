@@ -52,6 +52,7 @@ type PDU interface {
 	JSON() []byte                    // TODO: remove
 	AuthEventIDs() []string          // TODO: remove
 	ToHeaderedJSON() ([]byte, error) // TODO: remove
+	Hashes() []byte
 }
 
 // Convert a slice of concrete PDU implementations to a slice of PDUs. This is useful when

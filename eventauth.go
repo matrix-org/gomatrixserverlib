@@ -432,6 +432,9 @@ func (a *allowerContext) createEventAllowed(event PDU) error {
 	if err != nil {
 		return err
 	}
+	if sender == nil {
+		return errorf("userID not found for %s", event.SenderID())
+	}
 	if sender.Domain() != event.RoomID().Domain() {
 		return errorf("create event room ID domain does not match sender: %q != %q", event.RoomID().Domain(), sender.String())
 	}
