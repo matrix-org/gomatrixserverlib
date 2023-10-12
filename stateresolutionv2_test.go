@@ -598,7 +598,7 @@ func TestStateReset(t *testing.T) {
 
 func mustParseEvent(t *testing.T, eventBytes []byte) PDU {
 	t.Helper()
-	event, err := MustGetRoomVersion(RoomVersionV6).NewEventFromTrustedJSON([]byte(eventBytes), false)
+	event, err := MustGetRoomVersion(RoomVersionV6).NewEventFromTrustedJSON(eventBytes, false)
 	if err != nil {
 		t.Fatal(err)
 	}
