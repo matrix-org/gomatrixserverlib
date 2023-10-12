@@ -28,6 +28,36 @@ type PerformJoinInput struct {
 	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
 }
 
+type PerformMakeJoinInput struct {
+	UserID     *spec.UserID           // The user joining the room
+	RoomID     *spec.RoomID           // The room the user is joining
+	ServerName spec.ServerName        // The server to attempt to join via
+	Content    map[string]interface{} // The membership event content
+
+	PrivateKey ed25519.PrivateKey // Used to sign the join event
+	KeyID      KeyID              // Used to sign the join event
+	KeyRing    *KeyRing           // Used to verify the response from send_join
+
+	GetOrCreateSenderID spec.CreateSenderID // Creates, if needed, new senderID for this room.
+}
+
+type PerformSendJoinInput struct {
+	RoomID     *spec.RoomID           // The room the user is joining
+	ServerName spec.ServerName        // The server to attempt to join via
+	Unsigned   map[string]interface{} // The event unsigned content, if any
+	Origin     spec.ServerName
+	SenderID   spec.SenderID
+
+	KeyRing *KeyRing // Used to verify the response from send_join
+
+	Event       PDU
+	RoomVersion RoomVersion
+
+	EventProvider             EventProvider                  // Provides full events given a list of event IDs
+	UserIDQuerier             spec.UserIDForSender           // Provides userID for a given senderID
+	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
+}
+
 type PerformJoinResponse struct {
 	JoinEvent     PDU
 	StateSnapshot StateResponse
@@ -41,8 +71,45 @@ func PerformJoin(
 	fedClient FederatedJoinClient,
 	input PerformJoinInput,
 ) (*PerformJoinResponse, *FederationError) {
+	joinEvent, version, senderID, err := PerformMakeJoin(ctx, fedClient, PerformMakeJoinInput{
+		UserID:              input.UserID,
+		RoomID:              input.RoomID,
+		ServerName:          input.ServerName,
+		Content:             input.Content,
+		PrivateKey:          input.PrivateKey,
+		KeyID:               input.KeyID,
+		KeyRing:             input.KeyRing,
+		GetOrCreateSenderID: input.GetOrCreateSenderID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return PerformSendJoin(ctx, fedClient, PerformSendJoinInput{
+		RoomID:                    input.RoomID,
+		ServerName:                input.ServerName,
+		Unsigned:                  input.Unsigned,
+		Origin:                    input.UserID.Domain(),
+		SenderID:                  senderID,
+		KeyRing:                   input.KeyRing,
+		Event:                     joinEvent,
+		RoomVersion:               version,
+		EventProvider:             input.EventProvider,
+		UserIDQuerier:             input.UserIDQuerier,
+		StoreSenderIDFromPublicID: input.StoreSenderIDFromPublicID,
+	})
+}
+
+// PerformMakeJoin provides high level functionality that will attempt a federated room
+// join. On success it will return the new join event and the state snapshot returned
+// as part of the join.
+func PerformMakeJoin(
+	ctx context.Context,
+	fedClient FederatedJoinClient,
+	input PerformMakeJoinInput,
+) (PDU, RoomVersion, spec.SenderID, *FederationError) {
 	if input.UserID == nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  false,
@@ -50,7 +117,7 @@ func PerformJoin(
 		}
 	}
 	if input.RoomID == nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  false,
@@ -58,7 +125,7 @@ func PerformJoin(
 		}
 	}
 	if input.KeyRing == nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  false,
@@ -79,7 +146,7 @@ func PerformJoin(
 	)
 	if err != nil {
 		// TODO: Check if the user was not allowed to join the room.
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  true,
 			Reachable:  false,
@@ -104,7 +171,7 @@ func PerformJoin(
 	}
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -125,7 +192,7 @@ func PerformJoin(
 		// we successfully did a make_join, create a senderID for this user now
 		senderID, signingKey, err = input.GetOrCreateSenderID(ctx, *input.UserID, *input.RoomID, string(respMakeJoin.GetRoomVersion()))
 		if err != nil {
-			return nil, &FederationError{
+			return nil, "", "", &FederationError{
 				ServerName: input.ServerName,
 				Transient:  false,
 				Reachable:  true,
@@ -140,7 +207,7 @@ func PerformJoin(
 			UserID:      input.UserID.String(),
 		}
 		if err = mapping.Sign(origOrigin, input.KeyID, input.PrivateKey); err != nil {
-			return nil, &FederationError{
+			return nil, "", "", &FederationError{
 				ServerName: input.ServerName,
 				Transient:  false,
 				Reachable:  true,
@@ -162,7 +229,7 @@ func PerformJoin(
 	_ = json.Unmarshal(joinEvent.Content, &input.Content)
 	input.Content["membership"] = spec.Join
 	if err = joinEB.SetContent(input.Content); err != nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -170,7 +237,7 @@ func PerformJoin(
 		}
 	}
 	if err = joinEB.SetUnsigned(struct{}{}); err != nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -187,7 +254,7 @@ func PerformJoin(
 		signingKey,
 	)
 	if err != nil {
-		return nil, &FederationError{
+		return nil, "", "", &FederationError{
 			ServerName: input.ServerName,
 			Transient:  false,
 			Reachable:  true,
@@ -195,13 +262,31 @@ func PerformJoin(
 		}
 	}
 
+	return event, roomVersion, senderID, nil
+}
+
+func PerformSendJoin(
+	ctx context.Context,
+	fedClient FederatedJoinClient,
+	input PerformSendJoinInput,
+) (*PerformJoinResponse, *FederationError) {
+	verImpl, err := GetRoomVersion(input.RoomVersion)
+	if err != nil {
+		return nil, &FederationError{
+			ServerName: input.ServerName,
+			Transient:  false,
+			Reachable:  true,
+			Err:        err,
+		}
+	}
+
 	var respState StateResponse
 	// Try to perform a send_join using the newly built event.
 	respSendJoin, err := fedClient.SendJoin(
 		context.Background(),
-		origOrigin,
+		input.Origin,
 		input.ServerName,
-		event,
+		input.Event,
 	)
 	if err != nil {
 		return nil, &FederationError{
@@ -219,15 +304,15 @@ func PerformJoin(
 		var remoteEvent PDU
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
-			remoteEvent, input.RoomID, senderID,
+			remoteEvent, input.RoomID, input.SenderID,
 		) {
-			event = remoteEvent
+			input.Event = remoteEvent
 		}
 	}
 
 	// Sanity-check the join response to ensure that it has a create
 	// event, that the room version is known, etc.
-	authEvents := respSendJoin.GetAuthEvents().UntrustedEvents(roomVersion)
+	authEvents := respSendJoin.GetAuthEvents().UntrustedEvents(input.RoomVersion)
 	if err = checkEventsContainCreateEvent(authEvents); err != nil {
 		return nil, &FederationError{
 			ServerName: input.ServerName,
@@ -239,8 +324,8 @@ func PerformJoin(
 
 	// get the membership events of all users, so we can store the mxid_mappings
 	// TODO: better way?
-	if roomVersion == RoomVersionPseudoIDs {
-		stateEvents := respSendJoin.GetStateEvents().UntrustedEvents(roomVersion)
+	if input.RoomVersion == RoomVersionPseudoIDs {
+		stateEvents := respSendJoin.GetStateEvents().UntrustedEvents(input.RoomVersion)
 		events := append(authEvents, stateEvents...)
 		err = storeMXIDMappings(ctx, events, *input.RoomID, input.KeyRing, input.StoreSenderIDFromPublicID)
 		if err != nil {
@@ -261,9 +346,9 @@ func PerformJoin(
 	// events rather than failing one at a time?
 	respState, err = CheckSendJoinResponse(
 		context.Background(),
-		roomVersion, StateResponse(respSendJoin),
+		input.RoomVersion, StateResponse(respSendJoin),
 		input.KeyRing,
-		event,
+		input.Event,
 		input.EventProvider,
 		input.UserIDQuerier,
 	)
@@ -280,7 +365,7 @@ func PerformJoin(
 	// server now thinks we're a part of the room. Send the newly
 	// returned state to the roomserver to update our local view.
 	if input.Unsigned != nil {
-		event, err = event.SetUnsigned(input.Unsigned)
+		input.Event, err = input.Event.SetUnsigned(input.Unsigned)
 		if err != nil {
 			// non-fatal, log and continue
 			logrus.WithError(err).Errorf("Failed to set unsigned content")
@@ -288,7 +373,7 @@ func PerformJoin(
 	}
 
 	return &PerformJoinResponse{
-		JoinEvent:     event,
+		JoinEvent:     input.Event,
 		StateSnapshot: respState,
 	}, nil
 }
