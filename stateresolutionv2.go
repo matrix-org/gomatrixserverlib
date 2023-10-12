@@ -453,17 +453,15 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 			if membershipEvent := r.resolvedMembers[spec.SenderID(needed)]; membershipEvent != nil {
 				_ = r.authProvider.AddEvent(membershipEvent)
 			} else {
-				/*
-					for _, authEventID := range event.AuthEventIDs() {
-						authEv, ok := r.authEventMap[authEventID]
-						if !ok {
-							continue
-						}
-						if authEv.Type() == spec.MRoomMember && authEv.StateKeyEquals(needed) {
-							_ = r.authProvider.AddEvent(authEv)
-						}
+				for _, authEventID := range event.AuthEventIDs() {
+					authEv, ok := r.authEventMap[authEventID]
+					if !ok {
+						continue
 					}
-				*/
+					if authEv.Type() == spec.MRoomMember && authEv.StateKeyEquals(needed) {
+						_ = r.authProvider.AddEvent(authEv)
+					}
+				}
 			}
 		}
 		for _, needed := range needed.ThirdPartyInvite {
