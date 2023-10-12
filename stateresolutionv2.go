@@ -453,15 +453,17 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 			if membershipEvent := r.resolvedMembers[spec.SenderID(needed)]; membershipEvent != nil {
 				_ = r.authProvider.AddEvent(membershipEvent)
 			} else {
-				for _, authEventID := range event.AuthEventIDs() {
-					authEv, ok := r.authEventMap[authEventID]
-					if !ok {
-						continue
+				/*
+					for _, authEventID := range event.AuthEventIDs() {
+						authEv, ok := r.authEventMap[authEventID]
+						if !ok {
+							continue
+						}
+						if authEv.Type() == spec.MRoomMember && authEv.StateKeyEquals(needed) {
+							_ = r.authProvider.AddEvent(authEv)
+						}
 					}
-					if authEv.Type() == spec.MRoomMember && authEv.StateKeyEquals(needed) {
-						_ = r.authProvider.AddEvent(authEv)
-					}
-				}
+				*/
 			}
 		}
 		for _, needed := range needed.ThirdPartyInvite {
@@ -473,11 +475,11 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 		// Check if the event is allowed based on the current partial state.
 		r.allower.update(&r.authProvider)
 		if err := r.allower.allowed(event); err != nil {
+			fmt.Println("not allowed: ", event.EventID(), err)
 			// The event was not allowed by the partial state and/or relevant
 			// auth events from the event, so skip it.
 			continue
 		}
-
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
 		r.applyEvents([]PDU{event})

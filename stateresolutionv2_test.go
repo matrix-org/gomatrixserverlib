@@ -540,3 +540,67 @@ func runStateResolutionV2(t *testing.T, additional []PDU, expected []string) {
 		t.Fatalf("expected to find '%s' in resolved state but didn't", missing)
 	}
 }
+
+// TestStateReset validates that, given "wrong" prev events, we correctly calculate the
+// new state. See https://github.com/matrix-org/dendrite/pull/3231 as well.
+func TestStateReset(t *testing.T) {
+	// NOTE: The following events are taken from a Dendrite UT.
+	createEv := mustParseEvent(t, []byte(`{"auth_events":[],"content":{"creator":"@1:test","room_version":"9"},"depth":1,"hashes":{"sha256":"OZriBeMNVoymY/JqjM3Ee6oKSfoWskCiy48dUq5crR8"},"origin":"test","origin_server_ts":1697134517143,"prev_events":[],"prev_state":[],"room_id":"!2:test","sender":"@1:test","signatures":{"test":{"ed25519:test":"eyVzDAWjFtEaDtcYD2aLOjwxYegJSRJTEg5eRkksL3rNJUB0nRim2iGGCznjNzTg3V84K4bmuIs41aR7A2TBBQ"}},"state_key":"","type":"m.room.create"}`))
+	aliceJoinEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg"],"content":{"membership":"join"},"depth":2,"hashes":{"sha256":"xktNmFYn936RCil8B5h5Jfb+BFuyCKfUsOHCU92KHbE"},"origin":"test","origin_server_ts":1697134517143,"prev_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg"],"prev_state":[],"room_id":"!2:test","sender":"@1:test","signatures":{"test":{"ed25519:test":"cBaNa3UDzDE/TEH0ZmDciJj7aa5XOv8Ze1F+YGxea/TI86ivD6ULkylEl9+52A3kNC1/k8u7d7VZTDEMA/YZCw"}},"state_key":"@1:test","type":"m.room.member"}`))
+	plEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$pha7iGLaAXqkf_GAwBhPtdyjM0DF4qxiAbbc-zGJbRc"],"content":{"ban":50,"events":{"m.room.avatar":50,"m.room.canonical_alias":50,"m.room.encryption":100,"m.room.history_visibility":100,"m.room.name":50,"m.room.power_levels":100,"m.room.server_acl":100,"m.room.tombstone":100},"events_default":0,"invite":0,"kick":50,"notifications":{"room":50},"redact":50,"state_default":50,"users":{"@1:test":100},"users_default":0},"depth":3,"hashes":{"sha256":"Tg8kVJh7Pam9Q9rkMa2qoPzkQ2febdBLGiB2dB+6aqQ"},"origin":"test","origin_server_ts":1697134517143,"prev_events":["$pha7iGLaAXqkf_GAwBhPtdyjM0DF4qxiAbbc-zGJbRc"],"prev_state":[],"room_id":"!2:test","sender":"@1:test","signatures":{"test":{"ed25519:test":"1BKFKdklWUkxeKn8+9lGUVRNYSTscFwP0JR6KPH/KvuqOdOOl896mIJ3lp9iLrrHFYEOP0+Tl/gWWjY0r4zoBA"}},"state_key":"","type":"m.room.power_levels"}`))
+	jrEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0","$pha7iGLaAXqkf_GAwBhPtdyjM0DF4qxiAbbc-zGJbRc"],"content":{"join_rule":"public"},"depth":4,"hashes":{"sha256":"he+A0e/+4282sOZ0E6eXAGrQ7b2wAHfr4E/qMX2Sosg"},"origin":"test","origin_server_ts":1697134517144,"prev_events":["$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0"],"prev_state":[],"room_id":"!2:test","sender":"@1:test","signatures":{"test":{"ed25519:test":"tnX+YOaNhWipRTAsnXtxDeT0OLGQRhQN/cWF4cjLj92zjfyvGPIgoMXBpdFojq+0TiCsTPx673aWiYKFGap3AA"}},"state_key":"","type":"m.room.join_rules"}`))
+	hisVisEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0","$pha7iGLaAXqkf_GAwBhPtdyjM0DF4qxiAbbc-zGJbRc"],"content":{"history_visibility":"shared"},"depth":5,"hashes":{"sha256":"keUaZvadB9S775FT2/WOog+XwqcquUMDLlsKjtx7HYI"},"origin":"test","origin_server_ts":1697134517144,"prev_events":["$ZDzKFnVFil6ea2QoMa5wpFW_RJe5kTEv2ZD4jctEWM4"],"prev_state":[],"room_id":"!2:test","sender":"@1:test","signatures":{"test":{"ed25519:test":"OX1cA63VvYy/xli+kzJqAy/0f20RKMxn8khqvWYry3bRQqXRN2Z+er3wMFo6dego9e37l1b4UWXnoFvAUYbaDA"}},"state_key":"","type":"m.room.history_visibility"}`))
+	bobJoinEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$ZDzKFnVFil6ea2QoMa5wpFW_RJe5kTEv2ZD4jctEWM4","$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0"],"content":{"membership":"join"},"depth":6,"hashes":{"sha256":"eMAArXQGPaJMbU22Bvgqzks1zLMiQTGXI28eT4CsEaM"},"origin":"test","origin_server_ts":1697134517145,"prev_events":["$KvMXxqhECWclFe58hgxr_s26ytJ57olFSMv2uVjbtSo"],"prev_state":[],"room_id":"!2:test","sender":"@2:test","signatures":{"test":{"ed25519:test":"TT+NLaNGzJbEe2B9AZ1rPUX/Af3S7rHpZK2Vqv3ioxrH7pzs7nDSs2+1G9+yxxjqLtybi1QuFbyGKAb2J/DmDA"}},"state_key":"@2:test","type":"m.room.member"}`))
+	charlieJoinEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$ZDzKFnVFil6ea2QoMa5wpFW_RJe5kTEv2ZD4jctEWM4","$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0"],"content":{"membership":"join"},"depth":7,"hashes":{"sha256":"lsD2HYq8ovMhfTznU4RH2vk/cZTa8nwQVM8LYyCTzZs"},"origin":"test","origin_server_ts":1697134517145,"prev_events":["$AbMj-EZa-blPfjNYj9dPUXAQM5oLxcnPdoUvtTVI-hs"],"prev_state":[],"room_id":"!2:test","sender":"@3:test","signatures":{"test":{"ed25519:test":"5wOjA9IZkN28/yd4bJl8elnsxGR9QjDzKhSxDq/Js24hnqErV0DRB4luETZZDTWdCJJPRy5q7mIOoCTr6Zv/DQ"}},"state_key":"@3:test","type":"m.room.member"}`))
+	bobNameEv := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$ZDzKFnVFil6ea2QoMa5wpFW_RJe5kTEv2ZD4jctEWM4","$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0","$AbMj-EZa-blPfjNYj9dPUXAQM5oLxcnPdoUvtTVI-hs"],"content":{"displayname":"Bob!","membership":"join"},"depth":10,"hashes":{"sha256":"GKm317RAdHnrAnESQRocRS5DhSJ756/3UjxBskjKEz4"},"origin":"test","origin_server_ts":1697134517386,"prev_events":["$sd5vMK06VQ28CEnyUfZuJbiD-HXSsQXAS2-6Mm906qk"],"prev_state":[],"room_id":"!2:test","sender":"@2:test","signatures":{"test":{"ed25519:test":"oXQalkq0zQ28+KFueHLTD+hXu2oq4/MgN9w2jThn79IICDl+RDp0svYzqaYRahwbBDpTjPvWXjjiN6oJ4Z53Bw"}},"state_key":"@2:test","type":"m.room.member"}`))
+	jr2Ev := mustParseEvent(t, []byte(`{"auth_events":["$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg","$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0","$pha7iGLaAXqkf_GAwBhPtdyjM0DF4qxiAbbc-zGJbRc"],"content":{"join_rule":"invite"},"depth":11,"hashes":{"sha256":"HtEx3O2ORo/V5Q3FHQVuPi8AvXts5tcMV5BbmsHcm+E"},"origin":"test","origin_server_ts":1697134517410,"prev_events":["$7w83ropQafHxxgMcJFWgynFXN_f1L-DgVHUPYC8KYVY"],"prev_state":[],"room_id":"!2:test","sender":"@1:test","signatures":{"test":{"ed25519:test":"5euVd5N/01mjrYQoNLlSnQWqonb2DUPSwQ4ZQz0A34fQzV3z+QjsBaIByYh2ZwkhFHnmJUvC8rUH8+JSv28NAA"}},"state_key":"","type":"m.room.join_rules"}`))
+
+	// conflicted/unconflicted as calculated by Dendrite
+	conflicted := []PDU{bobJoinEv, bobNameEv}
+	unconflicted := []PDU{createEv, aliceJoinEv, plEv, jrEv, hisVisEv, charlieJoinEv, jr2Ev}
+	authEvents := append(unconflicted, conflicted...)
+
+	// The events we expect after state resolution
+	expectedEvents := map[string]PDU{
+		"$7w83ropQafHxxgMcJFWgynFXN_f1L-DgVHUPYC8KYVY": bobNameEv,
+		"$0B4FVZWbziXiuaBZyVerHDfBs40toK4FhoT1DNLs_tg": createEv,
+		"$pha7iGLaAXqkf_GAwBhPtdyjM0DF4qxiAbbc-zGJbRc": aliceJoinEv,
+		"$B6yTeN_9fWhp5duir471Ac-OSC9BlsHnlRcbVpfmOH0": plEv,
+		"$KvMXxqhECWclFe58hgxr_s26ytJ57olFSMv2uVjbtSo": hisVisEv,
+		"$9IhOwrJzpmcAKaq05_MmKq7mqBUZENVoFOYz1_GQgX4": charlieJoinEv,
+		"$IaXTO8US6DmRrPexxTucUaMoc7M0uwvMrOzWoFSsy5o": jr2Ev,
+	}
+
+	resolved := ResolveStateConflictsV2(conflicted, unconflicted, authEvents, UserIDForSenderTest)
+	unexpectedEvents := make(map[string]PDU)
+	for _, resolvedEv := range resolved {
+		if _, found := expectedEvents[resolvedEv.EventID()]; !found {
+			unexpectedEvents[resolvedEv.EventID()] = resolvedEv
+			continue
+		}
+		delete(expectedEvents, resolvedEv.EventID())
+	}
+
+	if len(expectedEvents) > 0 {
+		t.Error("Expected event missing after state resolution:")
+		for evID, ev := range expectedEvents {
+			t.Errorf("\t%s: %s", evID, ev.JSON())
+		}
+	}
+
+	if len(unexpectedEvents) > 0 {
+		t.Error("Unexpected events after state resolution:")
+		for evID, ev := range unexpectedEvents {
+			t.Errorf("\t%s: %s", evID, ev.JSON())
+		}
+	}
+}
+
+func mustParseEvent(t *testing.T, eventBytes []byte) PDU {
+	t.Helper()
+	event, err := MustGetRoomVersion(RoomVersionV6).NewEventFromTrustedJSON([]byte(eventBytes), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return event
+}
