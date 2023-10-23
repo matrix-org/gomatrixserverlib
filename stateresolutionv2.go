@@ -473,7 +473,6 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 		// Check if the event is allowed based on the current partial state.
 		r.allower.update(&r.authProvider)
 		if err := r.allower.allowed(event); err != nil {
-			fmt.Println("not allowed: ", event.EventID(), err)
 			// The event was not allowed by the partial state and/or relevant
 			// auth events from the event, so skip it.
 			continue
