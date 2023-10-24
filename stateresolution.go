@@ -331,6 +331,7 @@ func ResolveConflicts(
 	events []PDU,
 	authEvents []PDU,
 	userIDForSender spec.UserIDForSender,
+	isRejected IsRejected,
 ) ([]PDU, error) {
 	type stateKeyTuple struct {
 		Type     string
@@ -389,7 +390,7 @@ func ResolveConflicts(
 		resolved = ResolveStateConflicts(conflicted, authEvents, userIDForSender)
 		resolved = append(resolved, notConflicted...)
 	case StateResV2:
-		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents, userIDForSender)
+		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents, userIDForSender, isRejected)
 	default:
 		return nil, fmt.Errorf("unsupported state resolution algorithm %v", stateResAlgo)
 	}
