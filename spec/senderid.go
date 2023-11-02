@@ -31,6 +31,9 @@ type CreateSenderID func(ctx context.Context, userID UserID, roomID RoomID, room
 // StoreSenderIDFromPublicID is a function to store the mxid_mapping after receiving a join event over federation.
 type StoreSenderIDFromPublicID func(ctx context.Context, senderID SenderID, userID string, id RoomID) error
 
+// ClaimOneTimeSenderID is a function used to claim a one-time pseudoID key.
+type ClaimOneTimeSenderID func(ctx context.Context, roomID RoomID, userID UserID) (SenderID, error)
+
 // Create a new sender ID from a private room key
 func SenderIDFromPseudoIDKey(key ed25519.PrivateKey) SenderID {
 	return SenderID(Base64Bytes(key.Public().(ed25519.PublicKey)).Encode())

@@ -99,7 +99,8 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		if membership == spec.Invite {
 			switch e.Version() {
 			case RoomVersionPseudoIDs:
-				needed[spec.ServerName(*e.StateKey())] = struct{}{}
+				// TODO: only remove this for cryptoIDs?
+				// needed[spec.ServerName(*e.StateKey())] = struct{}{}
 			default:
 				_, serverName, err = SplitID('@', *e.StateKey())
 				if err != nil {
