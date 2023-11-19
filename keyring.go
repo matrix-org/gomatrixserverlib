@@ -499,7 +499,6 @@ func (d DirectKeyFetcher) FetcherName() string {
 func (d *DirectKeyFetcher) FetchKeys(
 	ctx context.Context, requests map[PublicKeyLookupRequest]spec.Timestamp,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
-	fetcherLogger := util.GetLogger(ctx).WithField("fetcher", d.FetcherName())
 
 	localServerRequests := []PublicKeyLookupRequest{}
 	byServer := map[spec.ServerName]map[PublicKeyLookupRequest]spec.Timestamp{}
