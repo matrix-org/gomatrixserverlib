@@ -560,7 +560,6 @@ func (d *DirectKeyFetcher) FetchKeys(
 				serverResults, err = d.fetchNotaryKeysForServer(ctx, server)
 				if err != nil {
 					// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-					fetcherLogger.WithError(err).Error("Failed to fetch key for server")
 					continue
 				}
 			}
