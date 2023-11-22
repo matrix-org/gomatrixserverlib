@@ -106,11 +106,12 @@ type CurrentStateQuerier interface {
 	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
 }
 
-// handleSendLeave handles requests to `/send_leave
-// Returns the parsed event or an error.
-func handleSendLeave(ctx context.Context,
-	event PDU,
+// HandleSendLeave handles requests to `/send_leave
+// Returns the parsed event and an error.
+func HandleSendLeave(ctx context.Context,
+	requestContent []byte,
 	origin spec.ServerName,
+	roomVersion RoomVersion,
 	eventID, roomID string,
 	querier CurrentStateQuerier,
 	verifier JSONVerifier,
@@ -119,6 +120,21 @@ func handleSendLeave(ctx context.Context,
 	rID, err := spec.NewRoomID(roomID)
 	if err != nil {
 		return nil, err
+	}
+
+	verImpl, err := GetRoomVersion(roomVersion)
+	if err != nil {
+		return nil, spec.UnsupportedRoomVersion(fmt.Sprintf("QueryRoomVersionForRoom returned unknown version: %s", roomVersion))
+	}
+
+	// Decode the event JSON from the request.
+	event, err := verImpl.NewEventFromUntrustedJSON(requestContent)
+	switch err.(type) {
+	case BadJSONError:
+		return nil, spec.BadJSON(err.Error())
+	case nil:
+	default:
+		return nil, spec.NotJSON("The request body could not be decoded into valid JSON. " + err.Error())
 	}
 
 	// Check that the room ID is correct.
@@ -174,15 +190,14 @@ func handleSendLeave(ctx context.Context,
 	}
 
 	// Check that the event is signed by the server sending the request.
-	resultEvent := event
-	event.Redact()
+	redacted, err := verImpl.RedactEventJSON(event.JSON())
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Errorf("unable to redact event")
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 	verifyRequests := []VerifyJSONRequest{{
 		ServerName:             sender.Domain(),
-		Message:                event.JSON(),
+		Message:                redacted,
 		AtTS:                   event.OriginServerTS(),
 		StrictValidityChecking: true,
 	}}
@@ -205,5 +220,5 @@ func handleSendLeave(ctx context.Context,
 		return nil, spec.BadJSON("The membership in the event content must be set to leave")
 	}
 
-	return resultEvent, nil
+	return event, nil
 }

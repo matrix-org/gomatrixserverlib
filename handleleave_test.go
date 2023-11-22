@@ -242,14 +242,14 @@ func (v *noopJSONVerifier) VerifyJSONs(ctx context.Context, requests []VerifyJSO
 
 func TestHandleSendLeave(t *testing.T) {
 	type args struct {
-		ctx         context.Context
-		event       PDU
-		origin      spec.ServerName
-		roomVersion RoomVersion
-		eventID     string
-		roomID      string
-		querier     CurrentStateQuerier
-		verifier    JSONVerifier
+		ctx            context.Context
+		requestContent []byte
+		origin         spec.ServerName
+		roomVersion    RoomVersion
+		eventID        string
+		roomID         string
+		querier        CurrentStateQuerier
+		verifier       JSONVerifier
 	}
 
 	_, sk, err := ed25519.GenerateKey(rand.Reader)
@@ -318,65 +318,79 @@ func TestHandleSendLeave(t *testing.T) {
 	}{
 		{
 			name:    "invalid roomID",
-			args:    args{roomID: "@notvalid:localhost", roomVersion: RoomVersionV10},
+			args:    args{roomID: "@notvalid:localhost"},
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid room version",
+			args:    args{roomID: "!notvalid:localhost", roomVersion: "-1"},
+			wantErr: assert.Error,
+		},
+		{
+			name:    "invalid content body",
+			args:    args{roomID: "!notvalid:localhost", roomVersion: RoomVersionV1, requestContent: []byte("{")},
+			wantErr: assert.Error,
+		},
+		{
+			name:    "not canonical JSON",
+			args:    args{roomID: "!notvalid:localhost", roomVersion: RoomVersionV10, requestContent: []byte(`{"int":9007199254740992}`)}, // number to large, not canonical json
 			wantErr: assert.Error,
 		},
 		{
 			name:    "wrong roomID in request",
-			args:    args{roomID: "!notvalid:localhost", roomVersion: RoomVersionV10, event: createEvent},
+			args:    args{roomID: "!notvalid:localhost", roomVersion: RoomVersionV10, requestContent: createEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "wrong eventID in request",
-			args:    args{roomID: "!valid:localhost", roomVersion: RoomVersionV10, event: createEvent},
+			args:    args{roomID: "!valid:localhost", roomVersion: RoomVersionV10, requestContent: createEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "empty statekey",
-			args:    args{roomID: "!valid:localhost", roomVersion: RoomVersionV10, eventID: createEvent.EventID(), event: createEvent},
+			args:    args{roomID: "!valid:localhost", roomVersion: RoomVersionV10, eventID: createEvent.EventID(), requestContent: createEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "wrong request origin",
-			args:    args{roomID: "!valid:localhost", roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), event: leaveEvent},
+			args:    args{roomID: "!valid:localhost", roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "never joined the room no-ops",
-			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), event: leaveEvent},
+			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
 		{
 			name:    "already left the room no-ops",
-			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdu: leaveEvent}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), event: leaveEvent},
+			args:    args{roomID: "!valid:localhost", querier: dummyQuerier{pdu: leaveEvent}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
 		{
 			name:    "JSON validation fails",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{err: fmt.Errorf("err")}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), event: leaveEvent},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{err: fmt.Errorf("err")}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "JSON validation fails 2",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{Error: fmt.Errorf("err")}}}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), event: leaveEvent},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{Error: fmt.Errorf("err")}}}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "membership not set to leave",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: joinEvent.EventID(), event: joinEvent},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: joinEvent.EventID(), requestContent: joinEvent.JSON()},
 			wantErr: assert.Error,
 		},
 		{
 			name:    "membership set to leave",
-			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), event: leaveEvent},
+			args:    args{ctx: context.Background(), roomID: "!valid:localhost", querier: dummyQuerier{pdu: createEvent}, verifier: &noopJSONVerifier{results: []VerifyJSONResult{{}}}, origin: validUser.Domain(), roomVersion: RoomVersionV10, eventID: leaveEvent.EventID(), requestContent: leaveEvent.JSON()},
 			wantErr: assert.NoError,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verImpl := MustGetRoomVersion(tt.args.roomVersion)
-			_, err := verImpl.HandleSendLeave(tt.args.ctx, tt.args.event, tt.args.origin, tt.args.eventID, tt.args.roomID, tt.args.querier, tt.args.verifier)
-			if !tt.wantErr(t, err, fmt.Sprintf("handleSendLeave(%v, %v, %v, %v, %v, %v, %v, %v)", tt.args.ctx, tt.args.event, tt.args.origin, tt.args.roomVersion, tt.args.eventID, tt.args.roomID, tt.args.querier, tt.args.verifier)) {
+			_, err := HandleSendLeave(tt.args.ctx, tt.args.requestContent, tt.args.origin, tt.args.roomVersion, tt.args.eventID, tt.args.roomID, tt.args.querier, tt.args.verifier)
+			if !tt.wantErr(t, err, fmt.Sprintf("HandleSendLeave(%v, %v, %v, %v, %v, %v, %v, %v)", tt.args.ctx, tt.args.requestContent, tt.args.origin, tt.args.roomVersion, tt.args.eventID, tt.args.roomID, tt.args.querier, tt.args.verifier)) {
 				return
 			}
 		})
