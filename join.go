@@ -19,19 +19,19 @@ type RestrictedRoomJoinInfo struct {
 }
 
 type MembershipQuerier interface {
-	CurrentMembership(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (string, error)
+	CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (string, error)
 }
 
 // RestrictedRoomJoinQuerier provides the information needed when processing a restricted room join request.
 type RestrictedRoomJoinQuerier interface {
 	CurrentStateEvent(ctx context.Context, roomID spec.RoomID, eventType string, stateKey string) (PDU, error)
-	InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error)
-	RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error)
+	InvitePending(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (bool, error)
+	RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error)
 }
 
 type ProtoEvent struct {
-	// The user ID of the user sending the event.
-	Sender string `json:"sender"`
+	// The sender ID of the user sending the event.
+	SenderID string `json:"sender"`
 	// The room ID of the room this event is in.
 	RoomID string `json:"room_id"`
 	// The type of the event.

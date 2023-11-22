@@ -27,6 +27,7 @@ import (
 type HandleMakeJoinInput struct {
 	Context           context.Context
 	UserID            spec.UserID               // The user wanting to join the room
+	SenderID          spec.SenderID             // The senderID of the user wanting to join the room
 	RoomID            spec.RoomID               // The room the user wants to join
 	RoomVersion       RoomVersion               // The room version for the room being joined
 	RemoteVersions    []RoomVersion             // Room versions supported by the remote server
@@ -34,6 +35,7 @@ type HandleMakeJoinInput struct {
 	LocalServerName   spec.ServerName           // The name of this local server
 	LocalServerInRoom bool                      // Whether this local server has a user currently joined to the room
 	RoomQuerier       RestrictedRoomJoinQuerier // Provides access to potentially required information when processing restricted joins
+	UserIDQuerier     spec.UserIDForSender      // Provides userIDs given a senderID
 
 	// Returns a fully built version of the proto event and a list of state events required to auth this event
 	BuildEventTemplate func(*ProtoEvent) (PDU, []PDU, error)
@@ -45,8 +47,8 @@ type HandleMakeJoinResponse struct {
 }
 
 func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) {
-	if input.RoomQuerier == nil {
-		panic("Missing valid RoomQuerier")
+	if input.RoomQuerier == nil || input.UserIDQuerier == nil {
+		panic("Missing valid Querier")
 	}
 
 	if input.Context == nil {
@@ -74,7 +76,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 
 	// Check if the restricted join is allowed. If the room doesn't
 	// support restricted joins then this is effectively a no-op.
-	authorisedVia, err := checkRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomVersion, input.RoomID, input.UserID)
+	authorisedVia, err := MustGetRoomVersion(input.RoomVersion).CheckRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomID, input.SenderID)
 	switch e := err.(type) {
 	case nil:
 	case spec.MatrixError:
@@ -85,12 +87,12 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 	}
 
 	// Try building an event for the server
-	rawUserID := input.UserID.String()
+	rawSenderID := string(input.SenderID)
 	proto := ProtoEvent{
-		Sender:   input.UserID.String(),
+		SenderID: string(input.SenderID),
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
-		StateKey: &rawUserID,
+		StateKey: &rawSenderID,
 	}
 	content := MemberContent{
 		Membership:    spec.Join,
@@ -115,7 +117,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 	}
 
 	provider := NewAuthEvents(state)
-	if err = Allowed(event, &provider); err != nil {
+	if err = Allowed(event, &provider, input.UserIDQuerier); err != nil {
 		return nil, spec.Forbidden(err.Error())
 	}
 
@@ -146,6 +148,10 @@ func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersi
 	return remoteSupportsVersion
 }
 
+func noCheckRestrictedJoin(context.Context, spec.ServerName, RestrictedRoomJoinQuerier, spec.RoomID, spec.SenderID) (string, error) {
+	return "", nil
+}
+
 // checkRestrictedJoin finds out whether or not we can assist in processing
 // a restricted room join. If the room version does not support restricted
 // joins then this function returns with no side effects. This returns:
@@ -158,25 +164,8 @@ func checkRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
 	roomQuerier RestrictedRoomJoinQuerier,
-	roomVersion RoomVersion,
-	roomID spec.RoomID, userID spec.UserID,
+	roomID spec.RoomID, senderID spec.SenderID,
 ) (string, error) {
-	verImpl, err := GetRoomVersion(roomVersion)
-	if err != nil {
-		return "", err
-	}
-	if !verImpl.MayAllowRestrictedJoinsInEventAuth() {
-		return "", nil
-	}
-
-	// If the room version doesn't allow restricted joins then don't
-	// try to process any further.
-	allowRestrictedJoins := verImpl.MayAllowRestrictedJoinsInEventAuth()
-	if !allowRestrictedJoins {
-		// The join rules for the room don't restrict membership.
-		return "", nil
-	}
-
 	// Get the join rules to work out if the join rule is "restricted".
 	joinRulesEvent, err := roomQuerier.CurrentStateEvent(ctx, roomID, spec.MRoomJoinRules, "")
 	if err != nil {
@@ -201,7 +190,7 @@ func checkRestrictedJoin(
 	// If the user is already invited to the room then the join is allowed
 	// but we don't specify an authorised via user, since the event auth
 	// will allow the join anyway.
-	if pending, err := roomQuerier.InvitePending(ctx, roomID, userID); err != nil {
+	if pending, err := roomQuerier.InvitePending(ctx, roomID, senderID); err != nil {
 		return "", fmt.Errorf("helpers.IsInvitePending: %w", err)
 	} else if pending {
 		// The join rules for the room don't restrict membership.
@@ -241,7 +230,7 @@ func checkRestrictedJoin(
 
 		// First of all work out if *we* are still in the room, otherwise
 		// it's possible that the memberships will be out of date.
-		targetRoomInfo, err := roomQuerier.RestrictedRoomJoinInfo(ctx, *roomID, userID, localServerName)
+		targetRoomInfo, err := roomQuerier.RestrictedRoomJoinInfo(ctx, *roomID, senderID, localServerName)
 		if err != nil || targetRoomInfo == nil || !targetRoomInfo.LocalServerInRoom {
 			// If we aren't in the room, we can no longer tell if the room
 			// memberships are up-to-date.
@@ -273,7 +262,7 @@ func checkRestrictedJoin(
 				continue // shouldn't happen
 			}
 			// Only users that have the power to invite should be chosen.
-			if powerLevels.UserLevel(*user.StateKey()) < powerLevels.Invite {
+			if powerLevels.UserLevel(spec.SenderID(*user.StateKey())) < powerLevels.Invite {
 				continue
 			}
 
@@ -302,17 +291,19 @@ func checkRestrictedJoin(
 }
 
 type HandleSendJoinInput struct {
-	Context           context.Context
-	RoomID            spec.RoomID
-	EventID           string
-	JoinEvent         spec.RawJSON
-	RoomVersion       RoomVersion     // The room version for the room being joined
-	RequestOrigin     spec.ServerName // The server that sent the /make_join federation request
-	LocalServerName   spec.ServerName // The name of this local server
-	KeyID             KeyID
-	PrivateKey        ed25519.PrivateKey
-	Verifier          JSONVerifier
-	MembershipQuerier MembershipQuerier
+	Context                   context.Context
+	RoomID                    spec.RoomID
+	EventID                   string
+	JoinEvent                 spec.RawJSON
+	RoomVersion               RoomVersion     // The room version for the room being joined
+	RequestOrigin             spec.ServerName // The server that sent the /make_join federation request
+	LocalServerName           spec.ServerName // The name of this local server
+	KeyID                     KeyID
+	PrivateKey                ed25519.PrivateKey
+	Verifier                  JSONVerifier
+	MembershipQuerier         MembershipQuerier
+	UserIDQuerier             spec.UserIDForSender // Provides userIDs given a senderID
+	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID
 }
 
 type HandleSendJoinResponse struct {
@@ -320,6 +311,7 @@ type HandleSendJoinResponse struct {
 	JoinEvent     PDU
 }
 
+// nolint: gocyclo
 func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) {
 	if input.Verifier == nil {
 		panic("Missing valid JSONVerifier")
@@ -327,8 +319,14 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if input.MembershipQuerier == nil {
 		panic("Missing valid StateQuerier")
 	}
+	if input.UserIDQuerier == nil {
+		panic("Missing valid UserIDQuerier")
+	}
 	if input.Context == nil {
 		panic("Missing valid Context")
+	}
+	if input.StoreSenderIDFromPublicID == nil {
+		panic("Missing valid StoreSenderID")
 	}
 
 	verImpl, err := GetRoomVersion(input.RoomVersion)
@@ -345,26 +343,51 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the join event.")
 	}
-	if !event.StateKeyEquals(event.Sender()) {
+	if !event.StateKeyEquals(string(event.SenderID())) {
 		return nil, spec.BadJSON("Event state key must match the event sender.")
+	}
+
+	// validate the mxid_mapping of the event
+	if input.RoomVersion == RoomVersionPseudoIDs {
+		// validate the signature first
+		mapping, err := getMXIDMapping(event)
+		if err != nil {
+			return nil, spec.BadJSON(err.Error())
+		}
+		if err = validateMXIDMappingSignatures(input.Context, event, *mapping, input.Verifier, verImpl); err != nil {
+			return nil, spec.Forbidden(err.Error())
+		}
+
+		// store the user room public key -> userID mapping
+		if err = input.StoreSenderIDFromPublicID(input.Context, mapping.UserRoomKey, mapping.UserID, input.RoomID); err != nil {
+			return nil, err
+		}
 	}
 
 	// Check that the sender belongs to the server that is sending us
 	// the request. By this point we've already asserted that the sender
 	// and the state key are equal so we don't need to check both.
-	sender, err := spec.NewUserID(event.Sender(), true)
+	sender, err := input.UserIDQuerier(input.RoomID, event.SenderID())
 	if err != nil {
 		return nil, spec.Forbidden("The sender of the join is invalid")
 	} else if sender.Domain() != input.RequestOrigin {
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
 	}
 
+	// In pseudoID rooms we don't need to hit federation endpoints to get e.g. signing keys,
+	// so we can replace the verifier with a more simple one which uses the senderID to verify the event.
+	toVerify := sender.Domain()
+	if input.RoomVersion == RoomVersionPseudoIDs {
+		input.Verifier = JSONVerifierSelf{}
+		toVerify = spec.ServerName(event.SenderID())
+	}
+
 	// Check that the room ID is correct.
-	if event.RoomID() != input.RoomID.String() {
+	if event.RoomID().String() != input.RoomID.String() {
 		return nil, spec.BadJSON(
 			fmt.Sprintf(
 				"The room ID in the request path (%q) must match the room ID in the join event JSON (%q)",
-				input.RoomID.String(), event.RoomID(),
+				input.RoomID.String(), event.RoomID().String(),
 			),
 		)
 	}
@@ -394,11 +417,12 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 		util.GetLogger(input.Context).WithError(err).Error("RedactEventJSON failed")
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
+
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:             sender.Domain(),
-		Message:                redacted,
-		AtTS:                   event.OriginServerTS(),
-		StrictValidityChecking: true,
+		ServerName:           toVerify,
+		Message:              redacted,
+		AtTS:                 event.OriginServerTS(),
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}}
 	verifyResults, err := input.Verifier.VerifyJSONs(input.Context, verifyRequests)
 	if err != nil {
@@ -412,7 +436,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// Check if the user is already in the room. If they're already in then
 	// there isn't much point in sending another join event into the room.
 	// Also check to see if they are banned: if they are then we reject them.
-	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, *sender)
+	existingMembership, err := input.MembershipQuerier.CurrentMembership(input.Context, input.RoomID, event.SenderID())
 	if err != nil {
 		return nil, spec.InternalServerError{Err: "internal server error"}
 	}

@@ -18,8 +18,18 @@ type UserID struct {
 	domain string
 }
 
+// Creates a new UserID, returning an error if invalid
 func NewUserID(id string, allowHistoricalIDs bool) (*UserID, error) {
 	return parseAndValidateUserID(id, allowHistoricalIDs)
+}
+
+// Creates a new UserID, panicing if invalid
+func NewUserIDOrPanic(id string, allowHistoricalIDs bool) UserID {
+	userID, err := parseAndValidateUserID(id, allowHistoricalIDs)
+	if err != nil {
+		panic(fmt.Sprintf("NewUserIDOrPanic failed: invalid user ID %s: %s", id, err.Error()))
+	}
+	return *userID
 }
 
 // Returns the full userID string including leading sigil

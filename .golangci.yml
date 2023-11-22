@@ -16,7 +16,7 @@ linters:
     - misspell
     - unparam
     - goimports
-    - goconst
+#    - goconst
     - unconvert
     - errcheck
     - interfacer

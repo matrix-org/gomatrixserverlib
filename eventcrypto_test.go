@@ -373,13 +373,13 @@ func TestVerifyAllEventSignatures(t *testing.T) {
 		"origin_server_ts": 123456
 	}`)
 
-	event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
+	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(eventJSON, false)
 	if err != nil {
 		t.Error(err)
 	}
 
 	events := []PDU{event}
-	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
+	errors := VerifyAllEventSignatures(context.Background(), events, &verifier, UserIDForSenderTest)
 	for _, err := range errors {
 		if err != nil {
 			t.Fatal(err)
@@ -431,13 +431,13 @@ func TestVerifyAllEventSignaturesForInvite(t *testing.T) {
 		"origin_server_ts": 123456
 	}`)
 
-	event, err := newEventFromTrustedJSON(eventJSON, false, MustGetRoomVersion(RoomVersionV1))
+	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(eventJSON, false)
 	if err != nil {
 		t.Error(err)
 	}
 
 	events := []PDU{event}
-	errors := VerifyAllEventSignatures(context.Background(), events, &verifier)
+	errors := VerifyAllEventSignatures(context.Background(), events, &verifier, UserIDForSenderTest)
 	for _, err := range errors {
 		if err != nil {
 			t.Fatal(err)

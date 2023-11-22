@@ -3,10 +3,12 @@ package gomatrixserverlib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/stretchr/testify/assert"
 )
 
 var privateKeySeed1 = `QJvXAPj0D9MUb1exkD8pIWmCvT1xajlsB8jRYz/G5HE`
@@ -106,10 +108,10 @@ func TestVerifyJSONsSuccess(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -123,10 +125,10 @@ func TestVerifyJSONsFailureWithStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   22493142433964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 22493142433964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -150,13 +152,13 @@ func TestStrictCheckingKeyValidity(t *testing.T) {
 
 	// This test should pass because we are only looking
 	// 5 days in the future, which is less than 7 days.
-	if !publicKeyLookup.WasValidAt(shouldPass, true) {
+	if !publicKeyLookup.WasValidAt(shouldPass, StrictValiditySignatureCheck) {
 		t.Fatalf("valid test should have passed")
 	}
 
 	// This test should fail because we are looking 9 days
 	// in the future, which is more than 7 days.
-	if publicKeyLookup.WasValidAt(shouldFail, true) {
+	if publicKeyLookup.WasValidAt(shouldFail, StrictValiditySignatureCheck) {
 		t.Fatalf("invalid test should have failed")
 	}
 }
@@ -170,13 +172,13 @@ func TestExpiredTS(t *testing.T) {
 	shouldFail := spec.Timestamp(1000)
 
 	// This test should pass because it is less than ExpiredTS.
-	if !publicKeyLookup.WasValidAt(shouldPass, true) {
+	if !publicKeyLookup.WasValidAt(shouldPass, StrictValiditySignatureCheck) {
 		t.Fatalf("valid test should have passed")
 	}
 
 	// This test should fail because it is equal to or
 	// greater than ExpiredTS.
-	if publicKeyLookup.WasValidAt(shouldFail, true) {
+	if publicKeyLookup.WasValidAt(shouldFail, StrictValiditySignatureCheck) {
 		t.Fatalf("invalid test should have failed")
 	}
 }
@@ -185,10 +187,10 @@ func TestVerifyJSONsFailureWithoutStrictChecking(t *testing.T) {
 	// Check that trying to verify the server key JSON works.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142433964,
-		StrictValidityChecking: false,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142433964,
+		ValidityCheckingFunc: NoStrictValidityCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -202,10 +204,10 @@ func TestVerifyJSONsUnknownServerFails(t *testing.T) {
 	// Check that trying to verify JSON for an unknown server fails.
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "unknown:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "unknown:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -220,10 +222,10 @@ func TestVerifyJSONsDistantFutureFails(t *testing.T) {
 	distantFuture := spec.Timestamp(2000000000000)
 	k := KeyRing{nil, &testKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "unknown:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   distantFuture,
-		StrictValidityChecking: true,
+		ServerName:           "unknown:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 distantFuture,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -237,10 +239,10 @@ func TestVerifyJSONsFetcherError(t *testing.T) {
 	// Check that if the database errors then the attempt to verify JSON fails.
 	k := KeyRing{nil, &erroringKeyDatabase{}}
 	results, err := k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(testKeys),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(testKeys),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	if err != error(&testErrorFetch) || results != nil {
 		t.Fatalf("VerifyJSONs(): Wanted (nil, <some error>) got (%#v, %q)", results, err)
@@ -285,10 +287,10 @@ func TestRequestKeyAfterValidity(t *testing.T) {
 	}`
 	// Try verifying.
 	_, _ = k.VerifyJSONs(context.Background(), []VerifyJSONRequest{{
-		ServerName:             "localhost:8800",
-		Message:                []byte(message),
-		AtTS:                   1493142432964,
-		StrictValidityChecking: true,
+		ServerName:           "localhost:8800",
+		Message:              []byte(message),
+		AtTS:                 1493142432964,
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}})
 	// At this point, the TestRequestKeyDummy should have been triggered.
 	// If not, then the test failed.
@@ -352,4 +354,66 @@ func (e *erroringKeyDatabase) StoreKeys(
 	ctx context.Context, keys map[PublicKeyLookupRequest]PublicKeyLookupResult,
 ) error {
 	return &testErrorStore
+}
+
+func TestJSONVerifierSelf_VerifyJSONs(t *testing.T) {
+	tests := []struct {
+		name     string
+		requests []VerifyJSONRequest
+		want     []VerifyJSONResult
+	}{
+		{
+			name: "successfully verified",
+			requests: []VerifyJSONRequest{
+				{ServerName: "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk":{"ed25519:1":"cmXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{}},
+		},
+		{
+			name: "tempered event", // auth events are removed
+			requests: []VerifyJSONRequest{
+				{ServerName: "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", Message: []byte(`{"auth_events":[],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk":{"ed25519:1":"cmXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("Bad signature from %q with ID %q", "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", "ed25519:1")}},
+		},
+		{
+			name: "invalid signature", // changed one character for the signature
+			requests: []VerifyJSONRequest{
+				{ServerName: "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk":{"ed25519:1":"caXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("Bad signature from %q with ID %q", "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", "ed25519:1")}},
+		},
+		{
+			name: "missing signature", // search ed25519:1, only ed25519:2 exists
+			requests: []VerifyJSONRequest{
+				{ServerName: "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","signatures":{"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk":{"ed25519:2":"cmXVJmTqnxme1LYl5P5PP5EVtPLJxgGwXpXU2FOEw9FHtHz9WzrfRMRcrO45/55FrBl+g7kEMWEvr9hmOY/VBA"}},"state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("No signature from %q with ID %q", "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", "ed25519:1")}},
+		},
+		{
+			name: "no signatures at all", // signatures field removed
+			requests: []VerifyJSONRequest{
+				{ServerName: "nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk", Message: []byte(`{"auth_events":["$JO2AluDC5p0BXHN_2fUPa2Bup4zO0os74kkw9B5Zg8Q","$tjiFWWvrQ7p9lePYf7NgsH4167NnDV77dbaK5pFAUPM","$uhHChO86B5V9JoStcemXOXzyJQ4vCvzxDdcuF2sswBw"],"content":{"avatar_url":"","displayname":"anon-20230619_110507-7","membership":"join","mxid_mapping":{"signatures":{"localhost:8802":{"ed25519:CrqzCX":"aodhnvDkPTkU69e/AbHhltztMoLpeGfIYMNe+hvQkG54KNyN8MHlL0u5qVkYqTYOcoXrJzZ4dYydmWOi5/TRCw"}},"user_id":"@anon-20230619_110507-7:localhost:8802","user_room_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk"}},"depth":8,"hashes":{"sha256":"sXx8rtwS0n405SuPHUSpICiCYHr+/CCw9jJ3nuwnVqs"},"origin":"self","origin_server_ts":1687172711324,"prev_events":["$8zL0XKqRUOWB9kVQyCjKY7ANLuDtCjLglWd6CWW6XrM"],"prev_state":[],"room_id":"!X0Rr8baajYOjRVQ3:localhost:8800","sender":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","state_key":"nlJIYQHzMN0qNbkrX57e5i0CuUl1CfAdlkw5h1s+TDk","type":"m.room.member","unsigned":{}}`)},
+			},
+			want: []VerifyJSONResult{{Error: fmt.Errorf("No signatures")}},
+		},
+	}
+
+	ctx := context.Background()
+	for _, tt := range tests {
+		var err error
+		t.Run(tt.name, func(t *testing.T) {
+			v := JSONVerifierSelf{}
+			tt.requests[0].Message, err = MustGetRoomVersion(RoomVersionPseudoIDs).RedactEventJSON(tt.requests[0].Message)
+			if err != nil {
+				t.Fatal(err)
+				return
+			}
+
+			got, _ := v.VerifyJSONs(ctx, tt.requests)
+			for i := range tt.want {
+				assert.Equalf(t, tt.want[i], got[i], "VerifyJSONs(%v, %v)", ctx, tt.requests)
+			}
+		})
+	}
 }

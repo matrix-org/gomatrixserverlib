@@ -18,7 +18,7 @@ type TestMembershipQuerier struct {
 	membership     string
 }
 
-func (s *TestMembershipQuerier) CurrentMembership(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (string, error) {
+func (s *TestMembershipQuerier) CurrentMembership(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (string, error) {
 	if s.memberEventErr {
 		return "", fmt.Errorf("err")
 	}
@@ -59,14 +59,14 @@ func (r *TestRestrictedRoomJoinQuerier) CurrentStateEvent(ctx context.Context, r
 	return event, nil
 }
 
-func (r *TestRestrictedRoomJoinQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, userID spec.UserID) (bool, error) {
+func (r *TestRestrictedRoomJoinQuerier) InvitePending(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID) (bool, error) {
 	if r.invitePendingErr {
 		return false, fmt.Errorf("err")
 	}
 	return r.pendingInvite, nil
 }
 
-func (r *TestRestrictedRoomJoinQuerier) RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, userID spec.UserID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error) {
+func (r *TestRestrictedRoomJoinQuerier) RestrictedRoomJoinInfo(ctx context.Context, roomID spec.RoomID, senderID spec.SenderID, localServerName spec.ServerName) (*RestrictedRoomJoinInfo, error) {
 	if r.roomInfoErr {
 		return nil, fmt.Errorf("err")
 	}
@@ -115,7 +115,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomCreate,
 		StateKey:   &stateKey,
@@ -132,7 +132,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	joinRulesEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -149,7 +149,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	joinRulesPrivateEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -166,7 +166,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	joinRulesRestrictedEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -183,7 +183,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = ""
 	powerLevelsEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -200,7 +200,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = validUser.String()
 	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -217,7 +217,7 @@ func TestHandleMakeJoin(t *testing.T) {
 
 	stateKey = joinedUser.String()
 	joinedUserEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     joinedUser.String(),
+		SenderID:   joinedUser.String(),
 		RoomID:     allowedRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -255,6 +255,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestRestrictedRoomJoinQuerier{},
+				UserIDQuerier:      UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
@@ -270,6 +271,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				RequestOrigin:      "random.server",
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestRestrictedRoomJoinQuerier{},
+				UserIDQuerier:      UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
@@ -286,6 +288,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestRestrictedRoomJoinQuerier{serverInRoom: map[string]bool{validRoom.String(): true}},
+				UserIDQuerier:      UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 			},
 			expectedErr: true,
@@ -302,6 +305,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				RequestOrigin:      remoteServer,
 				LocalServerName:    localServer,
 				RoomQuerier:        &TestRestrictedRoomJoinQuerier{roomExists: true},
+				UserIDQuerier:      UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, []PDU{}, nil },
 			},
 			expectedErr: true,
@@ -319,6 +323,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				LocalServerName:   localServer,
 				LocalServerInRoom: true,
 				RoomQuerier:       &TestRestrictedRoomJoinQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesPrivateEvent}, nil
 				},
@@ -338,6 +343,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				LocalServerName:   localServer,
 				LocalServerInRoom: true,
 				RoomQuerier:       &TestRestrictedRoomJoinQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, nil, nil
 				},
@@ -356,6 +362,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				LocalServerName:   localServer,
 				LocalServerInRoom: true,
 				RoomQuerier:       &TestRestrictedRoomJoinQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return nil, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -374,6 +381,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				LocalServerName:   localServer,
 				LocalServerInRoom: true,
 				RoomQuerier:       &TestRestrictedRoomJoinQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return createEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -392,6 +400,7 @@ func TestHandleMakeJoin(t *testing.T) {
 				LocalServerName:   localServer,
 				LocalServerInRoom: true,
 				RoomQuerier:       &TestRestrictedRoomJoinQuerier{roomExists: true, serverInRoom: map[string]bool{validRoom.String(): true}},
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -413,6 +422,7 @@ func TestHandleMakeJoin(t *testing.T) {
 					serverInRoom:   map[string]bool{validRoom.String(): true},
 					joinRulesEvent: joinRulesEvent,
 				},
+				UserIDQuerier: UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -435,6 +445,7 @@ func TestHandleMakeJoin(t *testing.T) {
 					pendingInvite:  true,
 					joinRulesEvent: joinRulesRestrictedEvent,
 				},
+				UserIDQuerier: UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -460,6 +471,7 @@ func TestHandleMakeJoin(t *testing.T) {
 					joinRulesEvent:   joinRulesRestrictedEvent,
 					powerLevelsEvent: powerLevelsEvent,
 				},
+				UserIDQuerier: UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -484,6 +496,7 @@ func TestHandleMakeJoin(t *testing.T) {
 					joinRulesEvent:   joinRulesRestrictedEvent,
 					powerLevelsEvent: powerLevelsEvent,
 				},
+				UserIDQuerier: UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -510,6 +523,7 @@ func TestHandleMakeJoin(t *testing.T) {
 					joinRulesEvent:   joinRulesRestrictedEvent,
 					powerLevelsEvent: powerLevelsEvent,
 				},
+				UserIDQuerier: UserIDForSenderTest,
 				BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -546,7 +560,7 @@ func TestHandleMakeJoin(t *testing.T) {
 	}
 }
 
-func TestHandleMakeJoinNilQuerier(t *testing.T) {
+func TestHandleMakeJoinNilRoomQuerier(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validUser, err := spec.NewUserID("@user:remote", true)
@@ -564,6 +578,31 @@ func TestHandleMakeJoinNilQuerier(t *testing.T) {
 			RequestOrigin:      remoteServer,
 			LocalServerName:    localServer,
 			RoomQuerier:        nil,
+			UserIDQuerier:      UserIDForSenderTest,
+			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
+		})
+	})
+}
+
+func TestHandleMakeJoinNilUserIDQuerier(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validUser, err := spec.NewUserID("@user:remote", true)
+	assert.Nil(t, err)
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	assert.Panics(t, func() {
+		_, _ = HandleMakeJoin(HandleMakeJoinInput{
+			Context:            context.Background(),
+			UserID:             *validUser,
+			RoomID:             *validRoom,
+			RoomVersion:        RoomVersionV10,
+			RemoteVersions:     []RoomVersion{RoomVersionV10},
+			RequestOrigin:      remoteServer,
+			LocalServerName:    localServer,
+			RoomQuerier:        &TestRestrictedRoomJoinQuerier{},
+			UserIDQuerier:      nil,
 			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 		})
 	})
@@ -587,14 +626,15 @@ func TestHandleMakeJoinNilContext(t *testing.T) {
 			RequestOrigin:      remoteServer,
 			LocalServerName:    localServer,
 			RoomQuerier:        &TestRestrictedRoomJoinQuerier{},
+			UserIDQuerier:      UserIDForSenderTest,
 			BuildEventTemplate: func(*ProtoEvent) (PDU, []PDU, error) { return nil, nil, nil },
 		})
 	})
 }
 
-func createMemberEventBuilder(sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
-	return MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     sender,
+func createMemberEventBuilder(roomVersion RoomVersion, sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
+	return MustGetRoomVersion(roomVersion).NewEventBuilderFromProtoEvent(&ProtoEvent{
+		SenderID:   sender,
 		RoomID:     roomID,
 		Type:       "m.room.member",
 		StateKey:   stateKey,
@@ -626,33 +666,48 @@ func TestHandleSendJoin(t *testing.T) {
 	badVerifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: badPK}}
 
 	stateKey := userID.String()
-	eb := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	eb := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	joinEvent, err := eb.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	ebNotJoin := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"ban"}`))
+	// create a pseudoID join event
+	_, userPriv, err := ed25519.GenerateKey(rand.Reader)
+	assert.Nil(t, err)
+	pseudoID := spec.SenderIDFromPseudoIDKey(userPriv)
+	stateKey = string(pseudoID)
+	mapping := MXIDMapping{UserID: userID.String(), UserRoomKey: pseudoID}
+	err = mapping.Sign(remoteServer, keyID, sk)
+	assert.Nil(t, err)
+	content := MemberContent{Membership: spec.Join, MXIDMapping: &mapping}
+	contentBytes, err := json.Marshal(content)
+	assert.Nil(t, err)
+	eb = createMemberEventBuilder(RoomVersionPseudoIDs, stateKey, validRoom.String(), &stateKey, contentBytes)
+	joinEventPseudoID, err := eb.Build(time.Now(), spec.ServerName(pseudoID), "ed25519:1", userPriv)
+	assert.Nil(t, err)
+
+	ebNotJoin := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"ban"}`))
 	notJoinEvent, err := ebNotJoin.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	eb2 := createMemberEventBuilder("@asdf:asdf", validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	eb2 := createMemberEventBuilder(RoomVersionV10, "@asdf:asdf", validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	joinEventInvalidSender, err := eb2.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
 	stateKey = ""
-	eb3 := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
+	eb3 := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join"}`))
 	joinEventNoState, err := eb3.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
 	stateKey = userID.String()
-	badAuthViaEB := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"baduser"}`))
+	badAuthViaEB := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"baduser"}`))
 	badAuthViaEvent, err := badAuthViaEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	authViaNotLocalEB := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:notlocalserver"}`))
+	authViaNotLocalEB := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:notlocalserver"}`))
 	authViaNotLocalEvent, err := authViaNotLocalEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
-	authViaEB := createMemberEventBuilder(userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:local"}`))
+	authViaEB := createMemberEventBuilder(RoomVersionV10, userID.String(), validRoom.String(), &stateKey, spec.RawJSON(`{"membership":"join","join_authorised_via_users_server":"@user:local"}`))
 	authViaEvent, err := authViaEB.Build(time.Now(), userID.Domain(), keyID, sk)
 	assert.Nil(t, err)
 
@@ -678,6 +733,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -696,6 +752,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -714,6 +771,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -732,6 +790,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -750,6 +809,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     "bad_origin",
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -768,6 +828,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -786,6 +847,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -804,6 +866,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -822,6 +885,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          badVerifier,
@@ -840,6 +904,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{memberEventErr: true},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -857,6 +922,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{membership: spec.Ban},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -875,6 +941,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -893,6 +960,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -911,6 +979,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{membership: spec.Join},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -927,6 +996,7 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
@@ -943,9 +1013,29 @@ func TestHandleSendJoin(t *testing.T) {
 				RequestOrigin:     remoteServer,
 				LocalServerName:   localServer,
 				MembershipQuerier: &TestMembershipQuerier{},
+				UserIDQuerier:     UserIDForSenderTest,
 				KeyID:             keyID,
 				PrivateKey:        sk,
 				Verifier:          verifier,
+			},
+			expectedErr: false,
+		},
+		"pseudo_id_success": {
+			input: HandleSendJoinInput{
+				Context:           context.Background(),
+				RoomID:            *validRoom,
+				EventID:           joinEventPseudoID.EventID(),
+				JoinEvent:         joinEventPseudoID.JSON(),
+				RoomVersion:       RoomVersionPseudoIDs,
+				RequestOrigin:     remoteServer,
+				LocalServerName:   localServer,
+				MembershipQuerier: &TestMembershipQuerier{membership: "join"},
+				UserIDQuerier: func(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+					return userID, nil
+				},
+				KeyID:      keyID,
+				PrivateKey: sk,
+				Verifier:   verifier,
 			},
 			expectedErr: false,
 		},
@@ -953,6 +1043,11 @@ func TestHandleSendJoin(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			if tc.input.StoreSenderIDFromPublicID == nil {
+				tc.input.StoreSenderIDFromPublicID = func(ctx context.Context, senderID spec.SenderID, userID string, id spec.RoomID) error {
+					return nil
+				}
+			}
 			_, joinErr := HandleSendJoin(tc.input)
 			if tc.expectedErr {
 				switch e := joinErr.(type) {
@@ -996,6 +1091,7 @@ func TestHandleSendJoinNilVerifier(t *testing.T) {
 			RequestOrigin:     remoteServer,
 			LocalServerName:   localServer,
 			MembershipQuerier: &TestMembershipQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 			KeyID:             keyID,
 			PrivateKey:        sk,
 			Verifier:          nil,
@@ -1003,7 +1099,7 @@ func TestHandleSendJoinNilVerifier(t *testing.T) {
 	})
 }
 
-func TestHandleSendJoinNilQuerier(t *testing.T) {
+func TestHandleSendJoinNilMembershipQuerier(t *testing.T) {
 	remoteServer := spec.ServerName("remote")
 	localServer := spec.ServerName("local")
 	validRoom, err := spec.NewRoomID("!room:remote")
@@ -1025,6 +1121,37 @@ func TestHandleSendJoinNilQuerier(t *testing.T) {
 			RequestOrigin:     remoteServer,
 			LocalServerName:   localServer,
 			MembershipQuerier: nil,
+			UserIDQuerier:     UserIDForSenderTest,
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+		})
+	})
+}
+
+func TestHandleSendJoinNilUserIDQuerier(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:           context.Background(),
+			RoomID:            *validRoom,
+			EventID:           "#event",
+			RoomVersion:       RoomVersionV10,
+			RequestOrigin:     remoteServer,
+			LocalServerName:   localServer,
+			MembershipQuerier: &TestMembershipQuerier{},
+			UserIDQuerier:     nil,
 			KeyID:             keyID,
 			PrivateKey:        sk,
 			Verifier:          verifier,
@@ -1054,6 +1181,37 @@ func TestHandleSendJoinNilContext(t *testing.T) {
 			RequestOrigin:     remoteServer,
 			LocalServerName:   localServer,
 			MembershipQuerier: &TestMembershipQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
+			KeyID:             keyID,
+			PrivateKey:        sk,
+			Verifier:          verifier,
+		})
+	})
+}
+
+func TestHandleSendJoinNilStoreSenderIDFromPublicID(t *testing.T) {
+	remoteServer := spec.ServerName("remote")
+	localServer := spec.ServerName("local")
+	validRoom, err := spec.NewRoomID("!room:remote")
+	assert.Nil(t, err)
+
+	pk, sk, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key: %v", err)
+	}
+	keyID := KeyID("ed25519:1234")
+	verifier := &KeyRing{[]KeyFetcher{&TestRequestKeyDummy{}}, &joinKeyDatabase{key: pk}}
+
+	assert.Panics(t, func() {
+		_, _ = HandleSendJoin(HandleSendJoinInput{
+			Context:           context.Background(),
+			RoomID:            *validRoom,
+			EventID:           "#event",
+			RoomVersion:       RoomVersionV10,
+			RequestOrigin:     remoteServer,
+			LocalServerName:   localServer,
+			MembershipQuerier: &TestMembershipQuerier{},
+			UserIDQuerier:     UserIDForSenderTest,
 			KeyID:             keyID,
 			PrivateKey:        sk,
 			Verifier:          verifier,

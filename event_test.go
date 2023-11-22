@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matrix-org/gomatrixserverlib/spec"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -44,7 +45,7 @@ func mustLoadPrivateKey(seed string) ed25519.PrivateKey {
 func benchmarkParse(b *testing.B, eventJSON string) {
 	// run the Unparse function b.N times
 	for n := 0; n < b.N; n++ {
-		if _, err := newEventFromUntrustedJSON([]byte(eventJSON), MustGetRoomVersion(RoomVersionV1)); err != nil {
+		if _, err := newEventFromUntrustedJSONV1([]byte(eventJSON), MustGetRoomVersion(RoomVersionV1)); err != nil {
 			b.Error("Failed to parse event")
 		}
 	}
@@ -74,7 +75,7 @@ func TestAddUnsignedField(t *testing.T) {
 	initialEventJSON := `{"auth_events":[["$oXL79cT7fFxR7dPH:localhost",{"sha256":"abjkiDSg1RkuZrbj2jZoGMlQaaj1Ue3Jhi7I7NlKfXY"}],["$IVUsaSkm1LBAZYYh:localhost",{"sha256":"X7RUj46hM/8sUHNBIFkStbOauPvbDzjSdH4NibYWnko"}],["$VS2QT0EeArZYi8wf:localhost",{"sha256":"k9eM6utkCH8vhLW9/oRsH74jOBS/6RVK42iGDFbylno"}]],"content":{"name":"test3"},"depth":7,"event_id":"$yvN1b43rlmcOs5fY:localhost","hashes":{"sha256":"Oh1mwI1jEqZ3tgJ+V1Dmu5nOEGpCE4RFUqyJv2gQXKs"},"origin":"localhost","origin_server_ts":1510854416361,"prev_events":[["$FqI6TVvWpcbcnJ97:localhost",{"sha256":"upCsBqUhNUgT2/+zkzg8TbqdQpWWKQnZpGJc6KcbUC4"}]],"prev_state":[],"room_id":"!19Mp0U9hjajeIiw1:localhost","sender":"@test:localhost","signatures":{"localhost":{"ed25519:u9kP":"5IzSuRXkxvbTp0vZhhXYZeOe+619iG3AybJXr7zfNn/4vHz4TH7qSJVQXSaHHvcTcDodAKHnTG1WDulgO5okAQ"}},"state_key":"","type":"m.room.name"}`
 	expectedEventJSON := `{"auth_events":[["$oXL79cT7fFxR7dPH:localhost",{"sha256":"abjkiDSg1RkuZrbj2jZoGMlQaaj1Ue3Jhi7I7NlKfXY"}],["$IVUsaSkm1LBAZYYh:localhost",{"sha256":"X7RUj46hM/8sUHNBIFkStbOauPvbDzjSdH4NibYWnko"}],["$VS2QT0EeArZYi8wf:localhost",{"sha256":"k9eM6utkCH8vhLW9/oRsH74jOBS/6RVK42iGDFbylno"}]],"content":{"name":"test3"},"depth":7,"event_id":"$yvN1b43rlmcOs5fY:localhost","hashes":{"sha256":"Oh1mwI1jEqZ3tgJ+V1Dmu5nOEGpCE4RFUqyJv2gQXKs"},"origin":"localhost","origin_server_ts":1510854416361,"prev_events":[["$FqI6TVvWpcbcnJ97:localhost",{"sha256":"upCsBqUhNUgT2/+zkzg8TbqdQpWWKQnZpGJc6KcbUC4"}]],"prev_state":[],"room_id":"!19Mp0U9hjajeIiw1:localhost","sender":"@test:localhost","signatures":{"localhost":{"ed25519:u9kP":"5IzSuRXkxvbTp0vZhhXYZeOe+619iG3AybJXr7zfNn/4vHz4TH7qSJVQXSaHHvcTcDodAKHnTG1WDulgO5okAQ"}},"state_key":"","type":"m.room.name","unsigned":{"foo":"bar","x":1}}`
 
-	event, err := newEventFromTrustedJSON([]byte(initialEventJSON), false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1([]byte(initialEventJSON), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Error(err)
 	}
@@ -98,7 +99,7 @@ func TestAddUnsignedField(t *testing.T) {
 func TestRedact(t *testing.T) {
 	// v1 event
 	nameEvent := ` {"auth_events":[["$oXL79cT7fFxR7dPH:localhost",{"sha256":"abjkiDSg1RkuZrbj2jZoGMlQaaj1Ue3Jhi7I7NlKfXY"}],["$IVUsaSkm1LBAZYYh:localhost",{"sha256":"X7RUj46hM/8sUHNBIFkStbOauPvbDzjSdH4NibYWnko"}],["$VS2QT0EeArZYi8wf:localhost",{"sha256":"k9eM6utkCH8vhLW9/oRsH74jOBS/6RVK42iGDFbylno"}]],"content":{"name":"test3"},"depth":7,"event_id":"$yvN1b43rlmcOs5fY:localhost","hashes":{"sha256":"Oh1mwI1jEqZ3tgJ+V1Dmu5nOEGpCE4RFUqyJv2gQXKs"},"origin":"localhost","origin_server_ts":1510854416361,"prev_events":[["$FqI6TVvWpcbcnJ97:localhost",{"sha256":"upCsBqUhNUgT2/+zkzg8TbqdQpWWKQnZpGJc6KcbUC4"}]],"prev_state":[],"room_id":"!19Mp0U9hjajeIiw1:localhost","sender":"@test:localhost","signatures":{"localhost":{"ed25519:u9kP":"5IzSuRXkxvbTp0vZhhXYZeOe+619iG3AybJXr7zfNn/4vHz4TH7qSJVQXSaHHvcTcDodAKHnTG1WDulgO5okAQ"}},"state_key":"","type":"m.room.name"}`
-	event, err := newEventFromTrustedJSON([]byte(nameEvent), false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1([]byte(nameEvent), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestRedact(t *testing.T) {
 
 	// v5 event
 	nameEvent = `{"auth_events":["$x4MKEPRSF6OGlo0qpnsP3BfSmYX5HhVlykOsQH3ECyg","$BcEcbZnlFLB5rxSNSZNBn6fO3jU_TKAJ79wfKyCQLiU"],"content":{"name":"test123"},"depth":2,"hashes":{"sha256":"5S025c0BhumelvCXMXWlislPnDYJn18mm9XMClL1OZ8"},"origin":"localhost","origin_server_ts":0,"prev_events":["$BcEcbZnlFLB5rxSNSZNBn6fO3jU_TKAJ79wfKyCQLiU"],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"VHCB/tai3S2nBpvYWnOlJfjt2KcxsgBJ1W6xDYUMOxGehDOd+lI2wy5ZBZydy1xFdIBzuERn9t9aiFThIHHcCA"}},"state_key":"","type":"m.room.name"}`
-	event, err = newEventFromTrustedJSON([]byte(nameEvent), false, MustGetRoomVersion(RoomVersionV5))
+	event, err = newEventFromTrustedJSONV2([]byte(nameEvent), false, MustGetRoomVersion(RoomVersionV5))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +122,7 @@ func TestRedact(t *testing.T) {
 
 func TestEventMembership(t *testing.T) {
 	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}]],"content":{"membership":"join"},"depth":1,"event_id":"$9fmIxbx4IX8w1JVo:localhost","hashes":{"sha256":"mXgoJxvMyI8ZTdhUMYwWzi0F3M50tiAQkmk0F08tQl4"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"ndobFGFV9i2XExPHfYVI4rd10Vw6GKtmdz2Wv0WSFohtm/FqFNUnDYVTsY/qZ1vkuEjHqgb5nscKD/i7TyURBw"}},"state_key":"@userid:localhost","type":"m.room.member"}`
-	event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestEventMembership(t *testing.T) {
 
 func TestEventJoinRule(t *testing.T) {
 	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"join_rule":"public"},"depth":2,"event_id":"$5hL9YWgJCtDzjlAQ:localhost","hashes":{"sha256":"CetHe0Na5HKphg5iYmLThfwQyM19w3PMCrve3Bwv8rw"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"dxwQWiH6ppF+VVFQ8IEAWeB30hrYiZWLsWNTrE1B0/vUWMp+qLhU+My65XhmE5XreHvgY3fOh4Le6OYUcxNTAw"}},"state_key":"","type":"m.room.join_rules"}`
-	event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +154,7 @@ func TestEventJoinRule(t *testing.T) {
 
 func TestEventHistoryVisibility(t *testing.T) {
 	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"history_visibility":"shared"},"depth":3,"event_id":"$QAhQsLNIMdumtpOi:localhost","hashes":{"sha256":"tssm21TZjY36w9ND9h50h5zL0vqJgz5U432l45WWGaI"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$5hL9YWgJCtDzjlAQ:localhost",{"sha256":"UztZf0/CBZ8UoCHuYdrxlfyUZ5nf5h8aKZkg5GVhWI0"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"FwBwMZnGjkZFt8aiWQODSmLmy1cxVZGOFkeu3JEUVEI5r4/2BMcwdYw6+am7ov4VfDRJ/ehp9wv3Bo93XLEJCQ"}},"state_key":"","type":"m.room.history_visibility"}`
-	event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,8 +169,8 @@ func TestEventHistoryVisibility(t *testing.T) {
 }
 
 func TestEventPowerLevels(t *testing.T) {
-	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"ban":50,"events":null,"events_default":0,"invite":50,"kick":50,"redact":50,"state_default":50,"users":null,"users_default":0,"notifications":{"room":50}},"depth":4,"event_id":"$1570trwyGMovM5uU:localhost","hashes":{"sha256":"QvWo2OZufVTMUkPcYQinGVeeHEODWY6RUMaHRxdT31Y"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$QAhQsLNIMdumtpOi:localhost",{"sha256":"RqoKwu8u8qL+wDoka23xvd7t9UoOXLRQse/bK3o9qLE"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"0oPZsvPkbNNVwRrLAP+fEyxFRAIUh0Zn7NPH3LybNC8lMz0GyPtN1bKlTVQYMwZBTXCV795s+CEgoIX+M5gkAQ"}},"state_key":"","type":"m.room.power_levels"}`
-	event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
+	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"ban":50,"events":null,"events_default":0,"invite":0,"kick":50,"redact":50,"state_default":50,"users":null,"users_default":0,"notifications":{"room":50}},"depth":4,"event_id":"$1570trwyGMovM5uU:localhost","hashes":{"sha256":"QvWo2OZufVTMUkPcYQinGVeeHEODWY6RUMaHRxdT31Y"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$QAhQsLNIMdumtpOi:localhost",{"sha256":"RqoKwu8u8qL+wDoka23xvd7t9UoOXLRQse/bK3o9qLE"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"0oPZsvPkbNNVwRrLAP+fEyxFRAIUh0Zn7NPH3LybNC8lMz0GyPtN1bKlTVQYMwZBTXCV795s+CEgoIX+M5gkAQ"}},"state_key":"","type":"m.room.power_levels"}`
+	event, err := newEventFromTrustedJSONV1([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +187,7 @@ func TestEventPowerLevels(t *testing.T) {
 
 func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	eventJSON := `{"auth_events":[["$BqcTUuCsN3g6Rj1z:localhost",{"sha256":"QHTrdwE/XVTmAWlxFwHPW7fp3JioRu6OBBRs+FI/at8"}],["$9fmIxbx4IX8w1JVo:localhost",{"sha256":"gee+f1VoNeYGGczs5lwnUO1qeKAh70Hw23ws+YfDYGY"}]],"content":{"ban":50,"events":null,"events_default":0,"invite":0,"kick":50,"redact":50,"state_default":50,"users":null,"users_default":0},"depth":4,"event_id":"$1570trwyGMovM5uU:localhost","hashes":{"sha256":"QvWo2OZufVTMUkPcYQinGVeeHEODWY6RUMaHRxdT31Y"},"origin":"localhost","origin_server_ts":0,"prev_events":[["$QAhQsLNIMdumtpOi:localhost",{"sha256":"RqoKwu8u8qL+wDoka23xvd7t9UoOXLRQse/bK3o9qLE"}]],"prev_state":[],"room_id":"!roomid:localhost","sender":"@userid:localhost","signatures":{"localhost":{"ed25519:auto":"0oPZsvPkbNNVwRrLAP+fEyxFRAIUh0Zn7NPH3LybNC8lMz0GyPtN1bKlTVQYMwZBTXCV795s+CEgoIX+M5gkAQ"}},"state_key":"","type":"m.room.power_levels"}`
-	event, err := newEventFromTrustedJSON([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
+	event, err := newEventFromTrustedJSONV1([]byte(eventJSON), false, MustGetRoomVersion(RoomVersionV1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +195,7 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = newEventFromUntrustedJSON(j, MustGetRoomVersion(RoomVersionV1))
+	_, err = newEventFromUntrustedJSONV1(j, MustGetRoomVersion(RoomVersionV1))
 	if err == nil {
 		t.Fatal("expected an error but got none:")
 	}
@@ -203,7 +204,7 @@ func TestHeaderedEventToNewEventFromUntrustedJSON(t *testing.T) {
 func TestEventBuilderBuildsEvent(t *testing.T) {
 	sender := "@sender:id"
 	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
+		SenderID: sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.member",
 		StateKey: &sender,
@@ -219,7 +220,7 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
+	expectedEvent := eventV2{eventV1: eventV1{redacted: false, roomVersion: RoomVersionV10}}
 	if eventStruct.Redacted() != expectedEvent.redacted {
 		t.Fatal("Event Redacted state doesn't match")
 	}
@@ -229,7 +230,7 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 	if eventStruct.Type() != "m.room.member" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if eventStruct.Sender() != sender {
+	if eventStruct.SenderID() != spec.SenderID(sender) {
 		t.Fatal("Event Sender doesn't match")
 	}
 	if *eventStruct.StateKey() != sender {
@@ -240,14 +241,14 @@ func TestEventBuilderBuildsEvent(t *testing.T) {
 func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	sender := "@sender:id"
 	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
+		SenderID: sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.create",
 		StateKey: &sender,
 	})
 
 	provider := &authProvider{valid: true}
-	content, err := NewCreateContentFromAuthEvents(provider)
+	content, err := NewCreateContentFromAuthEvents(provider, UserIDForSenderTest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +266,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedEvent := event{redacted: false, roomVersion: RoomVersionV10}
+	expectedEvent := eventV2{eventV1: eventV1{redacted: false, roomVersion: RoomVersionV10}}
 	if eventStruct.Redacted() != expectedEvent.redacted {
 		t.Fatal("Event Redacted state doesn't match")
 	}
@@ -275,7 +276,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 	if eventStruct.Type() != "m.room.create" {
 		t.Fatal("Event Type doesn't match")
 	}
-	if eventStruct.Sender() != sender {
+	if eventStruct.SenderID() != spec.SenderID(sender) {
 		t.Fatal("Event Sender doesn't match")
 	}
 	if *eventStruct.StateKey() != sender {
@@ -286,7 +287,7 @@ func TestEventBuilderBuildsEventWithAuth(t *testing.T) {
 func TestEventBuilderBuildsEventWithAuthError(t *testing.T) {
 	sender := "@sender3:id"
 	builder := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:   sender,
+		SenderID: sender,
 		RoomID:   "!room:id",
 		Type:     "m.room.member",
 		StateKey: &sender,
@@ -340,7 +341,7 @@ func (a *authProvider) Create() (PDU, error) {
         "state_key":"",
         "type":"m.room.create"
     }`
-	event, _ := newEventFromTrustedJSON([]byte(validEventJSON), false, MustGetRoomVersion(RoomVersionV10))
+	event, _ := newEventFromTrustedJSONV2([]byte(validEventJSON), false, MustGetRoomVersion(RoomVersionV10))
 
 	var err error
 	if a.fail {
@@ -350,17 +351,17 @@ func (a *authProvider) Create() (PDU, error) {
 }
 
 func (a *authProvider) PowerLevels() (PDU, error) {
-	return &event{}, nil
+	return &eventV2{}, nil
 }
 
 func (a *authProvider) JoinRules() (PDU, error) {
-	return &event{}, nil
+	return &eventV2{}, nil
 }
 
-func (a *authProvider) Member(stateKey string) (PDU, error) {
-	return &event{}, nil
+func (a *authProvider) Member(stateKey spec.SenderID) (PDU, error) {
+	return &eventV2{}, nil
 }
 
 func (a *authProvider) ThirdPartyInvite(stateKey string) (PDU, error) {
-	return &event{}, nil
+	return &eventV2{}, nil
 }

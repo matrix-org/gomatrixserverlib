@@ -27,7 +27,7 @@ type PDU interface {
 	Membership() (string, error)
 	PowerLevels() (*PowerLevelContent, error)
 	Version() RoomVersion
-	RoomID() string
+	RoomID() spec.RoomID
 	Redacts() string
 	// Redacted returns whether the event is redacted.
 	Redacted() bool
@@ -35,7 +35,7 @@ type PDU interface {
 	OriginServerTS() spec.Timestamp
 	// Redact redacts the event.
 	Redact()
-	Sender() string
+	SenderID() spec.SenderID
 	Unsigned() []byte
 	// SetUnsigned sets the unsigned key of the event.
 	// Returns a copy of the event with the "unsigned" key set.

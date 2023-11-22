@@ -22,7 +22,10 @@ type PerformJoinInput struct {
 	KeyID      KeyID              // Used to sign the join event
 	KeyRing    *KeyRing           // Used to verify the response from send_join
 
-	EventProvider EventProvider // Provides full events given a list of event IDs
+	EventProvider             EventProvider                  // Provides full events given a list of event IDs
+	UserIDQuerier             spec.UserIDForSender           // Provides userID for a given senderID
+	GetOrCreateSenderID       spec.CreateSenderID            // Creates, if needed, new senderID for this room.
+	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
 }
 
 type PerformJoinResponse struct {
@@ -86,11 +89,8 @@ func PerformJoin(
 
 	// Set all the fields to be what they should be, this should be a no-op
 	// but it's possible that the remote server returned us something "odd"
-	stateKey := input.UserID.String()
 	joinEvent := respMakeJoin.GetJoinEvent()
 	joinEvent.Type = spec.MRoomMember
-	joinEvent.Sender = input.UserID.String()
-	joinEvent.StateKey = &stateKey
 	joinEvent.RoomID = input.RoomID.String()
 	joinEvent.Redacts = ""
 
@@ -112,10 +112,53 @@ func PerformJoin(
 		}
 	}
 
-	joinEB := verImpl.NewEventBuilderFromProtoEvent(&joinEvent)
 	if input.Content == nil {
 		input.Content = map[string]interface{}{}
 	}
+
+	var senderID spec.SenderID
+	signingKey := input.PrivateKey
+	keyID := input.KeyID
+	origOrigin := origin
+	switch respMakeJoin.GetRoomVersion() {
+	case RoomVersionPseudoIDs:
+		// we successfully did a make_join, create a senderID for this user now
+		senderID, signingKey, err = input.GetOrCreateSenderID(ctx, *input.UserID, *input.RoomID, string(respMakeJoin.GetRoomVersion()))
+		if err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("Cannot create user room key"),
+			}
+		}
+		keyID = "ed25519:1"
+		origin = spec.ServerName(senderID)
+
+		mapping := MXIDMapping{
+			UserRoomKey: senderID,
+			UserID:      input.UserID.String(),
+		}
+		if err = mapping.Sign(origOrigin, input.KeyID, input.PrivateKey); err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("cannot sign mxid_mapping: %w", err),
+			}
+		}
+
+		input.Content["mxid_mapping"] = mapping
+	default:
+		senderID = spec.SenderID(input.UserID.String())
+	}
+
+	stateKey := string(senderID)
+	joinEvent.SenderID = string(senderID)
+	joinEvent.StateKey = &stateKey
+
+	joinEB := verImpl.NewEventBuilderFromProtoEvent(&joinEvent)
+
 	_ = json.Unmarshal(joinEvent.Content, &input.Content)
 	input.Content["membership"] = spec.Join
 	if err = joinEB.SetContent(input.Content); err != nil {
@@ -140,8 +183,8 @@ func PerformJoin(
 	event, err = joinEB.Build(
 		time.Now(),
 		origin,
-		input.KeyID,
-		input.PrivateKey,
+		keyID,
+		signingKey,
 	)
 	if err != nil {
 		return nil, &FederationError{
@@ -156,7 +199,7 @@ func PerformJoin(
 	// Try to perform a send_join using the newly built event.
 	respSendJoin, err := fedClient.SendJoin(
 		context.Background(),
-		origin,
+		origOrigin,
 		input.ServerName,
 		event,
 	)
@@ -176,7 +219,7 @@ func PerformJoin(
 		var remoteEvent PDU
 		remoteEvent, err = verImpl.NewEventFromUntrustedJSON(respSendJoin.GetJoinEvent())
 		if err == nil && isWellFormedJoinMemberEvent(
-			remoteEvent, input.RoomID, input.UserID,
+			remoteEvent, input.RoomID, senderID,
 		) {
 			event = remoteEvent
 		}
@@ -194,6 +237,22 @@ func PerformJoin(
 		}
 	}
 
+	// get the membership events of all users, so we can store the mxid_mappings
+	// TODO: better way?
+	if roomVersion == RoomVersionPseudoIDs {
+		stateEvents := respSendJoin.GetStateEvents().UntrustedEvents(roomVersion)
+		events := append(authEvents, stateEvents...)
+		err = storeMXIDMappings(ctx, events, *input.RoomID, input.KeyRing, input.StoreSenderIDFromPublicID)
+		if err != nil {
+			return nil, &FederationError{
+				ServerName: input.ServerName,
+				Transient:  false,
+				Reachable:  true,
+				Err:        fmt.Errorf("unable to store mxid_mapping: %w", err),
+			}
+		}
+	}
+
 	// Process the send_join response. The idea here is that we'll try and wait
 	// for as long as possible for the work to complete by using a background
 	// context instead of the provided ctx. If the client does give up waiting,
@@ -206,6 +265,7 @@ func PerformJoin(
 		input.KeyRing,
 		event,
 		input.EventProvider,
+		input.UserIDQuerier,
 	)
 	if err != nil {
 		return nil, &FederationError{
@@ -231,6 +291,34 @@ func PerformJoin(
 		JoinEvent:     event,
 		StateSnapshot: respState,
 	}, nil
+}
+
+func storeMXIDMappings(
+	ctx context.Context,
+	events []PDU,
+	roomID spec.RoomID,
+	keyRing JSONVerifier,
+	storeSenderID spec.StoreSenderIDFromPublicID,
+) error {
+	for _, ev := range events {
+		if ev.Type() != spec.MRoomMember {
+			continue
+		}
+		mapping, err := getMXIDMapping(ev)
+		if err != nil {
+			return err
+		}
+		// we already validated it is a valid roomversion, so this should be safe to use.
+		verImpl := MustGetRoomVersion(ev.Version())
+		if err := validateMXIDMappingSignatures(ctx, ev, *mapping, keyRing, verImpl); err != nil {
+			logrus.WithError(err).Error("invalid signature for mxid_mapping")
+			continue
+		}
+		if err := storeSenderID(ctx, ev.SenderID(), mapping.UserID, roomID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func setDefaultRoomVersionFromJoinEvent(
@@ -259,16 +347,16 @@ func setDefaultRoomVersionFromJoinEvent(
 
 // isWellFormedJoinMemberEvent returns true if the event looks like a legitimate
 // membership event.
-func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, userID *spec.UserID) bool { // nolint: interfacer
+func isWellFormedJoinMemberEvent(event PDU, roomID *spec.RoomID, senderID spec.SenderID) bool { // nolint: interfacer
 	if membership, err := event.Membership(); err != nil {
 		return false
 	} else if membership != spec.Join {
 		return false
 	}
-	if event.RoomID() != roomID.String() {
+	if event.RoomID().String() != roomID.String() {
 		return false
 	}
-	if !event.StateKeyEquals(userID.String()) {
+	if !event.StateKeyEquals(string(senderID)) {
 		return false
 	}
 	return true

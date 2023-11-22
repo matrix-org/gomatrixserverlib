@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
 // EventLoadResult is the result of loading and verifying an event in the EventsLoader.
@@ -43,7 +45,7 @@ func NewEventsLoader(roomVer RoomVersion, keyRing JSONVerifier, stateProvider St
 // The order of the returned events depends on `sortOrder`. The events are reverse topologically sorted by the ordering specified. However,
 // in order to sort the events must be loaded which could fail. For those events which fail to be loaded, they will
 // be put at the end of the returned slice.
-func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage, sortOrder TopologicalOrder) ([]EventLoadResult, error) {
+func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMessage, sortOrder TopologicalOrder, userIDForSender spec.UserIDForSender) ([]EventLoadResult, error) {
 	results := make([]EventLoadResult, len(rawEvents))
 
 	verImpl, err := GetRoomVersion(l.roomVer)
@@ -56,7 +58,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	events := make([]PDU, 0, len(rawEvents))
 	errs := make([]error, 0, len(rawEvents))
 	for _, rawEv := range rawEvents {
-		event, err := newEventFromUntrustedJSON(rawEv, verImpl)
+		event, err := verImpl.NewEventFromUntrustedJSON(rawEv)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -78,7 +80,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 	// so we can directly index from events into results from now on.
 
 	// 2. Passes signature checks, otherwise it is dropped.
-	failures := VerifyAllEventSignatures(ctx, events, l.keyRing)
+	failures := VerifyAllEventSignatures(ctx, events, l.keyRing, userIDForSender)
 	if len(failures) != len(events) {
 		return nil, fmt.Errorf("gomatrixserverlib: bulk event signature verification length mismatch: %d != %d", len(failures), len(events))
 	}
@@ -94,7 +96,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 			}
 		}
 		// 4. Passes authorization rules based on the event's auth events, otherwise it is rejected.
-		if err := VerifyEventAuthChain(ctx, h, l.provider); err != nil {
+		if err := VerifyEventAuthChain(ctx, h, l.provider, userIDForSender); err != nil {
 			if results[i].Error == nil { // could have failed earlier
 				results[i].Error = AuthChainErr{err}
 				continue
@@ -102,7 +104,7 @@ func (l *EventsLoader) LoadAndVerify(ctx context.Context, rawEvents []json.RawMe
 		}
 
 		// 5. Passes authorization rules based on the state at the event, otherwise it is rejected.
-		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, true); err != nil {
+		if err := VerifyAuthRulesAtState(ctx, l.stateProvider, h, true, userIDForSender); err != nil {
 			if results[i].Error == nil { // could have failed earlier
 				results[i].Error = AuthRulesErr{err}
 				continue

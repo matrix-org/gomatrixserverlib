@@ -43,17 +43,23 @@ type stateResolverV2 struct {
 	resolvedPowerLevels       PDU                           // Resolved power level event
 	resolvedJoinRules         PDU                           // Resolved join rules event
 	resolvedThirdPartyInvites map[string]PDU                // Resolved third party invite events
-	resolvedMembers           map[string]PDU                // Resolved member events
+	resolvedMembers           map[spec.SenderID]PDU         // Resolved member events
 	resolvedOthers            map[StateKeyTuple]PDU         // Resolved other events
 	result                    []PDU                         // Final list of resolved events
+	isRejectedFn              IsRejected                    // Check if the given eventID is rejected
 }
+
+// IsRejected should return if the given eventID is rejected or not.
+type IsRejected func(eventID string) bool
 
 // ResolveStateConflicts takes a list of state events with conflicting state
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
 func ResolveStateConflictsV2(
-	conflicted, unconflicted []PDU,
+	conflicted, unconflicted,
 	authEvents []PDU,
+	userIDForSender spec.UserIDForSender,
+	isRejectedFn IsRejected,
 ) []PDU {
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]PDU, 0, len(conflicted))
@@ -65,11 +71,31 @@ func ResolveStateConflictsV2(
 		powerLevelContents:        make(map[string]*PowerLevelContent),
 		powerLevelMainlinePos:     make(map[string]int),
 		resolvedThirdPartyInvites: make(map[string]PDU, len(conflicted)),
-		resolvedMembers:           make(map[string]PDU, len(conflicted)),
+		resolvedMembers:           make(map[spec.SenderID]PDU, len(conflicted)),
 		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
+		isRejectedFn:              isRejectedFn,
 	}
-	r.allower = newAllowerContext(&r.authProvider)
+	var roomID *spec.RoomID
+	if len(conflicted) > 0 {
+		validRoomID := conflicted[0].RoomID()
+		roomID = &validRoomID
+	}
+	if len(unconflicted) > 0 {
+		validRoomID := unconflicted[0].RoomID()
+		roomID = &validRoomID
+	}
+	if len(authEvents) > 0 {
+		validRoomID := authEvents[0].RoomID()
+		roomID = &validRoomID
+	}
+	// If we still don't have a roomID, we don't have conflicted, unconflicted
+	// or any authEvents, which in theory shouldn't happen.
+	if roomID == nil {
+		return r.result
+	}
+
+	r.allower = newAllowerContext(&r.authProvider, userIDForSender, *roomID)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
@@ -230,7 +256,7 @@ func isControlEvent(e PDU) bool {
 		}
 		// Membership events are only control events if the sender does not match
 		// the state key, i.e. because the event is caused by an admin or moderator.
-		if e.StateKeyEquals(e.Sender()) {
+		if e.StateKeyEquals(string(e.SenderID())) {
 			break
 		}
 		// Membership events are only control events if the "membership" key in the
@@ -430,8 +456,22 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 			_ = r.authProvider.AddEvent(event)
 		}
 		for _, needed := range needed.Member {
-			if event := r.resolvedMembers[needed]; event != nil {
-				_ = r.authProvider.AddEvent(event)
+			if membershipEvent := r.resolvedMembers[spec.SenderID(needed)]; membershipEvent != nil {
+				_ = r.authProvider.AddEvent(membershipEvent)
+			} else {
+				for _, authEventID := range event.AuthEventIDs() {
+					authEv, ok := r.authEventMap[authEventID]
+					if !ok {
+						continue
+					}
+					if authEv.Type() == spec.MRoomMember && authEv.StateKeyEquals(needed) {
+						// Don't use rejected events for auth
+						if r.isRejectedFn(authEventID) {
+							continue
+						}
+						_ = r.authProvider.AddEvent(authEv)
+					}
+				}
 			}
 		}
 		for _, needed := range needed.ThirdPartyInvite {
@@ -447,7 +487,6 @@ func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
 			// auth events from the event, so skip it.
 			continue
 		}
-
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
 		r.applyEvents([]PDU{event})
@@ -481,7 +520,7 @@ func (r *stateResolverV2) applyEvents(events []PDU) {
 			case spec.MRoomThirdPartyInvite:
 				r.resolvedThirdPartyInvites[*sk] = event
 			case spec.MRoomMember:
-				r.resolvedMembers[*sk] = event
+				r.resolvedMembers[spec.SenderID(*sk)] = event
 			default:
 				r.resolvedOthers[StateKeyTuple{st, *sk}] = event
 			}
@@ -574,7 +613,7 @@ func (r *stateResolverV2) mainlineOrdering(events []PDU) []PDU {
 // the sender at the time that of the given event, based on the auth events.
 // This is used in the Kahn's algorithm tiebreak.
 func (r *stateResolverV2) getPowerLevelFromAuthEvents(event PDU) int64 {
-	user := event.Sender()
+	user := event.SenderID()
 	for _, authID := range event.AuthEventIDs() {
 		// Then check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.

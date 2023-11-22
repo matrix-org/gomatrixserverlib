@@ -29,39 +29,51 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier) []error {
+func VerifyAllEventSignatures(ctx context.Context, events []PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) []error {
 	errors := make([]error, 0, len(events))
 	for _, e := range events {
-		errors = append(errors, VerifyEventSignatures(ctx, e, verifier))
+		errors = append(errors, VerifyEventSignatures(ctx, e, verifier, userIDForSender))
 	}
 	return errors
 }
 
-func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) error {
-	needed := map[spec.ServerName]struct{}{}
-
-	// The sender should have signed the event in all cases.
-	_, serverName, err := SplitID('@', e.Sender())
-	if err != nil {
-		return fmt.Errorf("failed to split sender: %w", err)
+func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, userIDForSender spec.UserIDForSender) error {
+	if userIDForSender == nil {
+		panic("UserIDForSender func is nil")
 	}
-	needed[serverName] = struct{}{}
 
+	var serverName spec.ServerName
+	needed := map[spec.ServerName]struct{}{}
 	verImpl, err := GetRoomVersion(e.Version())
 	if err != nil {
 		return err
 	}
 
-	// In room versions 1 and 2, we should also check that the server
-	// that created the event is included too. This is probably the
-	// same as the sender.
-	format := verImpl.EventIDFormat()
-	if format == EventIDFormatV1 {
-		_, serverName, err = SplitID('$', e.EventID())
+	// The sender should have signed the event in all cases.
+	switch e.Version() {
+	case RoomVersionPseudoIDs:
+		needed[spec.ServerName(e.SenderID())] = struct{}{}
+	default:
+		sender, err := userIDForSender(e.RoomID(), e.SenderID())
 		if err != nil {
-			return fmt.Errorf("failed to split event ID: %w", err)
+			return fmt.Errorf("invalid sender userID: %w", err)
 		}
-		needed[serverName] = struct{}{}
+		if sender != nil {
+			serverName = sender.Domain()
+			needed[serverName] = struct{}{}
+		}
+
+		// In room versions 1 and 2, we should also check that the server
+		// that created the event is included too. This is probably the
+		// same as the sender.
+		format := verImpl.EventIDFormat()
+		if format == EventIDFormatV1 {
+			_, serverName, err = SplitID('$', e.EventID())
+			if err != nil {
+				return fmt.Errorf("failed to split event ID: %w", err)
+			}
+			needed[serverName] = struct{}{}
+		}
 	}
 
 	// Special checks for membership events.
@@ -71,29 +83,44 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 			return fmt.Errorf("failed to get membership of membership event: %w", err)
 		}
 
-		// For invites, the invited server should have signed the event.
-		if membership == spec.Invite {
-			_, serverName, err = SplitID('@', *e.StateKey())
+		// Validate the MXIDMapping is signed correctly
+		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join {
+			mapping, err := getMXIDMapping(e)
 			if err != nil {
-				return fmt.Errorf("failed to split state key: %w", err)
+				return err
 			}
-			needed[serverName] = struct{}{}
+			err = validateMXIDMappingSignatures(ctx, e, *mapping, verifier, verImpl)
+			if err != nil {
+				return err
+			}
 		}
 
-		// For restricted join rules, the authorising server should have signed.
-		restricted := verImpl.MayAllowRestrictedJoinsInEventAuth()
-		if restricted && membership == spec.Join {
-			if v := gjson.GetBytes(e.Content(), "join_authorised_via_users_server"); v.Exists() {
-				_, serverName, err = SplitID('@', v.String())
+		// For invites, the invited server should have signed the event.
+		if membership == spec.Invite {
+			switch e.Version() {
+			case RoomVersionPseudoIDs:
+				needed[spec.ServerName(*e.StateKey())] = struct{}{}
+			default:
+				_, serverName, err = SplitID('@', *e.StateKey())
 				if err != nil {
-					return fmt.Errorf("failed to split authorised server: %w", err)
+					return fmt.Errorf("failed to split state key: %w", err)
 				}
 				needed[serverName] = struct{}{}
 			}
 		}
-	}
 
-	strictValidityChecking := verImpl.StrictValidityChecking()
+		// For restricted join rules, the authorising server should have signed.
+		if membership == spec.Join {
+			auth, err := verImpl.RestrictedJoinServername(e.Content())
+			if err != nil {
+				return err
+			}
+			if auth != "" {
+				needed[auth] = struct{}{}
+			}
+		}
+
+	}
 
 	redactedJSON, err := verImpl.RedactEventJSON(e.JSON())
 	if err != nil {
@@ -103,12 +130,18 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 	var toVerify []VerifyJSONRequest
 	for serverName := range needed {
 		v := VerifyJSONRequest{
-			Message:                redactedJSON,
-			AtTS:                   e.OriginServerTS(),
-			ServerName:             serverName,
-			StrictValidityChecking: strictValidityChecking,
+			Message:              redactedJSON,
+			AtTS:                 e.OriginServerTS(),
+			ServerName:           serverName,
+			ValidityCheckingFunc: verImpl.SignatureValidityCheck,
 		}
 		toVerify = append(toVerify, v)
+	}
+
+	if verImpl.Version() == RoomVersionPseudoIDs {
+		// we already verified the mxid_mapping at this stage, so replace the KeyRing verifier
+		// with the self verifier to validate pseudoID events
+		verifier = JSONVerifierSelf{}
 	}
 
 	results, err := verifier.VerifyJSONs(ctx, toVerify)
@@ -124,6 +157,67 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier) er
 
 	return nil
 }
+
+func getMXIDMapping(e PDU) (*MXIDMapping, error) {
+	var content MemberContent
+	err := json.Unmarshal(e.Content(), &content)
+	if err != nil {
+		return nil, err
+	}
+
+	// if there is no mapping, we can't check the signature
+	if content.MXIDMapping == nil {
+		return nil, fmt.Errorf("missing mxid_mapping")
+	}
+
+	return content.MXIDMapping, nil
+}
+
+// validateMXIDMappingSignatures validates that the MXIDMapping is correctly signed
+func validateMXIDMappingSignatures(ctx context.Context, e PDU, mapping MXIDMapping, verifier JSONVerifier, verImpl IRoomVersion) error {
+	mappingBytes, err := json.Marshal(mapping)
+	if err != nil {
+		return err
+	}
+
+	var toVerify []VerifyJSONRequest
+	for s := range mapping.Signatures {
+		v := VerifyJSONRequest{
+			Message:              mappingBytes,
+			AtTS:                 e.OriginServerTS(),
+			ServerName:           s,
+			ValidityCheckingFunc: verImpl.SignatureValidityCheck,
+		}
+		toVerify = append(toVerify, v)
+	}
+
+	// check that the mapping is correctly signed by the server
+	results, err := verifier.VerifyJSONs(ctx, toVerify)
+	if err != nil {
+		return fmt.Errorf("failed to verify MXIDMapping: %w", err)
+	}
+
+	for _, result := range results {
+		if result.Error != nil {
+			return fmt.Errorf("failed to verify MXIDMapping: %w", result.Error)
+		}
+	}
+
+	return err
+}
+
+func extractAuthorisedViaServerName(content []byte) (spec.ServerName, error) {
+	if v := gjson.GetBytes(content, "join_authorised_via_users_server"); v.Exists() {
+		_, serverName, err := SplitID('@', v.String())
+		if err != nil {
+			return "", fmt.Errorf("failed to split authorised server: %w", err)
+		}
+		return serverName, nil
+	}
+	return "", nil
+}
+
+func emptyAuthorisedViaServerName([]byte) (spec.ServerName, error) { return "", nil }
 
 // addContentHashesToEvent sets the "hashes" key of the event with a SHA-256 hash of the unredacted event content.
 // This hash is used to detect whether the unredacted content of the event is valid.
@@ -251,9 +345,7 @@ func referenceOfEvent(eventJSON []byte, roomVersion RoomVersion) (eventReference
 		default:
 			return eventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 		}
-		if encoder != nil {
-			eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
-		}
+		eventID = fmt.Sprintf("$%s", encoder.EncodeToString(sha256Hash[:]))
 	default:
 		return eventReference{}, UnsupportedRoomVersionError{Version: roomVersion}
 	}

@@ -28,7 +28,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomCreate,
 		StateKey:   &stateKey,
@@ -45,7 +45,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = ""
 	joinRulesEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -62,7 +62,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = ""
 	powerLevelsEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomJoinRules,
 		StateKey:   &stateKey,
@@ -79,7 +79,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = validUser.String()
 	joinEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -96,7 +96,7 @@ func TestHandleMakeLeave(t *testing.T) {
 
 	stateKey = validUser.String()
 	leaveEB := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     validRoom.String(),
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -131,6 +131,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: false,
+				UserIDQuerier:     UserIDForSenderTest,
 			},
 			wantErr: assert.Error,
 		},
@@ -141,6 +142,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return nil, nil, fmt.Errorf("error")
 				},
@@ -154,6 +156,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return nil, nil, nil
 				},
@@ -167,6 +170,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return joinEvent, nil, nil
 				},
@@ -180,6 +184,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return createEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},
@@ -193,6 +198,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return leaveEvent, []PDU{joinRulesEvent}, nil
 				},
@@ -206,6 +212,7 @@ func TestHandleMakeLeave(t *testing.T) {
 				UserID:            *validUser,
 				RequestOrigin:     "remote",
 				LocalServerInRoom: true,
+				UserIDQuerier:     UserIDForSenderTest,
 				BuildEventTemplate: func(protoEvent *ProtoEvent) (PDU, []PDU, error) {
 					return leaveEvent, []PDU{createEvent, joinRulesEvent}, nil
 				},

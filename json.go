@@ -53,7 +53,13 @@ func (e EventJSONs) UntrustedEvents(roomVersion RoomVersion) []PDU {
 	events := make([]PDU, 0, len(e))
 	for _, js := range e {
 		event, err := verImpl.NewEventFromUntrustedJSON(js)
-		if err != nil {
+		switch e := err.(type) {
+		case EventValidationError:
+			if !e.Persistable {
+				continue
+			}
+		case nil:
+		default:
 			continue
 		}
 		events = append(events, event)
@@ -97,16 +103,16 @@ func EnforcedCanonicalJSON(input []byte, roomVersion RoomVersion) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	if enforce := roomVersionImpl.EnforceCanonicalJSON(); enforce {
-		if err = verifyEnforcedCanonicalJSON(input); err != nil {
-			return nil, BadJSONError{err}
-		}
+	if err := roomVersionImpl.CheckCanonicalJSON(input); err != nil {
+		return nil, BadJSONError{err}
 	}
 
 	return CanonicalJSON(input)
 }
 
 var ErrCanonicalJSON = errors.New("value is outside of safe range")
+
+func noVerifyCanonicalJSON(input []byte) error { return nil }
 
 func verifyEnforcedCanonicalJSON(input []byte) error {
 	valid := true
