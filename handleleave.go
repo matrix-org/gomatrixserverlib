@@ -140,7 +140,7 @@ func HandleSendLeave(ctx context.Context,
 	}
 
 	// Check that the room ID is correct.
-	if (event.RoomID()) != roomID {
+	if (event.RoomID().String()) != roomID {
 		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the leave event JSON")
 	}
 
@@ -154,7 +154,7 @@ func HandleSendLeave(ctx context.Context,
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the leave event.")
 	}
-	if !event.StateKeyEquals(event.Sender()) {
+	if !event.StateKeyEquals(event.SenderID().ToUserID().String()) {
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
@@ -166,7 +166,7 @@ func HandleSendLeave(ctx context.Context,
 	// Check that the sender belongs to the server that is sending us
 	// the request. By this point we've already asserted that the sender
 	// and the state key are equal so we don't need to check both.
-	sender, err := spec.NewUserID(event.Sender(), true)
+	sender, err := spec.NewUserID(event.SenderID().ToUserID().String(), true)
 	if err != nil {
 		return nil, spec.Forbidden("The sender of the join is invalid")
 	}
@@ -198,10 +198,10 @@ func HandleSendLeave(ctx context.Context,
 		return nil, spec.BadJSON("The event JSON could not be redacted")
 	}
 	verifyRequests := []VerifyJSONRequest{{
-		ServerName:             sender.Domain(),
-		Message:                redacted,
-		AtTS:                   event.OriginServerTS(),
-		StrictValidityChecking: true,
+		ServerName:           sender.Domain(),
+		Message:              redacted,
+		AtTS:                 event.OriginServerTS(),
+		ValidityCheckingFunc: StrictValiditySignatureCheck,
 	}}
 	verifyResults, err := verifier.VerifyJSONs(ctx, verifyRequests)
 	if err != nil {

@@ -269,7 +269,7 @@ func TestHandleSendLeave(t *testing.T) {
 
 	stateKey := ""
 	eb := MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     "!valid:localhost",
 		Type:       spec.MRoomCreate,
 		StateKey:   &stateKey,
@@ -286,7 +286,7 @@ func TestHandleSendLeave(t *testing.T) {
 
 	stateKey = validUser.String()
 	eb = MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     "!valid:localhost",
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
@@ -302,7 +302,7 @@ func TestHandleSendLeave(t *testing.T) {
 	}
 
 	eb = MustGetRoomVersion(RoomVersionV10).NewEventBuilderFromProtoEvent(&ProtoEvent{
-		Sender:     validUser.String(),
+		SenderID:   validUser.String(),
 		RoomID:     "!valid:localhost",
 		Type:       spec.MRoomMember,
 		StateKey:   &stateKey,
