@@ -10,6 +10,7 @@ import (
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -271,12 +272,10 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 
 		fetched, err := fetcher.FetchKeys(ctx, keyRequests)
 		if err != nil {
-			fetcherLogger.WithError(err).Warn("Failed to request keys from fetcher")
 			continue
 		}
 
 		if len(fetched) == 0 {
-			fetcherLogger.Warn("Failed to retrieve any keys")
 			continue
 		}
 
@@ -288,6 +287,19 @@ func (k KeyRing) VerifyJSONs(ctx context.Context, requests []VerifyJSONRequest) 
 			keysFetched[req] = res
 			delete(keyRequests, req)
 		}
+	}
+
+	// We for some reason failed to fetch keys for some servers
+	if len(keyRequests) > 0 {
+		requestedServers := make([]string, 0, len(keyRequests))
+		for reqs := range keyRequests {
+			requestedServers = append(requestedServers, string(reqs.ServerName))
+		}
+
+		logger.WithFields(logrus.Fields{
+			"servers":  requestedServers,
+			"fetchers": len(k.KeyFetchers),
+		}).Warn("failed to fetch keys for some servers")
 	}
 
 	// Now that we've fetched all of the keys we need, try to check
@@ -487,7 +499,6 @@ func (d DirectKeyFetcher) FetcherName() string {
 func (d *DirectKeyFetcher) FetchKeys(
 	ctx context.Context, requests map[PublicKeyLookupRequest]spec.Timestamp,
 ) (map[PublicKeyLookupRequest]PublicKeyLookupResult, error) {
-	fetcherLogger := util.GetLogger(ctx).WithField("fetcher", d.FetcherName())
 
 	localServerRequests := []PublicKeyLookupRequest{}
 	byServer := map[spec.ServerName]map[PublicKeyLookupRequest]spec.Timestamp{}
@@ -548,7 +559,6 @@ func (d *DirectKeyFetcher) FetchKeys(
 				serverResults, err = d.fetchNotaryKeysForServer(ctx, server)
 				if err != nil {
 					// TODO: Should we actually be erroring here? or should we just drop those keys from the result map?
-					fetcherLogger.WithError(err).Error("Failed to fetch key for server")
 					continue
 				}
 			}
