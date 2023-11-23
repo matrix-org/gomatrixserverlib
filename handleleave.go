@@ -152,6 +152,9 @@ func HandleSendLeave(ctx context.Context,
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the leave event.")
 	}
+	if !event.StateKeyEquals(event.SenderID().ToUserID().String()) {
+		return nil, spec.BadJSON("Event state key must match the event sender.")
+	}
 
 	leavingUser, err := spec.NewUserID(*event.StateKey(), true)
 	if err != nil {
