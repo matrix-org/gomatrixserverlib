@@ -109,9 +109,9 @@ type CurrentStateQuerier interface {
 }
 
 // HandleSendLeave handles requests to `/send_leave
-// Returns the parsed event and an error.
+// Returns the parsed event or an error.
 func HandleSendLeave(ctx context.Context,
-	requestContent []byte,
+	content []byte,
 	origin spec.ServerName,
 	roomVersion RoomVersion,
 	eventID, roomID string,
@@ -126,11 +126,10 @@ func HandleSendLeave(ctx context.Context,
 
 	verImpl, err := GetRoomVersion(roomVersion)
 	if err != nil {
-		return nil, spec.UnsupportedRoomVersion(fmt.Sprintf("QueryRoomVersionForRoom returned unknown version: %s", roomVersion))
+		return nil, spec.UnsupportedRoomVersion(fmt.Sprintf("Room version %s is not supported by this server", roomVersion))
 	}
 
-	// Decode the event JSON from the request.
-	event, err := verImpl.NewEventFromUntrustedJSON(requestContent)
+	event, err := verImpl.NewEventFromUntrustedJSON(content)
 	switch err.(type) {
 	case BadJSONError:
 		return nil, spec.BadJSON(err.Error())
@@ -140,22 +139,18 @@ func HandleSendLeave(ctx context.Context,
 	}
 
 	// Check that the room ID is correct.
-	if (event.RoomID().String()) != roomID {
+	if event.RoomID().String() != roomID {
 		return nil, spec.BadJSON("The room ID in the request path must match the room ID in the leave event JSON")
 	}
 
 	// Check that the event ID is correct.
 	if event.EventID() != eventID {
 		return nil, spec.BadJSON("The event ID in the request path must match the event ID in the leave event JSON")
-
 	}
 
 	// Sanity check that we really received a state event
 	if event.StateKey() == nil || event.StateKeyEquals("") {
 		return nil, spec.BadJSON("No state key was provided in the leave event.")
-	}
-	if !event.StateKeyEquals(event.SenderID().ToUserID().String()) {
-		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
 	leavingUser, err := spec.NewUserID(*event.StateKey(), true)
@@ -174,15 +169,17 @@ func HandleSendLeave(ctx context.Context,
 		return nil, spec.Forbidden("The sender does not match the server that originated the request")
 	}
 
+	// Check the current membership of this user and
+	// if we maybe can just no-op this request.
 	stateEvent, err := querier.CurrentStateEvent(ctx, *rID, spec.MRoomMember, leavingUser.String())
 	if err != nil {
 		return nil, err
 	}
-	// we weren't joined at all
+	// The user isn't joined at all
 	if stateEvent == nil {
 		return nil, nil
 	}
-	// We are/were joined/invited/banned or something
+	// The user has already left.
 	if mem, merr := stateEvent.Membership(); merr == nil && mem == spec.Leave {
 		return nil, nil
 	}
