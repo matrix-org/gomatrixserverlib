@@ -156,6 +156,16 @@ func HandleSendLeave(ctx context.Context,
 		return nil, spec.BadJSON("Event state key must match the event sender.")
 	}
 
+	// check membership is set to leave
+	mem, err := event.Membership()
+	if err != nil {
+		util.GetLogger(ctx).WithError(err).Error("event.Membership failed")
+		return nil, spec.BadJSON("missing content.membership key")
+	}
+	if mem != spec.Leave {
+		return nil, spec.BadJSON("The membership in the event content must be set to leave")
+	}
+
 	leavingUser, err := spec.NewUserID(*event.StateKey(), true)
 	if err != nil {
 		return nil, spec.Forbidden("The leaving user ID is invalid")
@@ -210,16 +220,6 @@ func HandleSendLeave(ctx context.Context,
 	}
 	if verifyResults[0].Error != nil {
 		return nil, spec.Forbidden("The leave must be signed by the server it originated on")
-	}
-
-	// check membership is set to leave
-	mem, err := event.Membership()
-	if err != nil {
-		util.GetLogger(ctx).WithError(err).Error("event.Membership failed")
-		return nil, spec.BadJSON("missing content.membership key")
-	}
-	if mem != spec.Leave {
-		return nil, spec.BadJSON("The membership in the event content must be set to leave")
 	}
 
 	return event, nil
