@@ -170,11 +170,11 @@ func TestVerifyCanonical(t *testing.T) {
 			input:   []byte(`{"a":-9007199254740992}`),
 			wantErr: true,
 		},
-		//{
-		//	name:    "exponent number",
-		//	input:   []byte(`{"a":1e5}`),
-		//	wantErr: true,
-		//},
+		{
+			name:    "exponential notation number",
+			input:   []byte(`{"a":1e5}`),
+			wantErr: true,
+		},
 		{
 			name:    "fractional number",
 			input:   []byte(`{"a":1.5}`),
@@ -257,7 +257,7 @@ func TestCanonicalConversion(t *testing.T) {
 			canonical: []byte(`{"a":0}`),
 		},
 		//{
-		//	name:      "exponent number",
+		//	name:      "exponential notation number",
 		//	input:     []byte(`{"a":1e5}`),
 		//	canonical: []byte(`{"a":100000}`),
 		//},

@@ -131,6 +131,10 @@ func verifyEnforcedCanonicalJSON(input []byte) error {
 			valid = false
 			return false
 		}
+		if value.Num != 0 && strings.ContainsRune(value.Raw, 'e') {
+			valid = false
+			return false
+		}
 		if value.Num == 0 && value.Raw == "-0" {
 			valid = false
 			return false
