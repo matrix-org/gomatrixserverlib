@@ -223,13 +223,13 @@ func TestVerifyCanonical(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gmslCanonical, err := EnforcedCanonicalJSON(tt.input, RoomVersionV11)
+			_, err := EnforcedCanonicalJSON(tt.input, RoomVersionV11)
 
 			if tt.wantErr && err == nil {
-				t.Fatalf("JSON passes canonical check when it shouldn't. \n      Original: %s (% X) \nGMSL Canonical: %s (% X)", tt.input, tt.input, gmslCanonical, gmslCanonical)
+				t.Fatalf("JSON passes canonical check when it shouldn't. \n Original: %s (% X)", tt.input, tt.input)
 			}
 			if !tt.wantErr && err != nil {
-				t.Fatalf("JSON doesn't pass canonical check when it should. \n      Original: %s (% X) \nGMSL Canonical: %s (% X)", tt.input, tt.input, gmslCanonical, gmslCanonical)
+				t.Fatalf("JSON doesn't pass canonical check when it should. \n Original: %s (% X)", tt.input, tt.input)
 			}
 		})
 	}
