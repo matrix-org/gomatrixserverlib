@@ -136,99 +136,99 @@ func TestCompactJSON(t *testing.T) {
 
 func TestVerifyCanonical(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   []byte
-		wantErr bool
+		name  string
+		input []byte
+		valid bool
 	}{
 		//{
 		//	name:    "escaped unicode",
 		//	input:   []byte(`{"\u00F1":0}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		//{
 		//	name:    "long form unicode",
 		//	input:   []byte(`{"\u0009":0}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		//{
 		//	name:    "escaped unicode surrogate pair",
 		//	input:   []byte(`{"\ud83d\udc08":0}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		{
-			name:    "negative zero",
-			input:   []byte(`{"a":-0}`),
-			wantErr: true,
+			name:  "negative zero",
+			input: []byte(`{"a":-0}`),
+			valid: false,
 		},
 		{
-			name:    "number out of bounds upper",
-			input:   []byte(`{"a":9007199254740992}`),
-			wantErr: true,
+			name:  "number out of bounds upper",
+			input: []byte(`{"a":9007199254740992}`),
+			valid: false,
 		},
 		{
-			name:    "number out of bounds lower",
-			input:   []byte(`{"a":-9007199254740992}`),
-			wantErr: true,
+			name:  "number out of bounds lower",
+			input: []byte(`{"a":-9007199254740992}`),
+			valid: false,
 		},
 		{
-			name:    "exponential notation number",
-			input:   []byte(`{"a":1e5}`),
-			wantErr: true,
+			name:  "exponential notation number",
+			input: []byte(`{"a":1e5}`),
+			valid: false,
 		},
 		{
-			name:    "fractional number",
-			input:   []byte(`{"a":1.5}`),
-			wantErr: true,
+			name:  "fractional number",
+			input: []byte(`{"a":1.5}`),
+			valid: false,
 		},
 		//{
 		//	name:    "unsorted keys",
 		//	input:   []byte(`{"b":0,"a":1}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		//{
 		//	name:    "unsorted keys in array",
 		//	input:   []byte(`{"a":[{"b":0,"a":1},{"b":0,"a":1}]}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		//{
 		//	name:    "unnecessary whitespace",
 		//	input:   []byte(`{"a": 0}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		//{
 		//	name:    "unpaired UTF-16 surrogate",
 		//	input:   []byte(`{"a":"\uDEAD"}`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		//{
 		//	name:    "failure combo",
 		//	input:   []byte(`{ "\u00F1": -0, "2": 0, "1": 9007199254740991, "3":1e5, "4": [{"2": 0, "1": 0},{"2": 0, "1": 0}] }`),
-		//	wantErr: true,
+		//	valid: false,
 		//},
 		{
-			name:    "canonical JSON",
-			input:   []byte(`{"1":9007199254740991,"2":0,"3":-9007199254740991,"4":[{"1":0,"2":0},{"1":0,"2":0}],"ñ":0}`),
-			wantErr: false,
+			name:  "canonical JSON",
+			input: []byte(`{"1":9007199254740991,"2":0,"3":-9007199254740991,"4":[{"1":0,"2":0},{"1":0,"2":0}],"ñ":0}`),
+			valid: true,
 		},
 		//{
 		//	name:      "duplicate keys",
 		//	input:     []byte(`{"a":0,"a":1}`),
-		//	wantErr:   true,
+		//	valid:   false,
 		//},
 		//{
 		//	name:      "nested duplicate keys",
 		//	input:     []byte(`{"a":[{"a":0,"a":1}]}`),
-		//	wantErr:   true,
+		//	valid:   false,
 		//},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := EnforcedCanonicalJSON(tt.input, RoomVersionV11)
 
-			if tt.wantErr && err == nil {
+			if !tt.valid && err == nil {
 				t.Fatalf("JSON passes canonical check when it shouldn't. \n Original: %s (% X)", tt.input, tt.input)
 			}
-			if !tt.wantErr && err != nil {
+			if tt.valid && err != nil {
 				t.Fatalf("JSON doesn't pass canonical check when it should. \n Original: %s (% X)", tt.input, tt.input)
 			}
 		})
