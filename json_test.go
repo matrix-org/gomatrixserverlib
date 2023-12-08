@@ -125,6 +125,26 @@ func TestCompactUnicodeEscapeWithUTF16Surrogate(t *testing.T) {
 	}
 }
 
+func TestCompactUnicodeEscapeWithBadUTF16Surrogate(t *testing.T) {
+	input := []byte(`\ud83d\zdc08`)
+	output, n := compactUnicodeEscape(input[2:], nil, 0)
+	if n != 4 {
+		t.Fatalf("should have consumed 4 bytes but consumed %d bytes", n)
+	}
+	if string(output) != "" {
+		t.Fatalf("expected output to be empty")
+	}
+
+	input = []byte(`\ud83d udc08`)
+	output, n = compactUnicodeEscape(input[2:], nil, 0)
+	if n != 4 {
+		t.Fatalf("should have consumed 4 bytes but consumed %d bytes", n)
+	}
+	if string(output) != "" {
+		t.Fatalf("expected output to be empty")
+	}
+}
+
 func testReadHex(t *testing.T, input string, want rune) {
 	got := readHexDigits([]byte(input))
 	if want != got {
