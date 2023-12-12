@@ -321,7 +321,7 @@ func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 	}
 	const (
 		ESCAPES = "uuuuuuuubtnufruuuuuuuuuuuuuuuuuu"
-		HEX     = "0123456789ABCDEF"
+		HEX     = "0123456789abcdef"
 	)
 	// If there aren't enough bytes to decode the hex escape then return.
 	if len(input)-index < 4 {
