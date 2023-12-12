@@ -92,7 +92,7 @@ func TestCompactJSON(t *testing.T) {
 	testCompactJSON(t, input, want)
 
 	input = `["\u0008\u0009\u000A\u000B\u000C\u000D\u000E\u000F"]`
-	want = `["\b\t\n\u000B\f\r\u000E\u000F"]`
+	want = `["\b\t\n\u000b\f\r\u000e\u000f"]`
 	testCompactJSON(t, input, want)
 
 	input = `["\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017"]`
@@ -100,7 +100,7 @@ func TestCompactJSON(t *testing.T) {
 	testCompactJSON(t, input, want)
 
 	input = `["\u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F"]`
-	want = input
+	want = `["\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f"]`
 	testCompactJSON(t, input, want)
 
 	testCompactJSON(t, `["\u0061\u005C\u0042\u0022"]`, `["a\\B\""]`)
