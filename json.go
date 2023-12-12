@@ -329,7 +329,7 @@ func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 		// Otherwise the character only needs escaping if it is a QUOTE '"' or BACKSLASH '\\'.
 		output = append(output, '\\', byte(c))
 	} else if utf16.IsSurrogate(c) {
-		if input[index] != '\\' && input[index+1] != 'u' {
+		if input[index] != '\\' || input[index+1] != 'u' {
 			return output, index
 		}
 		index += 2 // skip the \u"
