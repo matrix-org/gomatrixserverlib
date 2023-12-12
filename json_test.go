@@ -16,6 +16,7 @@
 package gomatrixserverlib
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -78,9 +79,10 @@ func TestSortJSON(t *testing.T) {
 }
 
 func testCompactJSON(t *testing.T, input, want string) {
-	got := string(CompactJSON([]byte(input), nil))
+	bytes := CompactJSON([]byte(input), nil)
+	got := string(bytes)
 	if got != want {
-		t.Errorf("CompactJSON(%q):\n want: %q\n got: %q", input, want, got)
+		t.Errorf("CompactJSON(%q):\n want: %q\n got: %q\n bytes: % X", input, want, got, bytes)
 	}
 }
 
@@ -106,12 +108,192 @@ func TestCompactJSON(t *testing.T) {
 	testCompactJSON(t, `["\u0061\u005C\u0042\u0022"]`, `["a\\B\""]`)
 	testCompactJSON(t, `["\u0120"]`, "[\"\u0120\"]")
 	testCompactJSON(t, `["\u0FFF"]`, "[\"\u0FFF\"]")
+	testCompactJSON(t, `["\u0FFf"]`, "[\"\u0FFF\"]")
 	testCompactJSON(t, `["\u1820"]`, "[\"\u1820\"]")
 	testCompactJSON(t, `["\uFFFF"]`, "[\"\uFFFF\"]")
 	testCompactJSON(t, `["\uD842\uDC20"]`, "[\"\U00020820\"]")
 	testCompactJSON(t, `["\uDBFF\uDFFF"]`, "[\"\U0010FFFF\"]")
 
+	// Unpaired UTF-16 surrogate pair
+	testCompactJSON(t, `["\uDEAD"]`, "[\"\"]")
+
+	testCompactJSON(t, `["\\"]`, "[\"\\\\\"]")
+	testCompactJSON(t, `"`, "\"")
+	testCompactJSON(t, `["\b"]`, "[\"\\b\"]")
+	testCompactJSON(t, `["\f"]`, "[\"\\f\"]")
+	testCompactJSON(t, `["\n"]`, "[\"\\n\"]")
+	testCompactJSON(t, `["\r"]`, "[\"\\r\"]")
+	testCompactJSON(t, `["\t"]`, "[\"\\t\"]")
+
+	testCompactJSON(t, `"\u000a"`, "\"\\n\"")
+	testCompactJSON(t, `"\u000A"`, "\"\\n\"")
+	testCompactJSON(t, `"\u0022"`, "\"\\\"\"")
+	testCompactJSON(t, `"\u005c"`, "\"\\\\\"")
+
 	testCompactJSON(t, `["\"\\\/"]`, `["\"\\/"]`)
+	testCompactJSON(t, `["\/"]`, `["/"]`)
+}
+
+func TestVerifyCanonical(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []byte
+		valid bool
+	}{
+		//{
+		//	name:    "escaped unicode",
+		//	input:   []byte(`{"\u00F1":0}`),
+		//	valid: false,
+		//},
+		//{
+		//	name:    "long form unicode",
+		//	input:   []byte(`{"\u0009":0}`),
+		//	valid: false,
+		//},
+		//{
+		//	name:    "escaped unicode surrogate pair",
+		//	input:   []byte(`{"\ud83d\udc08":0}`),
+		//	valid: false,
+		//},
+		{
+			name:  "negative zero",
+			input: []byte(`{"a":-0}`),
+			valid: false,
+		},
+		{
+			name:  "number out of bounds upper",
+			input: []byte(`{"a":9007199254740992}`),
+			valid: false,
+		},
+		{
+			name:  "number out of bounds lower",
+			input: []byte(`{"a":-9007199254740992}`),
+			valid: false,
+		},
+		{
+			name:  "exponential notation number",
+			input: []byte(`{"a":1e5}`),
+			valid: false,
+		},
+		{
+			name:  "fractional number",
+			input: []byte(`{"a":1.5}`),
+			valid: false,
+		},
+		//{
+		//	name:    "unsorted keys",
+		//	input:   []byte(`{"b":0,"a":1}`),
+		//	valid: false,
+		//},
+		//{
+		//	name:    "unsorted keys in array",
+		//	input:   []byte(`{"a":[{"b":0,"a":1},{"b":0,"a":1}]}`),
+		//	valid: false,
+		//},
+		//{
+		//	name:    "unnecessary whitespace",
+		//	input:   []byte(`{"a": 0}`),
+		//	valid: false,
+		//},
+		//{
+		//	name:    "unpaired UTF-16 surrogate",
+		//	input:   []byte(`{"a":"\uDEAD"}`),
+		//	valid: false,
+		//},
+		//{
+		//	name:    "failure combo",
+		//	input:   []byte(`{ "\u00F1": -0, "2": 0, "1": 9007199254740991, "3":1e5, "4": [{"2": 0, "1": 0},{"2": 0, "1": 0}] }`),
+		//	valid: false,
+		//},
+		{
+			name:  "canonical JSON",
+			input: []byte(`{"1":9007199254740991,"2":0,"3":-9007199254740991,"4":[{"1":0,"2":0},{"1":0,"2":0}],"ñ":0}`),
+			valid: true,
+		},
+		//{
+		//	name:      "duplicate keys",
+		//	input:     []byte(`{"a":0,"a":1}`),
+		//	valid:   false,
+		//},
+		//{
+		//	name:      "nested duplicate keys",
+		//	input:     []byte(`{"a":[{"a":0,"a":1}]}`),
+		//	valid:   false,
+		//},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := EnforcedCanonicalJSON(tt.input, RoomVersionV11)
+
+			if !tt.valid && err == nil {
+				t.Fatalf("JSON passes canonical check when it shouldn't. \n Original: %s (% X)", tt.input, tt.input)
+			}
+			if tt.valid && err != nil {
+				t.Fatalf("JSON doesn't pass canonical check when it should. \n Original: %s (% X)", tt.input, tt.input)
+			}
+		})
+	}
+}
+
+func TestCanonicalConversion(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     []byte
+		canonical []byte
+	}{
+		{
+			name:      "escaped unicode",
+			input:     []byte(`{"\u00F1":0}`),
+			canonical: []byte(`{"ñ":0}`),
+		},
+		{
+			name:      "escaped unicode surrogate pair",
+			input:     []byte(`{"\ud83d\udc08":0}`),
+			canonical: []byte(`{"🐈":0}`),
+		},
+		{
+			name:      "negative zero",
+			input:     []byte(`{"a":-0}`),
+			canonical: []byte(`{"a":0}`),
+		},
+		//{
+		//	name:      "exponential notation number",
+		//	input:     []byte(`{"a":1e5}`),
+		//	canonical: []byte(`{"a":100000}`),
+		//},
+		{
+			name:      "unsorted keys",
+			input:     []byte(`{"b":0,"a":1}`),
+			canonical: []byte(`{"a":1,"b":0}`),
+		},
+		{
+			name:      "unsorted keys in array",
+			input:     []byte(`{"a":[{"b":0,"a":1},{"b":0,"a":1}]}`),
+			canonical: []byte(`{"a":[{"a":1,"b":0},{"a":1,"b":0}]}`),
+		},
+		{
+			name:      "unnecessary whitespace",
+			input:     []byte(`{"a": 0}`),
+			canonical: []byte(`{"a":0}`),
+		},
+		{
+			name:      "conversion combo",
+			input:     []byte(`{ "\u00F1": -0, "2": 0, "1": 9007199254740991, "4": [{"2": 0, "1": 0},{"2": 0, "1": 0}] }`),
+			canonical: []byte(`{"1":9007199254740991,"2":0,"4":[{"1":0,"2":0},{"1":0,"2":0}],"ñ":0}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gmslCanonical, err := CanonicalJSON(tt.input)
+			if err != nil {
+				t.Fatalf("Failed parsing json: %s", err.Error())
+			}
+
+			if !bytes.Equal(tt.canonical, gmslCanonical) {
+				t.Fatalf("GMSL canonical JSON is not canonical. \n      Original: %s (% X) \nGMSL Canonical: %s (% X) \n Expected Form: %s (% X)", tt.input, tt.input, gmslCanonical, gmslCanonical, tt.canonical, tt.canonical)
+			}
+		})
+	}
 }
 
 func TestCompactUnicodeEscapeWithUTF16Surrogate(t *testing.T) {

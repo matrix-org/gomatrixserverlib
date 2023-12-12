@@ -131,6 +131,14 @@ func verifyEnforcedCanonicalJSON(input []byte) error {
 			valid = false
 			return false
 		}
+		if value.Num != 0 && strings.ContainsRune(value.Raw, 'e') {
+			valid = false
+			return false
+		}
+		if value.Num == 0 && value.Raw == "-0" {
+			valid = false
+			return false
+		}
 		return true
 	}
 	res.ForEach(iter)
@@ -263,6 +271,10 @@ func CompactJSON(input, output []byte) []byte {
 		// So we can check for whitespace by comparing against SPACE 0x20.
 		if c <= ' ' {
 			// Skip over whitespace.
+			continue
+		}
+		if c == '-' && input[i] == '0' {
+			// Negative 0 is changed to '0', skip the '-'.
 			continue
 		}
 		// Add the non-whitespace character to the output.
