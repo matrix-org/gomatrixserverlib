@@ -63,6 +63,7 @@ const (
 	RoomVersionV10       RoomVersion = "10"
 	RoomVersionV11       RoomVersion = "11"
 	RoomVersionPseudoIDs RoomVersion = "org.matrix.msc4014"
+	RoomVersionCryptoIDs RoomVersion = "org.matrix.msc4080"
 )
 
 // Event format constants.
@@ -305,8 +306,28 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
 	},
-	RoomVersionPseudoIDs: RoomVersionImpl{ // currently, just a copy of V10
+	RoomVersionPseudoIDs: RoomVersionImpl{ // currently, just a copy of V11
 		ver:                                    RoomVersionPseudoIDs,
+		stable:                                 false,
+		stateResAlgorithm:                      StateResV2,
+		eventFormat:                            EventFormatV2,
+		eventIDFormat:                          EventIDFormatV3,
+		redactionAlgorithm:                     redactEventJSONV5,
+		signatureValidityCheckFunc:             StrictValiditySignatureCheck,
+		canonicalJSONCheck:                     verifyEnforcedCanonicalJSON,
+		notificationLevelCheck:                 checkNotificationLevels,
+		restrictedJoinServernameFunc:           extractAuthorisedViaServerName,
+		checkRestrictedJoin:                    checkRestrictedJoin,
+		parsePowerLevelsFunc:                   parseIntegerPowerLevels,
+		checkKnockingAllowedFunc:               checkKnocking,
+		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
+		checkCreateEvent:                       noCheckCreateEvent,
+		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
+		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
+		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
+	},
+	RoomVersionCryptoIDs: RoomVersionImpl{ // currently, just a copy of V11
+		ver:                                    RoomVersionCryptoIDs,
 		stable:                                 false,
 		stateResAlgorithm:                      StateResV2,
 		eventFormat:                            EventFormatV2,

@@ -51,7 +51,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 
 	// The sender should have signed the event in all cases.
 	switch e.Version() {
-	case RoomVersionPseudoIDs:
+	case RoomVersionPseudoIDs, RoomVersionCryptoIDs:
 		needed[spec.ServerName(e.SenderID())] = struct{}{}
 	default:
 		sender, err := userIDForSender(e.RoomID(), e.SenderID())
@@ -84,7 +84,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		}
 
 		// Validate the MXIDMapping is signed correctly
-		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join {
+		if (verImpl.Version() == RoomVersionPseudoIDs || verImpl.Version() == RoomVersionCryptoIDs) && membership == spec.Join {
 			mapping, err := getMXIDMapping(e)
 			if err != nil {
 				return err
@@ -99,8 +99,8 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		if membership == spec.Invite {
 			switch e.Version() {
 			case RoomVersionPseudoIDs:
-				// TODO: only remove this for cryptoIDs?
-				// needed[spec.ServerName(*e.StateKey())] = struct{}{}
+				needed[spec.ServerName(*e.StateKey())] = struct{}{}
+			case RoomVersionCryptoIDs:
 			default:
 				_, serverName, err = SplitID('@', *e.StateKey())
 				if err != nil {
@@ -139,7 +139,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 		toVerify = append(toVerify, v)
 	}
 
-	if verImpl.Version() == RoomVersionPseudoIDs {
+	if verImpl.Version() == RoomVersionPseudoIDs || verImpl.Version() == RoomVersionCryptoIDs {
 		// we already verified the mxid_mapping at this stage, so replace the KeyRing verifier
 		// with the self verifier to validate pseudoID events
 		verifier = JSONVerifierSelf{}

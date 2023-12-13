@@ -348,7 +348,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	}
 
 	// validate the mxid_mapping of the event
-	if input.RoomVersion == RoomVersionPseudoIDs {
+	if input.RoomVersion == RoomVersionPseudoIDs || input.RoomVersion == RoomVersionCryptoIDs {
 		// validate the signature first
 		mapping, err := getMXIDMapping(event)
 		if err != nil {
@@ -377,7 +377,7 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// In pseudoID rooms we don't need to hit federation endpoints to get e.g. signing keys,
 	// so we can replace the verifier with a more simple one which uses the senderID to verify the event.
 	toVerify := sender.Domain()
-	if input.RoomVersion == RoomVersionPseudoIDs {
+	if input.RoomVersion == RoomVersionPseudoIDs || input.RoomVersion == RoomVersionCryptoIDs {
 		input.Verifier = JSONVerifierSelf{}
 		toVerify = spec.ServerName(event.SenderID())
 	}

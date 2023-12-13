@@ -488,7 +488,7 @@ func (a *allowerContext) aliasEventAllowed(event PDU) error {
 	// Check that the state key matches the server sending this event.
 	// https://github.com/matrix-org/synapse/blob/v0.18.5/synapse/api/auth.py#L158
 	switch event.Version() {
-	case RoomVersionPseudoIDs:
+	case RoomVersionPseudoIDs, RoomVersionCryptoIDs:
 		if !event.StateKeyEquals(string(event.SenderID())) {
 			return errorf("alias state_key does not match sender domain, %q != %q", event.SenderID(), *event.StateKey())
 		}
@@ -1066,7 +1066,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	// in the room that should have a suitable power level to issue invites.
 	// If no such key is specified then we should reject the join.
 	switch m.roomVersionImpl.Version() {
-	case RoomVersionPseudoIDs:
+	case RoomVersionPseudoIDs, RoomVersionCryptoIDs:
 		// TODO: pseudoIDs: what is a valid senderID? reject if m.newMember.AuthorisedVia != valid
 	default:
 		if _, _, err := SplitID('@', m.newMember.AuthorisedVia); err != nil {

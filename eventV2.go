@@ -199,6 +199,7 @@ var lenientByteLimitRoomVersions = map[RoomVersion]struct{}{
 	RoomVersionV10:       {},
 	RoomVersionV11:       {},
 	RoomVersionPseudoIDs: {},
+	RoomVersionCryptoIDs: {},
 	"org.matrix.msc3787": {},
 	"org.matrix.msc3667": {},
 }
@@ -253,7 +254,7 @@ func CheckFields(input PDU) error { // nolint: gocyclo
 	}
 
 	switch input.Version() {
-	case RoomVersionPseudoIDs:
+	case RoomVersionPseudoIDs, RoomVersionCryptoIDs:
 	default:
 		if err := checkID(string(input.SenderID()), "user", '@'); err != nil {
 			return err

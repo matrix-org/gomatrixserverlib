@@ -171,7 +171,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	// in which case we can give up processing here.
 	var inviteEvent PDU
 	switch input.RoomVersion {
-	case RoomVersionPseudoIDs:
+	case RoomVersionPseudoIDs, RoomVersionCryptoIDs:
 		keyID := KeyID("ed25519:1")
 		origin := spec.ServerName(spec.SenderIDFromPseudoIDKey(input.SigningKey))
 

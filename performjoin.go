@@ -188,7 +188,7 @@ func PerformMakeJoin(
 	keyID := input.KeyID
 	origOrigin := origin
 	switch respMakeJoin.GetRoomVersion() {
-	case RoomVersionPseudoIDs:
+	case RoomVersionPseudoIDs, RoomVersionCryptoIDs:
 		// we successfully did a make_join, create a senderID for this user now
 		senderID, signingKey, err = input.GetOrCreateSenderID(ctx, *input.UserID, *input.RoomID, string(respMakeJoin.GetRoomVersion()))
 		if err != nil {
@@ -324,7 +324,7 @@ func PerformSendJoin(
 
 	// get the membership events of all users, so we can store the mxid_mappings
 	// TODO: better way?
-	if input.RoomVersion == RoomVersionPseudoIDs {
+	if input.RoomVersion == RoomVersionPseudoIDs || input.RoomVersion == RoomVersionCryptoIDs {
 		stateEvents := respSendJoin.GetStateEvents().UntrustedEvents(input.RoomVersion)
 		events := append(authEvents, stateEvents...)
 		err = storeMXIDMappings(ctx, events, *input.RoomID, input.KeyRing, input.StoreSenderIDFromPublicID)
