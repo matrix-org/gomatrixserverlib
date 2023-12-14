@@ -526,7 +526,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 		if err != nil {
 			return err
 		}
-		if !isValidUserID(sender.String()) {
+		if sender == nil || !isValidUserID(sender.String()) {
 			return errorf("Not a valid user ID: %q", senderID)
 		}
 	}
