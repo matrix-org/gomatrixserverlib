@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/stretchr/testify/assert"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -1114,6 +1115,39 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	if err = Allowed(powerChangeShouldSucceed, powerLevelTestRoom, UserIDForSenderTest); err != nil {
 		t.Error("TestDemoteUserDefaultPowerLevel should have succeeded but it didn't:", err)
 	}
+}
+
+func NilUserIDForBadSenderTest(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+	if senderID == "@baduser" {
+		return nil, nil
+	}
+
+	return spec.NewUserID(string(senderID), true)
+}
+
+func TestPowerLevelCheckShouldNotPanic(t *testing.T) {
+	powerChangeShouldSucceed, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(spec.RawJSON(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"users_default": 50,
+			"users": {
+				"@baduser": 0
+			},
+			"redact": 100
+		}
+	}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotPanics(t, func() {
+		if err := Allowed(powerChangeShouldSucceed, powerLevelTestRoom, NilUserIDForBadSenderTest); err == nil {
+			panic("Event should not be allowed")
+		}
+	}, "")
 }
 
 func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
