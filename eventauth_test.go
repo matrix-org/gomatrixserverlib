@@ -1125,8 +1125,47 @@ func NilUserIDForBadSenderTest(roomID spec.RoomID, senderID spec.SenderID) (*spe
 	return spec.NewUserID(string(senderID), true)
 }
 
+var nilPowerLevelTestRoom = &testAuthEvents{
+	CreateJSON: json.RawMessage(`{
+		"type": "m.room.create",
+		"state_key": "",
+		"sender": "@baduser",
+		"room_id": "!r1:a",
+		"event_id": "$e1:a",
+		"content": {
+			"room_version": "1"
+		}
+	}`),
+	PowerLevelsJSON: json.RawMessage(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e3:a",
+		"content": {
+			"users_default": 100,
+			"users": {
+				"@u1:a": 100
+			},
+			"redact": 100
+		}
+	}`),
+	MemberJSON: map[string]json.RawMessage{
+		"@u1:a": json.RawMessage(`{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"content": {
+				"membership": "join"
+			}
+		}`),
+	},
+}
+
 func TestPowerLevelCheckShouldNotPanic(t *testing.T) {
-	powerChangeShouldSucceed, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(spec.RawJSON(`{
+	powerChangeBadUser, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(spec.RawJSON(`{
 		"type": "m.room.power_levels",
 		"state_key": "",
 		"sender": "@u1:a",
@@ -1144,7 +1183,30 @@ func TestPowerLevelCheckShouldNotPanic(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.NotPanics(t, func() {
-		if err := Allowed(powerChangeShouldSucceed, powerLevelTestRoom, NilUserIDForBadSenderTest); err == nil {
+		if err := Allowed(powerChangeBadUser, powerLevelTestRoom, NilUserIDForBadSenderTest); err == nil {
+			panic("Event should not be allowed")
+		}
+	}, "")
+
+	powerChange, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(spec.RawJSON(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"users_default": 50,
+			"users": {
+                "@u1:a": 0
+			},
+			"redact": 100
+		}
+	}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotPanics(t, func() {
+		if err := Allowed(powerChange, nilPowerLevelTestRoom, NilUserIDForBadSenderTest); err == nil {
 			panic("Event should not be allowed")
 		}
 	}, "")
