@@ -265,12 +265,12 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 					return nil, err
 				}
 			} else {
-				inviteEvent, err = fedClient.SendInviteV3(ctx, input.EventTemplate, input.Invitee, input.RoomVersion, inviteState)
+				inviteEvent, err = fedClient.MakeInviteCryptoIDs(ctx, input.EventTemplate, input.Invitee, input.RoomVersion, inviteState)
 				if err != nil {
-					logger.WithError(err).Error("fedClient.SendInviteV3 failed")
+					logger.WithError(err).Error("fedClient.SendInviteCryptoIDs failed")
 					return nil, spec.Forbidden(err.Error())
 				}
-				logger.Debugf("Federated SendInviteV3 success to user %s", input.Invitee.String())
+				logger.Debugf("Federated SendInviteCryptoIDs success to user %s", input.Invitee.String())
 
 				err = input.StoreSenderIDFromPublicID(ctx, spec.SenderID(*inviteEvent.StateKey()), input.Invitee.String(), input.RoomID)
 				if err != nil {

@@ -33,6 +33,8 @@ type FederationClient interface {
 	SendLeave(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (err error)
 	SendInviteV2(ctx context.Context, origin, s spec.ServerName, request InviteV2Request) (res RespInviteV2, err error)
 	SendInviteV3(ctx context.Context, origin, s spec.ServerName, request InviteV3Request, userID spec.UserID) (res RespInviteV2, err error)
+	MakeInviteCryptoIDs(ctx context.Context, origin, s spec.ServerName, request InviteV3Request, userID spec.UserID) (res RespInviteV2, err error)
+	SendInviteCryptoIDs(ctx context.Context, origin, s spec.ServerName, request SendInviteCryptoIDsRequest, userID spec.UserID) error
 	MakeKnock(ctx context.Context, origin, s spec.ServerName, roomID, userID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespMakeKnock, err error)
 	SendKnock(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (res RespSendKnock, err error)
 
@@ -128,6 +130,7 @@ func (ac *federationClient) doRequest(ctx context.Context, r FederationRequest, 
 var federationPathPrefixV1 = "/_matrix/federation/v1"
 var federationPathPrefixV2 = "/_matrix/federation/v2"
 var federationPathPrefixV3 = "/_matrix/federation/v3"
+var federationPathPrefixUnstable = "/_matrix/federation/unstable"
 
 // SendTransaction sends a transaction
 func (ac *federationClient) SendTransaction(
@@ -429,6 +432,41 @@ func (ac *federationClient) SendInviteV3(
 	}
 	err = ac.doRequest(ctx, req, &res)
 	return
+}
+
+// MakeInviteCryptoIDs sends an invite m.room.member event to an invited server to be
+// signed by it. This is used to invite a user that is not on the local server.
+// CryptoIDs splits the /invite endpoint into /make_invite & /send_invite.
+func (ac *federationClient) MakeInviteCryptoIDs(
+	ctx context.Context, origin, s spec.ServerName, request InviteV3Request, userID spec.UserID,
+) (res RespInviteV2, err error) {
+	path := federationPathPrefixUnstable + "/make_invite/" +
+		url.PathEscape(request.Event().RoomID) + "/" +
+		url.PathEscape(userID.String())
+	req := NewFederationRequest("PUT", origin, s, path)
+	if err = req.SetContent(request); err != nil {
+		return
+	}
+	err = ac.doRequest(ctx, req, &res)
+	return
+}
+
+// SendInviteCryptoIDs sends an invite m.room.member event to an invited server to be
+// signed by it. This is used to invite a user that is not on the local server.
+// CryptoIDs splits the /invite endpoint into /make_invite & /send_invite.
+func (ac *federationClient) SendInviteCryptoIDs(
+	ctx context.Context, origin, s spec.ServerName, request SendInviteCryptoIDsRequest, userID spec.UserID,
+) error {
+	path := federationPathPrefixUnstable + "/send_invite/" +
+		url.PathEscape(request.Event().RoomID().String()) + "/" +
+		url.PathEscape(userID.String())
+	req := NewFederationRequest("PUT", origin, s, path)
+	if err := req.SetContent(request); err != nil {
+		return err
+	}
+	res := struct{}{}
+	err := ac.doRequest(ctx, req, &res)
+	return err
 }
 
 // ExchangeThirdPartyInvite sends the builder of a m.room.member event of
