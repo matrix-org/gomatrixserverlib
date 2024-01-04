@@ -126,7 +126,10 @@ func (eb *EventBuilder) Build(
 	now time.Time, origin spec.ServerName, keyID KeyID,
 	privateKey ed25519.PrivateKey,
 ) (result PDU, err error) {
-	eventJSON, err := eb.build(now, origin)
+	var eventJSON []byte
+	if eventJSON, err = eb.build(now, origin); err != nil {
+		return
+	}
 
 	if eventJSON, err = signEvent(string(origin), keyID, privateKey, eventJSON, eb.version.Version()); err != nil {
 		return
@@ -149,7 +152,10 @@ func (eb *EventBuilder) Build(
 // Builds a new event.
 // Does not add signatures to the event.
 func (eb *EventBuilder) BuildWithoutSigning(now time.Time, origin spec.ServerName) (result PDU, err error) {
-	eventJSON, err := eb.build(now, origin)
+	var eventJSON []byte
+	if eventJSON, err = eb.build(now, origin); err != nil {
+		return
+	}
 
 	if eventJSON, err = EnforcedCanonicalJSON(eventJSON, eb.version.Version()); err != nil {
 		return

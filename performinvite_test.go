@@ -70,6 +70,14 @@ func (f *TestFederatedInviteClient) SendInviteV3(ctx context.Context, event Prot
 	return inviteEvent, err
 }
 
+func (f *TestFederatedInviteClient) MakeInviteCryptoIDs(ctx context.Context, event ProtoEvent, userID spec.UserID, roomVersion RoomVersion, strippedState []InviteStrippedState) (PDU, error) {
+	return nil, nil
+}
+
+func (f *TestFederatedInviteClient) SendInviteCryptoIDs(ctx context.Context, event PDU, userID spec.UserID, roomVersion RoomVersion) error {
+	return nil
+}
+
 type TestEventQuerier struct {
 	createEvent PDU
 }

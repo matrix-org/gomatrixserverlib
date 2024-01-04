@@ -29,9 +29,10 @@ type GetLatestEvents func(ctx context.Context, roomID spec.RoomID, eventsNeeded 
 type PerformInviteInput struct {
 	RoomID        spec.RoomID // The room the user is being invited to join
 	RoomVersion   RoomVersion
-	Inviter       spec.UserID           // The user doing the inviting
-	Invitee       spec.UserID           // The user being invited join the room
-	IsTargetLocal bool                  // Whether the user being invited is local to this server
+	Inviter       spec.UserID // The user doing the inviting
+	Invitee       spec.UserID // The user being invited join the room
+	IsTargetLocal bool        // Whether the user being invited is local to this server
+	CryptoIDs     bool
 	EventTemplate ProtoEvent            // The original invite event
 	StrippedState []InviteStrippedState // A small set of state events that can be used to identify the room
 	KeyID         KeyID
@@ -46,7 +47,6 @@ type PerformInviteInput struct {
 	EventQuerier              GetLatestEvents
 	StoreSenderIDFromPublicID spec.StoreSenderIDFromPublicID // Creates the senderID -> userID for the room creator
 
-	CryptoIDs     bool
 	ClaimSenderID spec.ClaimOneTimeSenderID
 }
 
