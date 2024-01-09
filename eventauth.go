@@ -112,6 +112,9 @@ type membershipContent struct {
 	// The user that authorised the join, in the case that the restricted join
 	// rule is in effect.
 	AuthorizedVia string `json:"join_authorised_via_users_server,omitempty"`
+
+	// The MXIDMapping used in pseudo ID rooms
+	MXIDMapping *MXIDMapping `json:"mxid_mapping,omitempty"`
 }
 
 // StateNeededForProtoEvent returns the event types and state_keys needed to authenticate the
@@ -983,7 +986,7 @@ func (m *membershipAllower) membershipAllowed(event PDU) error { // nolint: gocy
 	var sender *spec.UserID
 	var err error
 	if event.Type() == spec.MRoomMember {
-		mapping := MemberContent{}
+		mapping := membershipContent{}
 		if err := json.Unmarshal(event.Content(), &mapping); err != nil {
 			return err
 		}
