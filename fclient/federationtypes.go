@@ -113,8 +113,6 @@ type RespPublicRooms struct {
 // PublicRoom stores the info of a room returned by
 // GET /_matrix/federation/v1/publicRooms
 type PublicRoom struct {
-	// Aliases of the room. May be empty.
-	Aliases []string `json:"aliases,omitempty"`
 	// The canonical alias of the room, if any.
 	CanonicalAlias string `json:"canonical_alias,omitempty"`
 	// The name of the room, if any.
