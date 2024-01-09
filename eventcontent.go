@@ -213,6 +213,7 @@ func NewMemberContentFromEvent(event PDU) (c MemberContent, err error) {
 		c.Membership = partial.Membership
 		c.ThirdPartyInvite = partial.ThirdPartyInvite
 		c.AuthorisedVia = partial.AuthorizedVia
+		c.MXIDMapping = partial.MXIDMapping
 	}
 	return
 }

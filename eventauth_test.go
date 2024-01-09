@@ -1539,3 +1539,57 @@ func Test_checkUserLevels(t *testing.T) {
 		})
 	}
 }
+
+// Test that we allow broken membership content, i.e.
+// displayname is boolean, an object or array
+func TestMembershipAllowed(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": false}
+		},
+		{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": {}}
+		},
+		{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": 0}
+		},
+		{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": []}
+		}],
+		"not_allowed": []
+	}`)
+}
