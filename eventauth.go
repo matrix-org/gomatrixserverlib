@@ -1162,14 +1162,19 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
 		return m.roomVersionImpl.CheckKnockingAllowed(m)
 	case spec.Join:
-		if m.oldMember.Membership == spec.Leave && (m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted) {
+		// If the sender is banned, reject.
+		if m.oldMember.Membership == spec.Ban {
+			return m.membershipFailed(
+				"join rule %q forbids it", m.joinRule.JoinRule,
+			)
+		}
+		if m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
 				return err
 			}
 		}
-		// A user that is not in the room is allowed to join if the room
-		// join rules are "public".
-		if m.oldMember.Membership == spec.Leave && m.joinRule.JoinRule == spec.Public {
+		// If, after validating restricted joins, the room is now "public", allow.
+		if m.joinRule.JoinRule == spec.Public {
 			return nil
 		}
 		// An invited user is always allowed to join, regardless of the join rule
