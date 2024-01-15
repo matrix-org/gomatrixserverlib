@@ -1650,8 +1650,6 @@ func TestMembershipBanned(t *testing.T) {
 	}`, RoomVersionV1)
 }
 
-// If the join_rule is invite or knock then allow if
-// membership state is invite or join. (not checked?)
 func TestJoinRuleInvite(t *testing.T) {
 	testEventAllowed(t, `{
 		"auth_events": {
