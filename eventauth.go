@@ -1146,6 +1146,13 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		return nil
 	}
 
+	// If the sender is banned, reject, as they can not change their own ban status.
+	if m.oldMember.Membership == spec.Ban {
+		return m.membershipFailed(
+			"sender cannot set their own membership to %q", m.newMember.Membership,
+		)
+	}
+
 	switch m.newMember.Membership {
 	case spec.Knock:
 		if m.joinRule.JoinRule != spec.Knock && m.joinRule.JoinRule != spec.KnockRestricted {
@@ -1162,15 +1169,15 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
 		return m.roomVersionImpl.CheckKnockingAllowed(m)
 	case spec.Join:
-		if m.oldMember.Membership == spec.Leave && (m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted) {
+		if m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
 				return err
 			}
-		}
-		// A user that is not in the room is allowed to join if the room
-		// join rules are "public".
-		if m.oldMember.Membership == spec.Leave && m.joinRule.JoinRule == spec.Public {
-			return nil
+			// If, after validating restricted joins, the room is now "public", allow.
+			// This means that transitions from knock|invite|leave to join are allowed.
+			if m.joinRule.JoinRule == spec.Public {
+				return nil
+			}
 		}
 		// An invited user is always allowed to join, regardless of the join rule
 		if m.oldMember.Membership == spec.Invite {
@@ -1180,6 +1187,13 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		if m.oldMember.Membership == spec.Join {
 			return nil
 		}
+
+		// A user that is not in the room is allowed to join if the room
+		// join rules are "public".
+		if m.oldMember.Membership == spec.Leave && m.joinRule.JoinRule == spec.Public {
+			return nil
+		}
+
 		return m.membershipFailed(
 			"join rule %q forbids it", m.joinRule.JoinRule,
 		)
@@ -1231,7 +1245,7 @@ func disallowKnocking(m *membershipAllower) error {
 }
 
 func checkKnocking(m *membershipAllower) error {
-	supported := m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted
+	supported := m.joinRule.JoinRule == spec.Knock || m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted
 	if !supported {
 		return m.membershipFailed(
 			"room version %q does not support knocking on rooms with join rule %q",

@@ -484,6 +484,7 @@ func TestStateResolutionOtherEventDoesntOverpowerPowerEvent(t *testing.T) {
 }
 
 func runStateResolutionV2(t *testing.T, additional []PDU, expected []string) {
+	t.Helper()
 	input := append(getBaseStateResV2Graph(), additional...)
 	conflicted, unconflicted := separate(input)
 

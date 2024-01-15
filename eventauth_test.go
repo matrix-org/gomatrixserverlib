@@ -216,13 +216,14 @@ type testAuthEvents struct {
 	PowerLevelsJSON      json.RawMessage            `json:"power_levels"`
 	MemberJSON           map[string]json.RawMessage `json:"member"`
 	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
+	roomVersion          RoomVersion
 }
 
 func (tae *testAuthEvents) Create() (PDU, error) {
 	if len(tae.CreateJSON) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.CreateJSON, false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.CreateJSON, false)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +234,7 @@ func (tae *testAuthEvents) JoinRules() (PDU, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.JoinRulesJSON, false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.JoinRulesJSON, false)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +245,7 @@ func (tae *testAuthEvents) PowerLevels() (PDU, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.PowerLevelsJSON, false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.PowerLevelsJSON, false)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +256,7 @@ func (tae *testAuthEvents) Member(stateKey spec.SenderID) (PDU, error) {
 	if len(tae.MemberJSON[string(stateKey)]) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.MemberJSON[string(stateKey)], false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.MemberJSON[string(stateKey)], false)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +267,7 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (PDU, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false)
 	if err != nil {
 		return nil, err
 	}
@@ -283,13 +284,18 @@ type testCase struct {
 	NotAllowed []json.RawMessage `json:"not_allowed"`
 }
 
-func testEventAllowed(t *testing.T, testCaseJSON string) {
-	var tc testCase
+func testEventAllowed(t *testing.T, testCaseJSON string, roomVersion RoomVersion) {
+	t.Helper()
+	tc := testCase{
+		AuthEvents: testAuthEvents{
+			roomVersion: roomVersion,
+		},
+	}
 	if err := json.Unmarshal([]byte(testCaseJSON), &tc); err != nil {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {
-		event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(data, false)
+		event, err := MustGetRoomVersion(roomVersion).NewEventFromTrustedJSON(data, false)
 		if err != nil {
 			panic(err)
 		}
@@ -298,13 +304,15 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		}
 	}
 	for _, data := range tc.NotAllowed {
-		event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(data, false)
+		event, err := MustGetRoomVersion(roomVersion).NewEventFromTrustedJSON(data, false)
 		if err != nil {
 			continue
 		}
 		if event != nil {
 			if err := Allowed(event, &tc.AuthEvents, UserIDForSenderTest); err == nil {
 				t.Fatalf("Expected %q to not be allowed but it was", string(data))
+			} else {
+				t.Logf("%#v", err)
 			}
 		}
 	}
@@ -403,7 +411,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 				"not_allowed": "The state_key is not empty"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedFirstJoin(t *testing.T) {
@@ -512,7 +520,7 @@ func TestAllowedFirstJoin(t *testing.T) {
 				"not_allowed": "The membership is not 'join'"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedWithNoPowerLevels(t *testing.T) {
@@ -554,7 +562,7 @@ func TestAllowedWithNoPowerLevels(t *testing.T) {
 				"not_allowed": "Sender is not in room"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedInviteFrom3PID(t *testing.T) {
@@ -694,7 +702,7 @@ func TestAllowedInviteFrom3PID(t *testing.T) {
 				"not_allowed": "Token doesn't refer to a known third-party invite"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedNoFederation(t *testing.T) {
@@ -738,7 +746,7 @@ func TestAllowedNoFederation(t *testing.T) {
 				"not_allowed": "Sender is from a different server."
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedWithPowerLevels(t *testing.T) {
@@ -891,7 +899,7 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 				"not_allowed": "State key starts with '@' and is for a different user"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestRedactAllowed(t *testing.T) {
@@ -1007,7 +1015,7 @@ func TestRedactAllowed(t *testing.T) {
 				"not_allowed": "Missing redacts event ID"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAuthEvents(t *testing.T) {
@@ -1054,6 +1062,7 @@ func TestAuthEvents(t *testing.T) {
 }
 
 var powerLevelTestRoom = &testAuthEvents{
+	roomVersion: RoomVersionV1,
 	CreateJSON: json.RawMessage(`{
 		"type": "m.room.create",
 		"state_key": "",
@@ -1126,6 +1135,7 @@ func NilUserIDForBadSenderTest(roomID spec.RoomID, senderID spec.SenderID) (*spe
 }
 
 var nilPowerLevelTestRoom = &testAuthEvents{
+	roomVersion: RoomVersionV1,
 	CreateJSON: json.RawMessage(`{
 		"type": "m.room.create",
 		"state_key": "",
@@ -1247,6 +1257,7 @@ func newMemberContent(
 }
 
 var negativePowerLevelTestRoom = &testAuthEvents{
+	roomVersion: RoomVersionV1,
 	CreateJSON: json.RawMessage(`{
 		"type": "m.room.create",
 		"state_key": "",
@@ -1591,5 +1602,370 @@ func TestMembershipAllowed(t *testing.T) {
 			"content": {"membership": "join", "displayname": []}
 		}],
 		"not_allowed": []
-	}`)
+	}`, RoomVersionV1)
+}
+
+func TestMembershipBanned(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u2:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock" }
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e5:a",
+				"content": {
+					"users": {
+						"@u2:a": 100
+					},
+					"ban": 50
+				}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "ban"}
+				},
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "leave"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}, 
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}, 
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}
+		],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender should not be able to ban->join themselves"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender should not be able to ban->knock themselves"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "invite"},
+			"unsigned": {
+				"not_allowed": "Sender should not be able to ban->invite themselves"
+			}
+		}]
+	}`, RoomVersionV10)
+}
+
+func TestJoinRuleInvite(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "invite" }
+			},
+			"member": {
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		}]
+	}`, RoomVersionV1)
+}
+
+func TestJoinRuleKnock(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock" }
+			},
+			"member": {
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u4:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		}]
+	}`, RoomVersionV10)
+}
+
+func TestJoinRuleKnockRestricted(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock_restricted" }
+			},
+			"member": {
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u4:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join", "join_authorised_via_users_server": "@u3:a"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		}]
+	}`, RoomVersionV10)
 }
