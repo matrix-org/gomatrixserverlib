@@ -1616,6 +1616,26 @@ func TestMembershipBanned(t *testing.T) {
 				"event_id": "$e1:a",
 				"content": {"creator": "@u1:a"}
 			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u2:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock" }
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e5:a",
+				"content": {
+					"users": {
+						"@u2:a": 100
+					},
+					"ban": 50
+				}
+			},
 			"member": {
 				"@u1:a": {
 					"type": "m.room.member",
@@ -1623,31 +1643,100 @@ func TestMembershipBanned(t *testing.T) {
 					"room_id": "!r1:a",
 					"state_key": "@u1:a",
 					"event_id": "$e2:a",
-					"content": {"membership": "join"}
+					"content": {"membership": "ban"}
 				},
 				"@u2:a": {
 					"type": "m.room.member",
 					"sender": "@u2:a",
 					"room_id": "!r1:a",
 					"state_key": "@u2:a",
-					"event_id": "$e3:a",
-					"content": {"membership": "ban"}
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
 				}
 			}
 		},
-		"allowed": [],
-		"not_allowed": [{
+		"allowed": [{
 			"type": "m.room.member",
 			"sender": "@u2:a",
 			"room_id": "!r1:a",
-			"state_key": "@u2:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "leave"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}, 
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}, 
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}
+		],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
 			"event_id": "$e4:a",
 			"content": {"membership": "join"},
 			"unsigned": {
 				"not_allowed": "Sender is not in room"
 			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender is not in room"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "invite"},
+			"unsigned": {
+				"not_allowed": "Sender is not in room"
+			}
 		}]
-	}`, RoomVersionV1)
+	}`, RoomVersionV10)
 }
 
 func TestJoinRuleInvite(t *testing.T) {
@@ -1670,14 +1759,6 @@ func TestJoinRuleInvite(t *testing.T) {
 				"content": {"join_rule": "invite" }
 			},
 			"member": {
-				"@u1:a": {
-					"type": "m.room.member",
-					"sender": "@u1:a",
-					"room_id": "!r1:a",
-					"state_key": "@u1:a",
-					"event_id": "$e2:a",
-					"content": {"membership": "leave"}
-				},
 				"@u2:a": {
 					"type": "m.room.member",
 					"sender": "@u2:a",
@@ -1730,14 +1811,6 @@ func TestJoinRuleKnock(t *testing.T) {
 				"content": {"join_rule": "knock" }
 			},
 			"member": {
-				"@u1:a": {
-					"type": "m.room.member",
-					"sender": "@u1:a",
-					"room_id": "!r1:a",
-					"state_key": "@u1:a",
-					"event_id": "$e2:a",
-					"content": {"membership": "leave"}
-				},
 				"@u2:a": {
 					"type": "m.room.member",
 					"sender": "@u2:a",
@@ -1782,7 +1855,7 @@ func TestJoinRuleKnock(t *testing.T) {
 				"not_allowed": "Sender not invited or joined"
 			}
 		}]
-	}`, RoomVersionV1)
+	}`, RoomVersionV10)
 }
 
 func TestJoinRuleKnockRestricted(t *testing.T) {
@@ -1805,14 +1878,6 @@ func TestJoinRuleKnockRestricted(t *testing.T) {
 				"content": {"join_rule": "knock_restricted" }
 			},
 			"member": {
-				"@u1:a": {
-					"type": "m.room.member",
-					"sender": "@u1:a",
-					"room_id": "!r1:a",
-					"state_key": "@u1:a",
-					"event_id": "$e2:a",
-					"content": {"membership": "leave"}
-				},
 				"@u2:a": {
 					"type": "m.room.member",
 					"sender": "@u2:a",
