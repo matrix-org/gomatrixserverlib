@@ -1236,7 +1236,7 @@ func disallowKnocking(m *membershipAllower) error {
 }
 
 func checkKnocking(m *membershipAllower) error {
-	supported := m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted
+	supported := m.joinRule.JoinRule == spec.Knock || m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted
 	if !supported {
 		return m.membershipFailed(
 			"room version %q does not support knocking on rooms with join rule %q",
