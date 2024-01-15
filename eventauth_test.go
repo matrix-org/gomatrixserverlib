@@ -1711,7 +1711,7 @@ func TestMembershipBanned(t *testing.T) {
 			"event_id": "$e4:a",
 			"content": {"membership": "join"},
 			"unsigned": {
-				"not_allowed": "Sender is not in room"
+				"not_allowed": "Sender should not be able to ban->join themselves"
 			}
 		},
 		{
@@ -1722,7 +1722,7 @@ func TestMembershipBanned(t *testing.T) {
 			"event_id": "$e4:a",
 			"content": {"membership": "knock"},
 			"unsigned": {
-				"not_allowed": "Sender is not in room"
+				"not_allowed": "Sender should not be able to ban->knock themselves"
 			}
 		},
 		{
@@ -1733,7 +1733,7 @@ func TestMembershipBanned(t *testing.T) {
 			"event_id": "$e4:a",
 			"content": {"membership": "invite"},
 			"unsigned": {
-				"not_allowed": "Sender is not in room"
+				"not_allowed": "Sender should not be able to ban->invite themselves"
 			}
 		}]
 	}`, RoomVersionV10)
@@ -1826,6 +1826,14 @@ func TestJoinRuleKnock(t *testing.T) {
 					"state_key": "@u3:a",
 					"event_id": "$e2:a",
 					"content": {"membership": "join"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u4:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
 				}
 			}
 		},
@@ -1849,6 +1857,17 @@ func TestJoinRuleKnock(t *testing.T) {
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
 			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
 			"event_id": "$e2:a",
 			"content": {"membership": "join"},
 			"unsigned": {
@@ -1931,6 +1950,17 @@ func TestJoinRuleKnockRestricted(t *testing.T) {
 			"sender": "@u1:a",
 			"room_id": "!r1:a",
 			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
 			"event_id": "$e2:a",
 			"content": {"membership": "join"},
 			"unsigned": {
