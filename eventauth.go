@@ -1146,6 +1146,13 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		return nil
 	}
 
+	// If the sender is banned, reject, as they can not change their own ban status.
+	if m.oldMember.Membership == spec.Ban {
+		return m.membershipFailed(
+			"sender cannot set their own membership to %q", m.newMember.Membership,
+		)
+	}
+
 	switch m.newMember.Membership {
 	case spec.Knock:
 		if m.joinRule.JoinRule != spec.Knock && m.joinRule.JoinRule != spec.KnockRestricted {
@@ -1162,12 +1169,6 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
 		return m.roomVersionImpl.CheckKnockingAllowed(m)
 	case spec.Join:
-		// If the sender is banned, reject.
-		if m.oldMember.Membership == spec.Ban {
-			return m.membershipFailed(
-				"join rule %q forbids it", m.joinRule.JoinRule,
-			)
-		}
 		if m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
 				return err
