@@ -1252,12 +1252,11 @@ func checkKnocking(m *membershipAllower) error {
 	}
 	switch m.oldMember.Membership {
 
-	// If the sender’s current membership is not ban or join, allow.
-	case spec.Join, spec.Ban:
-		// The user is already joined or banned, therefore they
+	case spec.Join, spec.Invite, spec.Ban:
+		// The user is already joined, invited or banned, therefore they
 		// can't knock.
 		return m.membershipFailed(
-			"sender is already joined/banned",
+			"sender is already joined/invited/banned",
 		)
 	}
 	// A non-joined, non-invited, non-banned user is allowed to knock.

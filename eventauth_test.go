@@ -1859,13 +1859,6 @@ func TestJoinRuleKnock(t *testing.T) {
 			"state_key": "@u3:a",
 			"event_id": "$e2:a",
 			"content": {"membership": "join"}
-		}, {
-			"type": "m.room.member",
-			"sender": "@u2:a",
-			"room_id": "!r1:a",
-			"state_key": "@u2:a",
-			"event_id": "$e2:a",
-			"content": {"membership": "knock"}
 		}],
 		"not_allowed": [{
 			"type": "m.room.member",
