@@ -1155,18 +1155,7 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 
 	switch m.newMember.Membership {
 	case spec.Knock:
-		if m.joinRule.JoinRule != spec.Knock && m.joinRule.JoinRule != spec.KnockRestricted {
-			return m.membershipFailed(
-				"join rule %q does not allow knocking", m.joinRule.JoinRule,
-			)
-		}
-		// A user that is not in the room is allowed to knock if the join
-		// rules are "knock" and they are not already joined to, invited to
-		// or banned from the room.
-		// Spec: https://spec.matrix.org/unstable/rooms/v7/
-		// MSC3787 extends this: the behaviour above is also permitted if the
-		// join rules are "knock_restricted"
-		// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
+		// Check if the given roomVersionImpl allows knocking.
 		return m.roomVersionImpl.CheckKnockingAllowed(m)
 	case spec.Join:
 		if m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted {
@@ -1244,6 +1233,13 @@ func disallowKnocking(m *membershipAllower) error {
 	)
 }
 
+// A user that is not in the room is allowed to knock if the join
+// rules are "knock" and they are not already joined to
+// or banned from the room.
+// Spec: https://spec.matrix.org/unstable/rooms/v7/
+// MSC3787 extends this: the behaviour above is also permitted if the
+// join rules are "knock_restricted"
+// Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
 func checkKnocking(m *membershipAllower) error {
 	// If the join_rule is anything other than knock or knock_restricted, reject.
 	supported := m.joinRule.JoinRule == spec.Knock || m.joinRule.JoinRule == spec.KnockRestricted
