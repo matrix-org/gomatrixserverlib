@@ -1834,6 +1834,14 @@ func TestJoinRuleKnock(t *testing.T) {
 					"state_key": "@u4:a",
 					"event_id": "$e2:a",
 					"content": {"membership": "knock"}
+				},
+				"@u5:a": {
+					"type": "m.room.member",
+					"sender": "@u5:a",
+					"room_id": "!r1:a",
+					"state_key": "@u5:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "ban"}
 				}
 			}
 		},
@@ -1851,6 +1859,13 @@ func TestJoinRuleKnock(t *testing.T) {
 			"state_key": "@u3:a",
 			"event_id": "$e2:a",
 			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "knock"}
 		}],
 		"not_allowed": [{
 			"type": "m.room.member",
@@ -1872,6 +1887,28 @@ func TestJoinRuleKnock(t *testing.T) {
 			"content": {"membership": "join"},
 			"unsigned": {
 				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender is already joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u5:a",
+			"room_id": "!r1:a",
+			"state_key": "@u5:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender is banned"
 			}
 		}]
 	}`, RoomVersionV10)

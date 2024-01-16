@@ -1245,7 +1245,8 @@ func disallowKnocking(m *membershipAllower) error {
 }
 
 func checkKnocking(m *membershipAllower) error {
-	supported := m.joinRule.JoinRule == spec.Knock || m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted
+	// If the join_rule is anything other than knock or knock_restricted, reject.
+	supported := m.joinRule.JoinRule == spec.Knock || m.joinRule.JoinRule == spec.KnockRestricted
 	if !supported {
 		return m.membershipFailed(
 			"room version %q does not support knocking on rooms with join rule %q",
@@ -1255,11 +1256,12 @@ func checkKnocking(m *membershipAllower) error {
 	}
 	switch m.oldMember.Membership {
 
-	case spec.Join, spec.Invite, spec.Ban:
-		// The user is already joined, invited or banned, therefore they
+	// If the sender’s current membership is not ban or join, allow.
+	case spec.Join, spec.Ban:
+		// The user is already joined or banned, therefore they
 		// can't knock.
 		return m.membershipFailed(
-			"sender is already joined/invited/banned",
+			"sender is already joined/banned",
 		)
 	}
 	// A non-joined, non-invited, non-banned user is allowed to knock.
