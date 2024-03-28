@@ -129,6 +129,8 @@ type PublicRoom struct {
 	GuestCanJoin bool `json:"guest_can_join"`
 	// The URL for the room's avatar, if one is set.
 	AvatarURL string `json:"avatar_url,omitempty"`
+	// The join rule for this room
+	JoinRule string `json:"join_rule,omitempty"`
 }
 
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
