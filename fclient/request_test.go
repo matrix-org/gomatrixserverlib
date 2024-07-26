@@ -214,6 +214,10 @@ func TestParseAuthorization(t *testing.T) {
 			name:   "parse with different ordering and tabs",
 			header: `X-Matrix 	origin=foo	,	,destination	="bar",	sig="sig", key="ed25519:1"`,
 		},
+		{
+			name:   "parse with different ordering and whitespace around values",
+			header: `X-Matrix 	origin=foo	,	,destination	=  "bar"  ,	sig=	"sig" , key="ed25519:1"`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
