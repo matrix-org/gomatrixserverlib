@@ -739,9 +739,11 @@ func (ac *federationClient) RoomHierarchy(
 	return
 }
 
+// DownloadMedia performs an authenticated federation request for a given mediaID.
+// The caller is responsible to close the returned response body.
 func (ac *federationClient) DownloadMedia(
 	ctx context.Context, origin, destination spec.ServerName, mediaID string,
-) (res *http.Response, err error) {
+) (*http.Response, error) {
 	var identity *SigningIdentity
 	for _, id := range ac.identities {
 		if id.ServerName == origin {
