@@ -332,8 +332,8 @@ func ParseAuthorization(header string) (scheme string, origin, destination spec.
 		if len(pair) != 2 {
 			continue
 		}
-		name := pair[0]
-		value := strings.Trim(pair[1], "\"")
+		name := strings.TrimSpace(pair[0])
+		value := strings.Trim(strings.TrimSpace(pair[1]), "\"")
 		if name == "origin" {
 			origin = spec.ServerName(value)
 		}
