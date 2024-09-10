@@ -186,3 +186,58 @@ func mustLoadPrivateKey(seed string) ed25519.PrivateKey {
 	}
 	return privateKey
 }
+
+func TestParseAuthorization(t *testing.T) {
+	wantScheme := "X-Matrix"
+	wantOrigin := spec.ServerName("foo")
+	wantKey := gomatrixserverlib.KeyID("ed25519:1")
+	wantSig := "sig"
+	wantDestination := spec.ServerName("bar")
+
+	tests := []struct {
+		name   string
+		header string
+	}{
+		{
+			name:   "parse with whitespace",
+			header: `X-Matrix origin=foo , key="ed25519:1",  sig="sig",		destination="bar"`,
+		},
+		{
+			name:   "parse without spaces",
+			header: `X-Matrix origin=foo,key="ed25519:1",sig="sig",destination="bar"`,
+		},
+		{
+			name:   "parse with tabs spaces",
+			header: `X-Matrix 	origin=foo	,		key="ed25519:1",	sig="sig"	,destination	="bar"`,
+		},
+		{
+			name:   "parse with different ordering and tabs",
+			header: `X-Matrix 	origin=foo	,	,destination	="bar",	sig="sig", key="ed25519:1"`,
+		},
+		{
+			name:   "parse with different ordering and whitespace around values",
+			header: `X-Matrix 	origin=foo	,	,destination	=  "bar"  ,	sig=	"sig" , key="ed25519:1"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotScheme, gotOrigin, gotDestination, gotKey, gotSig := ParseAuthorization(tt.header)
+
+			if gotScheme != wantScheme {
+				t.Errorf("ParseAuthorization() gotScheme = %v, want %v", gotScheme, wantScheme)
+			}
+			if gotOrigin != wantOrigin {
+				t.Errorf("ParseAuthorization() gotOrigin = %v, want %v", gotOrigin, wantOrigin)
+			}
+			if gotDestination != wantDestination {
+				t.Errorf("ParseAuthorization() gotDestination = %v, want %v", gotDestination, wantDestination)
+			}
+			if gotKey != wantKey {
+				t.Errorf("ParseAuthorization() gotKey = %v, want %v", gotKey, wantKey)
+			}
+			if gotSig != wantSig {
+				t.Errorf("ParseAuthorization() gotSig = %v, want %v", gotSig, wantSig)
+			}
+		})
+	}
+}
