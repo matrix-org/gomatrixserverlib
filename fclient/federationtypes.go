@@ -131,6 +131,8 @@ type PublicRoom struct {
 	AvatarURL string `json:"avatar_url,omitempty"`
 	// The join rule for this room
 	JoinRule string `json:"join_rule,omitempty"`
+	// The type of the room.
+	RoomType string `json:"room_type,omitempty"`
 }
 
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}
