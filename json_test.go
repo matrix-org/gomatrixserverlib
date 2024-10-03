@@ -61,10 +61,10 @@ func TestJSONFloats(t *testing.T) {
 }
 
 func testSortJSON(t *testing.T, input, want string) {
-	got := SortJSON([]byte(input), nil)
+	got := SortJSON([]byte(input))
 
 	// Squash out the whitespace before comparing the JSON in case SortJSON had inserted whitespace.
-	if string(CompactJSON(got, nil)) != want {
+	if string(CompactJSON(got)) != want {
 		t.Errorf("SortJSON(%q): want %q got %q", input, want, got)
 	}
 }
@@ -79,7 +79,7 @@ func TestSortJSON(t *testing.T) {
 }
 
 func testCompactJSON(t *testing.T, input, want string) {
-	bytes := CompactJSON([]byte(input), nil)
+	bytes := CompactJSON([]byte(input))
 	got := string(bytes)
 	if got != want {
 		t.Errorf("CompactJSON(%q):\n want: %q\n got: %q\n bytes: % X", input, want, got, bytes)
