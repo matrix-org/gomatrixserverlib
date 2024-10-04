@@ -203,15 +203,15 @@ func sortJSONArray(input gjson.Result, output []byte) []byte {
 	return output
 }
 
-type entry struct {
-	key   string // The parsed key string
-	value gjson.Result
-}
-
 // sortJSONObject takes a gjson.Result and sorts it, assuming its an object.
 // inputJSON must be the raw JSON bytes that gjson.Result points to.
 func sortJSONObject(input gjson.Result, output []byte) []byte {
+	type entry struct {
+		key   string // The parsed key string
+		value gjson.Result
+	}
 
+	// Try to stay on the stack here if we can.
 	var _entries [128]*entry
 	entries := _entries[:0]
 
@@ -225,7 +225,8 @@ func sortJSONObject(input gjson.Result, output []byte) []byte {
 		return true // keep iterating
 	})
 
-	// Sort the slice based on the *parsed* key
+	// Using slices.SortFunc here instead of sort.Slice avoids
+	// heap escapes due to reflection.
 	slices.SortFunc(entries, func(a, b *entry) int {
 		return strings.Compare(a.key, b.key)
 	})
@@ -306,11 +307,6 @@ func CompactJSON(input []byte) []byte {
 	return output
 }
 
-const (
-	ESCAPES = "uuuuuuuubtnufruuuuuuuuuuuuuuuuuu"
-	HEX     = "0123456789abcdef"
-)
-
 // compactUnicodeEscape unpacks a 4 byte unicode escape starting at index.
 // Returns the output slice and a new input index.
 func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
@@ -319,6 +315,10 @@ func compactUnicodeEscape(input, output []byte, index int) ([]byte, int) {
 		n := utf8.EncodeRune(buffer[:], c)
 		output = append(output, buffer[:n]...)
 	}
+	const (
+		ESCAPES = "uuuuuuuubtnufruuuuuuuuuuuuuuuuuu"
+		HEX     = "0123456789abcdef"
+	)
 
 	// If there aren't enough bytes to decode the hex escape then return.
 	if len(input)-index < 4 {
