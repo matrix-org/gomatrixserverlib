@@ -102,16 +102,10 @@ func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*Well
 	// by checking Content-Length, but it's possible that header will be
 	// missing. Better to be safe than sorry by reading no more than the
 	// WellKnownMaxSize in any case.
-	bodyBuffer := make([]byte, WellKnownMaxSize)
-	limitedReader := &io.LimitedReader{
-		R: resp.Body,
-		N: WellKnownMaxSize,
-	}
-	n, err := limitedReader.Read(bodyBuffer)
-	if err != nil && err != io.EOF {
+	body, err := io.ReadAll(&io.LimitedReader{R: resp.Body, N: WellKnownMaxSize})
+	if err != nil {
 		return nil, err
 	}
-	body := bodyBuffer[:n]
 
 	// Convert result to JSON
 	wellKnownResponse := &WellKnownResult{
