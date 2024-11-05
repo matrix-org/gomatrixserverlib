@@ -4,8 +4,6 @@ linters:
   enable:
     - typecheck
     - gocyclo
-    - golint
-    - maligned
     - ineffassign
 #    - gosec - complains about weak cryptographic primitive sha1 and TLS InsecureSkipVerify set true in getTransport
     - misspell
@@ -14,5 +12,4 @@ linters:
 #    - goconst
     - unconvert
     - errcheck
-    - interfacer
 #    - testify - not available in golangci-lint
