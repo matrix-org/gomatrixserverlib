@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"strings"
@@ -274,7 +273,7 @@ func readHTTPRequest(req *http.Request) (*FederationRequest, error) { // nolint:
 	result.fields.Method = req.Method
 	result.fields.RequestURI = req.URL.RequestURI()
 
-	content, err := ioutil.ReadAll(req.Body)
+	content, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
 	}
