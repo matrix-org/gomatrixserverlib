@@ -5,11 +5,8 @@ linters:
     - vet
     - vetshadow
     - typecheck
-    - deadcode
     - gocyclo
     - golint
-    - varcheck
-    - structcheck
     - maligned
     - ineffassign
 #    - gosec - complains about weak cryptographic primitive sha1 and TLS InsecureSkipVerify set true in getTransport
