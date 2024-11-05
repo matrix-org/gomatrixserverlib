@@ -182,7 +182,7 @@ func isSafeInHTTPQuotedString(text string) bool { // nolint: gocyclo
 			continue
 		case 0x5D <= c && c <= 0x7E:
 			continue
-		case 0x80 <= c && c <= 0xFF:
+		case 0x80 <= c:
 			continue
 		default:
 			return false
