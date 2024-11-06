@@ -21,7 +21,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -350,7 +350,7 @@ func (fc *Client) LookupUserInfo(
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		var errorOutput []byte
-		errorOutput, err = ioutil.ReadAll(response.Body)
+		errorOutput, err = io.ReadAll(response.Body)
 		if err != nil {
 			return
 		}
@@ -525,7 +525,7 @@ func (fc *Client) DoRequestAndParseResponse(
 	if response.StatusCode/100 != 2 { // not 2xx
 		// Adapted from https://github.com/matrix-org/gomatrix/blob/master/client.go
 		var contents []byte
-		contents, err = ioutil.ReadAll(response.Body)
+		contents, err = io.ReadAll(response.Body)
 		if err != nil {
 			return err
 		}

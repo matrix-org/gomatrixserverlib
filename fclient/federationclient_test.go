@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -63,7 +63,7 @@ func TestSendJoinFallback(t *testing.T) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
 						return &http.Response{
 							StatusCode: 404,
-							Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+							Body:       io.NopCloser(strings.NewReader("404 not found")),
 						}, nil
 					}
 					if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
@@ -72,7 +72,7 @@ func TestSendJoinFallback(t *testing.T) {
 					t.Logf("Sending response: %s", string(v1ResBytes))
 					return &http.Response{
 						StatusCode: 200,
-						Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
+						Body:       io.NopCloser(bytes.NewReader(v1ResBytes)),
 					}, nil
 				},
 			},
@@ -126,12 +126,12 @@ func TestSendJoinJSON(t *testing.T) {
 						t.Logf("Sending response: %s", string(respSendJoinResponseJSON))
 						return &http.Response{
 							StatusCode: 200,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendJoinResponseJSON)),
+							Body:       io.NopCloser(bytes.NewReader(respSendJoinResponseJSON)),
 						}, nil
 					}
 					return &http.Response{
 						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
 					}, nil
 				},
 			},
@@ -185,12 +185,12 @@ func TestSendTransactionToRelay(t *testing.T) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
 						return &http.Response{
 							StatusCode: 200,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
+							Body:       io.NopCloser(bytes.NewReader(respSendResponseJSON)),
 						}, nil
 					}
 					return &http.Response{
 						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
 					}, nil
 				},
 			},
@@ -232,12 +232,12 @@ func TestSendTransactionToRelayReportsFailure(t *testing.T) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
 						return &http.Response{
 							StatusCode: 400,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
+							Body:       io.NopCloser(bytes.NewReader(respSendResponseJSON)),
 						}, nil
 					}
 					return &http.Response{
 						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
 					}, nil
 				},
 			},

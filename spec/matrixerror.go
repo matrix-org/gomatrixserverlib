@@ -15,6 +15,7 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -63,7 +64,7 @@ func (e MatrixError) Error() string {
 }
 
 func (e MatrixError) Unwrap() error {
-	return fmt.Errorf(e.Err)
+	return errors.New(e.Err)
 }
 
 // InternalServerError
@@ -231,7 +232,7 @@ func (e IncompatibleRoomVersionError) Error() string {
 }
 
 func (e IncompatibleRoomVersionError) Unwrap() error {
-	return fmt.Errorf(e.Err)
+	return errors.New(e.Err)
 }
 
 // IncompatibleRoomVersion is an error which is returned when the client
