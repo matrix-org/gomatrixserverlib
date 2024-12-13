@@ -123,7 +123,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 
 	input.EventTemplate.Depth = latestEvents.Depth
 
-	authEvents := NewAuthEvents(nil)
+	authEvents, _ := NewAuthEvents(nil)
 
 	for _, event := range latestEvents.StateEvents {
 		err := authEvents.AddEvent(event)
@@ -132,7 +132,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 		}
 	}
 
-	refs, err := stateNeeded.AuthEventReferences(&authEvents)
+	refs, err := stateNeeded.AuthEventReferences(authEvents)
 	if err != nil {
 		return nil, fmt.Errorf("eventsNeeded.AuthEventReferences: %w", err)
 	}

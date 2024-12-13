@@ -99,7 +99,8 @@ func RequestBackfill(ctx context.Context, origin spec.ServerName, b BackfillRequ
 		}
 	}
 
-	return result, lastErr
+	// Since we pulled in results from multiple servers we need to sort again...
+	return ReverseTopologicalOrdering(result, TopologicalOrderByPrevEvents), lastErr
 }
 
 /*

@@ -15,7 +15,7 @@
 package gomatrixserverlib
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -364,12 +364,13 @@ func TestLexicographicalSorting(t *testing.T) {
 		{eventID: "c", powerLevel: 0, originServerTS: 2},
 		{eventID: "d", powerLevel: 25, originServerTS: 3},
 		{eventID: "e", powerLevel: 50, originServerTS: 4},
-		{eventID: "f", powerLevel: 75, originServerTS: 4},
-		{eventID: "g", powerLevel: 100, originServerTS: 5},
+		{eventID: "f", powerLevel: 50, originServerTS: 3},
+		{eventID: "g", powerLevel: 75, originServerTS: 4},
+		{eventID: "h", powerLevel: 100, originServerTS: 5},
 	}
-	expected := []string{"g", "f", "e", "d", "c", "b", "a"}
+	expected := []string{"h", "g", "f", "e", "d", "a", "b", "c"}
 
-	sort.Stable(stateResV2ConflictedPowerLevelHeap(input))
+	slices.SortStableFunc(input, sortStateResV2ConflictedPowerLevelHeap)
 
 	t.Log("Results:")
 	for k, v := range input {

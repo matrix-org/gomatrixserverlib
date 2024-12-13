@@ -38,9 +38,11 @@ func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEv
 		return nil, fmt.Errorf("failed getting auth provider")
 	}
 
-	eventProvider := AuthEvents{}
+	eventProvider, _ := NewAuthEvents(nil)
 	if r.createEvent != nil {
-		eventProvider = NewAuthEvents([]PDU{r.createEvent})
+		if err := eventProvider.AddEvent(r.createEvent); err != nil {
+			return nil, err
+		}
 		if r.inviterMemberEvent != nil {
 			err := eventProvider.AddEvent(r.inviterMemberEvent)
 			if err != nil {
@@ -48,7 +50,7 @@ func (r *TestStateQuerier) GetAuthEvents(ctx context.Context, event PDU) (AuthEv
 			}
 		}
 	}
-	return &eventProvider, nil
+	return eventProvider, nil
 }
 
 func (r *TestStateQuerier) GetState(ctx context.Context, roomID spec.RoomID, stateWanted []StateKeyTuple) ([]PDU, error) {

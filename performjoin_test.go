@@ -13,7 +13,6 @@ import (
 	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/stretchr/testify/assert"
-	ed255192 "golang.org/x/crypto/ed25519"
 )
 
 type TestMakeJoinResponse struct {
@@ -388,7 +387,7 @@ func TestPerformJoinPseudoID(t *testing.T) {
 		return res, nil
 	}
 
-	idCreator := func(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed255192.PrivateKey, error) {
+	idCreator := func(ctx context.Context, userID spec.UserID, roomID spec.RoomID, roomVersion string) (spec.SenderID, ed25519.PrivateKey, error) {
 		return spec.SenderIDFromPseudoIDKey(userPriv), userPriv, nil
 	}
 

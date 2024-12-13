@@ -81,8 +81,11 @@ func HandleMakeLeave(input HandleMakeLeaveInput) (*HandleMakeLeaveResponse, erro
 		return nil, spec.InternalServerError{Err: fmt.Sprintf("expected leave event from template builder. got: %s", event.Type())}
 	}
 
-	provider := NewAuthEvents(stateEvents)
-	if err := Allowed(event, &provider, input.UserIDQuerier); err != nil {
+	provider, err := NewAuthEvents(stateEvents)
+	if err != nil {
+		return nil, spec.Forbidden(err.Error())
+	}
+	if err = Allowed(event, provider, input.UserIDQuerier); err != nil {
 		return nil, spec.Forbidden(err.Error())
 	}
 
