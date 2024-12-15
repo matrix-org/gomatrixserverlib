@@ -165,10 +165,7 @@ func checkAllowedByAuthEvents(
 	event PDU, eventsByID map[string]PDU,
 	missingAuth EventProvider, userIDForSender spec.UserIDForSender,
 ) error {
-	authEvents, err := NewAuthEvents(nil)
-	if err != nil {
-		return err
-	}
+	authEvents, _ := NewAuthEvents(nil)
 
 	for _, ae := range event.AuthEventIDs() {
 	retryEvent:
@@ -338,10 +335,7 @@ func CheckSendJoinResponse(
 	}
 
 	eventsByID := map[string]PDU{}
-	authEventProvider, err := NewAuthEvents(nil)
-	if err != nil {
-		return nil, err
-	}
+	authEventProvider, _ := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references

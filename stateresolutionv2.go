@@ -444,10 +444,12 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
 func (r *stateResolverV2) authAndApplyEvents(events ...PDU) {
 	addFromAuthEventsIfNotRejected := func(event PDU, eventType, stateKey string) {
 		for _, authEventID := range event.AuthEventIDs() {
-			if _, ok := r.isRejectedCache[authEventID]; !ok {
-				r.isRejectedCache[authEventID] = r.isRejectedFn(authEventID)
+			rejected, ok := r.isRejectedCache[authEventID]
+			if !ok {
+				rejected = r.isRejectedFn(authEventID)
+				r.isRejectedCache[authEventID] = rejected
 			}
-			if rejected := r.isRejectedCache[authEventID]; rejected {
+			if rejected {
 				continue
 			}
 			authEv, ok := r.authEventMap[authEventID]
