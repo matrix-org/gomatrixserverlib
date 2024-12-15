@@ -18,7 +18,7 @@ package gomatrixserverlib
 import (
 	"encoding/binary"
 	"errors"
-	"sort"
+	"slices"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -159,40 +159,33 @@ func CanonicalJSONAssumeValid(input []byte) []byte {
 // by codepoint. The input must be valid JSON.
 func SortJSON(input, output []byte) []byte {
 	result := gjson.ParseBytes(input)
-
-	RawJSON := RawJSONFromResult(result, input)
-	return sortJSONValue(result, RawJSON, output)
+	return sortJSONValue(result, output)
 }
 
 // sortJSONValue takes a gjson.Result and sorts it. inputJSON must be the
 // raw JSON bytes that gjson.Result points to.
-func sortJSONValue(input gjson.Result, inputJSON, output []byte) []byte {
+func sortJSONValue(input gjson.Result, output []byte) []byte {
 	if input.IsArray() {
-		return sortJSONArray(input, inputJSON, output)
+		return sortJSONArray(input, output)
 	}
-
 	if input.IsObject() {
-		return sortJSONObject(input, inputJSON, output)
+		return sortJSONObject(input, output)
 	}
-
 	// If its neither an object nor an array then there is no sub structure
 	// to sort, so just append the raw bytes.
-	return append(output, inputJSON...)
+	return append(output, input.Raw...)
 }
 
 // sortJSONArray takes a gjson.Result and sorts it, assuming its an array.
 // inputJSON must be the raw JSON bytes that gjson.Result points to.
-func sortJSONArray(input gjson.Result, inputJSON, output []byte) []byte {
+func sortJSONArray(input gjson.Result, output []byte) []byte {
 	sep := byte('[')
 
 	// Iterate over each value in the array and sort it.
 	input.ForEach(func(_, value gjson.Result) bool {
 		output = append(output, sep)
 		sep = ','
-
-		RawJSON := RawJSONFromResult(value, inputJSON)
-		output = sortJSONValue(value, RawJSON, output)
-
+		output = sortJSONValue(value, output)
 		return true // keep iterating
 	})
 
@@ -209,29 +202,30 @@ func sortJSONArray(input gjson.Result, inputJSON, output []byte) []byte {
 
 // sortJSONObject takes a gjson.Result and sorts it, assuming its an object.
 // inputJSON must be the raw JSON bytes that gjson.Result points to.
-func sortJSONObject(input gjson.Result, inputJSON, output []byte) []byte {
+func sortJSONObject(input gjson.Result, output []byte) []byte {
 	type entry struct {
-		key    string // The parsed key string
-		rawKey []byte // The raw, unparsed key JSON string
-		value  gjson.Result
+		key   string // The parsed key string
+		value gjson.Result
 	}
 
-	var entries []entry
+	// Try to stay on the stack here if we can.
+	var _entries [128]entry
+	entries := _entries[:0]
 
 	// Iterate over each key/value pair and add it to a slice
 	// that we can sort
 	input.ForEach(func(key, value gjson.Result) bool {
 		entries = append(entries, entry{
-			key:    key.String(),
-			rawKey: RawJSONFromResult(key, inputJSON),
-			value:  value,
+			key:   key.String(),
+			value: value,
 		})
 		return true // keep iterating
 	})
 
-	// Sort the slice based on the *parsed* key
-	sort.Slice(entries, func(a, b int) bool {
-		return entries[a].key < entries[b].key
+	// Using slices.SortFunc here instead of sort.Slice avoids
+	// heap escapes due to reflection.
+	slices.SortFunc(entries, func(a, b entry) int {
+		return strings.Compare(a.key, b.key)
 	})
 
 	sep := byte('{')
@@ -241,12 +235,10 @@ func sortJSONObject(input gjson.Result, inputJSON, output []byte) []byte {
 		sep = ','
 
 		// Append the raw unparsed JSON key, *not* the parsed key
-		output = append(output, entry.rawKey...)
-		output = append(output, ':')
-
-		RawJSON := RawJSONFromResult(entry.value, inputJSON)
-
-		output = sortJSONValue(entry.value, RawJSON, output)
+		output = append(output, '"')
+		output = append(output, entry.key...)
+		output = append(output, '"', ':')
+		output = sortJSONValue(entry.value, output)
 	}
 	if sep == '{' {
 		// If sep is still '{' then the object was empty and we never wrote the
@@ -374,11 +366,4 @@ func readHexDigits(input []byte) rune {
 	hex &= 0xFF00FF
 	hex |= hex >> 8
 	return rune(hex & 0xFFFF)
-}
-
-// RawJSONFromResult extracts the raw JSON bytes pointed to by result.
-// input must be the json bytes that were used to generate result
-// TODO: Why do we do this?
-func RawJSONFromResult(result gjson.Result, _ []byte) []byte {
-	return []byte(result.Raw)
 }

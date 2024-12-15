@@ -104,7 +104,7 @@ func TestStateNeededForMessage(t *testing.T) {
 	// Message events need the create event, the sender and the power_levels.
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.message",
-		"sender": "@u1:a", 
+		"sender": "@u1:a",
         "room_id": "!r1:a"
 	}]`, &ProtoEvent{
 		Type:     "m.room.message",
@@ -139,7 +139,7 @@ func TestStateNeededForJoin(t *testing.T) {
 		"type": "m.room.member",
 		"state_key": "@u1:a",
 		"sender": "@u1:a",
-		"content": {"membership": "join"}, 
+		"content": {"membership": "join"},
         "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:      true,
@@ -163,7 +163,7 @@ func TestStateNeededForInvite(t *testing.T) {
 		"type": "m.room.member",
 		"state_key": "@u2:b",
 		"sender": "@u1:a",
-		"content": {"membership": "invite"}, 
+		"content": {"membership": "invite"},
         "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:      true,
@@ -199,7 +199,7 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 					"token": "my_token"
 				}
 			}
-		}, 
+		},
         "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:           true,
@@ -1035,7 +1035,7 @@ func TestAuthEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
-	a := NewAuthEvents([]PDU{power})
+	a, _ := NewAuthEvents([]PDU{power})
 	var e PDU
 	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
@@ -1685,7 +1685,7 @@ func TestMembershipBanned(t *testing.T) {
 			"state_key": "@u3:a",
 			"event_id": "$e4:a",
 			"content": {"membership": "ban"}
-		}, 
+		},
 		{
 			"type": "m.room.member",
 			"sender": "@u2:a",
@@ -1693,7 +1693,7 @@ func TestMembershipBanned(t *testing.T) {
 			"state_key": "@u3:a",
 			"event_id": "$e4:a",
 			"content": {"membership": "ban"}
-		}, 
+		},
 		{
 			"type": "m.room.member",
 			"sender": "@u2:a",

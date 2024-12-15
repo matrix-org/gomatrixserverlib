@@ -116,8 +116,11 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 		return nil, spec.InternalServerError{Err: fmt.Sprintf("expected join event from template builder. got: %s", event.Type())}
 	}
 
-	provider := NewAuthEvents(state)
-	if err = Allowed(event, &provider, input.UserIDQuerier); err != nil {
+	provider, err := NewAuthEvents(state)
+	if err != nil {
+		return nil, spec.Forbidden(err.Error())
+	}
+	if err = Allowed(event, provider, input.UserIDQuerier); err != nil {
 		return nil, spec.Forbidden(err.Error())
 	}
 

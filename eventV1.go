@@ -215,8 +215,7 @@ func (e *eventV1) SetUnsignedField(path string, value interface{}) error {
 	eventJSON = CanonicalJSONAssumeValid(eventJSON)
 
 	res := gjson.GetBytes(eventJSON, "unsigned")
-	unsigned := RawJSONFromResult(res, eventJSON)
-	e.eventFields.Unsigned = unsigned
+	e.eventFields.Unsigned = []byte(res.Raw)
 
 	e.eventJSON = eventJSON
 

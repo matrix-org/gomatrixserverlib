@@ -301,15 +301,17 @@ func (a *AuthEvents) Clear() {
 
 // NewAuthEvents returns an AuthEventProvider backed by the given events. New events can be added by
 // calling AddEvent().
-func NewAuthEvents(events []PDU) AuthEvents {
+func NewAuthEvents(events []PDU) (*AuthEvents, error) {
 	a := AuthEvents{
 		events:  make(map[StateKeyTuple]PDU, len(events)),
 		roomIDs: make(map[string]struct{}),
 	}
 	for _, e := range events {
-		a.AddEvent(e) // nolint: errcheck
+		if err := a.AddEvent(e); err != nil {
+			return nil, err
+		}
 	}
-	return a
+	return &a, nil
 }
 
 // A NotAllowed error is returned if an event does not pass the auth checks.

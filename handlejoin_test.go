@@ -632,6 +632,7 @@ func TestHandleMakeJoinNilContext(t *testing.T) {
 	})
 }
 
+//nolint:unparam
 func createMemberEventBuilder(roomVersion RoomVersion, sender string, roomID string, stateKey *string, content spec.RawJSON) *EventBuilder {
 	return MustGetRoomVersion(roomVersion).NewEventBuilderFromProtoEvent(&ProtoEvent{
 		SenderID:   sender,
