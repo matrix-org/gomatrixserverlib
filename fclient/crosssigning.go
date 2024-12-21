@@ -15,8 +15,8 @@
 package fclient
 
 import (
+	"bytes"
 	"encoding/json"
-
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
@@ -45,6 +45,49 @@ type CrossSigningKey struct {
 }
 
 func (s *CrossSigningKey) isCrossSigningBody() {} // implements CrossSigningBody
+
+func (s *CrossSigningKey) Equal(other *CrossSigningKey) bool {
+	if s == nil || other == nil {
+		return false
+	}
+	if s.UserID != other.UserID {
+		return false
+	}
+	if len(s.Usage) != len(other.Usage) {
+		return false
+	}
+	for i := range s.Usage {
+		if s.Usage[i] != other.Usage[i] {
+			return false
+		}
+	}
+	if len(s.Keys) != len(other.Keys) {
+		return false
+	}
+	for k, v := range s.Keys {
+		if !bytes.Equal(other.Keys[k], v) {
+			return false
+		}
+	}
+	if len(s.Signatures) != len(other.Signatures) {
+		return false
+	}
+	for k, v := range s.Signatures {
+		otherV, ok := other.Signatures[k]
+		if !ok {
+			return false
+		}
+		if len(v) != len(otherV) {
+			return false
+		}
+		for k2, v2 := range v {
+			if !bytes.Equal(otherV[k2], v2) {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 type CrossSigningBody interface {
 	isCrossSigningBody()
