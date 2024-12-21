@@ -1,9 +1,10 @@
 package fclient
 
 import (
+	"testing"
+
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
-	"testing"
 )
 
 func TestCrossSigningKeyEqual(t *testing.T) {

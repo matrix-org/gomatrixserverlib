@@ -17,6 +17,7 @@ package fclient
 import (
 	"bytes"
 	"encoding/json"
+
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
