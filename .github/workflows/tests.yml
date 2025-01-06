@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: "matrix-org/dendrite"
+          repository: "element-hq/dendrite"
       - name: Install libolm
         run: sudo apt-get install libolm-dev libolm3
       - name: Setup go
