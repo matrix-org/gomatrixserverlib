@@ -17,6 +17,7 @@ package fclient
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -56,6 +57,14 @@ func (s *CrossSigningKey) Equal(other *CrossSigningKey) bool {
 	}
 	if len(s.Usage) != len(other.Usage) {
 		return false
+	}
+
+	// Make sure the slices are sorted before we compare them.
+	if !slices.IsSorted(s.Usage) {
+		slices.Sort(s.Usage)
+	}
+	if !slices.IsSorted(other.Usage) {
+		slices.Sort(other.Usage)
 	}
 	for i := range s.Usage {
 		if s.Usage[i] != other.Usage[i] {
