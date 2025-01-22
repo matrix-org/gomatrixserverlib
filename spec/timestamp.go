@@ -9,7 +9,7 @@ type Timestamp uint64
 
 // AsTimestamp turns a time.Time into a millisecond posix timestamp.
 func AsTimestamp(t time.Time) Timestamp {
-	return Timestamp(t.UnixNano() / 1000000)
+	return Timestamp(t.UnixMilli())
 }
 
 // Time turns a millisecond posix timestamp into a UTC time.Time
