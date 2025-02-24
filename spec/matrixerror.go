@@ -23,6 +23,7 @@ type MatrixErrorCode string
 
 const (
 	ErrorUnknown                     MatrixErrorCode = "M_UNKNOWN"
+	ErrorUnknownPos                  MatrixErrorCode = "M_UNKNOWN_POS"
 	ErrorUnrecognized                MatrixErrorCode = "M_UNRECOGNIZED"
 	ErrorForbidden                   MatrixErrorCode = "M_FORBIDDEN"
 	ErrorBadJSON                     MatrixErrorCode = "M_BAD_JSON"
