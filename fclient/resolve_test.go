@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"reflect"
 	"testing"
 
@@ -27,8 +28,8 @@ func assertCritical(t *testing.T, val, expected interface{}) {
 // and expected certificate name.
 // If one of them doesn't match, or the resolution function returned with an
 // error, it aborts the current test.
-func testResolve(t *testing.T, serverName spec.ServerName, destination, host, certName string) {
-	res, err := ResolveServer(context.Background(), serverName)
+func testResolve(t *testing.T, client *http.Client, serverName spec.ServerName, destination, host, certName string) {
+	res, err := ResolveServer(context.Background(), client, serverName)
 	assertCritical(t, err, nil)
 	assertCritical(t, len(res), 1)
 	assertCritical(t, res[0].Destination, destination)
@@ -40,6 +41,7 @@ func testResolve(t *testing.T, serverName spec.ServerName, destination, host, ce
 func TestResolutionIPLiteral(t *testing.T) {
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("42.42.42.42"), // The server name is an IP literal without a port
 		"42.42.42.42:8448",             // Destination must be the IP address + port 8448
 		"42.42.42.42",                  // Host must be the IP address
@@ -51,6 +53,7 @@ func TestResolutionIPLiteral(t *testing.T) {
 func TestResolutionIPv6Literal(t *testing.T) {
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("[42:42::42]"), // The server name is an IP literal without a port
 		"[42:42::42]:8448",             // Destination must be the IP address + port 8448
 		"[42:42::42]",                  // Host must be the IP address
@@ -62,6 +65,7 @@ func TestResolutionIPv6Literal(t *testing.T) {
 func TestResolutionIPLiteralWithPort(t *testing.T) {
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("42.42.42.42:443"), // The server name is an IP literal with a port
 		"42.42.42.42:443",                  // Destination must be the IP address + port
 		"42.42.42.42:443",                  // Host must be the IP address + port
@@ -73,6 +77,7 @@ func TestResolutionIPLiteralWithPort(t *testing.T) {
 func TestResolutionIPv6LiteralWithPort(t *testing.T) {
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("[42:42::42]:443"), // The server name is an IP literal with a port
 		"[42:42::42]:443",                  // Destination must be the IP address + port
 		"[42:42::42]:443",                  // Host must be the IP address + port
@@ -84,6 +89,7 @@ func TestResolutionIPv6LiteralWithPort(t *testing.T) {
 func TestResolutionHostnameAndPort(t *testing.T) {
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com:4242"), // The server name is not an IP literal and includes an explicit port
 		"example.com:4242",                  // Destination must be the hostname + port
 		"example.com:4242",                  // Host must be the hostname + port
@@ -102,6 +108,7 @@ func TestResolutionHostnameWellKnownWithIPLiteral(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies an IP literal without a port
 		"42.42.42.42:8448",             // Destination must be the IP literal + port 8448
 		"42.42.42.42",                  // Host must be the IP literal
@@ -120,6 +127,7 @@ func TestResolutionHostnameWellKnownWithIPLiteralAndPort(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies an IP literal with a port
 		"42.42.42.42:443",              // Destination must be the IP literal + port
 		"42.42.42.42:443",              // Host must be the IP literal + port
@@ -138,6 +146,7 @@ func TestResolutionHostnameWellKnownWithHostnameAndPort(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal and has a port
 		"matrix.example.com:4242",      // Destination must be the hostname + port
 		"matrix.example.com:4242",      // Host must be the hostname + port
@@ -159,6 +168,7 @@ func TestResolutionHostnameWellKnownWithHostnameSRV(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which a SRV record with a non-0 exists
 		"matrix.otherexample.com:4242", // Destination must be the hostname + port from the SRV record
 		"matrix.example.com",           // Host must be the delegated hostname
@@ -180,6 +190,7 @@ func TestResolutionHostnameWellKnownWithHostnameNoSRV(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain hosting a .well-known file which specifies a hostname that's not an IP literal, has no port and for which no SRV record exists
 		"matrix.example.com:8448",      // Destination must be the delegated hostname + port 8448
 		"matrix.example.com",           // Host must be the delegated hostname
@@ -194,6 +205,7 @@ func TestResolutionHostnameWithSRV(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain for which a SRV record exists with a non-0 port
 		"matrix.otherexample.com:4242", // Destination must be the hostname + port
 		"example.com",                  // Host must be the server name
@@ -214,6 +226,7 @@ func TestResolutionHostnameWithNoWellKnownNorSRV(t *testing.T) {
 
 	testResolve(
 		t,
+		http.DefaultClient,
 		spec.ServerName("example.com"), // The server name is a domain for no .well-known file nor SRV record exist
 		"example.com:8448",             // Destination must be the hostname + 8448
 		"example.com",                  // Host must be the server name

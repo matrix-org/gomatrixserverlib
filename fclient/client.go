@@ -346,7 +346,7 @@ retryResolution:
 		// If the cache returned nothing then we'll have no results here,
 		// so go and hit the network.
 		if len(resolutionResults) == 0 {
-			resolutionResults, err = ResolveServer(r.Context(), serverName)
+			resolutionResults, err = ResolveServer(r.Context(), &NewClient(WithTransport(f.getTransport(string(serverName), f.dialer))).client, serverName)
 			if err != nil {
 				return nil, err
 			}

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -37,14 +38,14 @@ type ResolutionResult struct {
 // Returns a slice of ResolutionResult that can be used to send a federation
 // request to the server using a given server name.
 // Returns an error if the server name isn't valid.
-func ResolveServer(ctx context.Context, serverName spec.ServerName) (results []ResolutionResult, err error) {
-	return resolveServer(ctx, serverName, true)
+func ResolveServer(ctx context.Context, client *http.Client, serverName spec.ServerName) (results []ResolutionResult, err error) {
+	return resolveServer(ctx, client, serverName, true)
 }
 
 // resolveServer does the same thing as ResolveServer, except it also requires
 // the checkWellKnown parameter, which indicates whether a .well-known file
 // should be looked up.
-func resolveServer(ctx context.Context, serverName spec.ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
+func resolveServer(ctx context.Context, client *http.Client, serverName spec.ServerName, checkWellKnown bool) (results []ResolutionResult, err error) {
 	host, port, valid := spec.ParseAndValidateServerName(serverName)
 	if !valid {
 		err = fmt.Errorf("Invalid server name")
@@ -94,10 +95,10 @@ func resolveServer(ctx context.Context, serverName spec.ServerName, checkWellKno
 	if checkWellKnown {
 		// 3. If the hostname is not an IP literal
 		var result *WellKnownResult
-		result, err = LookupWellKnown(ctx, serverName)
+		result, err = LookupWellKnown(ctx, client, serverName)
 		if err == nil {
 			// We don't want to check .well-known on the result
-			return resolveServer(ctx, result.NewAddress, false)
+			return resolveServer(ctx, client, result.NewAddress, false)
 		}
 	}
 

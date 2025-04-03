@@ -29,7 +29,7 @@ type WellKnownResult struct {
 
 // LookupWellKnown looks up a well-known record for a matrix server. If one if
 // found, it returns the server to redirect to.
-func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*WellKnownResult, error) {
+func LookupWellKnown(ctx context.Context, client *http.Client, serverNameType spec.ServerName) (*WellKnownResult, error) {
 	serverName := string(serverNameType)
 
 	// Handle ending "/"
@@ -43,7 +43,6 @@ func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*Well
 		return nil, err
 	}
 	// Given well-known should be quite small and fast to fetch, timeout the request after 30s.
-	client := http.Client{Timeout: time.Second * 30}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
