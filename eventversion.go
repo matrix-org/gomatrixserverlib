@@ -416,6 +416,14 @@ func StableRoomVersions() map[RoomVersion]IRoomVersion {
 	return versions
 }
 
+// SetRoomVersion sets a room version implementation so it is recognised by gomatrixserverlib.
+// This is useful when you are testing custom room versions which gomatrixserverlib may be unaware of,
+// e.g for Complement usage. Full room version impls should be defined in gomatrixserverlib, but
+// partial impls for testing can be set here.
+func SetRoomVersion(ver IRoomVersion) {
+	roomVersionMeta[ver.Version()] = ver
+}
+
 // RoomVersionDescription contains information about a room version,
 // namely whether it is marked as supported or stable in this server
 // version, along with the state resolution algorithm, event ID etc
