@@ -1158,7 +1158,12 @@ func (m *membershipAllower) membershipAllowedSelf() error { // nolint: gocyclo
 	switch m.newMember.Membership {
 	case spec.Knock:
 		// Check if the given roomVersionImpl allows knocking.
-		return m.roomVersionImpl.CheckKnockingAllowed(m)
+		return m.roomVersionImpl.CheckKnockingAllowed(
+			string(m.roomVersionImpl.Version()),
+			m.senderID, m.targetID,
+			m.joinRule.JoinRule,
+			m.oldMember.Membership,
+		)
 	case spec.Join:
 		if m.joinRule.JoinRule == spec.Restricted || m.joinRule.JoinRule == spec.KnockRestricted {
 			if err := m.membershipAllowedSelfForRestrictedJoin(); err != nil {
@@ -1227,11 +1232,17 @@ func disallowRestrictedJoins() error {
 	return errorf("restricted joins are not supported in this room version")
 }
 
-func disallowKnocking(m *membershipAllower) error {
-	return m.membershipFailed(
-		"room version %q does not support knocking on rooms with join rule %q",
-		m.roomVersionImpl.Version(),
-		m.joinRule.JoinRule,
+func disallowKnocking(roomVer, sender, target, joinRule, prevMembership string) error {
+	if sender == target {
+		return errorf(
+			"%q is not allowed to change their membership from %q as room version %q does not support knocking on rooms with join rule %q",
+			sender, prevMembership, roomVer, joinRule,
+		)
+	}
+
+	return errorf(
+		"%q is not allowed to change the membership of %q from %q as room version %q does not support knocking on rooms with join rule %q",
+		sender, target, prevMembership, roomVer, joinRule,
 	)
 }
 
@@ -1242,23 +1253,25 @@ func disallowKnocking(m *membershipAllower) error {
 // MSC3787 extends this: the behaviour above is also permitted if the
 // join rules are "knock_restricted"
 // Spec: https://github.com/matrix-org/matrix-spec-proposals/pull/3787
-func checkKnocking(m *membershipAllower) error {
+func checkKnocking(roomVer, sender, target, joinRule, prevMembership string) error {
 	// If the join_rule is anything other than knock or knock_restricted, reject.
-	supported := m.joinRule.JoinRule == spec.Knock || m.joinRule.JoinRule == spec.KnockRestricted
+	supported := joinRule == spec.Knock || joinRule == spec.KnockRestricted
 	if !supported {
-		return m.membershipFailed(
-			"room version %q does not support knocking on rooms with join rule %q",
-			m.roomVersionImpl.Version(),
-			m.joinRule.JoinRule,
+		return errorf(
+			"%q is not allowed to change the membership of %q from %q as room version %q does not support knocking on rooms with join rule %q",
+			sender, target, prevMembership,
+			roomVer,
+			joinRule,
 		)
 	}
-	switch m.oldMember.Membership {
+	switch prevMembership {
 
 	case spec.Join, spec.Invite, spec.Ban:
 		// The user is already joined, invited or banned, therefore they
 		// can't knock.
-		return m.membershipFailed(
-			"sender is already joined/invited/banned",
+		return errorf(
+			"%q is not allowed to change the membership of %q from %q as sender is already joined/invited/banned",
+			sender, target, prevMembership,
 		)
 	}
 	// A non-joined, non-invited, non-banned user is allowed to knock.
