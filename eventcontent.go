@@ -581,11 +581,11 @@ type RelatesTo struct {
 	RelationType string `json:"rel_type"`
 }
 
-func noCheckCreateEvent(event PDU, knownRoomVersion knownRoomVersionFunc) error {
+func noCheckCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error {
 	return nil
 }
 
-func checkCreateEvent(event PDU, knownRoomVersion knownRoomVersionFunc) error {
+func checkCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error {
 	c := struct {
 		Creator     *string      `json:"creator"`
 		RoomVersion *RoomVersion `json:"room_version"`
