@@ -633,7 +633,13 @@ func (ac *federationClient) ClaimKeys(ctx context.Context, origin, s spec.Server
 func (ac *federationClient) QueryKeys(ctx context.Context, origin, s spec.ServerName, keys map[string][]string) (res RespQueryKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/query"
 	req := NewFederationRequest("POST", origin, s, path)
-	if err = req.SetContent(map[string]interface{}{
+	// Ensure that the keys map has empty slices for any nil values.
+	for k, v := range keys {
+		if v == nil {
+			keys[k] = []string{}
+		}
+	}
+	if err = req.SetContent(map[string]map[string][]string{
 		"device_keys": keys,
 	}); err != nil {
 		return
