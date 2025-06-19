@@ -316,6 +316,13 @@ func TestQueryKeysReturnsDeviceKeys(t *testing.T) {
 			&roundTripper{
 				fn: func(req *http.Request) (*http.Response, error) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/user/keys/query") {
+						body, err := io.ReadAll(req.Body)
+						if err != nil {
+							return nil, fmt.Errorf("failed to read request body: %w", err)
+						}
+						if bytes.Contains(body, []byte("null")) {
+							t.Fatalf("QueryKeys request body should not contain 'null': %s", string(body))
+						}
 						return &http.Response{
 							StatusCode: 200,
 							Body:       io.NopCloser(bytes.NewReader(respQueryKeysJSON)),
@@ -365,6 +372,13 @@ func TestQueryKeysHandlesNilDeviceKeys(t *testing.T) {
 			&roundTripper{
 				fn: func(req *http.Request) (*http.Response, error) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/user/keys/query") {
+						body, err := io.ReadAll(req.Body)
+						if err != nil {
+							return nil, fmt.Errorf("failed to read request body: %w", err)
+						}
+						if bytes.Contains(body, []byte("null")) {
+							t.Fatalf("QueryKeys request body should not contain 'null': %s", string(body))
+						}
 						return &http.Response{
 							StatusCode: 200,
 							Body:       io.NopCloser(bytes.NewReader(respQueryKeysJSON)),
