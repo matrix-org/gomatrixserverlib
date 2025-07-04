@@ -1999,3 +1999,21 @@ func TestJoinRuleKnockRestricted(t *testing.T) {
 		}]
 	}`, RoomVersionV10)
 }
+
+type CustomVer struct {
+	IRoomVersion
+}
+
+func (v CustomVer) Version() RoomVersion {
+	return "hello"
+}
+
+func TestSetRoomVersion(t *testing.T) {
+	// ensure we can set and get custom room versions.
+	// GMSL doesn't use this but users of GMSL do.
+	v := CustomVer{
+		IRoomVersion: MustGetRoomVersion("10"),
+	}
+	SetRoomVersion(v)
+	MustGetRoomVersion("hello")
+}

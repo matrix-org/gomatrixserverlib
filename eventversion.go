@@ -12,6 +12,8 @@ import (
 // RoomVersion refers to the room version for a specific room.
 type RoomVersion string
 
+// The interface which needs to be implemented to register a room version with gomatrixserverlib.
+// All types should be public to allow for extensibility.
 type IRoomVersion interface {
 	Version() RoomVersion
 	Stable() bool
@@ -29,14 +31,14 @@ type IRoomVersion interface {
 
 	RestrictedJoinServername(content []byte) (spec.ServerName, error)
 	CheckRestrictedJoinsAllowed() error
-	CheckKnockingAllowed(m *membershipAllower) error
+	CheckKnockingAllowed(roomVer, sender, target, joinRule, prevMembership string) error
 	CheckNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error
 	CheckCanonicalJSON(input []byte) error
 	ParsePowerLevels(contentBytes []byte, c *PowerLevelContent) error
-	CheckCreateEvent(event PDU, knownRoomVersion knownRoomVersionFunc) error
+	CheckCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error
 }
 
-type knownRoomVersionFunc func(RoomVersion) bool
+type KnownRoomVersionFunc func(RoomVersion) bool
 
 // StateResAlgorithm refers to a version of the state resolution algorithm.
 type StateResAlgorithm int
@@ -416,6 +418,14 @@ func StableRoomVersions() map[RoomVersion]IRoomVersion {
 	return versions
 }
 
+// SetRoomVersion sets a room version implementation so it is recognised by gomatrixserverlib.
+// This is useful when you are testing custom room versions which gomatrixserverlib may be unaware of,
+// e.g for Complement usage. Full room version impls should be defined in gomatrixserverlib, but
+// partial impls for testing can be set here.
+func SetRoomVersion(ver IRoomVersion) {
+	roomVersionMeta[ver.Version()] = ver
+}
+
 // RoomVersionDescription contains information about a room version,
 // namely whether it is marked as supported or stable in this server
 // version, along with the state resolution algorithm, event ID etc
@@ -440,8 +450,8 @@ type RoomVersionImpl struct {
 	checkRestrictedJoin                    restrictedJoinCheckFunc
 	restrictedJoinServernameFunc           func(content []byte) (spec.ServerName, error)
 	checkRestrictedJoinAllowedFunc         func() error
-	checkKnockingAllowedFunc               func(m *membershipAllower) error
-	checkCreateEvent                       func(e PDU, knownRoomVersion knownRoomVersionFunc) error
+	checkKnockingAllowedFunc               func(roomVer, sender, target, joinRule, prevMembership string) error
+	checkCreateEvent                       func(e PDU, knownRoomVersion KnownRoomVersionFunc) error
 	newEventFromUntrustedJSONFunc          func(eventJSON []byte, roomVersion IRoomVersion) (result PDU, err error)
 	newEventFromTrustedJSONFunc            func(eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error)
 	newEventFromTrustedJSONWithEventIDFunc func(eventID string, eventJSON []byte, redacted bool, roomVersion IRoomVersion) (result PDU, err error)
@@ -483,8 +493,8 @@ func (v RoomVersionImpl) CheckNotificationLevels(senderLevel int64, oldPowerLeve
 }
 
 // CheckKnockingAllowed checks if this room version supports knocking on rooms.
-func (v RoomVersionImpl) CheckKnockingAllowed(m *membershipAllower) error {
-	return v.checkKnockingAllowedFunc(m)
+func (v RoomVersionImpl) CheckKnockingAllowed(roomVer, sender, target, joinRule, prevMembership string) error {
+	return v.checkKnockingAllowedFunc(roomVer, sender, target, joinRule, prevMembership)
 }
 
 // CheckRestrictedJoinsAllowed checks if this room version allows restricted joins.
@@ -508,7 +518,7 @@ func (v RoomVersionImpl) ParsePowerLevels(contentBytes []byte, c *PowerLevelCont
 	return v.parsePowerLevelsFunc(contentBytes, c)
 }
 
-func (v RoomVersionImpl) CheckCreateEvent(event PDU, knownRoomVersion knownRoomVersionFunc) error {
+func (v RoomVersionImpl) CheckCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error {
 	return v.checkCreateEvent(event, knownRoomVersion)
 }
 
