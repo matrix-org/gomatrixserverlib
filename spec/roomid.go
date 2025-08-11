@@ -2,17 +2,21 @@ package spec
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
 const roomSigil = '!'
 
+var domainlessRoomIDRegexp = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
+
 // A RoomID identifies a matrix room as per the matrix specification
 // https://spec.matrix.org/v1.6/appendices/#room-ids-and-event-ids
 type RoomID struct {
-	raw      string
-	opaqueID string
-	domain   string
+	raw          string
+	opaqueID     string
+	domain       string
+	isDomainless bool
 }
 
 func NewRoomID(id string) (*RoomID, error) {
@@ -31,18 +35,33 @@ func (room RoomID) OpaqueID() string {
 
 // Returns just the domain of the roomID
 func (room RoomID) Domain() ServerName {
+	if room.isDomainless {
+		panic("Called RoomID.Domain() on domain-less room ID " + room.String())
+	}
 	return ServerName(room.domain)
 }
 
 func parseAndValidateRoomID(id string) (*RoomID, error) {
-	// NOTE: There is no length limit for room ids
 	idLength := len(id)
 	if idLength < 4 { // 4 since minimum roomID includes an !, :, non-empty opaque ID, non-empty domain
 		return nil, fmt.Errorf("length %d is too short to be valid", idLength)
 	}
-
 	if id[0] != roomSigil {
 		return nil, fmt.Errorf("first character is not '%c'", roomSigil)
+	}
+
+	hasDomain := strings.ContainsRune(id, localDomainSeparator)
+	if !hasDomain {
+		// new form room IDs must be 43 characters of unpadded urlsafe base64, so check that now.
+		if !domainlessRoomIDRegexp.MatchString(id[1:]) {
+			return nil, fmt.Errorf("domainless room IDs must consist of 43 unpadded urlsafe base64 characters")
+		}
+		return &RoomID{
+			raw:          id,
+			opaqueID:     id[1:],
+			domain:       "",
+			isDomainless: true,
+		}, nil
 	}
 
 	opaqueID, domain, found := strings.Cut(id[1:], string(localDomainSeparator))
@@ -60,9 +79,10 @@ func parseAndValidateRoomID(id string) (*RoomID, error) {
 	}
 
 	roomID := &RoomID{
-		raw:      id,
-		opaqueID: opaqueID,
-		domain:   domain,
+		raw:          id,
+		opaqueID:     opaqueID,
+		domain:       domain,
+		isDomainless: false,
 	}
 	return roomID, nil
 }

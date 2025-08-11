@@ -18,9 +18,11 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ed25519"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -72,6 +74,7 @@ func (tel *testEventList) UnmarshalJSON(data []byte) error {
 }
 
 func testStateNeededForAuth(t *testing.T, eventdata string, protoEvent *ProtoEvent, want StateNeeded) {
+	protoEvent.Version = MustGetRoomVersion("10")
 	var events testEventList
 	if err := json.Unmarshal([]byte(eventdata), &events); err != nil {
 		panic(err)
@@ -2016,4 +2019,90 @@ func TestSetRoomVersion(t *testing.T) {
 	}
 	SetRoomVersion(v)
 	MustGetRoomVersion("hello")
+}
+
+func TestAllowerContextUserPowerLevel(t *testing.T) {
+	serverName := spec.ServerName("example.com")
+	alice := "@alice:example.com"
+	bob := "@bob:example.com"
+	charlie := "@charlie:example.com"
+	_, signingKey, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err, "failed to make signing key")
+	verImpl := MustGetRoomVersion("12")
+	// make some events and assert that the allower is looking in the right places for the user level
+	createEvent, err := verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Type:     spec.MRoomCreate,
+		SenderID: alice,
+		StateKey: &emptyStateKey,
+		Content:  []byte(`{"room_version":"12","additional_creators":["` + bob + `"]}`),
+		Depth:    1,
+		Version:  verImpl,
+	}).Build(time.Now(), serverName, "ed25519:0", signingKey)
+	assert.NoError(t, err, "failed to make create event")
+	roomID := createEvent.RoomID()
+
+	joinEvent, err := verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Type:       spec.MRoomMember,
+		SenderID:   alice,
+		StateKey:   &alice,
+		Content:    []byte(`{"membership":"join"}`),
+		Depth:      2,
+		Version:    verImpl,
+		PrevEvents: []string{createEvent.EventID()},
+		RoomID:     roomID.String(),
+	}).Build(time.Now(), serverName, "ed25519:0", signingKey)
+	assert.NoError(t, err, "failed to make join event")
+
+	plEvent, err := verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Type:       spec.MRoomPowerLevels,
+		SenderID:   alice,
+		StateKey:   &emptyStateKey,
+		Content:    []byte(`{"users":{"` + charlie + `":50}}`),
+		Depth:      3,
+		Version:    verImpl,
+		PrevEvents: []string{joinEvent.EventID()},
+		RoomID:     roomID.String(),
+	}).Build(time.Now(), serverName, "ed25519:0", signingKey)
+	assert.NoError(t, err, "failed to make create event")
+
+	provider := &testAuthEvents{
+		roomVersion:     verImpl.Version(),
+		CreateJSON:      createEvent.JSON(),
+		PowerLevelsJSON: plEvent.JSON(),
+		MemberJSON: map[string]json.RawMessage{
+			alice: joinEvent.JSON(),
+		},
+	}
+	allower := newAllowerContext(provider, UserIDForSenderTest, roomID)
+
+	testCases := []struct {
+		name       string
+		userToTest string
+		wantLevel  int64
+	}{
+		{
+			name:       "creator has infinite PL",
+			userToTest: alice,
+			wantLevel:  CreatorPowerLevel,
+		},
+		{
+			name:       "additional creator has infinite PL",
+			userToTest: bob,
+			wantLevel:  CreatorPowerLevel,
+		},
+		{
+			name:       "users in users map have the stated PL",
+			userToTest: charlie,
+			wantLevel:  50,
+		},
+		{
+			name:       "other users have 0",
+			userToTest: "@doris:example.com",
+			wantLevel:  0,
+		},
+	}
+	for _, tc := range testCases {
+		gotLevel := allower.userPowerLevel(spec.SenderID(tc.userToTest))
+		assert.Equal(t, tc.wantLevel, gotLevel, "%s: got wrong level", tc.name)
+	}
 }

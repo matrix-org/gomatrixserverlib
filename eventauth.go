@@ -18,6 +18,7 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"golang.org/x/crypto/ed25519"
@@ -118,7 +119,9 @@ type membershipContent struct {
 }
 
 // StateNeededForProtoEvent returns the event types and state_keys needed to authenticate the
-// event being built. These events should be put under 'auth_events' for the event being built.
+// event being built. These events should be put under 'auth_events' for the event being built,
+// except if the room is a domainless room ID room in which case the create event should be omitted.
+// This function still returns the create event as being needed as it IS needed for auth.
 // Returns an error if the state needed could not be calculated with the given builder, e.g
 // if there is a m.room.member without a membership key.
 func StateNeededForProtoEvent(protoEvent *ProtoEvent) (result StateNeeded, err error) {
@@ -343,9 +346,11 @@ type allowerContext struct {
 	joinRuleEvent    PDU // The m.room.join_rules event for the room.
 
 	// Event contents used for quick lookup.
-	create      CreateContent     // The m.room.create content for the room.
-	powerLevels PowerLevelContent // The m.room.power_levels content for the room.
-	joinRule    JoinRuleContent   // The m.room.join_rules content for the room.
+	create             CreateContent // The m.room.create content for the room.
+	creators           []string      // The creators, for v12+ rooms
+	privilegedCreators bool
+	powerLevels        PowerLevelContent // The m.room.power_levels content for the room.
+	joinRule           JoinRuleContent   // The m.room.join_rules content for the room.
 
 	roomID spec.RoomID
 }
@@ -357,6 +362,25 @@ func newAllowerContext(provider AuthEventProvider, userIDQuerier spec.UserIDForS
 	}
 	a.update(provider)
 	return a
+}
+
+// userPowerLevel returns the user's power level, taking into account:
+// - missing PL event
+// - creators for v12+ rooms
+func (a *allowerContext) userPowerLevel(userID spec.SenderID) int64 {
+	if a.privilegedCreators {
+		if slices.Contains(a.creators, string(userID)) {
+			return CreatorPowerLevel
+		}
+	}
+	if a.powerLevelsEvent == nil {
+		if userID == a.createEvent.SenderID() {
+			return 100
+		}
+		return 0
+	}
+	return a.powerLevels.UserLevel(userID)
+
 }
 
 // update updates the auth event provider with new event contents.
@@ -372,6 +396,9 @@ func (a *allowerContext) update(provider AuthEventProvider) {
 		if c, err := NewCreateContentFromAuthEvents(provider, a.userIDQuerier); err == nil {
 			a.createEvent = e
 			a.create = c
+			a.creators = CreatorsFromCreateEvent(e)
+			verImpl := MustGetRoomVersion(e.Version())
+			a.privilegedCreators = verImpl.PrivilegedCreators()
 		}
 	}
 	if e, _ := provider.PowerLevels(); a.powerLevelsEvent == nil || a.powerLevelsEvent != e {
@@ -437,15 +464,12 @@ func (a *allowerContext) createEventAllowed(event PDU) error {
 	if err != nil {
 		return err
 	}
-	if sender.Domain() != event.RoomID().Domain() {
-		return errorf("create event room ID domain does not match sender: %q != %q", event.RoomID().Domain(), sender.String())
-	}
-
 	verImpl, err := GetRoomVersion(event.Version())
 	if err != nil {
 		return nil
 	}
-	if err = verImpl.CheckCreateEvent(event, KnownRoomVersion); err != nil {
+
+	if err = verImpl.CheckCreateEvent(event, *sender, KnownRoomVersion); err != nil {
 		return err
 	}
 
@@ -538,7 +562,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 
 	// Grab the old levels so that we can compare new the levels against them.
 	oldPowerLevels := a.powerLevels
-	senderLevel := oldPowerLevels.UserLevel(event.SenderID())
+	senderLevel := a.userPowerLevel(event.SenderID()) // this is oldPowerLevels
 
 	// Check that the changes in event levels are allowed.
 	if err = checkEventLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
@@ -550,7 +574,7 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	if err != nil {
 		return nil
 	}
-	if err = verImpl.CheckNotificationLevels(senderLevel, oldPowerLevels, newPowerLevels); err != nil {
+	if err = verImpl.CheckPowerLevelEvent(string(event.SenderID()), a.createEvent, oldPowerLevels, newPowerLevels); err != nil {
 		return err
 	}
 
@@ -558,8 +582,8 @@ func (a *allowerContext) powerLevelsEventAllowed(event PDU) error {
 	return checkUserLevels(senderLevel, event.SenderID(), oldPowerLevels, newPowerLevels)
 }
 
-// noCheckLevels doesn't perform any checks, used for room versions <= 5
-func noCheckLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+// checkPowerLevelEventV1 doesn't perform any additional checks, used for room versions <= 5
+func checkPowerLevelEventV1(sender string, createEvent PDU, oldPowerLevels, newPowerLevels PowerLevelContent) error {
 	return nil
 }
 
@@ -715,8 +739,11 @@ func checkUserLevels(senderLevel int64, senderID spec.SenderID, oldPowerLevels, 
 	return nil
 }
 
-// checkNotificationLevels checks that the changes in notification levels are allowed.
-func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+// checkPowerLevelEventV2 checks that the changes in notification levels are allowed.
+func checkPowerLevelEventV2(sender string, createEvent PDU, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+	// this function isn't called on privileged creator versions so this is safe,
+	// though we should be considering the case where there is no PL event..?
+	senderLevel := oldPowerLevels.UserLevel(spec.SenderID(sender))
 	type levelPair struct {
 		old    int64
 		new    int64
@@ -779,6 +806,28 @@ func checkNotificationLevels(senderLevel int64, oldPowerLevels, newPowerLevels P
 	return nil
 }
 
+// checkPowerLevelEventV3 is V2 and checking that the creators don't appear in the PL users map
+func checkPowerLevelEventV3(sender string, createEvent PDU, oldPowerLevels, newPowerLevels PowerLevelContent) error {
+	if err := checkPowerLevelEventV2(sender, createEvent, oldPowerLevels, newPowerLevels); err != nil {
+		return err
+	}
+	// Enforce the creator does not appear in the users map
+	var content CreateContent
+	if err := json.Unmarshal(createEvent.Content(), &content); err != nil {
+		return errorf("checkPowerLevelEventV3 unparseable create event content: %s", err.Error())
+	}
+	creators := []string{string(createEvent.SenderID())}
+	for _, additional := range content.AdditionalCreators {
+		creators = append(creators, additional)
+	}
+	for userID := range newPowerLevels.Users {
+		if slices.Contains(creators, userID) {
+			return &EventValidationError{Code: 400, Message: fmt.Sprintf("new power levels event must not contain creator '%s'", userID)}
+		}
+	}
+	return nil
+}
+
 // redactEventAllowed checks whether the m.room.redaction event is allowed to
 // enter the DAG of a room. Note that for v1, v2 rooms, this doesn't check if
 // the redactor is the sender of the redacted event, and for rooms >= v3, this
@@ -826,7 +875,7 @@ func (a *allowerContext) redactEventAllowed(event PDU) error {
 
 	// Otherwise the sender must have enough power.
 	// This allows room admins and ops to redact messages sent by other servers.
-	senderLevel := allower.powerLevels.UserLevel(event.SenderID())
+	senderLevel := allower.userPowerLevel(event.SenderID())
 	redactLevel := allower.powerLevels.Redact
 	if senderLevel >= redactLevel {
 		return nil
@@ -873,7 +922,7 @@ func (a *allowerContext) newEventAllower(senderID spec.SenderID) (e eventAllower
 func (e *eventAllower) commonChecks(event PDU) error {
 	if event.RoomID().String() != e.create.roomID {
 		return errorf(
-			"create event has different roomID: %q (%s) != %q (%s)",
+			"create event has different roomID1: %q (%s) != %q (%s)",
 			event.RoomID().String(), event.EventID(), e.create.roomID, e.create.eventID,
 		)
 	}
@@ -896,7 +945,7 @@ func (e *eventAllower) commonChecks(event PDU) error {
 		return errorf("sender %q not in room", event.SenderID())
 	}
 
-	senderLevel := e.powerLevels.UserLevel(event.SenderID())
+	senderLevel := e.userPowerLevel(event.SenderID())
 	eventLevel := e.powerLevels.EventLevel(event.Type(), stateKey != nil)
 	if senderLevel < eventLevel {
 		return errorf(
@@ -1094,7 +1143,7 @@ func (m *membershipAllower) membershipAllowedSelfForRestrictedJoin() error {
 	}
 
 	// And secondly, does the user have the power to issue invites in the room?
-	if pl := m.powerLevels.UserLevel(spec.SenderID(m.newMember.AuthorisedVia)); pl < m.powerLevels.Invite {
+	if pl := m.userPowerLevel(spec.SenderID(m.newMember.AuthorisedVia)); pl < m.powerLevels.Invite {
 		return errorf("the nominated 'join_authorised_via_users_server' user %q does not have permission to invite (%d < %d)", m.newMember.AuthorisedVia, pl, m.powerLevels.Invite)
 	}
 
@@ -1280,8 +1329,8 @@ func checkKnocking(roomVer, sender, target, joinRule, prevMembership string) err
 
 // membershipAllowedOther determines if the user is allowed to change the membership of another user.
 func (m *membershipAllower) membershipAllowedOther() error { // nolint: gocyclo
-	senderLevel := m.powerLevels.UserLevel(spec.SenderID(m.senderID))
-	targetLevel := m.powerLevels.UserLevel(spec.SenderID(m.targetID))
+	senderLevel := m.userPowerLevel(spec.SenderID(m.senderID))
+	targetLevel := m.userPowerLevel(spec.SenderID(m.targetID))
 
 	// You may only modify the membership of another user if you are in the room.
 	if m.senderMember.Membership != spec.Join {

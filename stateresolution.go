@@ -326,6 +326,9 @@ func (s conflictedEventSorter) Swap(i, j int) {
 // to use, depending on the room version. `events` should be all the state events
 // to resolve. `authEvents` should be the entire set of auth_events for these `events`.
 // Returns an error if the state resolution algorithm cannot be determined.
+//
+// DEPRECATED: This function does not accurately determine which events are conflicted.
+// Use ResolveConflictsNew instead.
 func ResolveConflicts(
 	version RoomVersion,
 	events []PDU,
@@ -390,6 +393,8 @@ func ResolveConflicts(
 		resolved = ResolveStateConflicts(conflicted, authEvents, userIDForSender)
 		resolved = append(resolved, notConflicted...)
 	case StateResV2:
+		fallthrough
+	case StateResV2_1:
 		resolved = ResolveStateConflictsV2(conflicted, notConflicted, authEvents, userIDForSender, isRejectedFn)
 	default:
 		return nil, fmt.Errorf("unsupported state resolution algorithm %v", stateResAlgo)
@@ -398,4 +403,116 @@ func ResolveConflicts(
 	// Return the final resolved state events, including both the
 	// resolved set of conflicted events, and the unconflicted events.
 	return resolved, nil
+}
+
+// ResolveConflicts performs state resolution on the input events, returning the
+// resolved state. It will automatically decide which state resolution algorithm
+// to use, depending on the room version. `events` should be all the state events
+// to resolve. `authEvents` should be the entire set of auth_events for these `events`.
+// Returns an error if the state resolution algorithm cannot be determined.
+// WIP: Untested.
+func ResolveConflictsNew(
+	version RoomVersion,
+	stateSets [][]PDU,
+	authEvents []PDU,
+	userIDForSender spec.UserIDForSender,
+	isRejectedFn IsRejected,
+) ([]PDU, error) {
+	// Work out which state resolution algorithm we want to run for
+	// the room version.
+	verImpl, err := GetRoomVersion(version)
+	if err != nil {
+		return nil, err
+	}
+	stateResAlgo := verImpl.StateResAlgorithm()
+
+	var resolved []PDU
+
+	switch stateResAlgo {
+	case StateResV1:
+		// Currently state res v1 doesn't handle unconflicted events
+		// for us, like state res v2 does, so we will need to add the
+		// unconflicted events into the state ourselves.
+		// TODO: Fix state res v1 so this is handled for the caller.
+		conflicted, notConflicted := splitConflictedUnconflicted(stateResAlgo, stateSets)
+		resolved = ResolveStateConflicts(conflicted, authEvents, userIDForSender)
+		resolved = append(resolved, notConflicted...)
+	case StateResV2:
+		fallthrough
+	case StateResV2_1:
+		resolved = ResolveStateConflictsV2New(stateResAlgo, stateSets, authEvents, userIDForSender, isRejectedFn)
+	default:
+		return nil, fmt.Errorf("unsupported state resolution algorithm %v", stateResAlgo)
+	}
+
+	// Return the final resolved state events, including both the
+	// resolved set of conflicted events, and the unconflicted events.
+	return resolved, nil
+}
+
+func splitConflictedUnconflicted(algoVersion StateResAlgorithm, stateSets [][]PDU) (conflicted, notConflicted []PDU) {
+	type stateKeyTuple struct {
+		Type     string
+		StateKey string
+	}
+
+	// Prepare our data structures.
+	eventIDCountMap := map[string]int{}
+	eventMap := make(map[stateKeyTuple][]PDU)
+
+	// Run through all of the events that we were given and sort them
+	// into a map, sorted by (event_type, state_key) tuple. This means
+	// that we can easily spot events that are "conflicted", e.g.
+	// there are duplicate values for the same tuple key.
+	for _, events := range stateSets {
+		for _, event := range events {
+			numSeen := eventIDCountMap[event.EventID()]
+			eventIDCountMap[event.EventID()] += 1
+			if numSeen > 0 {
+				continue // we've seen this event before, don't reprocess
+			}
+			if event.StateKey() == nil {
+				// Ignore events that are not state events.
+				continue
+			}
+			// Append the events if there is already a conflicted list for
+			// this tuple key, create it if not.
+			tuple := stateKeyTuple{event.Type(), *event.StateKey()}
+			eventMap[tuple] = append(eventMap[tuple], event)
+		}
+	}
+
+	// Split out the events in the map into conflicted and unconflicted
+	// buckets. The conflicted events will be ran through state res,
+	// whereas unconfliced events will always going to appear in the
+	// final resolved state.
+	for _, list := range eventMap {
+		if len(list) > 1 { // >1 event for the same state key tuple
+			conflicted = append(conflicted, list...)
+		} else {
+			if algoVersion == StateResV1 {
+				// "A conflict occurs between states where those states have different event_ids for the same (event_type, state_key).
+				// The events thus affected are said to be conflicting events.""
+				// https://spec.matrix.org/v1.14/rooms/v1/#state-resolution
+				notConflicted = append(notConflicted, list...)
+				continue
+			}
+			// "If a given key K is present in __every__ Si with the same value V in each state map, then the pair (K, V) belongs to the
+			// unconflicted state map. Otherwise, V belongs to the conflicted state set."
+			// Emphasis on __every__
+			// https://spec.matrix.org/v1.14/rooms/v2/#definitions
+			//
+			// Therefore, an event is conflicted if it is present in one state set but not others.
+			for _, event := range list {
+				// if the event is in every other state set then it is unconflicted
+				if numSeen := eventIDCountMap[event.EventID()]; numSeen == len(stateSets) {
+					notConflicted = append(notConflicted, list...)
+				} else {
+					// ..else it is conflicted
+					conflicted = append(conflicted, event)
+				}
+			}
+		}
+	}
+	return
 }

@@ -197,6 +197,8 @@ var lenientByteLimitRoomVersions = map[RoomVersion]struct{}{
 	RoomVersionV9:        {},
 	RoomVersionV10:       {},
 	RoomVersionV11:       {},
+	RoomVersionV12:       {},
+	RoomVersionHydra:     {},
 	RoomVersionPseudoIDs: {},
 	"org.matrix.msc3787": {},
 	"org.matrix.msc3667": {},

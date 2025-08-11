@@ -19,12 +19,15 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"golang.org/x/crypto/ed25519"
 )
+
+var CreatorPowerLevel = int64(math.Pow(2, 53))
 
 // CreateContent is the JSON content of a m.room.create event along with
 // the top level keys needed for auth.
@@ -46,6 +49,8 @@ type CreateContent struct {
 	Predecessor *PreviousRoom `json:"predecessor,omitempty"`
 	// The room type.
 	RoomType string `json:"type,omitempty"`
+	// The additional creators for v12+ rooms
+	AdditionalCreators []string `json:"additional_creators,omitempty"`
 }
 
 // PreviousRoom is the "Previous Room" structure defined at https://matrix.org/docs/spec/client_server/r0.5.0#m-room-create
@@ -369,6 +374,7 @@ type PowerLevelContent struct {
 }
 
 // UserLevel returns the power level a user has in the room.
+// This does NOT consider the create event for v12+ rooms.
 func (c *PowerLevelContent) UserLevel(senderID spec.SenderID) int64 {
 	level, ok := c.Users[string(senderID)]
 	if ok {
@@ -581,11 +587,10 @@ type RelatesTo struct {
 	RelationType string `json:"rel_type"`
 }
 
-func noCheckCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error {
-	return nil
-}
-
-func checkCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error {
+func checkCreateEventV1(event PDU, sender spec.UserID, knownRoomVersion KnownRoomVersionFunc) error {
+	if sender.Domain() != event.RoomID().Domain() {
+		return errorf("create event room ID domain does not match sender: %q != %q", event.RoomID().Domain(), sender.String())
+	}
 	c := struct {
 		Creator     *string      `json:"creator"`
 		RoomVersion *RoomVersion `json:"room_version"`
@@ -603,4 +608,61 @@ func checkCreateEvent(event PDU, knownRoomVersion KnownRoomVersionFunc) error {
 	}
 
 	return nil
+}
+
+func checkCreateEventV2(event PDU, sender spec.UserID, knownRoomVersion KnownRoomVersionFunc) error {
+	if sender.Domain() != event.RoomID().Domain() {
+		return errorf("create event room ID domain does not match sender: %q != %q", event.RoomID().Domain(), sender.String())
+	}
+	return nil
+}
+
+func checkCreateEventV3(event PDU, sender spec.UserID, knownRoomVersion KnownRoomVersionFunc) error {
+	c := struct {
+		RoomVersion        *RoomVersion `json:"room_version"`
+		AdditionalCreators []string     `json:"additional_creators"`
+	}{}
+	if err := json.Unmarshal(event.Content(), &c); err != nil {
+		return errorf("create event has invalid content: %s", err.Error())
+	}
+	if c.RoomVersion != nil {
+		if !knownRoomVersion(*c.RoomVersion) {
+			return errorf("create event has unrecognised room version %q", *c.RoomVersion)
+		}
+	}
+	if c.AdditionalCreators != nil {
+		// 1.5 If the additional_creators field is present and is not an array of strings where each
+		// string is a valid user ID, reject.
+		for _, creator := range c.AdditionalCreators {
+			_, err := spec.NewUserID(creator, true)
+			if err != nil {
+				return errorf("additional creator '%s' invalid: %s", creator, err)
+			}
+		}
+	}
+	ev := struct {
+		RoomID string `json:"room_id"`
+	}{}
+	if err := json.Unmarshal(event.JSON(), &ev); err != nil {
+		return errorf("create event cannot be valid json: %s", err.Error())
+	}
+	if ev.RoomID != "" {
+		return errorf("create event must not have a room_id set")
+	}
+
+	return nil
+}
+
+func CreatorsFromCreateEvent(createEvent PDU) (creators []string) {
+	creators = append(creators, string(createEvent.SenderID()))
+	var content CreateContent
+	err := json.Unmarshal(createEvent.Content(), &content)
+	if err != nil {
+		// should not be possible as we already have made the PDU
+		panic("invalid create event content: " + string(createEvent.JSON()))
+	}
+	for _, additional := range content.AdditionalCreators {
+		creators = append(creators, additional)
+	}
+	return creators
 }
