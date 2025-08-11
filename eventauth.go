@@ -375,12 +375,13 @@ func (a *allowerContext) userPowerLevel(userID spec.SenderID) int64 {
 	}
 	if a.powerLevelsEvent == nil {
 		if userID == a.createEvent.SenderID() {
-			return 100
+			// FIXME: this is awful but needs to match up with NewPowerLevelContentFromAuthEvents in eventcontent.go
+			// else you won't be able to override PLs when creating rooms.
+			return CreatorPowerLevel - 1
 		}
 		return 0
 	}
 	return a.powerLevels.UserLevel(userID)
-
 }
 
 // update updates the auth event provider with new event contents.
