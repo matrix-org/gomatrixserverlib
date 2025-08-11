@@ -378,12 +378,3 @@ func assertSetEquals(t *testing.T, name string, gotSet *sets.HashSet[PDU, string
 // TestStateResolutionConcurrentBan
 // TestStateResolutionV2_1ConflictedSubgraph
 // TestStateResolutionV2_1EmptySet
-
-func mustParseEvent(t *testing.T, eventBytes []byte) PDU {
-	t.Helper()
-	event, err := MustGetRoomVersion(RoomVersionV6).NewEventFromTrustedJSON(eventBytes, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return event
-}

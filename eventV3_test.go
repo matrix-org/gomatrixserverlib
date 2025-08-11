@@ -27,7 +27,7 @@ func TestEventCreationV3(t *testing.T) {
 	assert.Equal(t, ev.EventID()[1:], ev.RoomID().String()[1:], "create event ID must equal the room ID")
 
 	// ..and use the new room ID to make other events
-	ev, err = verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+	_, err = verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
 		Type:     spec.MRoomMember,
 		StateKey: &sender,
 		Content:  []byte(`{"membership":"join"}`),

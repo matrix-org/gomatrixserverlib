@@ -661,8 +661,6 @@ func CreatorsFromCreateEvent(createEvent PDU) (creators []string) {
 		// should not be possible as we already have made the PDU
 		panic("invalid create event content: " + string(createEvent.JSON()))
 	}
-	for _, additional := range content.AdditionalCreators {
-		creators = append(creators, additional)
-	}
+	creators = append(creators, content.AdditionalCreators...)
 	return creators
 }

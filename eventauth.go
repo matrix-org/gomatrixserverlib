@@ -817,9 +817,7 @@ func checkPowerLevelEventV3(sender string, createEvent PDU, oldPowerLevels, newP
 		return errorf("checkPowerLevelEventV3 unparseable create event content: %s", err.Error())
 	}
 	creators := []string{string(createEvent.SenderID())}
-	for _, additional := range content.AdditionalCreators {
-		creators = append(creators, additional)
-	}
+	creators = append(creators, content.AdditionalCreators...)
 	for userID := range newPowerLevels.Users {
 		if slices.Contains(creators, userID) {
 			return &EventValidationError{Code: 400, Message: fmt.Sprintf("new power levels event must not contain creator '%s'", userID)}

@@ -151,9 +151,9 @@ func checkRoomID(res *eventV3) error {
 	// TODO: We can't do this so long as we support partial Hydra impls in Complement
 	// because otherwise if MSC4291=0 and MSC4289=1 then this check fails as the create
 	// event will have a room_id.
-	if isCreateEvent && res.eventFields.RoomID != "" {
-		//return fmt.Errorf("gomatrixserverlib: room_id must not exist on create event")
-	}
+	//if isCreateEvent && res.eventFields.RoomID != "" {
+	//return fmt.Errorf("gomatrixserverlib: room_id must not exist on create event")
+	//}
 	if !isCreateEvent && !strings.HasPrefix(res.eventFields.RoomID, "!") {
 		return fmt.Errorf("gomatrixserverlib: room_id must start with !")
 	}
