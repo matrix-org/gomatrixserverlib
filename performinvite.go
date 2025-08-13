@@ -112,6 +112,9 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	if len(stateNeeded.Tuples()) == 0 {
 		return nil, spec.InternalServerError{}
 	}
+	if stateNeeded.Create && verImpl.DomainlessRoomIDs() {
+		stateNeeded.Create = false
+	}
 
 	latestEvents, err := input.EventQuerier(ctx, input.RoomID, stateNeeded.Tuples())
 	if err != nil {

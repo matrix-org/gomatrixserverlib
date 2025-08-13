@@ -391,17 +391,26 @@ func ResolveStateConflictsV2New(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
+// FIXME: this function does not sort correctly because it doesn't lookup PL events
+// correctly, meaning it will sort incorrectly for PL tiebreaks.
 func ReverseTopologicalOrdering(input []PDU, order TopologicalOrder) []PDU {
-	r := stateResolverV2{}
+	r := stateResolverV2{
+		resolvedCreate: getCreateEvent(input),
+	}
 	return r.reverseTopologicalOrdering(input, order)
 }
 
+// TODO: Remove this function. Use ReverseTopologicalOrdering.
 // HeaderedReverseTopologicalOrdering takes a set of input events and sorts
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
+// FIXME: this function does not sort correctly because it doesn't lookup PL events
+// correctly, meaning it will sort incorrectly for PL tiebreaks.
 func HeaderedReverseTopologicalOrdering(events []PDU, order TopologicalOrder) []PDU {
-	r := stateResolverV2{}
+	r := stateResolverV2{
+		resolvedCreate: getCreateEvent(events),
+	}
 	input := make([]PDU, len(events))
 	for i := range events {
 		unwrapped := events[i]
@@ -412,6 +421,15 @@ func HeaderedReverseTopologicalOrdering(events []PDU, order TopologicalOrder) []
 		result[i] = e
 	}
 	return result
+}
+
+func getCreateEvent(input []PDU) PDU {
+	for _, ev := range input {
+		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
+			return ev
+		}
+	}
+	return nil
 }
 
 // isControlEvent returns true if the event meets the criteria for being classed
