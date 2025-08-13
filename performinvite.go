@@ -115,6 +115,7 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 	if stateNeeded.Create && verImpl.DomainlessRoomIDs() {
 		stateNeeded.Create = false
 	}
+	fmt.Println("debug-invite:: stateNeeded.Create=", stateNeeded.Create, "domainless=", verImpl.DomainlessRoomIDs())
 
 	latestEvents, err := input.EventQuerier(ctx, input.RoomID, stateNeeded.Tuples())
 	if err != nil {
@@ -155,6 +156,8 @@ func PerformInvite(ctx context.Context, input PerformInviteInput, fedClient Fede
 			)
 			return spec.Forbidden(err.Error())
 		}
+		c, e := authEventProvider.Create()
+		fmt.Println("debug-invite:: checkEventAllowed authEventProvider create=", c, "err=", e)
 
 		// Check if the event is allowed.
 		if err = Allowed(inviteEvent, authEventProvider, input.UserIDQuerier); err != nil {
