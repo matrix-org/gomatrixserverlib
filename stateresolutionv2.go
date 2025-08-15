@@ -74,7 +74,10 @@ func ResolveStateConflictsV2(
 		}
 	}
 	if createEvent == nil {
-		panic("ResolveStateConflictsV2: cannot find create event in auth chain")
+		// FIXME TODO: We previously panicked here but this meant Dendrite would crash on startup.
+		// We really need to get our error handling sorted properly when doing state resolution..
+		// See https://github.com/element-hq/dendrite/issues/3629
+		return nil // we should return an error here :/
 	}
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]PDU, 0, len(conflicted))
