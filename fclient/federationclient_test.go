@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -63,7 +63,7 @@ func TestSendJoinFallback(t *testing.T) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v2/send_join") {
 						return &http.Response{
 							StatusCode: 404,
-							Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+							Body:       io.NopCloser(strings.NewReader("404 not found")),
 						}, nil
 					}
 					if !strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_join") {
@@ -72,7 +72,7 @@ func TestSendJoinFallback(t *testing.T) {
 					t.Logf("Sending response: %s", string(v1ResBytes))
 					return &http.Response{
 						StatusCode: 200,
-						Body:       ioutil.NopCloser(bytes.NewReader(v1ResBytes)),
+						Body:       io.NopCloser(bytes.NewReader(v1ResBytes)),
 					}, nil
 				},
 			},
@@ -126,12 +126,12 @@ func TestSendJoinJSON(t *testing.T) {
 						t.Logf("Sending response: %s", string(respSendJoinResponseJSON))
 						return &http.Response{
 							StatusCode: 200,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendJoinResponseJSON)),
+							Body:       io.NopCloser(bytes.NewReader(respSendJoinResponseJSON)),
 						}, nil
 					}
 					return &http.Response{
 						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
 					}, nil
 				},
 			},
@@ -185,12 +185,12 @@ func TestSendTransactionToRelay(t *testing.T) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
 						return &http.Response{
 							StatusCode: 200,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
+							Body:       io.NopCloser(bytes.NewReader(respSendResponseJSON)),
 						}, nil
 					}
 					return &http.Response{
 						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
 					}, nil
 				},
 			},
@@ -232,12 +232,12 @@ func TestSendTransactionToRelayReportsFailure(t *testing.T) {
 					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/send_relay") {
 						return &http.Response{
 							StatusCode: 400,
-							Body:       ioutil.NopCloser(bytes.NewReader(respSendResponseJSON)),
+							Body:       io.NopCloser(bytes.NewReader(respSendResponseJSON)),
 						}, nil
 					}
 					return &http.Response{
 						StatusCode: 404,
-						Body:       ioutil.NopCloser(strings.NewReader("404 not found")),
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
 					}, nil
 				},
 			},
@@ -281,4 +281,126 @@ func createTransaction(
 func jsonify(x interface{}) string {
 	b, _ := json.Marshal(x)
 	return string(b)
+}
+
+func TestQueryKeysReturnsDeviceKeys(t *testing.T) {
+	serverName := spec.ServerName("local.server.name")
+	targetServerName := spec.ServerName("target.server.name")
+	keyID := gomatrixserverlib.KeyID("ed25519:auto")
+	_, privateKey, _ := ed25519.GenerateKey(nil)
+
+	respQueryKeysJSON := []byte(`{
+		"device_keys": {
+			"@user:target.server.name": {
+				"device1": {
+					"algorithms": ["m.olm.curve25519-aes-sha2"],
+					"keys": {
+						"curve25519:device1": "key1",
+						"ed25519:device1": "key2"
+					}
+				}
+			}
+		}
+	}`)
+
+	fc := fclient.NewFederationClient(
+		[]*fclient.SigningIdentity{
+			{
+				ServerName: serverName,
+				KeyID:      keyID,
+				PrivateKey: privateKey,
+			},
+		},
+		fclient.WithSkipVerify(true),
+		fclient.WithTransport(
+			&roundTripper{
+				fn: func(req *http.Request) (*http.Response, error) {
+					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/user/keys/query") {
+						body, err := io.ReadAll(req.Body)
+						if err != nil {
+							return nil, fmt.Errorf("failed to read request body: %w", err)
+						}
+						if bytes.Contains(body, []byte("null")) {
+							t.Fatalf("QueryKeys request body should not contain 'null': %s", string(body))
+						}
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(bytes.NewReader(respQueryKeysJSON)),
+						}, nil
+					}
+					return &http.Response{
+						StatusCode: 404,
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
+					}, nil
+				},
+			},
+		),
+	)
+
+	keys := map[string][]string{
+		"@user:target.server.name": {"device1"},
+	}
+	res, err := fc.QueryKeys(context.Background(), serverName, targetServerName, keys)
+	if err != nil {
+		t.Fatalf("QueryKeys returned an error: %s", err)
+	}
+	if len(res.DeviceKeys["@user:target.server.name"]["device1"].Keys) == 0 {
+		t.Fatalf("QueryKeys response missing device keys")
+	}
+}
+
+func TestQueryKeysHandlesNilDeviceKeys(t *testing.T) {
+	serverName := spec.ServerName("local.server.name")
+	targetServerName := spec.ServerName("target.server.name")
+	keyID := gomatrixserverlib.KeyID("ed25519:auto")
+	_, privateKey, _ := ed25519.GenerateKey(nil)
+
+	respQueryKeysJSON := []byte(`{
+		"device_keys": {}
+	}`)
+
+	fc := fclient.NewFederationClient(
+		[]*fclient.SigningIdentity{
+			{
+				ServerName: serverName,
+				KeyID:      keyID,
+				PrivateKey: privateKey,
+			},
+		},
+		fclient.WithSkipVerify(true),
+		fclient.WithTransport(
+			&roundTripper{
+				fn: func(req *http.Request) (*http.Response, error) {
+					if strings.HasPrefix(req.URL.Path, "/_matrix/federation/v1/user/keys/query") {
+						body, err := io.ReadAll(req.Body)
+						if err != nil {
+							return nil, fmt.Errorf("failed to read request body: %w", err)
+						}
+						if bytes.Contains(body, []byte("null")) {
+							t.Fatalf("QueryKeys request body should not contain 'null': %s", string(body))
+						}
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(bytes.NewReader(respQueryKeysJSON)),
+						}, nil
+					}
+					return &http.Response{
+						StatusCode: 404,
+						Body:       io.NopCloser(strings.NewReader("404 not found")),
+					}, nil
+				},
+			},
+		),
+	)
+
+	keys := map[string][]string{
+		"@user:target.server.name": nil,
+	}
+	res, err := fc.QueryKeys(context.Background(), serverName, targetServerName, keys)
+	if err != nil {
+		t.Fatalf("QueryKeys returned an error: %s", err)
+	}
+	if len(res.DeviceKeys) != 0 {
+		t.Fatalf("QueryKeys response should be empty for nil device keys")
+	}
 }

@@ -65,7 +65,7 @@ type FederatedStateProvider struct {
 
 // StateIDsBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event PDU) ([]string, error) {
-	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID(), event.EventID())
+	res, err := p.FedClient.LookupStateIDs(ctx, p.Origin, p.Server, event.RoomID().String(), event.EventID())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (p *FederatedStateProvider) StateIDsBeforeEvent(ctx context.Context, event 
 
 // StateBeforeEvent implements StateProvider
 func (p *FederatedStateProvider) StateBeforeEvent(ctx context.Context, roomVer RoomVersion, event PDU, eventIDs []string) (map[string]PDU, error) {
-	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID(), event.EventID(), roomVer)
+	res, err := p.FedClient.LookupState(ctx, p.Origin, p.Server, event.RoomID().String(), event.EventID(), roomVer)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func checkAllowedByAuthEvents(
 	event PDU, eventsByID map[string]PDU,
 	missingAuth EventProvider, userIDForSender spec.UserIDForSender,
 ) error {
-	authEvents := NewAuthEvents(nil)
+	authEvents, _ := NewAuthEvents(nil)
 
 	for _, ae := range event.AuthEventIDs() {
 	retryEvent:
@@ -214,7 +214,7 @@ func checkAllowedByAuthEvents(
 
 	// If we made it this far then we've successfully got as many of the auth events as
 	// as described by AuthEventIDs(). Check if they allow the event.
-	if err := Allowed(event, &authEvents, userIDForSender); err != nil {
+	if err := Allowed(event, authEvents, userIDForSender); err != nil {
 		return fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by its auth_events: %s",
 			event.EventID(), err.Error(),
@@ -335,7 +335,7 @@ func CheckSendJoinResponse(
 	}
 
 	eventsByID := map[string]PDU{}
-	authEventProvider := NewAuthEvents(nil)
+	authEventProvider, _ := NewAuthEvents(nil)
 
 	// Since checkAllowedByAuthEvents needs to be able to look up any of the
 	// auth events by ID only, we will build a map which contains references
@@ -369,7 +369,7 @@ func CheckSendJoinResponse(
 	}
 
 	// Now check that the join event is valid against the supplied state.
-	if err := Allowed(joinEvent, &authEventProvider, userIDForSender); err != nil {
+	if err := Allowed(joinEvent, authEventProvider, userIDForSender); err != nil {
 		return nil, fmt.Errorf(
 			"gomatrixserverlib: event with ID %q is not allowed by the current room state: %w",
 			joinEvent.EventID(), err,

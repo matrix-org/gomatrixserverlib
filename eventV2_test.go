@@ -152,9 +152,11 @@ func TestCheckFields(t *testing.T) {
 				t.Run(tt.name+"-"+string(roomVersion), func(t *testing.T) {
 					ev, err := MustGetRoomVersion(roomVersion).NewEventBuilderFromProtoEvent(&tt.input).Build(time.Now(), "localhost", "ed25519:1", sk)
 					tt.wantErr(t, err)
-					err = CheckFields(ev)
-					tt.wantErr(t, err, fmt.Sprintf("CheckFields(%v)", tt.input))
-					t.Logf("%v", err)
+					if ev != nil {
+						err = CheckFields(ev)
+						tt.wantErr(t, err, fmt.Sprintf("CheckFields(%v)", tt.input))
+						t.Logf("%v", err)
+					}
 					switch e := err.(type) {
 					case EventValidationError:
 						assert.Equalf(t, tt.wantPersistable, e.Persistable, "unexpected persistable")

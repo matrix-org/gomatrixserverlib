@@ -54,11 +54,7 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 	case RoomVersionPseudoIDs:
 		needed[spec.ServerName(e.SenderID())] = struct{}{}
 	default:
-		validRoomID, err := spec.NewRoomID(e.RoomID())
-		if err != nil {
-			return err
-		}
-		sender, err := userIDForSender(*validRoomID, e.SenderID())
+		sender, err := userIDForSender(e.RoomID(), e.SenderID())
 		if err != nil {
 			return fmt.Errorf("invalid sender userID: %w", err)
 		}
@@ -89,7 +85,11 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 
 		// Validate the MXIDMapping is signed correctly
 		if verImpl.Version() == RoomVersionPseudoIDs && membership == spec.Join {
-			err = validateMXIDMappingSignature(ctx, e, verifier, verImpl)
+			mapping, err := getMXIDMapping(e)
+			if err != nil {
+				return err
+			}
+			err = validateMXIDMappingSignatures(ctx, e, *mapping, verifier, verImpl)
 			if err != nil {
 				return err
 			}
@@ -158,28 +158,32 @@ func VerifyEventSignatures(ctx context.Context, e PDU, verifier JSONVerifier, us
 	return nil
 }
 
-// validateMXIDMappingSignature validates that the MXIDMapping is correctly signed
-func validateMXIDMappingSignature(ctx context.Context, e PDU, verifier JSONVerifier, verImpl IRoomVersion) error {
+func getMXIDMapping(e PDU) (*MXIDMapping, error) {
 	var content MemberContent
 	err := json.Unmarshal(e.Content(), &content)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// if there is no mapping, we can't check the signature
 	if content.MXIDMapping == nil {
-		return fmt.Errorf("missing mxid_mapping, unable to validate event")
+		return nil, fmt.Errorf("missing mxid_mapping")
 	}
 
-	var toVerify []VerifyJSONRequest
+	return content.MXIDMapping, nil
+}
 
-	mapping, err := json.Marshal(content.MXIDMapping)
+// validateMXIDMappingSignatures validates that the MXIDMapping is correctly signed
+func validateMXIDMappingSignatures(ctx context.Context, e PDU, mapping MXIDMapping, verifier JSONVerifier, verImpl IRoomVersion) error {
+	mappingBytes, err := json.Marshal(mapping)
 	if err != nil {
 		return err
 	}
-	for s := range content.MXIDMapping.Signatures {
+
+	var toVerify []VerifyJSONRequest
+	for s := range mapping.Signatures {
 		v := VerifyJSONRequest{
-			Message:              mapping,
+			Message:              mappingBytes,
 			AtTS:                 e.OriginServerTS(),
 			ServerName:           s,
 			ValidityCheckingFunc: verImpl.SignatureValidityCheck,

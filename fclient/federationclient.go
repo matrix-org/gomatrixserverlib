@@ -28,10 +28,13 @@ type FederationClient interface {
 	Peek(ctx context.Context, origin, s spec.ServerName, roomID, peekID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespPeek, err error)
 	MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeJoin, err error)
 	SendJoin(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (res RespSendJoin, err error)
+	SendJoinPartialState(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (res RespSendJoin, err error)
 	MakeLeave(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res RespMakeLeave, err error)
 	SendLeave(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (err error)
 	SendInviteV2(ctx context.Context, origin, s spec.ServerName, request InviteV2Request) (res RespInviteV2, err error)
 	SendInviteV3(ctx context.Context, origin, s spec.ServerName, request InviteV3Request, userID spec.UserID) (res RespInviteV2, err error)
+	MakeKnock(ctx context.Context, origin, s spec.ServerName, roomID, userID string, roomVersions []gomatrixserverlib.RoomVersion) (res RespMakeKnock, err error)
+	SendKnock(ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU) (res RespSendKnock, err error)
 
 	GetEvent(ctx context.Context, origin, s spec.ServerName, eventID string) (res gomatrixserverlib.Transaction, err error)
 
@@ -60,6 +63,8 @@ type FederationClient interface {
 	LookupProfile(
 		ctx context.Context, origin, s spec.ServerName, userID string, field string,
 	) (res RespProfile, err error)
+
+	DownloadMedia(ctx context.Context, origin, destination spec.ServerName, mediaID string) (res *http.Response, err error)
 
 	P2PSendTransactionToRelay(ctx context.Context, u spec.UserID, t gomatrixserverlib.Transaction, forwardingServer spec.ServerName) (res EmptyResp, err error)
 	P2PGetTransactionFromRelay(ctx context.Context, u spec.UserID, prev RelayEntry, relayServer spec.ServerName) (res RespGetRelayTransaction, err error)
@@ -242,7 +247,7 @@ func (ac *federationClient) sendJoin(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU, partialState bool,
 ) (res RespSendJoin, err error) {
 	path := federationPathPrefixV2 + "/send_join/" +
-		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.RoomID().String()) + "/" +
 		url.PathEscape(event.EventID())
 	if partialState {
 		path += "?omit_members=true"
@@ -257,7 +262,7 @@ func (ac *federationClient) sendJoin(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_join/" +
-			url.PathEscape(event.RoomID()) + "/" +
+			url.PathEscape(event.RoomID().String()) + "/" +
 			url.PathEscape(event.EventID())
 		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
@@ -301,7 +306,7 @@ func (ac *federationClient) SendKnock(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespSendKnock, err error) {
 	path := federationPathPrefixV1 + "/send_knock/" +
-		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.RoomID().String()) + "/" +
 		url.PathEscape(event.EventID())
 
 	req := NewFederationRequest("PUT", origin, s, path)
@@ -336,7 +341,7 @@ func (ac *federationClient) SendLeave(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (err error) {
 	path := federationPathPrefixV2 + "/send_leave/" +
-		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.RoomID().String()) + "/" +
 		url.PathEscape(event.EventID())
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
@@ -348,7 +353,7 @@ func (ac *federationClient) SendLeave(
 	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_leave/" +
-			url.PathEscape(event.RoomID()) + "/" +
+			url.PathEscape(event.RoomID().String()) + "/" +
 			url.PathEscape(event.EventID())
 		v1req := NewFederationRequest("PUT", origin, s, v1path)
 		if err = v1req.SetContent(event); err != nil {
@@ -369,7 +374,7 @@ func (ac *federationClient) SendInvite(
 	ctx context.Context, origin, s spec.ServerName, event gomatrixserverlib.PDU,
 ) (res RespInvite, err error) {
 	path := federationPathPrefixV1 + "/invite/" +
-		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.RoomID().String()) + "/" +
 		url.PathEscape(event.EventID())
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(event); err != nil {
@@ -386,7 +391,7 @@ func (ac *federationClient) SendInviteV2(
 ) (res RespInviteV2, err error) {
 	event := request.Event()
 	path := federationPathPrefixV2 + "/invite/" +
-		url.PathEscape(event.RoomID()) + "/" +
+		url.PathEscape(event.RoomID().String()) + "/" +
 		url.PathEscape(event.EventID())
 	req := NewFederationRequest("PUT", origin, s, path)
 	if err = req.SetContent(request); err != nil {
@@ -628,7 +633,13 @@ func (ac *federationClient) ClaimKeys(ctx context.Context, origin, s spec.Server
 func (ac *federationClient) QueryKeys(ctx context.Context, origin, s spec.ServerName, keys map[string][]string) (res RespQueryKeys, err error) {
 	path := federationPathPrefixV1 + "/user/keys/query"
 	req := NewFederationRequest("POST", origin, s, path)
-	if err = req.SetContent(map[string]interface{}{
+	// Ensure that the keys map has empty slices for any nil values.
+	for k, v := range keys {
+		if v == nil {
+			keys[k] = []string{}
+		}
+	}
+	if err = req.SetContent(map[string]map[string][]string{
 		"device_keys": keys,
 	}); err != nil {
 		return
@@ -732,4 +743,34 @@ func (ac *federationClient) RoomHierarchy(
 		}
 	}
 	return
+}
+
+// DownloadMedia performs an authenticated federation request for a given mediaID.
+// The caller is responsible to close the returned response body.
+func (ac *federationClient) DownloadMedia(
+	ctx context.Context, origin, destination spec.ServerName, mediaID string,
+) (*http.Response, error) {
+	var identity *SigningIdentity
+	for _, id := range ac.identities {
+		if id.ServerName == origin {
+			identity = id
+			break
+		}
+	}
+	if identity == nil {
+		return nil, fmt.Errorf("no signing identity for server name %q", origin)
+	}
+
+	path := federationPathPrefixV1 + "/media/download/" + url.PathEscape(mediaID)
+	req := NewFederationRequest("GET", origin, destination, path)
+
+	if err := req.Sign(identity.ServerName, identity.KeyID, identity.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	httpReq, err := req.HTTPRequest()
+	if err != nil {
+		return nil, err
+	}
+	return ac.DoHTTPRequest(ctx, httpReq)
 }

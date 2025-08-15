@@ -15,12 +15,13 @@
 package gomatrixserverlib
 
 import (
-	"container/heap"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 
+	sets "github.com/hashicorp/go-set/v3"
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/oleiade/lane/v2"
 )
 
 // TopologicalOrder represents how to sort a list of events, used primarily in ReverseTopologicalOrdering
@@ -34,7 +35,7 @@ const (
 
 type stateResolverV2 struct {
 	allower                   *allowerContext               // Used to auth and apply events
-	authProvider              AuthEvents                    // Used in the allower
+	authProvider              *AuthEvents                   // Used in the allower
 	authEventMap              map[string]PDU                // Map of all provided auth events
 	conflictedEventMap        map[string]PDU                // Map of all provided conflicted events
 	powerLevelContents        map[string]*PowerLevelContent // A cache of all power level contents
@@ -46,22 +47,45 @@ type stateResolverV2 struct {
 	resolvedMembers           map[spec.SenderID]PDU         // Resolved member events
 	resolvedOthers            map[StateKeyTuple]PDU         // Resolved other events
 	result                    []PDU                         // Final list of resolved events
+	isRejectedFn              IsRejected                    // Check if the given eventID is rejected
+	isRejectedCache           map[string]bool               // Events known to be or not be rejected
 }
+
+// IsRejected should return if the given eventID is rejected or not.
+type IsRejected func(eventID string) bool
 
 // ResolveStateConflicts takes a list of state events with conflicting state
 // keys and works out which event should be used for each state event. This
 // function returns the resolved state, including unconflicted state events.
+//
+// DEPRECATED: This function does not accurately determine which events are conflicted.
+// Use ResolveStateConflictsV2New instead.
 func ResolveStateConflictsV2(
-	conflicted, unconflicted []PDU,
+	conflicted, unconflicted,
 	authEvents []PDU,
 	userIDForSender spec.UserIDForSender,
+	isRejectedFn IsRejected,
 ) []PDU {
+	var createEvent PDU
+	for _, ev := range authEvents {
+		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
+			createEvent = ev
+			break
+		}
+	}
+	if createEvent == nil {
+		// FIXME TODO: We previously panicked here but this meant Dendrite would crash on startup.
+		// We really need to get our error handling sorted properly when doing state resolution..
+		// See https://github.com/element-hq/dendrite/issues/3629
+		return nil // we should return an error here :/
+	}
 	// Prepare the state resolver.
 	conflictedControlEvents := make([]PDU, 0, len(conflicted))
 	conflictedOthers := make([]PDU, 0, len(conflicted))
+	authProvider, _ := NewAuthEvents(nil)
 	r := stateResolverV2{
 		authEventMap:              eventMapFromEvents(authEvents),
-		authProvider:              NewAuthEvents(nil),
+		authProvider:              authProvider,
 		conflictedEventMap:        eventMapFromEvents(conflicted),
 		powerLevelContents:        make(map[string]*PowerLevelContent),
 		powerLevelMainlinePos:     make(map[string]int),
@@ -69,26 +93,21 @@ func ResolveStateConflictsV2(
 		resolvedMembers:           make(map[spec.SenderID]PDU, len(conflicted)),
 		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
 		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
+		isRejectedFn:              isRejectedFn,
+		isRejectedCache:           make(map[string]bool),
 	}
 	var roomID *spec.RoomID
-	var err error
 	if len(conflicted) > 0 {
-		roomID, err = spec.NewRoomID(conflicted[0].RoomID())
-		if err != nil {
-			panic(err)
-		}
+		validRoomID := conflicted[0].RoomID()
+		roomID = &validRoomID
 	}
 	if len(unconflicted) > 0 {
-		roomID, err = spec.NewRoomID(unconflicted[0].RoomID())
-		if err != nil {
-			panic(err)
-		}
+		validRoomID := unconflicted[0].RoomID()
+		roomID = &validRoomID
 	}
 	if len(authEvents) > 0 {
-		roomID, err = spec.NewRoomID(authEvents[0].RoomID())
-		if err != nil {
-			panic(err)
-		}
+		validRoomID := authEvents[0].RoomID()
+		roomID = &validRoomID
 	}
 	// If we still don't have a roomID, we don't have conflicted, unconflicted
 	// or any authEvents, which in theory shouldn't happen.
@@ -96,7 +115,7 @@ func ResolveStateConflictsV2(
 		return r.result
 	}
 
-	r.allower = newAllowerContext(&r.authProvider, userIDForSender, *roomID)
+	r.allower = newAllowerContext(r.authProvider, userIDForSender, *roomID)
 
 	// This is a map to help us determine if an event already belongs to the
 	// unconflicted set. If it does then we shouldn't add it back into the
@@ -160,18 +179,17 @@ func ResolveStateConflictsV2(
 		}
 	}
 
-	// Then process the unconflicted events by ordering them topologically and then
-	// authing them. The successfully authed events will form the real initial partial
+	// Then process the unconflicted events by authing them.
+	// The successfully authed events will form the real initial partial
 	// state. We will then keep the successfully authed unconflicted events so that
 	// they can be reapplied later.
-	unconflicted = r.reverseTopologicalOrdering(unconflicted, TopologicalOrderByAuthEvents)
-	r.applyEvents(unconflicted)
+	r.applyEvents(unconflicted...)
 
 	// Then order the conflicted power level events topologically and then also
 	// auth those too. The successfully authed events will be layered on top of
 	// the partial state.
 	conflictedControlEvents = r.reverseTopologicalOrdering(conflictedControlEvents, TopologicalOrderByAuthEvents)
-	r.authAndApplyEvents(conflictedControlEvents)
+	r.authAndApplyEvents(conflictedControlEvents...)
 
 	// Then generate the mainline of power level events, order the remaining state
 	// events based on the mainline ordering and auth those too. The successfully
@@ -180,13 +198,173 @@ func ResolveStateConflictsV2(
 		r.powerLevelMainlinePos[event.EventID()] = pos
 	}
 	conflictedOthers = r.mainlineOrdering(conflictedOthers)
-	r.authAndApplyEvents(conflictedOthers)
+	r.authAndApplyEvents(conflictedOthers...)
 
 	// Finally we will reapply the original set of unconflicted events onto the
 	// partial state, just in case any of these were overwritten by pulling in
 	// auth events in the previous two steps, and that gives us our final resolved
 	// state.
-	r.applyEvents(unconflicted)
+	r.applyEvents(unconflicted...)
+
+	// Now that we have our final state, populate the result array with the
+	// resolved state and return it.
+	if r.resolvedCreate != nil {
+		r.result = append(r.result, r.resolvedCreate)
+	}
+	if r.resolvedJoinRules != nil {
+		r.result = append(r.result, r.resolvedJoinRules)
+	}
+	if r.resolvedPowerLevels != nil {
+		r.result = append(r.result, r.resolvedPowerLevels)
+	}
+	for _, member := range r.resolvedMembers {
+		r.result = append(r.result, member)
+	}
+	for _, invite := range r.resolvedThirdPartyInvites {
+		r.result = append(r.result, invite)
+	}
+	for _, other := range r.resolvedOthers {
+		r.result = append(r.result, other)
+	}
+
+	return r.result
+}
+
+// ResolveStateConflictsV2New takes a list of state events with conflicting state
+// keys and works out which event should be used for each state event. This
+// function returns the resolved state, including unconflicted state events.
+// WIP: Untested.
+func ResolveStateConflictsV2New(
+	stateResAlgo StateResAlgorithm,
+	stateSets [][]PDU,
+	authEvents []PDU,
+	userIDForSender spec.UserIDForSender,
+	isRejectedFn IsRejected,
+) []PDU {
+	if len(stateSets) < 2 {
+		panic("must provide at least 2 stateSets to resolve conflicts")
+	}
+	conflicted, unconflicted := splitConflictedUnconflicted(stateResAlgo, stateSets)
+	// Prepare the state resolver.
+	conflictedControlEvents := make([]PDU, 0, len(conflicted))
+	conflictedOthers := make([]PDU, 0, len(conflicted))
+	authProvider, _ := NewAuthEvents(nil)
+	r := stateResolverV2{
+		authEventMap:              eventMapFromEvents(authEvents),
+		authProvider:              authProvider,
+		conflictedEventMap:        eventMapFromEvents(conflicted),
+		powerLevelContents:        make(map[string]*PowerLevelContent),
+		powerLevelMainlinePos:     make(map[string]int),
+		resolvedThirdPartyInvites: make(map[string]PDU, len(conflicted)),
+		resolvedMembers:           make(map[spec.SenderID]PDU, len(conflicted)),
+		resolvedOthers:            make(map[StateKeyTuple]PDU, len(conflicted)),
+		result:                    make([]PDU, 0, len(conflicted)+len(unconflicted)),
+		isRejectedFn:              isRejectedFn,
+		isRejectedCache:           make(map[string]bool),
+	}
+	var roomID *spec.RoomID
+	if len(conflicted) > 0 {
+		validRoomID := conflicted[0].RoomID()
+		roomID = &validRoomID
+	}
+	if len(unconflicted) > 0 {
+		validRoomID := unconflicted[0].RoomID()
+		roomID = &validRoomID
+	}
+	if len(authEvents) > 0 {
+		validRoomID := authEvents[0].RoomID()
+		roomID = &validRoomID
+	}
+	// If we still don't have a roomID, we don't have conflicted, unconflicted
+	// or any authEvents, which in theory shouldn't happen.
+	if roomID == nil {
+		return r.result
+	}
+
+	r.allower = newAllowerContext(r.authProvider, userIDForSender, *roomID)
+
+	unconflictedSet := newPDUSet(unconflicted)
+
+	// Get the full conflicted set, that is the conflicted events and the
+	// auth difference (events that don't appear in all auth chains).
+	fullConflictedSet := append(conflicted, r.calculateAuthDifferenceNew(stateResAlgo, newPDUSet(conflicted), stateSets)...)
+
+	// The full power set function returns the event and all of its auth
+	// events that also happen to appear in the conflicted set. This will
+	// effectively allow us to pull in all related events for any control
+	// event, even if those related events are themselves not control events.
+	visited := make(map[string]struct{}, len(conflicted)+len(authEvents))
+	var fullControlSet func(event PDU) []PDU
+	fullControlSet = func(event PDU) []PDU {
+		events := []PDU{event}
+		for _, authEventID := range event.AuthEventIDs() {
+			if _, ok := visited[authEventID]; ok {
+				continue
+			}
+			if event, ok := r.conflictedEventMap[authEventID]; ok {
+				events = append(events, fullControlSet(event)...)
+			}
+			visited[authEventID] = struct{}{}
+		}
+		return events
+	}
+
+	// First of all, work through the full conflicted set. Ignoring any
+	// events which are unconflicted (from the auth difference, for example),
+	// pull in the control events and any events directly related to them.
+	conflictedPulledIn := make(map[string]struct{}, len(conflicted)+len(authEvents))
+	for _, p := range fullConflictedSet {
+		if unconflictedSet.Contains(p) {
+			continue
+		}
+		if isControlEvent(p) {
+			relatedEvents := fullControlSet(p)
+			for _, event := range relatedEvents {
+				conflictedPulledIn[event.EventID()] = struct{}{}
+			}
+			conflictedControlEvents = append(conflictedControlEvents, relatedEvents...)
+		}
+	}
+
+	// Then work through the set again, this time looking for any events
+	// that were left over from the last loop — that is, events that are
+	// either not control events or weren't pulled in to the control set.
+	for _, p := range fullConflictedSet {
+		if unconflictedSet.Contains(p) || isControlEvent(p) {
+			continue
+		}
+		if _, ok := conflictedPulledIn[p.EventID()]; !ok {
+			conflictedOthers = append(conflictedOthers, p)
+		}
+	}
+
+	// Then process the unconflicted events by ordering them topologically.
+	// v2.1 starts from the empty set, so only do this for v2.
+	if stateResAlgo == StateResV2 {
+		unconflicted = r.reverseTopologicalOrdering(unconflicted, TopologicalOrderByAuthEvents)
+		r.applyEvents(unconflicted...)
+	}
+
+	// Then order the conflicted power level events topologically and then also
+	// auth those too. The successfully authed events will be layered on top of
+	// the partial state.
+	conflictedControlEvents = r.reverseTopologicalOrdering(conflictedControlEvents, TopologicalOrderByAuthEvents)
+	r.authAndApplyEvents(conflictedControlEvents...)
+
+	// Then generate the mainline of power level events, order the remaining state
+	// events based on the mainline ordering and auth those too. The successfully
+	// authed events are also layered on top of the partial state.
+	for pos, event := range r.createPowerLevelMainline() {
+		r.powerLevelMainlinePos[event.EventID()] = pos
+	}
+	conflictedOthers = r.mainlineOrdering(conflictedOthers)
+	r.authAndApplyEvents(conflictedOthers...)
+
+	// Finally we will reapply the original set of unconflicted events onto the
+	// partial state, just in case any of these were overwritten by pulling in
+	// auth events in the previous two steps, and that gives us our final resolved
+	// state.
+	r.applyEvents(unconflicted...)
 
 	// Now that we have our final state, populate the result array with the
 	// resolved state and return it.
@@ -216,17 +394,26 @@ func ResolveStateConflictsV2(
 // using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
+// FIXME: this function does not sort correctly because it doesn't lookup PL events
+// correctly, meaning it will sort incorrectly for PL tiebreaks.
 func ReverseTopologicalOrdering(input []PDU, order TopologicalOrder) []PDU {
-	r := stateResolverV2{}
+	r := stateResolverV2{
+		resolvedCreate: getCreateEvent(input),
+	}
 	return r.reverseTopologicalOrdering(input, order)
 }
 
+// TODO: Remove this function. Use ReverseTopologicalOrdering.
 // HeaderedReverseTopologicalOrdering takes a set of input events and sorts
 // them using Kahn's algorithm in order to topologically order them. The
 // result array of events will be sorted so that "earlier" events appear
 // first.
+// FIXME: this function does not sort correctly because it doesn't lookup PL events
+// correctly, meaning it will sort incorrectly for PL tiebreaks.
 func HeaderedReverseTopologicalOrdering(events []PDU, order TopologicalOrder) []PDU {
-	r := stateResolverV2{}
+	r := stateResolverV2{
+		resolvedCreate: getCreateEvent(events),
+	}
 	input := make([]PDU, len(events))
 	for i := range events {
 		unwrapped := events[i]
@@ -237,6 +424,15 @@ func HeaderedReverseTopologicalOrdering(events []PDU, order TopologicalOrder) []
 		result[i] = e
 	}
 	return result
+}
+
+func getCreateEvent(input []PDU) PDU {
+	for _, ev := range input {
+		if ev.Type() == spec.MRoomCreate && ev.StateKeyEquals("") {
+			return ev
+		}
+	}
+	return nil
 }
 
 // isControlEvent returns true if the event meets the criteria for being classed
@@ -336,6 +532,138 @@ func (r *stateResolverV2) calculateAuthDifference() []PDU {
 	}
 
 	return authDifference
+}
+
+// Calculate the auth difference if algorithm = v2.
+// Calculate the auth difference + conflicted subgraph if algorithm = v2.1.
+// We combine them so we don't need to perform additional work, since calculating the auth difference
+// does the same DFS we need for the conflicted subgraph.
+func (r *stateResolverV2) calculateAuthDifferenceNew(
+	stateResAlgo StateResAlgorithm, conflictedEvents *sets.HashSet[PDU, string], stateSets [][]PDU,
+) []PDU {
+	// For each state set, the union of the auth chains for each event in the state set is the full auth chain.
+	// In other words, each state set produces one full auth chain by walking back up auth_events.
+	//
+	// v2.1: calculate the conflicted state subgraph at the same time.
+	fullAuthChains := make([]*sets.HashSet[PDU, string], len(stateSets))
+	completeConflictedSubgraph := newPDUSet(nil)
+	for i, stateEvents := range stateSets {
+		fullAuthChain, conflictedSubgraph := r.calculateFullAuthChainAndConflictedSubgraph(stateResAlgo, stateEvents, conflictedEvents)
+		fullAuthChains[i] = fullAuthChain
+		if stateResAlgo == StateResV2_1 {
+			completeConflictedSubgraph.InsertSet(conflictedSubgraph)
+		}
+	}
+
+	// The auth chain difference is calculated by taking the difference between the union and intersections.
+	union := newPDUSet(nil)
+	for _, fac := range fullAuthChains {
+		union.InsertSet(fac)
+	}
+	// we asserted that we have at least 2 stateSets before, so we know these index accesses are safe.
+	var intersection sets.Collection[PDU] = fullAuthChains[0]
+	for _, fac := range fullAuthChains[1:] {
+		intersection = intersection.Intersect(fac)
+	}
+
+	authDifference := union.Difference(intersection)
+	if stateResAlgo == StateResV2 {
+		return authDifference.Slice()
+	}
+	// v2.1 adds more events, the conflicted subgraph.
+	return authDifference.Union(completeConflictedSubgraph).Slice()
+}
+
+// extract the full auth chain for a given state set
+// extract the conflicted subgraph for a given state set
+// We do this at the same time because it's more efficient to DFS once, which unfortunately means
+// the function name is a bit wonky.
+func (r *stateResolverV2) calculateFullAuthChainAndConflictedSubgraph(
+	stateResAlgo StateResAlgorithm, stateSet []PDU, conflictedEvents *sets.HashSet[PDU, string],
+) (fullAuthChains, conflictedSubgraph *sets.HashSet[PDU, string]) {
+	fullAuthChains = newPDUSet(nil)
+	conflictedSubgraph = newPDUSet(nil)
+
+	type pduVisitors struct {
+		pdu PDU
+		// the current exploration path
+		visiting []string
+		// flag to indicate that the starting node is conflicted.
+		// We are only interested in doing the book-keeping for 'visiting' for conflicted events.
+		originConflicted bool
+	}
+	initial := make([]pduVisitors, len(stateSet))
+	for i, p := range stateSet {
+		initial[i] = pduVisitors{
+			pdu: p,
+			// we iteratively add event IDs to this as we walk, so we know the path from
+			// a conflicted origin event to a potential conflicted event.
+			visiting:         nil,
+			originConflicted: conflictedEvents.Contains(p),
+		}
+	}
+
+	// Using a stack ensure that we do DFS walks, which will consume less memory as we can short-circuit
+	// earlier when we reach events we've already seen.
+	stack := lane.NewStack(initial...)
+	for stack.Size() > 0 {
+		curr, ok := stack.Pop()
+		if !ok {
+			break
+		}
+		// determine if we need to do extra book-keeping on the visiting set
+		shouldCalculateConflictedSubgraph := stateResAlgo == StateResV2_1 && curr.originConflicted
+
+		// check if the current node is conflicted. If so, then ta-da, we found
+		// a subgraph. This will add single conflicted nodes but shrug.
+		if shouldCalculateConflictedSubgraph && conflictedEvents.Contains(curr.pdu) {
+			conflictedSubgraphEventIDs := append(slices.Clone(curr.visiting), curr.pdu.EventID())
+			fmt.Printf("found conflicted subgraph %v\n", conflictedSubgraphEventIDs)
+			for _, eventID := range conflictedSubgraphEventIDs {
+				conflictedSubgraph.Insert(r.authEventMap[eventID])
+			}
+		}
+
+		for _, authEventID := range curr.pdu.AuthEventIDs() {
+			authEvent, ok := r.authEventMap[authEventID]
+			if !ok {
+				// FIXME: we should return an error but prior code silently continued,
+				// so match the existing behaviour.
+				continue
+			}
+			// don't walk paths we've already walked
+			if fullAuthChains.Contains(authEvent) {
+				// ...unless we're tracking conflicted events in which case we need to re-walk:
+				//
+				// E1 <-- C1 <-- E2 <-- E3 <-- C2       C = conflicted
+				//                ^---- E4 <-- E5
+				//
+				// If we walk E5 -> E1 first then we would never find out that C2 -> C1 as we would
+				// have stopped at E2 due to having already walked it.
+				if !shouldCalculateConflictedSubgraph {
+					continue
+				}
+			}
+			fullAuthChains.Insert(authEvent)
+
+			if !shouldCalculateConflictedSubgraph {
+				stack.Push(pduVisitors{
+					pdu:      authEvent,
+					visiting: nil,
+				})
+				continue
+			}
+
+			// append this node to the visiting set
+			newVisiting := append(slices.Clone(curr.visiting), curr.pdu.EventID())
+			stack.Push(pduVisitors{
+				pdu:              authEvent,
+				visiting:         newVisiting,
+				originConflicted: curr.originConflicted,
+			})
+		}
+	}
+	return fullAuthChains, conflictedSubgraph
 }
 
 // createPowerLevelMainline generates the mainline of power level events,
@@ -440,49 +768,85 @@ func (r *stateResolverV2) getFirstPowerLevelMainlineEvent(event PDU) (
 // also apply them on top of the partial state. If they fail auth checks then
 // the event is ignored and dropped. Returns two lists - the first contains the
 // accepted (authed) events and the second contains the rejected events.
-func (r *stateResolverV2) authAndApplyEvents(events []PDU) {
+func (r *stateResolverV2) authAndApplyEvents(events ...PDU) {
+	addFromAuthEventsIfNotRejected := func(event PDU, eventType, stateKey string) {
+		for _, authEventID := range event.AuthEventIDs() {
+			rejected, ok := r.isRejectedCache[authEventID]
+			if !ok {
+				rejected = r.isRejectedFn(authEventID)
+				r.isRejectedCache[authEventID] = rejected
+			}
+			if rejected {
+				continue
+			}
+			authEv, ok := r.authEventMap[authEventID]
+			if !ok {
+				continue
+			}
+			if authEv.Type() != eventType || !authEv.StateKeyEquals(stateKey) {
+				continue
+			}
+			_ = r.authProvider.AddEvent(event)
+		}
+	}
+
 	for _, event := range events {
 		r.authProvider.Clear()
 
 		// Now layer on the partial state events that we do know. This should
 		// mean that we make forward progress.
 		needed := StateNeededForAuth([]PDU{event})
-		if event := r.resolvedCreate; needed.Create && event != nil {
-			_ = r.authProvider.AddEvent(event)
+		if resolved := r.resolvedCreate; needed.Create {
+			if resolved != nil {
+				_ = r.authProvider.AddEvent(resolved)
+			} else {
+				addFromAuthEventsIfNotRejected(event, spec.MRoomCreate, "")
+			}
 		}
-		if event := r.resolvedJoinRules; needed.JoinRules && event != nil {
-			_ = r.authProvider.AddEvent(event)
+		if resolved := r.resolvedJoinRules; needed.JoinRules {
+			if resolved != nil {
+				_ = r.authProvider.AddEvent(resolved)
+			} else {
+				addFromAuthEventsIfNotRejected(event, spec.MRoomJoinRules, "")
+			}
 		}
-		if event := r.resolvedPowerLevels; needed.PowerLevels && event != nil {
-			_ = r.authProvider.AddEvent(event)
+		if resolved := r.resolvedPowerLevels; needed.PowerLevels {
+			if resolved != nil {
+				_ = r.authProvider.AddEvent(resolved)
+			} else {
+				addFromAuthEventsIfNotRejected(event, spec.MRoomPowerLevels, "")
+			}
 		}
 		for _, needed := range needed.Member {
-			if event := r.resolvedMembers[spec.SenderID(needed)]; event != nil {
-				_ = r.authProvider.AddEvent(event)
+			if resolved := r.resolvedMembers[spec.SenderID(needed)]; resolved != nil {
+				_ = r.authProvider.AddEvent(resolved)
+			} else {
+				addFromAuthEventsIfNotRejected(event, spec.MRoomMember, needed)
 			}
 		}
 		for _, needed := range needed.ThirdPartyInvite {
-			if event := r.resolvedThirdPartyInvites[needed]; event != nil {
-				_ = r.authProvider.AddEvent(event)
+			if resolved := r.resolvedThirdPartyInvites[needed]; resolved != nil {
+				_ = r.authProvider.AddEvent(resolved)
+			} else {
+				addFromAuthEventsIfNotRejected(event, spec.MRoomThirdPartyInvite, needed)
 			}
 		}
 
 		// Check if the event is allowed based on the current partial state.
-		r.allower.update(&r.authProvider)
+		r.allower.update(r.authProvider)
 		if err := r.allower.allowed(event); err != nil {
 			// The event was not allowed by the partial state and/or relevant
 			// auth events from the event, so skip it.
 			continue
 		}
-
 		// Apply the newly authed event to the partial state. We need to do this
 		// here so that the next loop will have partial state to auth against.
-		r.applyEvents([]PDU{event})
+		r.applyEvents(event)
 	}
 }
 
 // applyEvents applies the events on top of the partial state.
-func (r *stateResolverV2) applyEvents(events []PDU) {
+func (r *stateResolverV2) applyEvents(events ...PDU) {
 	for _, event := range events {
 		if st, sk := event.Type(), event.StateKey(); sk == nil {
 			continue
@@ -590,7 +954,7 @@ func (r *stateResolverV2) reverseTopologicalOrdering(events []PDU, order Topolog
 func (r *stateResolverV2) mainlineOrdering(events []PDU) []PDU {
 	block := r.wrapOtherEventsForSort(events)
 	result := make([]PDU, 0, len(block))
-	sort.Sort(stateResV2ConflictedOtherHeap(block))
+	slices.SortStableFunc(block, sortStateResV2ConflictedOtherHeap)
 	for _, s := range block {
 		result = append(result, s.event)
 	}
@@ -602,6 +966,21 @@ func (r *stateResolverV2) mainlineOrdering(events []PDU) []PDU {
 // This is used in the Kahn's algorithm tiebreak.
 func (r *stateResolverV2) getPowerLevelFromAuthEvents(event PDU) int64 {
 	user := event.SenderID()
+	verImpl := MustGetRoomVersion(event.Version())
+	if verImpl.PrivilegedCreators() {
+		// get the create event
+		createEvent := r.resolvedCreate
+		if createEvent == nil {
+			panic("getPowerLevelFromAuthEvents: missing resolved create event, cannot calculate PL of sender!")
+		}
+		for _, creator := range CreatorsFromCreateEvent(createEvent) {
+			if creator == string(user) {
+				return CreatorPowerLevel
+			}
+		}
+		// otherwise they aren't a creator, so check the PL event.
+	}
+
 	for _, authID := range event.AuthEventIDs() {
 		// Then check and see if we have the auth event in the auth map, if not
 		// then we cannot deduce the real effective power level.
@@ -670,19 +1049,18 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 	// dependencies. These will be placed into the graph first. Remove the event
 	// from the event map as this prevents us from processing it a second time.
 	noIncoming := make(stateResV2ConflictedPowerLevelHeap, 0, len(events))
-	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
-			heap.Push(&noIncoming, eventMap[eventID])
+			noIncoming.Push(eventMap[eventID])
 			delete(eventMap, eventID)
 		}
 	}
+	slices.SortStableFunc(noIncoming, sortStateResV2ConflictedPowerLevelHeap)
 
-	var event *stateResV2ConflictedPowerLevel
-	for noIncoming.Len() > 0 {
+	for len(noIncoming) > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// auth event dependencies.
-		event = heap.Pop(&noIncoming).(*stateResV2ConflictedPowerLevel)
+		event := noIncoming.Pop()
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
@@ -703,20 +1081,21 @@ func kahnsAlgorithmUsingAuthEvents(events []*stateResV2ConflictedPowerLevel) []*
 			// process the outgoing dependencies of this auth event.
 			if inDegree[auth] == 0 {
 				if _, ok := eventMap[auth]; ok {
-					heap.Push(&noIncoming, eventMap[auth])
+					noIncoming.Push(eventMap[auth])
 					delete(eventMap, auth)
 				}
 			}
 		}
+		slices.SortStableFunc(noIncoming, sortStateResV2ConflictedPowerLevelHeap)
 	}
 
 	// If we have stray events left over then add them into the result.
 	if len(eventMap) > 0 {
 		remaining := make(stateResV2ConflictedPowerLevelHeap, 0, len(events))
 		for _, event := range eventMap {
-			heap.Push(&remaining, event)
+			remaining.Push(event)
 		}
-		sort.Sort(sort.Reverse(remaining))
+		slices.SortStableFunc(remaining, sortStateResV2ConflictedPowerLevelHeap)
 		graph = append(remaining, graph...)
 	}
 
@@ -756,19 +1135,18 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 	// dependencies. These will be placed into the graph first. Remove the event
 	// from the event map as this prevents us from processing it a second time.
 	noIncoming := make(stateResV2ConflictedOtherHeap, 0, len(events))
-	heap.Init(&noIncoming)
 	for eventID, count := range inDegree {
 		if count == 0 {
-			heap.Push(&noIncoming, eventMap[eventID])
+			noIncoming.Push(eventMap[eventID])
 			delete(eventMap, eventID)
 		}
 	}
+	slices.SortStableFunc(noIncoming, sortStateResV2ConflictedOtherHeap)
 
-	var event *stateResV2ConflictedOther
-	for noIncoming.Len() > 0 {
+	for len(noIncoming) > 0 {
 		// Pop the first event ID off the list of events which have no incoming
 		// prev event dependencies.
-		event = heap.Pop(&noIncoming).(*stateResV2ConflictedOther)
+		event := noIncoming.Pop()
 
 		// Since there are no incoming dependencies to resolve, we can now add this
 		// event into the graph.
@@ -789,21 +1167,31 @@ func kahnsAlgorithmUsingPrevEvents(events []*stateResV2ConflictedOther) []*state
 			// process the outgoing dependencies of this prev event.
 			if inDegree[prev] == 0 {
 				if _, ok := eventMap[prev]; ok {
-					heap.Push(&noIncoming, eventMap[prev])
+					noIncoming.Push(eventMap[prev])
 					delete(eventMap, prev)
 				}
 			}
 		}
+		slices.SortStableFunc(noIncoming, sortStateResV2ConflictedOtherHeap)
 	}
 
 	// If we have stray events left over then add them into the result.
 	if len(eventMap) > 0 {
 		remaining := make(stateResV2ConflictedOtherHeap, 0, len(events))
 		for _, event := range eventMap {
-			heap.Push(&remaining, event)
+			remaining = append(remaining, event)
 		}
-		sort.Sort(sort.Reverse(remaining))
+		slices.SortStableFunc(remaining, sortStateResV2ConflictedOtherHeap)
 		graph = append(remaining, graph...)
 	}
 	return graph
+}
+
+// Convert a list of PDUs into a set, keyed off the event ID of the PDU
+func newPDUSet(pdus []PDU) *sets.HashSet[PDU, string] {
+	s := sets.NewHashSetFunc[PDU, string](len(pdus), func(p PDU) string {
+		return p.EventID()
+	})
+	s.InsertSlice(pdus)
+	return s
 }

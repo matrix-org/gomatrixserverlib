@@ -15,6 +15,7 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -22,6 +23,7 @@ type MatrixErrorCode string
 
 const (
 	ErrorUnknown                     MatrixErrorCode = "M_UNKNOWN"
+	ErrorUnknownPos                  MatrixErrorCode = "M_UNKNOWN_POS"
 	ErrorUnrecognized                MatrixErrorCode = "M_UNRECOGNIZED"
 	ErrorForbidden                   MatrixErrorCode = "M_FORBIDDEN"
 	ErrorBadJSON                     MatrixErrorCode = "M_BAD_JSON"
@@ -63,7 +65,7 @@ func (e MatrixError) Error() string {
 }
 
 func (e MatrixError) Unwrap() error {
-	return fmt.Errorf(e.Err)
+	return errors.New(e.Err)
 }
 
 // InternalServerError
@@ -231,7 +233,7 @@ func (e IncompatibleRoomVersionError) Error() string {
 }
 
 func (e IncompatibleRoomVersionError) Unwrap() error {
-	return fmt.Errorf(e.Err)
+	return errors.New(e.Err)
 }
 
 // IncompatibleRoomVersion is an error which is returned when the client

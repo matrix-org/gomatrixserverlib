@@ -18,7 +18,7 @@ type EventBuilder struct {
 	// The sender ID of the user sending the event.
 	SenderID string `json:"sender"`
 	// The room ID of the room this event is in.
-	RoomID string `json:"room_id"`
+	RoomID string `json:"room_id,omitempty"`
 	// The type of the event.
 	Type string `json:"type"`
 	// The state_key of the event if the event is a state event or nil if the event is not a state event.
@@ -63,6 +63,7 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 		StateKey: eb.StateKey,
 		Content:  eb.Content,
 		SenderID: eb.SenderID,
+		Version:  eb.version,
 	})
 	if err != nil {
 		return err
@@ -70,6 +71,21 @@ func (eb *EventBuilder) AddAuthEvents(provider AuthEventProvider) error {
 	refs, err := eventsNeeded.AuthEventReferences(provider)
 	if err != nil {
 		return err
+	}
+	if eb.version.DomainlessRoomIDs() && eb.RoomID != "" {
+		// strip off the create event. We have to do it here and not in StateNeededForProtoEvent
+		// as that is used in other places e.g to load up which events are needed for AUTH purposes
+		// which obviously still needs the create event.
+		createEventID := "$" + eb.RoomID[1:]
+		ids := make([]string, 0, len(refs))
+		for _, id := range refs {
+			if id == createEventID {
+				continue
+			}
+			ids = append(ids, id)
+		}
+		eb.AuthEvents = ids
+		return nil
 	}
 	eb.AuthEvents = refs
 	return nil
@@ -145,6 +161,9 @@ func (eb *EventBuilder) Build(
 	eventStruct.EventBuilder = *eb
 	if eventIDFormat == EventIDFormatV1 {
 		eventStruct.EventID = fmt.Sprintf("$%s:%s", util.RandomString(16), origin)
+	}
+	if eb.version.DomainlessRoomIDs() && eb.Type == spec.MRoomCreate && eb.StateKey != nil && eb.RoomID != "" {
+		return nil, fmt.Errorf("EventBuilder.Build: create event must have no room ID but %s was provided", eb.RoomID)
 	}
 	eventStruct.OriginServerTS = spec.AsTimestamp(now)
 	eventStruct.Origin = origin

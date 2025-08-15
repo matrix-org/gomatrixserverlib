@@ -38,12 +38,13 @@ func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*Well
 	wellKnownPath := "/.well-known/matrix/server"
 
 	// Request server's well-known record
-
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+serverName+wellKnownPath, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	// Given well-known should be quite small and fast to fetch, timeout the request after 30s.
+	client := http.Client{Timeout: time.Second * 30}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -101,16 +102,10 @@ func LookupWellKnown(ctx context.Context, serverNameType spec.ServerName) (*Well
 	// by checking Content-Length, but it's possible that header will be
 	// missing. Better to be safe than sorry by reading no more than the
 	// WellKnownMaxSize in any case.
-	bodyBuffer := make([]byte, WellKnownMaxSize)
-	limitedReader := &io.LimitedReader{
-		R: resp.Body,
-		N: WellKnownMaxSize,
-	}
-	n, err := limitedReader.Read(bodyBuffer)
-	if err != nil && err != io.EOF {
+	body, err := io.ReadAll(&io.LimitedReader{R: resp.Body, N: WellKnownMaxSize})
+	if err != nil {
 		return nil, err
 	}
-	body := bodyBuffer[:n]
 
 	// Convert result to JSON
 	wellKnownResponse := &WellKnownResult{

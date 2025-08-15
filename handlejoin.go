@@ -19,10 +19,10 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
-	"github.com/tidwall/gjson"
 )
 
 type HandleMakeJoinInput struct {
@@ -77,7 +77,8 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 
 	// Check if the restricted join is allowed. If the room doesn't
 	// support restricted joins then this is effectively a no-op.
-	authorisedVia, err := MustGetRoomVersion(input.RoomVersion).CheckRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomID, input.SenderID)
+	verImpl := MustGetRoomVersion(input.RoomVersion)
+	authorisedVia, err := verImpl.CheckRestrictedJoin(input.Context, input.LocalServerName, input.RoomQuerier, input.RoomID, input.SenderID)
 	switch e := err.(type) {
 	case nil:
 	case spec.MatrixError:
@@ -94,6 +95,7 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 		RoomID:   input.RoomID.String(),
 		Type:     spec.MRoomMember,
 		StateKey: &rawSenderID,
+		Version:  verImpl,
 	}
 	content := MemberContent{
 		Membership:    spec.Join,
@@ -117,8 +119,11 @@ func HandleMakeJoin(input HandleMakeJoinInput) (*HandleMakeJoinResponse, error) 
 		return nil, spec.InternalServerError{Err: fmt.Sprintf("expected join event from template builder. got: %s", event.Type())}
 	}
 
-	provider := NewAuthEvents(state)
-	if err = Allowed(event, &provider, input.UserIDQuerier); err != nil {
+	provider, err := NewAuthEvents(state)
+	if err != nil {
+		return nil, spec.Forbidden(err.Error())
+	}
+	if err = Allowed(event, provider, input.UserIDQuerier); err != nil {
 		return nil, spec.Forbidden(err.Error())
 	}
 
@@ -149,7 +154,7 @@ func roomVersionSupported(roomVersion RoomVersion, supportedVersions []RoomVersi
 	return remoteSupportsVersion
 }
 
-func noCheckRestrictedJoin(context.Context, spec.ServerName, RestrictedRoomJoinQuerier, spec.RoomID, spec.SenderID) (string, error) {
+func noCheckRestrictedJoin(context.Context, spec.ServerName, RestrictedRoomJoinQuerier, spec.RoomID, spec.SenderID, bool) (string, error) {
 	return "", nil
 }
 
@@ -165,7 +170,7 @@ func checkRestrictedJoin(
 	ctx context.Context,
 	localServerName spec.ServerName,
 	roomQuerier RestrictedRoomJoinQuerier,
-	roomID spec.RoomID, senderID spec.SenderID,
+	roomID spec.RoomID, senderID spec.SenderID, privilegedCreators bool,
 ) (string, error) {
 	// Get the join rules to work out if the join rule is "restricted".
 	joinRulesEvent, err := roomQuerier.CurrentStateEvent(ctx, roomID, spec.MRoomJoinRules, "")
@@ -203,14 +208,26 @@ func checkRestrictedJoin(
 	// these users as the authorising user.
 	powerLevelsEvent, err := roomQuerier.CurrentStateEvent(ctx, roomID, spec.MRoomPowerLevels, "")
 	if err != nil {
-		return "", fmt.Errorf("roomQuerier.StateEvent: %w", err)
+		return "", fmt.Errorf("roomQuerier.StateEvent(PL): %w", err)
 	}
 	if powerLevelsEvent == nil {
-		return "", fmt.Errorf("invalid power levels event")
+		return "", fmt.Errorf("missing power levels event")
 	}
 	powerLevels, err := powerLevelsEvent.PowerLevels()
 	if err != nil {
 		return "", fmt.Errorf("unable to get powerlevels: %w", err)
+	}
+	// for v12+ rooms, we'll always check this list in all room versions but will only populate it for v12+ rooms.
+	var creators []string
+	if privilegedCreators {
+		createEvent, err := roomQuerier.CurrentStateEvent(ctx, roomID, spec.MRoomCreate, "")
+		if err != nil {
+			return "", fmt.Errorf("roomQuerier.StateEvent(Create): %w", err)
+		}
+		if createEvent == nil {
+			return "", fmt.Errorf("missing create event")
+		}
+		creators = CreatorsFromCreateEvent(createEvent)
 	}
 
 	resident := true
@@ -258,12 +275,17 @@ func checkRestrictedJoin(
 
 		// For each of the joined users, let's see if we can get a valid
 		// membership event.
-		for _, user := range targetRoomInfo.JoinedUsers {
-			if user.Type() != spec.MRoomMember || user.StateKey() == nil {
+		for _, memberEvent := range targetRoomInfo.JoinedUsers {
+			if memberEvent.Type() != spec.MRoomMember || memberEvent.StateKey() == nil {
 				continue // shouldn't happen
 			}
 			// Only users that have the power to invite should be chosen.
-			if powerLevels.UserLevel(spec.SenderID(*user.StateKey())) < powerLevels.Invite {
+			userID := *memberEvent.StateKey()
+
+			if slices.Contains(creators, userID) {
+				return userID, nil
+			}
+			if powerLevels.UserLevel(spec.SenderID(userID)) < powerLevels.Invite {
 				continue
 			}
 
@@ -272,7 +294,7 @@ func checkRestrictedJoin(
 			// of the allowed rooms. Return one of our own local users
 			// from within the room to use as the authorising user ID, so that it
 			// can be referred to from within the membership content.
-			return *user.StateKey(), nil
+			return userID, nil
 		}
 	}
 
@@ -351,15 +373,14 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	// validate the mxid_mapping of the event
 	if input.RoomVersion == RoomVersionPseudoIDs {
 		// validate the signature first
-		if err = validateMXIDMappingSignature(input.Context, event, input.Verifier, verImpl); err != nil {
+		mapping, err := getMXIDMapping(event)
+		if err != nil {
+			return nil, spec.BadJSON(err.Error())
+		}
+		if err = validateMXIDMappingSignatures(input.Context, event, *mapping, input.Verifier, verImpl); err != nil {
 			return nil, spec.Forbidden(err.Error())
 		}
 
-		mapping := MXIDMapping{}
-		err = json.Unmarshal([]byte(gjson.GetBytes(input.JoinEvent, "content.mxid_mapping").Raw), &mapping)
-		if err != nil {
-			return nil, err
-		}
 		// store the user room public key -> userID mapping
 		if err = input.StoreSenderIDFromPublicID(input.Context, mapping.UserRoomKey, mapping.UserID, input.RoomID); err != nil {
 			return nil, err
@@ -385,11 +406,11 @@ func HandleSendJoin(input HandleSendJoinInput) (*HandleSendJoinResponse, error) 
 	}
 
 	// Check that the room ID is correct.
-	if event.RoomID() != input.RoomID.String() {
+	if event.RoomID().String() != input.RoomID.String() {
 		return nil, spec.BadJSON(
 			fmt.Sprintf(
 				"The room ID in the request path (%q) must match the room ID in the join event JSON (%q)",
-				input.RoomID.String(), event.RoomID(),
+				input.RoomID.String(), event.RoomID().String(),
 			),
 		)
 	}

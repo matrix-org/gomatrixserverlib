@@ -18,8 +18,11 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ed25519"
 )
 
 func stateNeededEquals(a, b StateNeeded) bool {
@@ -71,6 +74,7 @@ func (tel *testEventList) UnmarshalJSON(data []byte) error {
 }
 
 func testStateNeededForAuth(t *testing.T, eventdata string, protoEvent *ProtoEvent, want StateNeeded) {
+	protoEvent.Version = MustGetRoomVersion("10")
 	var events testEventList
 	if err := json.Unmarshal([]byte(eventdata), &events); err != nil {
 		panic(err)
@@ -93,7 +97,7 @@ func testStateNeededForAuth(t *testing.T, eventdata string, protoEvent *ProtoEve
 func TestStateNeededForCreate(t *testing.T) {
 	// Create events don't need anything.
 	skey := ""
-	testStateNeededForAuth(t, `[{"type": "m.room.create"}]`, &ProtoEvent{
+	testStateNeededForAuth(t, `[{"type": "m.room.create", "room_id": "!r1:a"}]`, &ProtoEvent{
 		Type:     "m.room.create",
 		StateKey: &skey,
 	}, StateNeeded{})
@@ -103,7 +107,8 @@ func TestStateNeededForMessage(t *testing.T) {
 	// Message events need the create event, the sender and the power_levels.
 	testStateNeededForAuth(t, `[{
 		"type": "m.room.message",
-		"sender": "@u1:a"
+		"sender": "@u1:a",
+        "room_id": "!r1:a"
 	}]`, &ProtoEvent{
 		Type:     "m.room.message",
 		SenderID: "@u1:a",
@@ -116,7 +121,7 @@ func TestStateNeededForMessage(t *testing.T) {
 
 func TestStateNeededForAlias(t *testing.T) {
 	// Alias events need only the create event.
-	testStateNeededForAuth(t, `[{"type": "m.room.aliases"}]`, &ProtoEvent{
+	testStateNeededForAuth(t, `[{"type": "m.room.aliases", "room_id": "!r1:a"}]`, &ProtoEvent{
 		Type: "m.room.aliases",
 	}, StateNeeded{
 		Create: true,
@@ -137,7 +142,8 @@ func TestStateNeededForJoin(t *testing.T) {
 		"type": "m.room.member",
 		"state_key": "@u1:a",
 		"sender": "@u1:a",
-		"content": {"membership": "join"}
+		"content": {"membership": "join"},
+        "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:      true,
 		JoinRules:   true,
@@ -160,7 +166,8 @@ func TestStateNeededForInvite(t *testing.T) {
 		"type": "m.room.member",
 		"state_key": "@u2:b",
 		"sender": "@u1:a",
-		"content": {"membership": "invite"}
+		"content": {"membership": "invite"},
+        "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:      true,
 		PowerLevels: true,
@@ -195,7 +202,8 @@ func TestStateNeededForInvite3PID(t *testing.T) {
 					"token": "my_token"
 				}
 			}
-		}
+		},
+        "room_id": "!r1:a"
 	}]`, &b, StateNeeded{
 		Create:           true,
 		PowerLevels:      true,
@@ -211,13 +219,14 @@ type testAuthEvents struct {
 	PowerLevelsJSON      json.RawMessage            `json:"power_levels"`
 	MemberJSON           map[string]json.RawMessage `json:"member"`
 	ThirdPartyInviteJSON map[string]json.RawMessage `json:"third_party_invite"`
+	roomVersion          RoomVersion
 }
 
 func (tae *testAuthEvents) Create() (PDU, error) {
 	if len(tae.CreateJSON) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.CreateJSON, false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.CreateJSON, false)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +237,7 @@ func (tae *testAuthEvents) JoinRules() (PDU, error) {
 	if len(tae.JoinRulesJSON) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.JoinRulesJSON, false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.JoinRulesJSON, false)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +248,7 @@ func (tae *testAuthEvents) PowerLevels() (PDU, error) {
 	if len(tae.PowerLevelsJSON) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.PowerLevelsJSON, false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.PowerLevelsJSON, false)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +259,7 @@ func (tae *testAuthEvents) Member(stateKey spec.SenderID) (PDU, error) {
 	if len(tae.MemberJSON[string(stateKey)]) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.MemberJSON[string(stateKey)], false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.MemberJSON[string(stateKey)], false)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +270,7 @@ func (tae *testAuthEvents) ThirdPartyInvite(stateKey string) (PDU, error) {
 	if len(tae.ThirdPartyInviteJSON[stateKey]) == 0 {
 		return nil, nil
 	}
-	event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false)
+	event, err := MustGetRoomVersion(tae.roomVersion).NewEventFromTrustedJSON(tae.ThirdPartyInviteJSON[stateKey], false)
 	if err != nil {
 		return nil, err
 	}
@@ -278,13 +287,18 @@ type testCase struct {
 	NotAllowed []json.RawMessage `json:"not_allowed"`
 }
 
-func testEventAllowed(t *testing.T, testCaseJSON string) {
-	var tc testCase
+func testEventAllowed(t *testing.T, testCaseJSON string, roomVersion RoomVersion) {
+	t.Helper()
+	tc := testCase{
+		AuthEvents: testAuthEvents{
+			roomVersion: roomVersion,
+		},
+	}
 	if err := json.Unmarshal([]byte(testCaseJSON), &tc); err != nil {
 		panic(err)
 	}
 	for _, data := range tc.Allowed {
-		event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(data, false)
+		event, err := MustGetRoomVersion(roomVersion).NewEventFromTrustedJSON(data, false)
 		if err != nil {
 			panic(err)
 		}
@@ -293,12 +307,16 @@ func testEventAllowed(t *testing.T, testCaseJSON string) {
 		}
 	}
 	for _, data := range tc.NotAllowed {
-		event, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(data, false)
+		event, err := MustGetRoomVersion(roomVersion).NewEventFromTrustedJSON(data, false)
 		if err != nil {
-			panic(err)
+			continue
 		}
-		if err := Allowed(event, &tc.AuthEvents, UserIDForSenderTest); err == nil {
-			t.Fatalf("Expected %q to not be allowed but it was", string(data))
+		if event != nil {
+			if err := Allowed(event, &tc.AuthEvents, UserIDForSenderTest); err == nil {
+				t.Fatalf("Expected %q to not be allowed but it was", string(data))
+			} else {
+				t.Logf("%#v", err)
+			}
 		}
 	}
 }
@@ -396,7 +414,7 @@ func TestAllowedEmptyRoom(t *testing.T) {
 				"not_allowed": "The state_key is not empty"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedFirstJoin(t *testing.T) {
@@ -505,7 +523,7 @@ func TestAllowedFirstJoin(t *testing.T) {
 				"not_allowed": "The membership is not 'join'"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedWithNoPowerLevels(t *testing.T) {
@@ -547,7 +565,7 @@ func TestAllowedWithNoPowerLevels(t *testing.T) {
 				"not_allowed": "Sender is not in room"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedInviteFrom3PID(t *testing.T) {
@@ -687,7 +705,7 @@ func TestAllowedInviteFrom3PID(t *testing.T) {
 				"not_allowed": "Token doesn't refer to a known third-party invite"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedNoFederation(t *testing.T) {
@@ -731,7 +749,7 @@ func TestAllowedNoFederation(t *testing.T) {
 				"not_allowed": "Sender is from a different server."
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAllowedWithPowerLevels(t *testing.T) {
@@ -884,7 +902,7 @@ func TestAllowedWithPowerLevels(t *testing.T) {
 				"not_allowed": "State key starts with '@' and is for a different user"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestRedactAllowed(t *testing.T) {
@@ -1000,7 +1018,7 @@ func TestRedactAllowed(t *testing.T) {
 				"not_allowed": "Missing redacts event ID"
 			}
 		}]
-	}`)
+	}`, RoomVersionV1)
 }
 
 func TestAuthEvents(t *testing.T) {
@@ -1020,7 +1038,7 @@ func TestAuthEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestAuthEvents: failed to create power_levels event: %s", err)
 	}
-	a := NewAuthEvents([]PDU{power})
+	a, _ := NewAuthEvents([]PDU{power})
 	var e PDU
 	if e, err = a.PowerLevels(); err != nil || e != power {
 		t.Errorf("TestAuthEvents: failed to get same power_levels event")
@@ -1047,6 +1065,7 @@ func TestAuthEvents(t *testing.T) {
 }
 
 var powerLevelTestRoom = &testAuthEvents{
+	roomVersion: RoomVersionV1,
 	CreateJSON: json.RawMessage(`{
 		"type": "m.room.create",
 		"state_key": "",
@@ -1110,6 +1129,102 @@ func TestDemoteUserDefaultPowerLevelBelowOwn(t *testing.T) {
 	}
 }
 
+func NilUserIDForBadSenderTest(roomID spec.RoomID, senderID spec.SenderID) (*spec.UserID, error) {
+	if senderID == "@baduser" {
+		return nil, nil
+	}
+
+	return spec.NewUserID(string(senderID), true)
+}
+
+var nilPowerLevelTestRoom = &testAuthEvents{
+	roomVersion: RoomVersionV1,
+	CreateJSON: json.RawMessage(`{
+		"type": "m.room.create",
+		"state_key": "",
+		"sender": "@baduser",
+		"room_id": "!r1:a",
+		"event_id": "$e1:a",
+		"content": {
+			"room_version": "1"
+		}
+	}`),
+	PowerLevelsJSON: json.RawMessage(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e3:a",
+		"content": {
+			"users_default": 100,
+			"users": {
+				"@u1:a": 100
+			},
+			"redact": 100
+		}
+	}`),
+	MemberJSON: map[string]json.RawMessage{
+		"@u1:a": json.RawMessage(`{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"content": {
+				"membership": "join"
+			}
+		}`),
+	},
+}
+
+func TestPowerLevelCheckShouldNotPanic(t *testing.T) {
+	powerChangeBadUser, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(spec.RawJSON(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"users_default": 50,
+			"users": {
+				"@baduser": 0
+			},
+			"redact": 100
+		}
+	}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotPanics(t, func() {
+		if err := Allowed(powerChangeBadUser, powerLevelTestRoom, NilUserIDForBadSenderTest); err == nil {
+			panic("Event should not be allowed")
+		}
+	}, "")
+
+	powerChange, err := MustGetRoomVersion(RoomVersionV1).NewEventFromTrustedJSON(spec.RawJSON(`{
+		"type": "m.room.power_levels",
+		"state_key": "",
+		"sender": "@u1:a",
+		"room_id": "!r1:a",
+		"event_id": "$e5:a",
+		"content": {
+			"users_default": 50,
+			"users": {
+                "@u1:a": 0
+			},
+			"redact": 100
+		}
+	}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotPanics(t, func() {
+		if err := Allowed(powerChange, nilPowerLevelTestRoom, NilUserIDForBadSenderTest); err == nil {
+			panic("Event should not be allowed")
+		}
+	}, "")
+}
+
 func TestPromoteUserDefaultLevelAboveOwn(t *testing.T) {
 	// User shouldn't be able to promote the user default
 	// level above their own effective level.
@@ -1145,6 +1260,7 @@ func newMemberContent(
 }
 
 var negativePowerLevelTestRoom = &testAuthEvents{
+	roomVersion: RoomVersionV1,
 	CreateJSON: json.RawMessage(`{
 		"type": "m.room.create",
 		"state_key": "",
@@ -1435,5 +1551,558 @@ func Test_checkUserLevels(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Test that we allow broken membership content, i.e.
+// displayname is boolean, an object or array
+func TestMembershipAllowed(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": false}
+		},
+		{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": {}}
+		},
+		{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": 0}
+		},
+		{
+			"type": "m.room.member",
+			"state_key": "@u1:a",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"event_id": "$e2:a",
+			"prev_events": [["$e1:a", {}]],
+			"content": {"membership": "join", "displayname": []}
+		}],
+		"not_allowed": []
+	}`, RoomVersionV1)
+}
+
+func TestMembershipBanned(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u2:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock" }
+			},
+			"power_levels": {
+				"type": "m.room.power_levels",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e5:a",
+				"content": {
+					"users": {
+						"@u2:a": 100
+					},
+					"ban": 50
+				}
+			},
+			"member": {
+				"@u1:a": {
+					"type": "m.room.member",
+					"sender": "@u1:a",
+					"room_id": "!r1:a",
+					"state_key": "@u1:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "ban"}
+				},
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "leave"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "ban"}
+		}
+		],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender should not be able to ban->join themselves"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender should not be able to ban->knock themselves"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e4:a",
+			"content": {"membership": "invite"},
+			"unsigned": {
+				"not_allowed": "Sender should not be able to ban->invite themselves"
+			}
+		}]
+	}`, RoomVersionV10)
+}
+
+func TestJoinRuleInvite(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "invite" }
+			},
+			"member": {
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		}]
+	}`, RoomVersionV1)
+}
+
+func TestJoinRuleKnock(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock" }
+			},
+			"member": {
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u4:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				},
+				"@u5:a": {
+					"type": "m.room.member",
+					"sender": "@u5:a",
+					"room_id": "!r1:a",
+					"state_key": "@u5:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "ban"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender is already joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u5:a",
+			"room_id": "!r1:a",
+			"state_key": "@u5:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "knock"},
+			"unsigned": {
+				"not_allowed": "Sender is banned"
+			}
+		}]
+	}`, RoomVersionV10)
+}
+
+func TestJoinRuleKnockRestricted(t *testing.T) {
+	testEventAllowed(t, `{
+		"auth_events": {
+			"create": {
+				"type": "m.room.create",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"creator": "@u1:a"}
+			},
+			"join_rules": {
+				"type": "m.room.join_rules",
+				"state_key": "",
+				"sender": "@u1:a",
+				"room_id": "!r1:a",
+				"event_id": "$e1:a",
+				"content": {"join_rule": "knock_restricted" }
+			},
+			"member": {
+				"@u2:a": {
+					"type": "m.room.member",
+					"sender": "@u2:a",
+					"room_id": "!r1:a",
+					"state_key": "@u2:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "invite"}
+				},
+				"@u3:a": {
+					"type": "m.room.member",
+					"sender": "@u3:a",
+					"room_id": "!r1:a",
+					"state_key": "@u3:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "join"}
+				},
+				"@u4:a": {
+					"type": "m.room.member",
+					"sender": "@u4:a",
+					"room_id": "!r1:a",
+					"state_key": "@u4:a",
+					"event_id": "$e2:a",
+					"content": {"membership": "knock"}
+				}
+			}
+		},
+		"allowed": [{
+			"type": "m.room.member",
+			"sender": "@u2:a",
+			"room_id": "!r1:a",
+			"state_key": "@u2:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u3:a",
+			"room_id": "!r1:a",
+			"state_key": "@u3:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"}
+		}, {
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join", "join_authorised_via_users_server": "@u3:a"}
+		}],
+		"not_allowed": [{
+			"type": "m.room.member",
+			"sender": "@u1:a",
+			"room_id": "!r1:a",
+			"state_key": "@u1:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		},
+		{
+			"type": "m.room.member",
+			"sender": "@u4:a",
+			"room_id": "!r1:a",
+			"state_key": "@u4:a",
+			"event_id": "$e2:a",
+			"content": {"membership": "join"},
+			"unsigned": {
+				"not_allowed": "Sender not invited or joined"
+			}
+		}]
+	}`, RoomVersionV10)
+}
+
+type CustomVer struct {
+	IRoomVersion
+}
+
+func (v CustomVer) Version() RoomVersion {
+	return "hello"
+}
+
+func TestSetRoomVersion(t *testing.T) {
+	// ensure we can set and get custom room versions.
+	// GMSL doesn't use this but users of GMSL do.
+	v := CustomVer{
+		IRoomVersion: MustGetRoomVersion("10"),
+	}
+	SetRoomVersion(v)
+	MustGetRoomVersion("hello")
+}
+
+func TestAllowerContextUserPowerLevel(t *testing.T) {
+	serverName := spec.ServerName("example.com")
+	alice := "@alice:example.com"
+	bob := "@bob:example.com"
+	charlie := "@charlie:example.com"
+	_, signingKey, err := ed25519.GenerateKey(nil)
+	assert.NoError(t, err, "failed to make signing key")
+	verImpl := MustGetRoomVersion("12")
+	// make some events and assert that the allower is looking in the right places for the user level
+	createEvent, err := verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Type:     spec.MRoomCreate,
+		SenderID: alice,
+		StateKey: &emptyStateKey,
+		Content:  []byte(`{"room_version":"12","additional_creators":["` + bob + `"]}`),
+		Depth:    1,
+		Version:  verImpl,
+	}).Build(time.Now(), serverName, "ed25519:0", signingKey)
+	assert.NoError(t, err, "failed to make create event")
+	roomID := createEvent.RoomID()
+
+	joinEvent, err := verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Type:       spec.MRoomMember,
+		SenderID:   alice,
+		StateKey:   &alice,
+		Content:    []byte(`{"membership":"join"}`),
+		Depth:      2,
+		Version:    verImpl,
+		PrevEvents: []string{createEvent.EventID()},
+		RoomID:     roomID.String(),
+	}).Build(time.Now(), serverName, "ed25519:0", signingKey)
+	assert.NoError(t, err, "failed to make join event")
+
+	plEvent, err := verImpl.NewEventBuilderFromProtoEvent(&ProtoEvent{
+		Type:       spec.MRoomPowerLevels,
+		SenderID:   alice,
+		StateKey:   &emptyStateKey,
+		Content:    []byte(`{"users":{"` + charlie + `":50}}`),
+		Depth:      3,
+		Version:    verImpl,
+		PrevEvents: []string{joinEvent.EventID()},
+		RoomID:     roomID.String(),
+	}).Build(time.Now(), serverName, "ed25519:0", signingKey)
+	assert.NoError(t, err, "failed to make create event")
+
+	provider := &testAuthEvents{
+		roomVersion:     verImpl.Version(),
+		CreateJSON:      createEvent.JSON(),
+		PowerLevelsJSON: plEvent.JSON(),
+		MemberJSON: map[string]json.RawMessage{
+			alice: joinEvent.JSON(),
+		},
+	}
+	allower := newAllowerContext(provider, UserIDForSenderTest, roomID)
+
+	testCases := []struct {
+		name       string
+		userToTest string
+		wantLevel  int64
+	}{
+		{
+			name:       "creator has infinite PL",
+			userToTest: alice,
+			wantLevel:  CreatorPowerLevel,
+		},
+		{
+			name:       "additional creator has infinite PL",
+			userToTest: bob,
+			wantLevel:  CreatorPowerLevel,
+		},
+		{
+			name:       "users in users map have the stated PL",
+			userToTest: charlie,
+			wantLevel:  50,
+		},
+		{
+			name:       "other users have 0",
+			userToTest: "@doris:example.com",
+			wantLevel:  0,
+		},
+	}
+	for _, tc := range testCases {
+		gotLevel := allower.userPowerLevel(spec.SenderID(tc.userToTest))
+		assert.Equal(t, tc.wantLevel, gotLevel, "%s: got wrong level", tc.name)
 	}
 }

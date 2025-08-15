@@ -113,8 +113,6 @@ type RespPublicRooms struct {
 // PublicRoom stores the info of a room returned by
 // GET /_matrix/federation/v1/publicRooms
 type PublicRoom struct {
-	// Aliases of the room. May be empty.
-	Aliases []string `json:"aliases,omitempty"`
 	// The canonical alias of the room, if any.
 	CanonicalAlias string `json:"canonical_alias,omitempty"`
 	// The name of the room, if any.
@@ -131,6 +129,10 @@ type PublicRoom struct {
 	GuestCanJoin bool `json:"guest_can_join"`
 	// The URL for the room's avatar, if one is set.
 	AvatarURL string `json:"avatar_url,omitempty"`
+	// The join rule for this room
+	JoinRule string `json:"join_rule,omitempty"`
+	// The type of the room.
+	RoomType string `json:"room_type,omitempty"`
 }
 
 // A RespEventAuth is the content of a response to GET /_matrix/federation/v1/event_auth/{roomID}/{eventID}

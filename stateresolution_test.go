@@ -2,6 +2,7 @@ package gomatrixserverlib
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -48,7 +49,7 @@ func TestStateResV1(t *testing.T) {
 
 	authEvents := []PDU{a1, a2, a3}
 
-	resolved, err := ResolveConflicts(RoomVersionV1, conflicted, authEvents, UserIDForSenderTest)
+	resolved, err := ResolveConflictsNew(RoomVersionV1, [][]PDU{conflicted}, authEvents, UserIDForSenderTest, isRejectedTest)
 	if err != nil {
 		t.Fatalf("failed to resolve conflicts: %s", err)
 	}
@@ -57,5 +58,160 @@ func TestStateResV1(t *testing.T) {
 	}
 	if !reflect.DeepEqual(resolved[0], conf116) {
 		t.Fatalf("Wrong resolved event:\nexpected: %s\ngot: %s", string(conf116.JSON()), string(resolved[0].JSON()))
+	}
+}
+
+func TestSplitConflictedUnconflicted(t *testing.T) {
+	type mockEvent struct {
+		Type     string
+		StateKey string
+		EventID  string
+	}
+	testCases := []struct {
+		name             string
+		algorithm        StateResAlgorithm
+		stateSets        [][]mockEvent
+		wantConflicted   []string
+		wantUnconflicted []string
+	}{
+		{
+			name:      "no conflicts: different tuples",
+			algorithm: StateResV1,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+				{
+					mockEvent{Type: "C", StateKey: "D", EventID: "$2"},
+				},
+			},
+			wantUnconflicted: []string{"$1", "$2"},
+			wantConflicted:   []string{},
+		},
+		{
+			name:      "conflict: not in all sets",
+			algorithm: StateResV2,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+				{
+					mockEvent{Type: "C", StateKey: "D", EventID: "$2"},
+				},
+			},
+			wantUnconflicted: []string{},
+			wantConflicted:   []string{"$1", "$2"},
+		},
+		{
+			name:      "no conflict: identical tuple",
+			algorithm: StateResV1,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+			},
+			wantUnconflicted: []string{"$1"},
+			wantConflicted:   []string{},
+		},
+		{
+			name:      "no conflict: identical tuple",
+			algorithm: StateResV2,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+			},
+			wantUnconflicted: []string{"$1"},
+			wantConflicted:   []string{},
+		},
+		{
+			name:      "conflict: same tuple",
+			algorithm: StateResV1,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$2"},
+				},
+			},
+			wantUnconflicted: []string{},
+			wantConflicted:   []string{"$1", "$2"},
+		},
+		{
+			name:      "conflict: same tuple",
+			algorithm: StateResV2,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+				},
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$2"},
+				},
+			},
+			wantUnconflicted: []string{},
+			wantConflicted:   []string{"$1", "$2"},
+		},
+		{
+			name:      "no conflict: one state set",
+			algorithm: StateResV1,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+					mockEvent{Type: "C", StateKey: "D", EventID: "$2"},
+				},
+			},
+			wantUnconflicted: []string{"$1", "$2"},
+			wantConflicted:   []string{},
+		},
+		{
+			name:      "no conflict: one state set",
+			algorithm: StateResV2,
+			stateSets: [][]mockEvent{
+				{
+					mockEvent{Type: "A", StateKey: "B", EventID: "$1"},
+					mockEvent{Type: "C", StateKey: "D", EventID: "$2"},
+				},
+			},
+			wantUnconflicted: []string{"$1", "$2"},
+			wantConflicted:   []string{},
+		},
+	}
+	for _, tc := range testCases {
+		var stateSets [][]PDU
+		for _, inputStateSet := range tc.stateSets {
+			// Map mockEvent to PDU
+			var stateSet []PDU
+			for _, inputEvent := range inputStateSet {
+				stateSet = append(stateSet, &eventV1{
+					roomVersion: RoomVersionV1,
+					EventIDRaw:  inputEvent.EventID,
+					eventFields: eventFields{Type: inputEvent.Type, StateKey: &inputEvent.StateKey},
+				})
+			}
+			stateSets = append(stateSets, stateSet)
+		}
+		gotConflicted, gotUnconflicted := splitConflictedUnconflicted(tc.algorithm, stateSets)
+		assertIDs(t, tc.name+" (conflicted)", gotConflicted, tc.wantConflicted)
+		assertIDs(t, tc.name+" (unconflicted)", gotUnconflicted, tc.wantUnconflicted)
+
+	}
+}
+
+func assertIDs(t *testing.T, msg string, pdus []PDU, wantIDs []string) {
+	t.Helper()
+	result := make([]string, len(pdus))
+	for i := 0; i < len(result); i++ {
+		result[i] = pdus[i].EventID()
+	}
+	slices.Sort(result)
+	if !reflect.DeepEqual(result, wantIDs) {
+		t.Errorf("%s: got  %v\nwant %v", msg, result, wantIDs)
 	}
 }

@@ -25,7 +25,7 @@ func (r *dummyNetResolver) LookupIPAddr(_ context.Context, hostname string) ([]n
 }
 
 func mustCreateCache(size int, lifetime time.Duration) *DNSCache {
-	cache := NewDNSCache(size, lifetime)
+	cache := NewDNSCache(size, lifetime, []string{}, []string{})
 	cache.resolver = &dummyNetResolver{}
 	return cache
 }
