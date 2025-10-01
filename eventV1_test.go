@@ -59,6 +59,7 @@ func makeStickyEvent(t *testing.T, durationMS int64, originTS int64, stateKey *s
 	}
 	sum := sha256.Sum256(cj)
 	b, err = sjson.SetBytes(b, "hashes.sha256", base64.RawURLEncoding.EncodeToString(sum[:]))
+	assert.NoError(t, err, "failed to set sha256 hash on sticky message event")
 
 	ev, err := verImpl.NewEventFromUntrustedJSON(b)
 	assert.NoError(t, err, "failed to create new untrusted sticky message event")
