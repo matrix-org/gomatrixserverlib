@@ -85,6 +85,15 @@ func TestIsSticky(t *testing.T) {
 	// Origin is well before now, leading to expiration upon receipt
 	ev = makeStickyEvent(t, 20000, time.Now().UnixMilli()-30000, nil)
 	assert.False(t, ev.IsSticky(time.Now()))
+
+	// Not a message event
+	stateKey := "state_key"
+	ev = makeStickyEvent(t, 20000, time.Now().UnixMilli(), &stateKey)
+	assert.False(t, ev.IsSticky(time.Now()))
+
+	// Not a sticky event
+	ev = makeStickyEvent(t, -1, time.Now().UnixMilli(), nil) // -1 creates a non-sticky event
+	assert.False(t, ev.IsSticky(time.Now()))
 }
 
 func TestStickyEndTime(t *testing.T) {
