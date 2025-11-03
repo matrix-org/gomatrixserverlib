@@ -68,32 +68,32 @@ func makeStickyEvent(t *testing.T, durationMS int64, originTS int64, stateKey *s
 }
 
 func TestIsSticky(t *testing.T) {
-	// Note: IsSticky internally uses `time.Now()`, so we can't play with the time too much.
+	now := time.Now()
 
 	// Happy path
-	ev := makeStickyEvent(t, 20000, time.Now().UnixMilli(), nil)
-	assert.True(t, ev.IsSticky(time.Now()))
+	ev := makeStickyEvent(t, 20000, now.UnixMilli(), nil)
+	assert.True(t, ev.IsSticky(now, now))
 
 	// Origin before now
-	ev = makeStickyEvent(t, 20000, time.Now().UnixMilli()-10000, nil)
-	assert.True(t, ev.IsSticky(time.Now())) // should use the -10s time from origin as the start time
+	ev = makeStickyEvent(t, 20000, now.UnixMilli()-10000, nil)
+	assert.True(t, ev.IsSticky(now, now)) // should use the -10s time from origin as the start time
 
 	// Origin in the future
-	ev = makeStickyEvent(t, 20000, time.Now().UnixMilli()+30000, nil)
-	assert.True(t, ev.IsSticky(time.Now())) // This will switch to using Now() instead of the 30s future, so should be in range
+	ev = makeStickyEvent(t, 20000, now.UnixMilli()+30000, nil)
+	assert.True(t, ev.IsSticky(now, now)) // This will switch to using Now() instead of the 30s future, so should be in range
 
 	// Origin is well before now, leading to expiration upon receipt
-	ev = makeStickyEvent(t, 20000, time.Now().UnixMilli()-30000, nil)
-	assert.False(t, ev.IsSticky(time.Now()))
+	ev = makeStickyEvent(t, 20000, now.UnixMilli()-30000, nil)
+	assert.False(t, ev.IsSticky(now, now))
 
 	// Not a message event
 	stateKey := "state_key"
-	ev = makeStickyEvent(t, 20000, time.Now().UnixMilli(), &stateKey)
-	assert.False(t, ev.IsSticky(time.Now()))
+	ev = makeStickyEvent(t, 20000, now.UnixMilli(), &stateKey)
+	assert.False(t, ev.IsSticky(now, now))
 
 	// Not a sticky event
-	ev = makeStickyEvent(t, -1, time.Now().UnixMilli(), nil) // -1 creates a non-sticky event
-	assert.False(t, ev.IsSticky(time.Now()))
+	ev = makeStickyEvent(t, -1, now.UnixMilli(), nil) // -1 creates a non-sticky event
+	assert.False(t, ev.IsSticky(now, now))
 }
 
 func TestStickyEndTime(t *testing.T) {

@@ -295,12 +295,12 @@ func (e *eventV1) calculatedStickyEndTime(startTime time.Time) time.Time {
 	return startTime.Add(time.Duration(durationMillis) * time.Millisecond)
 }
 
-func (e *eventV1) IsSticky(received time.Time) bool {
+func (e *eventV1) IsSticky(now time.Time, received time.Time) bool {
 	endTime := e.StickyEndTime(received)
 	if endTime.IsZero() {
 		return false
 	}
-	return endTime.After(time.Now())
+	return endTime.After(now)
 }
 
 func (e *eventV1) StickyEndTime(received time.Time) time.Time {
