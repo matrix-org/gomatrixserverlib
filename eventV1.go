@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/crypto/ed25519"
 )
+
+type stickyEventData struct {
+	DurationMillis int64 `json:"duration_ms"`
+}
 
 type eventV1 struct {
 	redacted    bool
@@ -21,6 +26,9 @@ type eventV1 struct {
 	EventIDRaw string           `json:"event_id,omitempty"`
 	PrevEvents []eventReference `json:"prev_events"`
 	AuthEvents []eventReference `json:"auth_events"`
+
+	UnstableSticky stickyEventData `json:"msc4354_sticky,omitempty"`
+	StableSticky   stickyEventData `json:"sticky,omitempty"`
 }
 
 // MarshalJSON implements json.Marshaller
@@ -257,6 +265,42 @@ func (e *eventV1) ToHeaderedJSON() ([]byte, error) {
 		return []byte{}, err
 	}
 	return eventJSON, nil
+}
+
+func (e *eventV1) assumedStickyStartTime(received time.Time) time.Time {
+	if e.OriginServerTS().Time().Before(received) {
+		return e.OriginServerTS().Time()
+	}
+	return received
+}
+
+func (e *eventV1) calculatedStickyEndTime(startTime time.Time) time.Time {
+	// Stable first, unstable second
+	durationMillis := e.StableSticky.DurationMillis
+	if durationMillis == 0 {
+		durationMillis = e.UnstableSticky.DurationMillis
+	}
+
+	if durationMillis == 0 {
+		return time.Time{} // zero, not sticky
+	}
+	if durationMillis > 3600000 {
+		durationMillis = 3600000 // cap at 1 hour
+	}
+
+	return startTime.Add(time.Duration(durationMillis) * time.Millisecond)
+}
+
+func (e *eventV1) IsSticky(now time.Time, received time.Time) bool {
+	endTime := e.StickyEndTime(received)
+	if endTime.IsZero() {
+		return false
+	}
+	return endTime.After(now)
+}
+
+func (e *eventV1) StickyEndTime(received time.Time) time.Time {
+	return e.calculatedStickyEndTime(e.assumedStickyStartTime(received))
 }
 
 func newEventFromUntrustedJSONV1(eventJSON []byte, roomVersion IRoomVersion) (PDU, error) {

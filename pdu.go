@@ -3,6 +3,7 @@ package gomatrixserverlib
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"golang.org/x/crypto/ed25519"
@@ -52,6 +53,16 @@ type PDU interface {
 	JSON() []byte                    // TODO: remove
 	AuthEventIDs() []string          // TODO: remove
 	ToHeaderedJSON() ([]byte, error) // TODO: remove
+	// IsSticky returns true if the event is *currently* considered "sticky" given the received time.
+	// Sticky events are annotated as sticky and carry strong delivery guarantees to clients (and
+	// therefore servers). `received` should be specified as the time the event was received by the
+	// server if, and only if, the event was received over `/send`. Otherwise, `received` should be
+	// `time.Now()`. Returns false if the event is not sticky, or no longer sticky. `now` can be supplied
+	// to override the current time.
+	IsSticky(now time.Time, received time.Time) bool
+	// StickyEndTime returns the time at which the event is no longer considered "sticky". See `IsSticky`
+	// for details on sticky events. Returns `time.Time{}` (zero) if the event is not a sticky event.
+	StickyEndTime(received time.Time) time.Time
 }
 
 // Convert a slice of concrete PDU implementations to a slice of PDUs. This is useful when
