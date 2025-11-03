@@ -275,10 +275,6 @@ func (e *eventV1) assumedStickyStartTime(received time.Time) time.Time {
 }
 
 func (e *eventV1) calculatedStickyEndTime(startTime time.Time) time.Time {
-	if e.StateKey() != nil {
-		return time.Time{} // zero, state events can't be sticky (only message events)
-	}
-
 	// Stable first, unstable second
 	durationMillis := e.StableSticky.DurationMillis
 	if durationMillis == 0 {

@@ -86,10 +86,10 @@ func TestIsSticky(t *testing.T) {
 	ev = makeStickyEvent(t, 20000, now.UnixMilli()-30000, nil)
 	assert.False(t, ev.IsSticky(now, now))
 
-	// Not a message event
+	// State events can also be sticky
 	stateKey := "state_key"
 	ev = makeStickyEvent(t, 20000, now.UnixMilli(), &stateKey)
-	assert.False(t, ev.IsSticky(now, now))
+	assert.True(t, ev.IsSticky(now, now))
 
 	// Not a sticky event
 	ev = makeStickyEvent(t, -1, now.UnixMilli(), nil) // -1 creates a non-sticky event
@@ -125,10 +125,10 @@ func TestStickyEndTime(t *testing.T) {
 	ev = makeStickyEvent(t, 3699999, nowTS, nil)
 	assert.Equal(t, now.Add(1*time.Hour), ev.StickyEndTime(received))
 
-	// Not a message event
+	// State events can also be sticky
 	stateKey := "state_key"
 	ev = makeStickyEvent(t, 20000, nowTS, &stateKey)
-	assert.Equal(t, time.Time{}, ev.StickyEndTime(received))
+	assert.Equal(t, now.Add(20*time.Second), ev.StickyEndTime(received))
 
 	// Not a sticky event
 	ev = makeStickyEvent(t, -1, nowTS, nil) // -1 creates a non-sticky event
