@@ -87,11 +87,18 @@ func parseAndValidateUserID(id string, allowHistoricalIDs bool) (*UserID, error)
 }
 
 func historicallyValidCharacters(localpart string) bool {
-	for _, r := range localpart {
-		if r < 0x21 || r == 0x3A || r > 0x7E {
-			return false
+	// This check is currently not safe because Synapse has historically
+	// not enforced these character ranges properly, so there are many
+	// user IDs out in the wild that fall outside this (like with emoji).
+	// TODO: This function needs to be room version aware, as this will be
+	// fixed in a future room version.
+	/*
+		for _, r := range localpart {
+			if r < 0x21 || r == 0x3A || r > 0x7E {
+				return false
+			}
 		}
-	}
+	*/
 
 	return true
 }
