@@ -15,8 +15,9 @@ import (
 
 type eventV2 struct {
 	eventV1
-	PrevEvents []string `json:"prev_events"`
-	AuthEvents []string `json:"auth_events"`
+	PrevEvents      []string `json:"prev_events"`
+	AuthEvents      []string `json:"auth_events"`
+	PrevStateEvents []string `json:"prev_state_events"`
 }
 
 func (e *eventV2) PrevEventIDs() []string {
@@ -25,6 +26,10 @@ func (e *eventV2) PrevEventIDs() []string {
 
 func (e *eventV2) AuthEventIDs() []string {
 	return e.AuthEvents
+}
+
+func (e *eventV2) PrevStateEventIDs() []string {
+	return e.PrevStateEvents
 }
 
 // MarshalJSON implements json.Marshaller
@@ -185,6 +190,8 @@ func newEventFromUntrustedJSONV2(eventJSON []byte, roomVersion IRoomVersion) (PD
 	return res, err
 }
 
+// This has to exist outside the RoomVersion interface due to init cycles caused
+// when you try to MustGetRoomVersion inside CheckFields. Ideally we'd refactor that...
 var lenientByteLimitRoomVersions = map[RoomVersion]struct{}{
 	RoomVersionV1:        {},
 	RoomVersionV2:        {},
@@ -204,10 +211,24 @@ var lenientByteLimitRoomVersions = map[RoomVersion]struct{}{
 	"org.matrix.msc3667": {},
 }
 
+var stateDAGRoomVersions = map[RoomVersion]struct{}{
+	RoomVersionStateDAGs: {},
+}
+
 func CheckFields(input PDU) error { // nolint: gocyclo
-	if input.AuthEventIDs() == nil || input.PrevEventIDs() == nil {
-		return errors.New("gomatrixserverlib: auth events and prev events must not be nil")
+	// don't check auth event IDs in auth DAG rooms as it doesn't exist.
+	_, stateDAGs := stateDAGRoomVersions[input.Version()]
+	if !stateDAGs && input.AuthEventIDs() == nil {
+		return errors.New("gomatrixserverlib: auth events must not be nil")
 	}
+	if input.PrevEventIDs() == nil {
+		return errors.New("gomatrixserverlib: prev events must not be nil")
+	}
+	if stateDAGs && input.PrevStateEventIDs() == nil {
+		// create event should be []
+		return errors.New("gomatrixserverlib: prev_state_events must not be nil")
+	}
+
 	if l := len(input.JSON()); l > maxEventLength {
 		return EventValidationError{
 			Code:    EventValidationTooLarge,

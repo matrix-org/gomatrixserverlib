@@ -43,7 +43,9 @@ type ProtoEvent struct {
 	PrevEvents interface{} `json:"prev_events"`
 	// The events needed to authenticate this event. This can be
 	// either []eventReference for room v1/v2, and []string for room v3 onwards.
-	AuthEvents interface{} `json:"auth_events"`
+	AuthEvents interface{} `json:"auth_events,omitempty"`
+	// Previous state events, for MSC4242 state dag rooms. Pointer to allow [] to encode for the create event.
+	PrevStateEvents *[]string `json:"prev_state_events,omitempty"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.

@@ -144,6 +144,10 @@ func (e *eventV1) AuthEventIDs() []string {
 	return result
 }
 
+func (e *eventV1) PrevStateEventIDs() []string {
+	panic("not implemented in this room version")
+}
+
 func (e *eventV1) OriginServerTS() spec.Timestamp {
 	return e.eventFields.OriginServerTS
 }

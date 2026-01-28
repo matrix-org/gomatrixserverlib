@@ -29,6 +29,8 @@ type EventBuilder struct {
 	// The events needed to authenticate this event. This can be
 	// either []eventReference for room v1/v2, and []string for room v3 onwards.
 	AuthEvents interface{} `json:"auth_events"`
+	// Previous state events, for MSC4242 state dag rooms only. Pointer to allow [] to encode for the create event.
+	PrevStateEvents *[]string `json:"prev_state_events,omitempty"`
 	// The event ID of the event being redacted if this event is a "m.room.redaction".
 	Redacts string `json:"redacts,omitempty"`
 	// The depth of the event, This should be one greater than the maximum depth of the previous events.
@@ -145,6 +147,10 @@ func (eb *EventBuilder) Build(
 	if eb.version == nil {
 		return nil, fmt.Errorf("EventBuilder.Build: unknown version, did you create this via NewEventBuilder?")
 	}
+	isStateDAGs := eb.version.StateDAGs()
+	if !isStateDAGs && eb.PrevStateEvents != nil {
+		return nil, fmt.Errorf("prev_state_events can only be set on RoomVersionStateDAGs")
+	}
 
 	eventFormat := eb.version.EventFormat()
 	eventIDFormat := eb.version.EventIDFormat()
@@ -209,6 +215,12 @@ func (eb *EventBuilder) Build(
 
 	if eventFormat == EventFormatV2 {
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "event_id"); err != nil {
+			return
+		}
+	}
+
+	if isStateDAGs {
+		if eventJSON, err = sjson.DeleteBytes(eventJSON, "auth_events"); err != nil {
 			return
 		}
 	}

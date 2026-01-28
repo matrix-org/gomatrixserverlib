@@ -141,7 +141,7 @@ func redactEventJSONV1(eventJSON []byte) ([]byte, error) {
 }
 
 type unredactableEvent interface {
-	*unredactableEventFieldsV1 | *unredactableEventFieldsV2
+	*unredactableEventFieldsV1 | *unredactableEventFieldsV2 | *unredactableEventFieldsVStateDAGs
 	GetType() string
 	GetContent() map[string]interface{}
 	SetContent(map[string]interface{})
@@ -171,4 +171,35 @@ func redactEventJSON[T unredactableEvent](eventJSON []byte, unredactableEvent T,
 	unredactableEvent.SetContent(newContent)
 	// Return the redacted event encoded as JSON.
 	return json.Marshal(&unredactableEvent)
+}
+
+type unredactableEventFieldsVStateDAGs struct {
+	EventID         spec.RawJSON           `json:"event_id,omitempty"`
+	Type            string                 `json:"type"`
+	RoomID          spec.RawJSON           `json:"room_id,omitempty"`
+	Sender          spec.RawJSON           `json:"sender,omitempty"`
+	StateKey        spec.RawJSON           `json:"state_key,omitempty"`
+	Content         map[string]interface{} `json:"content"`
+	Hashes          spec.RawJSON           `json:"hashes,omitempty"`
+	Signatures      spec.RawJSON           `json:"signatures,omitempty"`
+	Depth           spec.RawJSON           `json:"depth,omitempty"`
+	PrevEvents      spec.RawJSON           `json:"prev_events,omitempty"`
+	PrevStateEvents spec.RawJSON           `json:"prev_state_events,omitempty"`
+	OriginServerTS  spec.RawJSON           `json:"origin_server_ts,omitempty"`
+}
+
+func (u *unredactableEventFieldsVStateDAGs) GetType() string {
+	return u.Type
+}
+
+func (u *unredactableEventFieldsVStateDAGs) GetContent() map[string]interface{} {
+	return u.Content
+}
+
+func (u *unredactableEventFieldsVStateDAGs) SetContent(content map[string]interface{}) {
+	u.Content = content
+}
+
+func redactEventJSONVStateDAGs(eventJSON []byte) ([]byte, error) {
+	return redactEventJSON(eventJSON, &unredactableEventFieldsVStateDAGs{}, unredactableContentFieldsV5)
 }
