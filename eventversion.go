@@ -426,7 +426,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		stateResAlgorithm:              StateResV2_1,
 		eventFormat:                    EventFormatV2,
 		eventIDFormat:                  EventIDFormatV3,
-		redactionAlgorithm:             redactEventJSONV5,
+		redactionAlgorithm:             redactEventJSONVStateDAGs,
 		signatureValidityCheckFunc:     StrictValiditySignatureCheck,
 		canonicalJSONCheck:             verifyEnforcedCanonicalJSON,
 		checkPowerLevelEvent:           checkPowerLevelEventV3,
