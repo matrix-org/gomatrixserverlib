@@ -174,6 +174,7 @@ func redactEventJSON[T unredactableEvent](eventJSON []byte, unredactableEvent T,
 }
 
 type unredactableEventFieldsVStateDAGs struct {
+	AuthEvents      spec.RawJSON           `json:"auth_events,omitempty"` // GOLDEN SEND JOIN
 	EventID         spec.RawJSON           `json:"event_id,omitempty"`
 	Type            string                 `json:"type"`
 	RoomID          spec.RawJSON           `json:"room_id,omitempty"`

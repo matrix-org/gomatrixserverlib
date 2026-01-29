@@ -220,9 +220,11 @@ func (eb *EventBuilder) Build(
 	}
 
 	if isStateDAGs {
+		/* GOLDEN SEND JOIN
 		if eventJSON, err = sjson.DeleteBytes(eventJSON, "auth_events"); err != nil {
 			return
 		}
+		*/
 	}
 
 	if eventJSON, err = addContentHashesToEvent(eventJSON); err != nil {
