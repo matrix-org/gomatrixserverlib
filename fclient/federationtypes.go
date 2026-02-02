@@ -90,6 +90,8 @@ type MissingEvents struct {
 	EarliestEvents []string `json:"earliest_events"`
 	// The event IDs to retrieve the previous events for.
 	LatestEvents []string `json:"latest_events"`
+	// If true, walks the state DAG. Only for MSC4242 State DAG rooms.
+	StateDAG bool `json:"org.matrix.msc4242.state_dag"`
 }
 
 // A RespMissingEvents is the content of a response to GET /_matrix/federation/v1/get_missing_events/{roomID}
@@ -269,6 +271,8 @@ type RespSendJoin struct {
 	StateEvents gomatrixserverlib.EventJSONs `json:"state"`
 	// A list of events needed to authenticate the state events.
 	AuthEvents gomatrixserverlib.EventJSONs `json:"auth_chain"`
+	// MSC4242: The entire state DAG for the room
+	StateDAG gomatrixserverlib.EventJSONs `json:"state_dag"`
 	// The server that originated the event.
 	Origin spec.ServerName `json:"origin"`
 	// The returned join event from the remote server. Used for restricted joins,
@@ -318,6 +322,9 @@ func (r RespSendJoin) MarshalJSON() ([]byte, error) {
 	if len(fields.StateEvents) == 0 {
 		fields.StateEvents = gomatrixserverlib.EventJSONs{}
 	}
+	if len(r.StateDAG) > 0 {
+		fields.StateDAG = r.StateDAG
+	}
 
 	if !r.MembersOmitted {
 		return json.Marshal(fields)
@@ -350,6 +357,7 @@ type RespMakeKnock struct {
 type respSendJoinFields struct {
 	StateEvents gomatrixserverlib.EventJSONs `json:"state"`
 	AuthEvents  gomatrixserverlib.EventJSONs `json:"auth_chain"`
+	StateDAG    gomatrixserverlib.EventJSONs `json:"state_dag,omitempty"`
 	Origin      spec.ServerName              `json:"origin"`
 	Event       spec.RawJSON                 `json:"event,omitempty"`
 }

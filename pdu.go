@@ -53,6 +53,7 @@ type PDU interface {
 	JSON() []byte                    // TODO: remove
 	AuthEventIDs() []string          // TODO: remove
 	ToHeaderedJSON() ([]byte, error) // TODO: remove
+	PrevStateEventIDs() []string
 	// IsSticky returns true if the event is *currently* considered "sticky" given the received time.
 	// Sticky events are annotated as sticky and carry strong delivery guarantees to clients (and
 	// therefore servers). `received` should be specified as the time the event was received by the

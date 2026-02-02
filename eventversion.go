@@ -38,6 +38,7 @@ type IRoomVersion interface {
 	CheckCreateEvent(event PDU, sender spec.UserID, knownRoomVersion KnownRoomVersionFunc) error
 	DomainlessRoomIDs() bool
 	PrivilegedCreators() bool
+	StateDAGs() bool
 }
 
 type KnownRoomVersionFunc func(RoomVersion) bool
@@ -69,6 +70,7 @@ const (
 	RoomVersionV12       RoomVersion = "12"
 	RoomVersionPseudoIDs RoomVersion = "org.matrix.msc4014"
 	RoomVersionHydra     RoomVersion = "org.matrix.hydra.11"
+	RoomVersionStateDAGs RoomVersion = "org.matrix.msc4242.12"
 )
 
 // Event format constants.
@@ -417,6 +419,31 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		domainlessRoomID:                       true,
 		privilegedCreators:                     true,
 	},
+	// Based on v12
+	RoomVersionStateDAGs: RoomVersionImpl{
+		ver:                            RoomVersionStateDAGs,
+		stable:                         true,
+		stateResAlgorithm:              StateResV2_1,
+		eventFormat:                    EventFormatV2,
+		eventIDFormat:                  EventIDFormatV3,
+		redactionAlgorithm:             redactEventJSONVStateDAGs,
+		signatureValidityCheckFunc:     StrictValiditySignatureCheck,
+		canonicalJSONCheck:             verifyEnforcedCanonicalJSON,
+		checkPowerLevelEvent:           checkPowerLevelEventV3,
+		restrictedJoinServernameFunc:   extractAuthorisedViaServerName,
+		checkRestrictedJoin:            checkRestrictedJoin,
+		parsePowerLevelsFunc:           parseIntegerPowerLevels,
+		checkKnockingAllowedFunc:       checkKnocking,
+		checkRestrictedJoinAllowedFunc: allowRestrictedJoins,
+		checkCreateEvent:               checkCreateEventV3,
+		// v3 versions relax the room ID check as the room ID has no domain now.
+		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV3,
+		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV3,
+		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV3,
+		domainlessRoomID:                       true,
+		privilegedCreators:                     true,
+		stateDAGs:                              true,
+	},
 }
 
 // RoomVersions returns information about room versions currently
@@ -501,7 +528,9 @@ type RoomVersionImpl struct {
 	// whether auth_events should include the create event
 	domainlessRoomID bool
 	// creators have infinite PL
-	privilegedCreators             bool
+	privilegedCreators bool
+	// Events form two graphs, a state DAG and an event DAG.
+	stateDAGs                      bool
 	checkRestrictedJoin            func(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, senderID spec.SenderID, privilegedCreators bool) (string, error)
 	restrictedJoinServernameFunc   func(content []byte) (spec.ServerName, error)
 	checkRestrictedJoinAllowedFunc func() error
@@ -523,6 +552,10 @@ func (v RoomVersionImpl) Stable() bool {
 
 func (v RoomVersionImpl) DomainlessRoomIDs() bool {
 	return v.domainlessRoomID
+}
+
+func (v RoomVersionImpl) StateDAGs() bool {
+	return v.stateDAGs
 }
 
 func (v RoomVersionImpl) PrivilegedCreators() bool {
@@ -630,6 +663,7 @@ func (v RoomVersionImpl) NewEventBuilderFromProtoEvent(pe *ProtoEvent) *EventBui
 	eb.StateKey = pe.StateKey
 	eb.Type = pe.Type
 	eb.Unsigned = pe.Unsigned
+	eb.PrevStateEvents = pe.PrevStateEvents
 	return eb
 }
 
