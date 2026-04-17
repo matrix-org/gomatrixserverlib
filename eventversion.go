@@ -39,6 +39,7 @@ type IRoomVersion interface {
 	DomainlessRoomIDs() bool
 	PrivilegedCreators() bool
 	StateDAGs() bool
+	CreatorInCreateEvent() bool
 }
 
 type KnownRoomVersionFunc func(RoomVersion) bool
@@ -110,6 +111,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV1,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV1,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV1,
@@ -130,6 +132,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV1,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV1,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV1,
@@ -150,6 +153,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -170,6 +174,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -190,6 +195,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -210,6 +216,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               disallowKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -230,6 +237,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -250,6 +258,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -270,6 +279,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -290,6 +300,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -353,6 +364,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -373,6 +385,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         disallowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -392,6 +405,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		parsePowerLevelsFunc:                   parsePowerLevels,
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkCreateEvent:                       checkCreateEventV1,
+		creatorInCreateEvent:                   true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -529,6 +543,8 @@ type RoomVersionImpl struct {
 	domainlessRoomID bool
 	// creators have infinite PL
 	privilegedCreators bool
+	// creator field is present in the create event content
+	creatorInCreateEvent bool
 	// Events form two graphs, a state DAG and an event DAG.
 	stateDAGs                      bool
 	checkRestrictedJoin            func(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, senderID spec.SenderID, privilegedCreators bool) (string, error)
@@ -560,6 +576,10 @@ func (v RoomVersionImpl) StateDAGs() bool {
 
 func (v RoomVersionImpl) PrivilegedCreators() bool {
 	return v.privilegedCreators
+}
+
+func (v RoomVersionImpl) CreatorInCreateEvent() bool {
+	return v.creatorInCreateEvent
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
