@@ -40,6 +40,9 @@ type IRoomVersion interface {
 	PrivilegedCreators() bool
 	StateDAGs() bool
 	CreatorInCreateEvent() bool
+	// StrictEventByteLimits returns true if this room version enforces field
+	// length limits in bytes rather than Unicode codepoints (introduced in v11 for synapse).
+	StrictEventByteLimits() bool
 }
 
 type KnownRoomVersionFunc func(RoomVersion) bool
@@ -321,6 +324,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:               checkKnocking,
 		checkRestrictedJoinAllowedFunc:         allowRestrictedJoins,
 		checkCreateEvent:                       checkCreateEventV2,
+		strictEventByteLimits:                  true,
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV2,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV2,
 		newEventFromTrustedJSONWithEventIDFunc: newEventFromTrustedJSONWithEventIDV2,
@@ -341,6 +345,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:       checkKnocking,
 		checkRestrictedJoinAllowedFunc: allowRestrictedJoins,
 		checkCreateEvent:               checkCreateEventV3,
+		strictEventByteLimits:          true,
 		// v3 versions relax the room ID check as the room ID has no domain now.
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV3,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV3,
@@ -450,6 +455,7 @@ var roomVersionMeta = map[RoomVersion]IRoomVersion{
 		checkKnockingAllowedFunc:       checkKnocking,
 		checkRestrictedJoinAllowedFunc: allowRestrictedJoins,
 		checkCreateEvent:               checkCreateEventV3,
+		strictEventByteLimits:          true,
 		// v3 versions relax the room ID check as the room ID has no domain now.
 		newEventFromUntrustedJSONFunc:          newEventFromUntrustedJSONV3,
 		newEventFromTrustedJSONFunc:            newEventFromTrustedJSONV3,
@@ -545,6 +551,8 @@ type RoomVersionImpl struct {
 	privilegedCreators bool
 	// creator field is present in the create event content
 	creatorInCreateEvent bool
+	// field length limits are in bytes rather than Unicode codepoints
+	strictEventByteLimits bool
 	// Events form two graphs, a state DAG and an event DAG.
 	stateDAGs                      bool
 	checkRestrictedJoin            func(ctx context.Context, localServerName spec.ServerName, roomQuerier RestrictedRoomJoinQuerier, roomID spec.RoomID, senderID spec.SenderID, privilegedCreators bool) (string, error)
@@ -580,6 +588,10 @@ func (v RoomVersionImpl) PrivilegedCreators() bool {
 
 func (v RoomVersionImpl) CreatorInCreateEvent() bool {
 	return v.creatorInCreateEvent
+}
+
+func (v RoomVersionImpl) StrictEventByteLimits() bool {
+	return v.strictEventByteLimits
 }
 
 // StateResAlgorithm returns the state resolution for the given room version.
