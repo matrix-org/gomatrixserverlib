@@ -39,6 +39,10 @@ type IRoomVersion interface {
 	DomainlessRoomIDs() bool
 	PrivilegedCreators() bool
 	StateDAGs() bool
+	// returns true if this room version requires a "creator" field
+	// in the m.room.create event content (room versions 1–10). The field
+	// was removed in room version 11, where the creator is instead derived from
+	// the event sender.
 	CreatorInCreateEvent() bool
 	// StrictEventByteLimits returns true if this room version enforces field
 	// length limits in bytes rather than Unicode codepoints (introduced in v11 for synapse).
@@ -549,7 +553,10 @@ type RoomVersionImpl struct {
 	domainlessRoomID bool
 	// creators have infinite PL
 	privilegedCreators bool
-	// creator field is present in the create event content
+	// the m.room.create content includes a "creator" field
+	// (room versions 1–10). This is distinct from privilegedCreators, which
+	// governs power-levels; this flag only controls whether the field
+	// must be present in the create event content.
 	creatorInCreateEvent bool
 	// field length limits are in bytes rather than Unicode codepoints
 	strictEventByteLimits bool
