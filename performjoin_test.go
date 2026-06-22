@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix-org/gomatrix"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/stretchr/testify/assert"
+	"maunium.net/go/mautrix"
 )
 
 type TestMakeJoinResponse struct {
@@ -68,14 +68,14 @@ type TestFederatedJoinClient struct {
 
 func (t *TestFederatedJoinClient) MakeJoin(ctx context.Context, origin, s spec.ServerName, roomID, userID string) (res MakeJoinResponse, err error) {
 	if t.shouldMakeFail {
-		return nil, gomatrix.HTTPError{}
+		return nil, mautrix.HTTPError{}
 	}
 
 	return &TestMakeJoinResponse{joinEvent: t.joinEventBuilder, roomVersion: t.roomVersion}, nil
 }
 func (t *TestFederatedJoinClient) SendJoin(ctx context.Context, origin, s spec.ServerName, event PDU) (res SendJoinResponse, err error) {
 	if t.shouldSendFail {
-		return nil, gomatrix.HTTPError{}
+		return nil, mautrix.HTTPError{}
 	}
 
 	return &TestSendJoinResponse{createEvent: t.createEvent, joinEvent: t.joinEvent}, nil
@@ -285,7 +285,7 @@ func TestPerformJoin(t *testing.T) {
 					t.Fatalf("Expected an error but none received")
 				}
 				if tc.ExpectedHTTPErr {
-					var httpErr gomatrix.HTTPError
+					var httpErr mautrix.HTTPError
 					if ok := errors.As(err.Err, &httpErr); !ok {
 						t.Fatalf("Expected HTTPError, got: %v", err)
 					}
@@ -496,7 +496,7 @@ func TestPerformJoinPseudoID(t *testing.T) {
 					t.Fatalf("Expected an error but none received")
 				}
 				if tc.ExpectedHTTPErr {
-					var httpErr gomatrix.HTTPError
+					var httpErr mautrix.HTTPError
 					if ok := errors.As(err.Err, &httpErr); !ok {
 						t.Fatalf("Expected HTTPError, got: %v", err)
 					}
