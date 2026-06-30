@@ -65,6 +65,12 @@ const (
 )
 
 func checkID(id, kind string, sigil byte) (err error) {
+	if kind != "room" {
+		// RoomIDs should always be an opaque string, so only do this check for other kinds of ID
+		if _, err = domainFromID(id); err != nil {
+			return
+		}
+	}
 	if id[0] != sigil {
 		err = fmt.Errorf(
 			"gomatrixserverlib: invalid %s ID, wanted first byte to be '%c' got '%c'",
