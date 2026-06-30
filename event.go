@@ -65,9 +65,6 @@ const (
 )
 
 func checkID(id, kind string, sigil byte) (err error) {
-	if _, err = domainFromID(id); err != nil {
-		return
-	}
 	if id[0] != sigil {
 		err = fmt.Errorf(
 			"gomatrixserverlib: invalid %s ID, wanted first byte to be '%c' got '%c'",
