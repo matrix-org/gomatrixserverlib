@@ -12,7 +12,6 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"golang.org/x/crypto/ed25519"
-	"maunium.net/go/mautrix"
 )
 
 // an interface for gmsl.FederationClient - contains functions called by federationapi only.
@@ -258,8 +257,8 @@ func (ac *federationClient) sendJoin(
 		return
 	}
 	err = ac.doRequest(ctx, req, &res)
-	gerr, ok := err.(mautrix.HTTPError)
-	if ok && gerr.Response.StatusCode == 404 {
+	gerr, ok := err.(gomatrixserverlib.HTTPError)
+	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_join/" +
 			url.PathEscape(event.RoomID().String()) + "/" +
@@ -349,8 +348,8 @@ func (ac *federationClient) SendLeave(
 	}
 	res := struct{}{}
 	err = ac.doRequest(ctx, req, &res)
-	gerr, ok := err.(mautrix.HTTPError)
-	if ok && gerr.Response.StatusCode == 404 {
+	gerr, ok := err.(gomatrixserverlib.HTTPError)
+	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		v1path := federationPathPrefixV1 + "/send_leave/" +
 			url.PathEscape(event.RoomID().String()) + "/" +
@@ -399,8 +398,8 @@ func (ac *federationClient) SendInviteV2(
 	}
 	err = ac.doRequest(ctx, req, &res)
 
-	gerr, ok := err.(mautrix.HTTPError)
-	if ok && gerr.Response.StatusCode == 404 {
+	gerr, ok := err.(gomatrixserverlib.HTTPError)
+	if ok && gerr.Code == 404 {
 		// fallback to v1 which returns [200, body]
 		var resp RespInvite
 		resp, err = ac.SendInvite(ctx, origin, s, request.Event())
@@ -525,7 +524,7 @@ func (ac *federationClient) Peek(
 // LookupRoomAlias looks up a room alias hosted on the remote server.
 // The domain part of the roomAlias must match the name of the server it is
 // being looked up on.
-// If the room alias doesn't exist on the remote server then a 404 mautrix.HTTPError
+// If the room alias doesn't exist on the remote server then a 404 gomatrixserverlib.HTTPError
 // is returned.
 func (ac *federationClient) LookupRoomAlias(
 	ctx context.Context, origin, s spec.ServerName, roomAlias string,
@@ -731,8 +730,8 @@ func (ac *federationClient) RoomHierarchy(
 	req := NewFederationRequest("GET", origin, dst, path)
 	err = ac.doRequest(ctx, req, &res)
 	if err != nil {
-		gerr, ok := err.(mautrix.HTTPError)
-		if ok && gerr.Response.StatusCode == 404 {
+		gerr, ok := err.(gomatrixserverlib.HTTPError)
+		if ok && gerr.Code == 404 {
 			// fallback to unstable endpoint
 			path = "/_matrix/federation/unstable/org.matrix.msc2946/hierarchy/" + url.PathEscape(roomID)
 			if suggestedOnly {
