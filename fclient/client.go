@@ -35,6 +35,7 @@ import (
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
+	"maunium.net/go/mautrix"
 )
 
 // Default HTTPS request timeout
@@ -582,8 +583,8 @@ func (fc *Client) CreateMediaDownloadRequest(
 // DoRequestAndParseResponse calls DoHTTPRequest and then decodes the response.
 //
 // If the HTTP response is not a 200, an attempt is made to parse the response
-// body into a spec.MatrixError. In any case, a non-200 response will result
-// in a gomatrixserverlib.HTTPError.
+// body into a mautrix.RespError. In any case, a non-200 response will result
+// in a mautrix.HTTPError.
 func (fc *Client) DoRequestAndParseResponse(
 	ctx context.Context,
 	req *http.Request,
@@ -606,7 +607,7 @@ func (fc *Client) DoRequestAndParseResponse(
 		}
 
 		var wrap error
-		var respErr spec.MatrixError
+		var respErr mautrix.RespError
 		if _ = json.Unmarshal(contents, &respErr); respErr.ErrCode != "" {
 			wrap = respErr
 		}
@@ -618,11 +619,12 @@ func (fc *Client) DoRequestAndParseResponse(
 			msg += ": " + string(contents)
 		}
 
-		return gomatrixserverlib.HTTPError{
-			Code:         response.StatusCode,
+		return mautrix.HTTPError{
+			Request:      req,
+			Response:     response,
+			ResponseBody: string(contents),
 			Message:      msg,
 			WrappedError: wrap,
-			Contents:     contents,
 		}
 	}
 
