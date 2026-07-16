@@ -20,7 +20,7 @@ type RoomID struct {
 }
 
 func NewRoomID(id string) (*RoomID, error) {
-	return parseAndValidateRoomID(id)
+	return ParseAndValidateRoomID(id)
 }
 
 // Returns the full roomID string including leading sigil
@@ -41,7 +41,7 @@ func (room RoomID) Domain() ServerName {
 	return ServerName(room.domain)
 }
 
-func parseAndValidateRoomID(id string) (*RoomID, error) {
+func ParseAndValidateRoomID(id string) (*RoomID, error) {
 	idLength := len(id)
 	if idLength < 4 { // 4 since minimum roomID includes an !, :, non-empty opaque ID, non-empty domain
 		return nil, fmt.Errorf("length %d is too short to be valid", idLength)
