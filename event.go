@@ -65,8 +65,10 @@ const (
 )
 
 func checkID(id, kind string, sigil byte) (err error) {
-	if _, err = domainFromID(id); err != nil {
-		return
+	if kind == "room" {
+		if _, err = spec.ParseAndValidateRoomID(id); err != nil {
+			return
+		}
 	}
 	if id[0] != sigil {
 		err = fmt.Errorf(
