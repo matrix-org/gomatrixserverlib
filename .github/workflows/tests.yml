@@ -87,7 +87,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: "element-hq/dendrite"
+          # TODO: Switch back to element-hq/dendrite once
+          # https://github.com/element-hq/dendrite/pull/3708 is merged
+          repository: "Johennes/dendrite"
+          ref: "johannes/gomatrix"
       - name: Install libolm
         run: sudo apt-get install libolm-dev libolm3
       - name: Setup go
