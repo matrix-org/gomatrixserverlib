@@ -156,9 +156,12 @@ func (eb *EventBuilder) Build(
 	eventIDFormat := eb.version.EventIDFormat()
 	var eventStruct struct {
 		EventBuilder
-		EventID        string          `json:"event_id"`
-		OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
-		Origin         spec.ServerName `json:"origin"`
+		EventID        string         `json:"event_id"`
+		OriginServerTS spec.Timestamp `json:"origin_server_ts"`
+		// The "origin" key was part of the event format in room v1/v2
+		// (EventFormatV1) but was removed from the format in room v3, so it
+		// is only emitted for those early room versions.
+		Origin spec.ServerName `json:"origin,omitempty"`
 		// This key is either absent or an empty list.
 		// If it is absent then the pointer is nil and omitempty removes it.
 		// Otherwise it points to an empty list and omitempty keeps it.
@@ -172,7 +175,9 @@ func (eb *EventBuilder) Build(
 		return nil, fmt.Errorf("EventBuilder.Build: create event must have no room ID but %s was provided", eb.RoomID)
 	}
 	eventStruct.OriginServerTS = spec.AsTimestamp(now)
-	eventStruct.Origin = origin
+	if eventFormat == EventFormatV1 {
+		eventStruct.Origin = origin
+	}
 	switch eventFormat {
 	case EventFormatV1:
 		// If either prev_events or auth_events are nil slices then Go will
@@ -198,11 +203,12 @@ func (eb *EventBuilder) Build(
 		}
 	}
 
-	if eventStruct.StateKey != nil {
+	if eventFormat == EventFormatV1 && eventStruct.StateKey != nil {
 		// In early versions of the matrix protocol state events
 		// had a "prev_state" key that listed the state events with
 		// the same type and state key that this event replaced.
-		// This was later dropped from the protocol.
+		// This was later dropped from the protocol in room v3, so it
+		// is only emitted for the early room versions here.
 		// Synapse ignores the contents of the key but still expects
 		// the key to be present in state events.
 		eventStruct.PrevState = &emptyEventReferenceList
