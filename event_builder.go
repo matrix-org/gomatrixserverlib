@@ -156,8 +156,8 @@ func (eb *EventBuilder) Build(
 	eventIDFormat := eb.version.EventIDFormat()
 	var eventStruct struct {
 		EventBuilder
-		EventID        string          `json:"event_id"`
-		OriginServerTS spec.Timestamp  `json:"origin_server_ts"`
+		EventID        string         `json:"event_id"`
+		OriginServerTS spec.Timestamp `json:"origin_server_ts"`
 		// The "origin" key was part of the event format in room v1/v2
 		// (EventFormatV1) but was removed from the format in room v3, so it
 		// is only emitted for those early room versions.
