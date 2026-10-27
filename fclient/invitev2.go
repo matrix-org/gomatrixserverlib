@@ -11,7 +11,7 @@ import (
 // InviteV2Request and InviteV2StrippedState are defined in
 // https://matrix.org/docs/spec/server_server/r0.1.3#put-matrix-federation-v2-invite-roomid-eventid
 
-func NewInviteV2Request(event gomatrixserverlib.PDU, state []gomatrixserverlib.InviteStrippedState) (
+func NewInviteV2Request(event gomatrixserverlib.PDU, state []gomatrixserverlib.PDU) (
 	request InviteV2Request, err error,
 ) {
 	if !gomatrixserverlib.KnownRoomVersion(event.Version()) {
@@ -29,8 +29,8 @@ func NewInviteV2Request(event gomatrixserverlib.PDU, state []gomatrixserverlib.I
 }
 
 type inviteV2RequestHeaders struct {
-	RoomVersion     gomatrixserverlib.RoomVersion           `json:"room_version"`
-	InviteRoomState []gomatrixserverlib.InviteStrippedState `json:"invite_room_state"`
+	RoomVersion     gomatrixserverlib.RoomVersion `json:"room_version"`
+	InviteRoomState []gomatrixserverlib.PDU       `json:"invite_room_state"`
 }
 
 // InviteV2Request is used in the body of a /_matrix/federation/v2/invite request.
@@ -76,6 +76,6 @@ func (i *InviteV2Request) RoomVersion() gomatrixserverlib.RoomVersion {
 
 // InviteRoomState returns stripped state events for the room, containing
 // enough information for the client to identify the room.
-func (i *InviteV2Request) InviteRoomState() []gomatrixserverlib.InviteStrippedState {
+func (i *InviteV2Request) InviteRoomState() []gomatrixserverlib.PDU {
 	return i.fields.InviteRoomState
 }

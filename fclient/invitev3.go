@@ -6,7 +6,7 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 )
 
-func NewInviteV3Request(event gomatrixserverlib.ProtoEvent, version gomatrixserverlib.RoomVersion, state []gomatrixserverlib.InviteStrippedState) (
+func NewInviteV3Request(event gomatrixserverlib.ProtoEvent, version gomatrixserverlib.RoomVersion, state []gomatrixserverlib.PDU) (
 	request InviteV3Request, err error,
 ) {
 	if !gomatrixserverlib.KnownRoomVersion(version) {
@@ -57,6 +57,6 @@ func (i *InviteV3Request) RoomVersion() gomatrixserverlib.RoomVersion {
 
 // InviteRoomState returns stripped state events for the room, containing
 // enough information for the client to identify the room.
-func (i *InviteV3Request) InviteRoomState() []gomatrixserverlib.InviteStrippedState {
+func (i *InviteV3Request) InviteRoomState() []gomatrixserverlib.PDU {
 	return i.fields.InviteRoomState
 }

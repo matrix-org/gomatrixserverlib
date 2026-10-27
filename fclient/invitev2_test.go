@@ -17,7 +17,7 @@ func TestMarshalInviteV2Request(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	inviteReq, err := NewInviteV2Request(output, []gomatrixserverlib.InviteStrippedState{})
+	inviteReq, err := NewInviteV2Request(output, []gomatrixserverlib.PDU{})
 	if err != nil {
 		t.Fatal(err)
 	}

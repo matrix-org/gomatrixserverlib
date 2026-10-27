@@ -33,7 +33,7 @@ func TestMarshalInviteV3Request(t *testing.T) {
 		Content:    content,
 	}
 
-	inviteReq, err := NewInviteV3Request(output, gomatrixserverlib.RoomVersionPseudoIDs, []gomatrixserverlib.InviteStrippedState{})
+	inviteReq, err := NewInviteV3Request(output, gomatrixserverlib.RoomVersionPseudoIDs, []gomatrixserverlib.PDU{})
 	if err != nil {
 		t.Fatal(err)
 	}
