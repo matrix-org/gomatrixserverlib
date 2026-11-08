@@ -283,6 +283,17 @@ func ResolveStateConflictsV2New(
 
 	r.allower = newAllowerContext(r.authProvider, userIDForSender, *roomID)
 
+	// The room's one create event takes part in every auth check and, in a room version with
+	// privileged creators, in the power level of every sender. Where the room ID is the create
+	// event's hash it stands in no event's auth_events, and v2.1 starts from an empty state map,
+	// so the resolver holds it from the start.
+	r.resolvedCreate = getCreateEvent(authEvents)
+	for _, stateSet := range stateSets {
+		if r.resolvedCreate == nil {
+			r.resolvedCreate = getCreateEvent(stateSet)
+		}
+	}
+
 	unconflictedSet := newPDUSet(unconflicted)
 
 	// Get the full conflicted set, that is the conflicted events and the
@@ -618,9 +629,12 @@ func (r *stateResolverV2) calculateFullAuthChainAndConflictedSubgraph(
 		// a subgraph. This will add single conflicted nodes but shrug.
 		if shouldCalculateConflictedSubgraph && conflictedEvents.Contains(curr.pdu) {
 			conflictedSubgraphEventIDs := append(slices.Clone(curr.visiting), curr.pdu.EventID())
-			fmt.Printf("found conflicted subgraph %v\n", conflictedSubgraphEventIDs)
 			for _, eventID := range conflictedSubgraphEventIDs {
-				conflictedSubgraph.Insert(r.authEventMap[eventID])
+				// An origin missing from the auth events is a conflicted event, which the full
+				// conflicted set holds already.
+				if event, ok := r.authEventMap[eventID]; ok {
+					conflictedSubgraph.Insert(event)
+				}
 			}
 		}
 
@@ -786,7 +800,7 @@ func (r *stateResolverV2) authAndApplyEvents(events ...PDU) {
 			if authEv.Type() != eventType || !authEv.StateKeyEquals(stateKey) {
 				continue
 			}
-			_ = r.authProvider.AddEvent(event)
+			_ = r.authProvider.AddEvent(authEv)
 		}
 	}
 
